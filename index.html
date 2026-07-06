@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BUILD PRO 伴走型営業シミュレーター</title>
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f4f6f9;
+            color: #1e293b;
+            font-size: 1.05rem;
+        }
+        /* プルダウン、インプットを見やすくタップしやすく */
+        select, input, textarea {
+            font-size: 1.1rem !important;
+            padding: 0.8rem 1rem !important;
+            border-radius: 0.5rem !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- ヘッダー -->
+    <header class="bg-gradient-to-r from-slate-800 to-indigo-900 text-white shadow-md py-5 px-6">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-amber-500 text-slate-900 p-2.5 rounded-lg font-black text-xl tracking-wider shadow">
+                    BP
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">BUILD PRO 伴走型営業シミュレーター</h1>
+                    <p class="text-xs text-slate-300 mt-1">2026年中期事業計画連動版 — 目標売上：27億5,800万円</p>
+                </div>
+            </div>
+            <div class="flex gap-3 text-sm">
+                <span class="bg-indigo-800/80 px-3.5 py-1.5 rounded-full border border-indigo-700 font-medium">
+                    <i class="fa-solid fa-users-gear mr-1.5 text-amber-400"></i>他部署連携シグナル
+                </span>
+                <span class="bg-slate-700 px-3.5 py-1.5 rounded-full border border-slate-600 font-medium">
+                    <i class="fa-solid fa-calculator mr-1.5 text-emerald-400"></i>勝率精密ロジック
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 伴走シグナルステータスバー（10段階の印籠を大きく表示） -->
+    <div class="max-w-7xl w-full mx-auto px-4 md:px-6 mt-6">
+        <div class="bg-blue-50 border-l-8 border-sky-500 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4" id="statusBar">
+            <div class="space-y-1">
+                <span class="text-xs font-bold text-sky-600 tracking-wider block">【経営陣承認・オフィシャル姿勢指示】</span>
+                <div class="flex items-center gap-3">
+                    <span id="signal-badge" class="px-3.5 py-1 rounded-full text-sm font-black bg-sky-500 text-white shadow-sm">LEVEL --</span>
+                    <h2 id="statusValue" class="text-xl font-extrabold text-slate-800">解析中...</h2>
+                </div>
+
+                <div id="signal-bar" class="grid grid-cols-10 gap-1 mt-3 max-w-xl">
+                    <div data-index="1" class="h-2 rounded-sm bg-slate-200"></div>
+                    <div data-index="2" class="h-2 rounded-sm bg-slate-200"></div>
+                    <div data-index="3" class="h-2 rounded-sm bg-slate-200"></div>
+                    <div data-index="4" class="h-2 rounded-sm bg-slate-200"></div>
+                    <div data-index="5" class="h-2 rounded-sm bg-slate-200"></div>
+                    <div data-index="6" class="h-2 rounded-sm bg-slate-200"></div>
+                    <div data-index="7" class="h-2 rounded-sm bg-slate-200"></div>
+                    <div data-index="8" class="h-2 rounded-sm bg-slate-200"></div>
+                    <div data-index="9" class="h-2 rounded-sm bg-slate-200"></div>
+                    <div data-index="10" class="h-2 rounded-sm bg-slate-200"></div>
+                </div>
+                <p id="signal-message" class="text-sm text-slate-600 mt-2 leading-relaxed">
+                    パラメータを入力すると、他部署を動かすための「公式承認レベル（1〜10）」がここに表示されます。
+                </p>
+            </div>
+            <button class="btn-ai-execute bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold px-6 py-3 rounded-xl shadow-md hover:from-amber-400 hover:to-amber-500 transition duration-150 flex items-center gap-2" onclick="askDeepAI()">
+                <i class="fa-solid fa-brain"></i> 深層AIに経営相談する
+            </button>
+        </div>
+    </div>
+
+    <!-- 数理データサマリー -->
+    <div class="max-w-7xl w-full mx-auto px-4 md:px-6 mt-4">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                <span class="text-xs text-slate-500 font-bold block mb-1">現実補正後・受注予測</span>
+                <span id="valRealProbability" class="text-2xl font-black text-amber-600">--%</span>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                <span class="text-xs text-slate-500 font-bold block mb-1">期待粗利リターン</span>
+                <span id="valExpectedProfit" class="text-2xl font-black text-emerald-600">--円</span>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                <span class="text-xs text-slate-500 font-bold block mb-1">他部署機会損失コスト</span>
+                <span id="valLoss" class="text-2xl font-black text-rose-600">--円</span>
+            </div>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-center">
+                <span class="text-xs text-slate-500 font-bold block mb-1">投入メンバー規模</span>
+                <span id="valPeopleCount" class="text-2xl font-black text-indigo-600">--名</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- タブ切り替えボタン -->
+    <div class="max-w-7xl w-full mx-auto px-4 md:px-6 mt-6">
+        <div class="flex gap-2 border-b border-slate-200">
+            <button class="tab-btn active bg-white border border-slate-200 border-b-0 text-amber-600 font-bold px-6 py-3 rounded-t-xl text-base transition-all duration-150" onclick="switchTab('tab-input', this)">
+                ① 案件カルテ（入力）
+            </button>
+            <button class="tab-btn bg-slate-200 text-slate-600 font-bold px-6 py-3 rounded-t-xl text-base transition-all duration-150" onclick="switchTab('tab-action', this)">
+                ② 次のアクション ＆ 具体的アドバイス
+            </button>
+            <button class="tab-btn bg-slate-200 text-slate-600 font-bold px-6 py-3 rounded-t-xl text-base transition-all duration-150" onclick="switchTab('tab-scenarios', this)">
+                ③ 5つの未来予測（事前シミュレーション）
+            </button>
+        </div>
+    </div>
+
+    <!-- メインコンテンツ領域 -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6">
+        
+        <!-- ================= TAB 1: 入力エリア ================= -->
+        <div id="tab-input" class="tab-content block">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                <!-- 左カラム: 顧客プロファイル & 商流 -->
+                <div class="space-y-6">
+                    
+                    <!-- 顧客プロファイルの多角入力 -->
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-800 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-address-card text-indigo-600"></i>
+                            1. 顧客プロファイル多角入力
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">正式会社名 / 案件名</label>
+                                <input type="text" id="clientName" value="株式会社ヤマダ開発 / 新店舗プロジェクト" class="w-full border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition shadow-sm" oninput="calculate()">
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">会社住所（任意）</label>
+                                    <input type="text" id="clientAddress" class="w-full border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition shadow-sm text-sm" placeholder="東京都港区..." oninput="calculate()">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">ホームページURL（任意）</label>
+                                    <input type="url" id="clientUrl" class="w-full border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition shadow-sm text-sm" placeholder="https://..." oninput="calculate()">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">主たる大分類（業種）</label>
+                                    <select id="customer-main-cat" class="w-full border border-slate-300" onchange="updateSubCategory(); calculate();">
+                                        <option value="estate" selected>不動産業界</option>
+                                        <option value="construction">建設業界</option>
+                                        <option value="design">設計デザイン業界</option>
+                                        <option value="enterprise">一般事業会社</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">主たる中分類（詳細業態）</label>
+                                    <select id="customer-sub-cat" class="w-full border border-slate-300" onchange="calculate();">
+                                        <!-- JSで動的に構築されます -->
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 企業規模・接触人数 -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">総従業員数</label>
+                                    <select id="employee-scale" class="w-full border border-slate-300" onchange="calculate()">
+                                        <option value="small">5人以下</option>
+                                        <option value="mid">6〜30人</option>
+                                        <option value="large">31〜100人</option>
+                                        <option value="huge" selected>100人以上</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">対話している相手部署の人数</label>
+                                    <select id="dept-scale" class="w-full border border-slate-300" onchange="calculate()">
+                                        <option value="1to5" selected>1〜5人（小規模・意思疎通早）</option>
+                                        <option value="6to20">6〜20人（中規模・承認複数）</option>
+                                        <option value="21over">21人以上（大規模・稟議複雑）</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 拠点所在地・主な活動エリア -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">顧客の本社所在地</label>
+                                    <select id="headquarters" class="w-full border border-slate-300" onchange="calculate()">
+                                        <option value="tokyo" selected>東京本社</option>
+                                        <option value="kanagawa">神奈川本社</option>
+                                        <option value="sendai">宮城・仙台本社</option>
+                                        <option value="osaka">大阪本社</option>
+                                        <option value="other">その他エリア</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">主な事業活動営業範囲</label>
+                                    <select id="business-area" class="w-full border border-slate-300" onchange="calculate()">
+                                        <option value="kanto" selected>関東中心が主たる営業範囲</option>
+                                        <option value="east">東日本全体が営業範囲</option>
+                                        <option value="national">日本全国が営業範囲</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- グループ会社にプロがいるか -->
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">グループ企業内の建設・設計機能の有無</label>
+                                <select id="group-construction" class="w-full border border-slate-300" onchange="calculate()">
+                                    <option value="none" selected>いない（頼るべきプロ集団がおらず、ウチを全面信頼）</option>
+                                    <option value="exist">いる（100%子会社等に建設・設計会社があり情報流出の警戒が必要）</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 商流フォーメーション ＆ 競合・信頼実績 -->
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-800 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-sitemap text-indigo-600"></i>
+                            2. 商流 ＆ 信頼フォーメーション
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <!-- 自社の立ち位置 -->
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">我々の立ち位置（商流の階層）</label>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center text-xs">
+                                    <label class="p-3.5 border-2 rounded-xl cursor-pointer hover:bg-slate-50 block" id="lbl-pos-prime">
+                                        <input type="radio" name="ourPosition" value="prime" checked class="sr-only" onchange="posChanged()">
+                                        <span class="font-extrabold text-sm block">元請け</span>
+                                        <span class="text-slate-400">（主導権最高）</span>
+                                    </label>
+                                    <label class="p-3.5 border rounded-xl cursor-pointer hover:bg-slate-50 block" id="lbl-pos-sub1">
+                                        <input type="radio" name="ourPosition" value="sub1" class="sr-only" onchange="posChanged()">
+                                        <span class="font-extrabold text-sm block">1次下請</span>
+                                        <span class="text-slate-400">（標準的）</span>
+                                    </label>
+                                    <label class="p-3.5 border rounded-xl cursor-pointer hover:bg-slate-50 block" id="lbl-pos-sub2">
+                                        <input type="radio" name="ourPosition" value="sub2" class="sr-only" onchange="posChanged()">
+                                        <span class="font-extrabold text-sm block">2次下請</span>
+                                        <span class="text-slate-400">（交渉権弱め）</span>
+                                    </label>
+                                    <label class="p-3.5 border rounded-xl cursor-pointer hover:bg-slate-50 block" id="lbl-pos-sub3">
+                                        <input type="radio" name="ourPosition" value="sub3" class="sr-only" onchange="posChanged()">
+                                        <span class="font-extrabold text-sm block">3次下請</span>
+                                        <span class="text-slate-400">（利益厳格）</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- 競合形式と社数 -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">競合の状況</label>
+                                    <select id="compType" class="w-full border border-slate-300" onchange="compTypeChanged(); calculate();">
+                                        <option value="exclusive" selected>単独特命（競合なし・極めて強固）</option>
+                                        <option value="aimitsu">相見積もり（調整可能・事後交渉可）</option>
+                                        <option value="bid">入札（一発勝負・抗えないルール）</option>
+                                    </select>
+                                </div>
+                                <div id="comp-count-block" class="hidden">
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">競合社数（スライダー選択）</label>
+                                    <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                                        <div class="flex justify-between mb-1">
+                                            <span class="text-xs text-slate-500">競合：</span>
+                                            <span id="comp-count-display" class="text-sm font-black text-indigo-600">2社</span>
+                                        </div>
+                                        <input type="range" id="comp-count-slider" min="1" max="10" value="2" class="w-full" oninput="compCountSliderInput(); calculate();">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 信頼関係（取引実績） -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">継続取引年数</label>
+                                    <select id="relationship-years" class="w-full border border-slate-300" onchange="calculate()">
+                                        <option value="new" selected>新規から1年未満</option>
+                                        <option value="2years">2年継続取引</option>
+                                        <option value="3years">3年継続取引</option>
+                                        <option value="5years">5年以上（固定長期）</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">これまでの施工実績件数</label>
+                                    <select id="relationship-count" class="w-full border border-slate-300" onchange="calculate()">
+                                        <option value="0" selected>0件（完全な初取引）</option>
+                                        <option value="1to2">1〜2件</option>
+                                        <option value="3to5">3〜5件</option>
+                                        <option value="6to10">6〜10件</option>
+                                        <option value="11over">11件以上（優良パートナー）</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 右カラム: 工種・施工難易度・リソース体制 -->
+                <div class="space-y-6">
+                    
+                    <!-- 3段階工種選択 -->
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-800 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-helmet-safety text-indigo-600"></i>
+                            3. 工事種類 3段階カルテ
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">① 工事の大項目</label>
+                                <select id="work-main-cat" class="w-full border border-slate-300" onchange="updateWorkSub(); calculate();">
+                                    <option value="building" selected>建築工事</option>
+                                    <option value="civil">土木工事</option>
+                                    <option value="other">その他（インフラ・特殊）</option>
+                                </select>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">② 対象建物</label>
+                                    <select id="work-sub-cat" class="w-full border border-slate-300" onchange="calculate();">
+                                        <!-- JSで動的に構築 -->
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">③ 具体的工事区分</label>
+                                    <select id="work-detail-cat" class="w-full border border-slate-300" onchange="calculate();">
+                                        <option value="surface" selected>部分・表層リフォーム（内装含む）</option>
+                                        <option value="equipment">設備（空調・電気等）の入れ替え</option>
+                                        <option value="repair">大規模修繕・改修</option>
+                                        <option value="conversion">コンバージョン（用途変更）</option>
+                                        <option value="newbuild">新築工事</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">想定プロジェクト予算 (万円)</label>
+                                    <input type="number" id="projectSize" value="4500" min="0" class="w-full border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition shadow-sm font-bold text-indigo-700" oninput="calculate()">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">予算設定の信憑性</label>
+                                    <select id="sizeType" class="w-full border border-slate-300" onchange="calculate()">
+                                        <option value="fixed_under">〇〇千万円「以内」と上限枠が確定している</option>
+                                        <option value="range">〇〇千万〜〇〇千万円と「幅があり未確定」</option>
+                                        <option value="hope" selected>顧客の単なる「希望予算・目安」に過ぎない</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 社内ナレッジ ＆ 営業対応エリアの分離 -->
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-800 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-map-location-dot text-indigo-600"></i>
+                            4. ナレッジ蓄積 ＆ 地理的エリアリスク
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">社内の施工実績ナレッジ（対応能力）</label>
+                                <select id="internal-knowledge" class="w-full border border-slate-300" onchange="calculate()">
+                                    <option value="rich" selected>【実績多数】年間多数の実績があり、社内ナレッジ極めて豊富（高回転）</option>
+                                    <option value="mid-rich">【中量実績】年間20〜50回程度の実績があり、標準的な体制あり</option>
+                                    <option value="few">【少数実績】年間0〜5回程度の実績で、対応できるメンバーが限定的</option>
+                                    <option value="special">【特殊工事】行政調整や特殊工法が必要な難易度のある施工</option>
+                                    <option value="none">【実績ゼロ】完全未知の領域（見積・協力会社探索に極度の負荷）</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-1">工事施工対応エリア</label>
+                                <select id="geography-risk" class="w-full border border-slate-300" onchange="calculate()">
+                                    <option value="core" selected>【主戦場】関東周辺エリア（職人・協力会手配が容易）</option>
+                                    <option value="sub-core">【準主戦場】南東北エリア（宮城・山形・福島）</option>
+                                    <option value="east-japan">【東日本他】長野・新潟・静岡など（現地新規職人の手配リスク中）</option>
+                                    <option value="west-japan">【遠隔地】西日本・近畿・沖縄・離島など（新規開拓、出張コスト大）</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- エビデンス・対応プロセス ＆ 社内コスト -->
+                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="text-lg font-black text-slate-800 mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-pie text-indigo-600"></i>
+                            5. 営業行動エビデンス ＆ リソース配置
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">① 現地調査時期の状況</label>
+                                    <select id="termGencho" class="w-full border border-slate-300" onchange="calculate()">
+                                        <option value="ok">即時可能、または具体的な日時が確定している</option>
+                                        <option value="none" selected>現調時期が未定、または立ち入り不可</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">現調エビデンス信憑性</label>
+                                    <select id="evGencho" class="w-full border border-slate-300 text-sm" onchange="calculate()">
+                                        <option value="high">【高】顧客から日時指定の書面・鍵の手配書あり</option>
+                                        <option value="mid">【中】口頭で「この辺りの週で」と調整中</option>
+                                        <option value="low" selected>【低】営業マンが「いけるだろう」と思う主観</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">② 見積提出期限の猶予</label>
+                                    <select id="termMitsumori" class="w-full border border-slate-300 text-sm" onchange="calculate()">
+                                        <option value="ok" selected>2週間以上の適正な猶予あり</option>
+                                        <option value="tight">1週間前後（他部署を緊急突貫で巻き込む必要あり）</option>
+                                        <option value="impossible">数日以内（物理的に精査する時間がない）</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-1">発注の決定権者（キーマン）</label>
+                                    <select id="keyman" class="w-full border border-slate-300 text-sm" onchange="calculate()">
+                                        <option value="high" selected>決定権者（社長・役員等）と直接接触できている</option>
+                                        <option value="mid">窓口担当のみ（上の決済ルートはブラックボックス）</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- 営業対応プロセス（合意状況） -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <label class="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs">
+                                    <input type="checkbox" id="site-survey" checked class="mt-1 h-4 w-4 rounded text-indigo-600 border-slate-300" onchange="calculate()">
+                                    <div>
+                                        <span class="font-bold text-slate-800 block text-sm">現調・ヒアリングシートの使用</span>
+                                        <span class="text-slate-400">（工事本部KPI：使用率90%以上）</span>
+                                    </div>
+                                </label>
+                                <label class="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs">
+                                    <input type="checkbox" id="price-agreement" class="mt-1 h-4 w-4 rounded text-indigo-600 border-slate-300" onchange="calculate()">
+                                    <div>
+                                        <span class="font-bold text-slate-800 block text-sm">予算感の事前合意</span>
+                                        <span class="text-slate-400">（見積もり前に腹落ちができている）</span>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- 初期対応メンバー（6職位） -->
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">初期対応メンバー（職位人件費コスト換算）</label>
+                                <div class="member-grid text-slate-700">
+                                    <div class="counter-item">
+                                        <span>一般 (8k/h)</span>
+                                        <div class="counter-controls">
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntGeneral', -1)">-</button>
+                                            <span class="counter-val" id="cntGeneral">1</span>
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntGeneral', 1)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="counter-item">
+                                        <span>主任 (10k/h)</span>
+                                        <div class="counter-controls">
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntSyunin', -1)">-</button>
+                                            <span class="counter-val" id="cntSyunin">0</span>
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntSyunin', 1)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="counter-item">
+                                        <span>係長 (20k/h)</span>
+                                        <div class="counter-controls">
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntKachouS', -1)">-</button>
+                                            <span class="counter-val" id="cntKachouS">0</span>
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntKachouS', 1)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="counter-item">
+                                        <span>課長 (25k/h)</span>
+                                        <div class="counter-controls">
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntKachou', -1)">-</button>
+                                            <span class="counter-val" id="cntKachou">0</span>
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntKachou', 1)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="counter-item">
+                                        <span>部長 (30k/h)</span>
+                                        <div class="counter-controls">
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntBuchou', -1)">-</button>
+                                            <span class="counter-val" id="cntBuchou">0</span>
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntBuchou', 1)">+</button>
+                                        </div>
+                                    </div>
+                                    <div class="counter-item">
+                                        <span>執行役員 (35k/h)</span>
+                                        <div class="counter-controls">
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntOfficer', -1)">-</button>
+                                            <span class="counter-val" id="cntOfficer">0</span>
+                                            <button class="btn-counter" type="button" onclick="changeCount('cntOfficer', 1)">+</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: 次のアクション ＆ アドバイス ================= -->
+        <div id="tab-action" class="tab-content hidden">
+            <div class="space-y-6">
+                <!-- 方針サマリー -->
+                <div class="bg-sky-50 border-l-4 border-sky-500 p-6 rounded-r-2xl">
+                    <h3 id="actionBannerTitle" class="text-lg font-black text-sky-800 mb-2">方針検討中...</h3>
+                    <p id="actionBannerDesc" class="text-sm text-slate-600 leading-relaxed"></p>
+                </div>
+
+                <!-- 具体的ステップ -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <h4 class="text-base font-black text-slate-800 mb-4 border-b border-slate-100 pb-2">営業部・他部署が『今すぐ』連携して取るべき次の3ステップ</h4>
+                    <div id="actionStepsContainer" class="space-y-4">
+                        <!-- JSで構築されます -->
+                    </div>
+                </div>
+
+                <!-- 必勝利益ハック -->
+                <div class="bg-amber-50/50 border border-amber-200 p-6 rounded-2xl shadow-sm">
+                    <h4 class="text-base font-black text-amber-800 mb-3"><i class="fa-solid fa-lightbulb"></i> BUILD PRO 利益確保・必勝積算ハック</h4>
+                    <div id="tacticalAdviceBox" class="text-sm text-slate-700 leading-relaxed space-y-2">
+                        <!-- 動的アドバイス -->
+                    </div>
+                </div>
+
+                <!-- 承認決済権限 -->
+                <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">本案件における必要決済者職位</span>
+                        <div id="auth-authority" class="font-extrabold text-base text-slate-800 flex items-center gap-2">
+                            <!-- JSで判定 -->
+                        </div>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">推奨社内連携会議</span>
+                        <ul id="recommended-meeting" class="text-sm text-slate-700 space-y-1.5 list-disc list-inside mt-1.5">
+                            <!-- JSで追加 -->
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- AI特命経営戦術下知 -->
+                <div id="aiOutputArea" class="bg-stone-50 border-2 border-dashed border-amber-400 p-6 rounded-2xl shadow-sm" style="display: none;">
+                    <div class="flex items-center gap-2 mb-3 text-amber-600">
+                        <i class="fa-solid fa-brain-circuit text-xl"></i>
+                        <h4 class="font-extrabold text-base">🧠 【深層AI・伴走経営戦術アドバイス】</h4>
+                    </div>
+                    <div id="aiOutputText" class="text-sm text-slate-700 leading-relaxed white-space-pre-wrap"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: 5つの未来予測 ================= -->
+        <div id="tab-scenarios" class="tab-content hidden">
+            <div class="space-y-4">
+                <p class="text-sm text-slate-500">
+                    現在の入力情報を代表の経験則と統計データ（顧客マップ・実績）に掛け合わせ、この先の案件展開を事前に想定した5つの分岐シナリオです。事前に学習しておきましょう。
+                </p>
+                <div id="scenarioGridContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <!-- JSで5枚のカードを構築 -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- フッター -->
+    <footer class="bg-slate-100 border-t border-slate-200 py-4 px-6 text-center text-sm text-slate-500 mt-6">
+        &copy; 2026 BUILD PRO Inc. All Rights Reserved. (C:\ai_work\index.html)
+    </footer>
+
+    <!-- 計算・連動ロジックの埋め込み -->
+    <script>
+        // 大分類・中分類 顧客カテゴリーデータ
+        const customerCategoryMap = {
+            estate: [
+                { value: "developer", label: "デベロッパー（開発業者） [定着:50%/新規:30%]" },
+                { value: "real-estate", label: "事業系不動産仲介専門会社 [定着:80%/新規:15%]" },
+                { value: "building-management", label: "ビル管理会社 [定着:65%/新規:10%]" }
+            ],
+            construction: [
+                { value: "general-contractor", label: "ゼネコン（総合建設業） [定着:70%/新規:20%]" },
+                { value: "civil-construction", label: "土木系建設会社 [定着:80%/新規:10%]" },
+                { value: "builder", label: "大規模工務店 [定着:57%/新規:15%]" }
+            ],
+            design: [
+                { value: "architect", label: "設計事務所 [定着:50%/新規:10%]" }
+            ],
+            enterprise: [
+                { value: "listed-store-dev", label: "上場企業 店舗開発部 [定着:70%/新規:15%]" },
+                { value: "event-company", label: "イベント会社 [定着:30%/新規:15%]" },
+                { value: "other-new", label: "その他（一般新規企業） [一律:10%]" }
+            ]
+        };
+
+        // 大分類・中分類 工事種類データ
+        const workCategoryMap = {
+            building: [
+                { value: "office", label: "ビル / オフィス" },
+                { value: "mansion", label: "マンション / 集合住宅" },
+                { value: "house", label: "一戸建て住宅" },
+                { value: "facility", label: "その他の大型施設" }
+            ],
+            civil: [
+                { value: "land", label: "造成・地盤工事" },
+                { value: "road", label: "道路・外構工事" }
+            ],
+            other: [
+                { value: "interior-only", label: "テナント内装のみ" },
+                { value: "infrastructure", label: "設備インフラ専門" }
+            ]
+        };
+
+        // メンバー体制カウント変数
+        var memberCounts = {
+            cntGeneral: 1,
+            cntSyunin: 0,
+            cntKachouS: 0,
+            cntKachou: 0,
+            cntBuchou: 0,
+            cntOfficer: 0
+        };
+
+        // タブ切り替え
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.replace('block', 'hidden'));
+            document.getElementById(tabId).classList.replace('hidden', 'block');
+            
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('bg-white', 'text-amber-600');
+                b.classList.add('bg-slate-200', 'text-slate-600');
+            });
+            btn.classList.add('bg-white', 'text-amber-600');
+            btn.classList.remove('bg-slate-200', 'text-slate-600');
+        }
+
+        // 顧客大分類が変わった時の連動
+        function updateSubCategory() {
+            const mainCat = document.getElementById('customer-main-cat').value;
+            const subSelect = document.getElementById('customer-sub-cat');
+            subSelect.innerHTML = '';
+            
+            customerCategoryMap[mainCat].forEach(sub => {
+                const opt = document.createElement('option');
+                opt.value = sub.value;
+                opt.innerText = sub.label;
+                subSelect.appendChild(opt);
+            });
+        }
+
+        // 工事大分類が変わった時の連動
+        function updateWorkSub() {
+            const mainCat = document.getElementById('work-main-cat').value;
+            const subSelect = document.getElementById('work-sub-cat');
+            subSelect.innerHTML = '';
+            
+            workCategoryMap[mainCat].forEach(sub => {
+                const opt = document.createElement('option');
+                opt.value = sub.value;
+                opt.innerText = sub.label;
+                subSelect.appendChild(opt);
+            });
+        }
+
+        // 人員カウンター増減
+        function changeCount(id, delta) {
+            memberCounts[id] += delta;
+            if (memberCounts[id] < 0) memberCounts[id] = 0;
+            document.getElementById(id).innerText = memberCounts[id];
+            calculate();
+        }
+
+        // 我々の立ち位置のラジオボタンスタイル
+        function posChanged() {
+            const posRadios = document.querySelectorAll('input[name="ourPosition"]');
+            posRadios.forEach(radio => {
+                const parent = radio.closest('label');
+                if (radio.checked) {
+                    parent.className = "p-3.5 border-2 border-indigo-600 bg-indigo-50 rounded-xl cursor-pointer hover:bg-slate-50 block text-indigo-900";
+                } else {
+                    parent.className = "p-3.5 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 block text-slate-700";
+                }
+            });
+            calculate();
+        }
+
+        // 競合表示変更時の切り替え
+        function compTypeChanged() {
+            const val = document.getElementById('compType').value;
+            const block = document.getElementById('comp-count-block');
+            if (val === 'exclusive') {
+                block.className = 'hidden';
+            } else {
+                block.className = 'block';
+            }
+        }
+
+        function compCountSliderInput() {
+            const val = document.getElementById('comp-count-slider').value;
+            document.getElementById('comp-count-display').innerText = val + '社';
+        }
+
+        // 主計算シミュレーション
+        function calculate() {
+            try {
+                // 入力パラメータ抽出
+                const name = document.getElementById('clientName').value;
+                const value = parseFloat(document.getElementById('projectSize').value) || 0;
+                const customerSub = document.getElementById('customer-sub-cat').value;
+                const employeeScale = document.getElementById('employee-scale').value;
+                const deptScale = document.getElementById('dept-scale').value;
+                const headquarter = document.getElementById('headquarters').value;
+                const bizArea = document.getElementById('business-area').value;
+                const groupConst = document.getElementById('group-construction').value;
+
+                const pos = document.querySelector('input[name="ourPosition"]:checked').value;
+                const compType = document.getElementById('compType').value;
+                const compCount = document.getElementById('compType').value === 'exclusive' ? 0 : parseInt(document.getElementById('comp-count-slider').value);
+                const relYears = document.getElementById('relationship-years').value;
+                const relCount = document.getElementById('relationship-count').value;
+
+                const workMain = document.getElementById('work-main-cat').value;
+                const workSub = document.getElementById('work-sub-cat').value;
+                const workDetail = document.getElementById('work-detail-cat').value;
+                const sizeType = document.getElementById('sizeType').value;
+
+                const internalKnowledge = document.getElementById('internal-knowledge').value;
+                const geographyRisk = document.getElementById('geography-risk').value;
+
+                const termGencho = document.getElementById('termGencho').value;
+                const evGencho = document.getElementById('evGencho').value;
+                const termMitsumori = document.getElementById('termMitsumori').value;
+                const keyman = document.getElementById('keyman').value;
+
+                const siteSurvey = document.getElementById('site-survey').checked;
+                const priceAgreement = document.getElementById('price-agreement').checked;
+
+                // 1. 基本勝率の判定 (顧客の性質)
+                let baseProbability = 50;
+                if (customerSub === 'developer') baseProbability = 50;
+                else if (customerSub === 'general-contractor') baseProbability = 45;
+                else if (customerSub === 'civil-construction') baseProbability = 35;
+                else if (customerSub === 'builder') baseProbability = 35;
+                else if (customerSub === 'real-estate') baseProbability = 60;
+                else if (customerSub === 'building-management') baseProbability = 40;
+                else if (customerSub === 'listed-store-dev') baseProbability = 55;
+                else if (customerSub === 'event-company') baseProbability = 30;
+
+                // 2. 各種補正（商流・競合・信頼度・エビデンスなど）
+                let mod = 0;
+                
+                // 立ち位置
+                if (pos === 'prime') mod += 15;
+                if (pos === 'sub1') mod += 5;
+                if (pos === 'sub2') mod -= 15;
+                if (pos === 'sub3') mod -= 30;
+
+                // 競合形態
+                if (compType === 'exclusive') mod += 20;
+                else if (compType === 'aimitsu') mod -= (compCount * 4);
+                else if (compType === 'bid') mod -= (compCount * 8); // 入札のペナルティ重め
+
+                // 取引継続年数
+                if (relYears === '2years') mod += 5;
+                if (relYears === '3years') mod += 12;
+                if (relYears === '5years') mod += 25;
+
+                // 施工実績件数
+                if (relCount === '1to2') mod += 5;
+                if (relCount === '3to5') mod += 15;
+                if (relCount === '6to10') mod += 25;
+                if (relCount === '11over') mod += 35;
+
+                // 従業員規模・やり取り部署人数による意思決定スピード負荷
+                if (deptScale === '21over') mod -= 5; // 複雑な稟議は失注・遅延リスクを伴う
+
+                // グループ会社にプロ建設会社がいる場合は、情報持ち逃げ・当て馬リスク高
+                if (groupConst === 'exist') mod -= 15;
+
+                // 営業エリアリスク
+                if (geographyRisk === 'sub-core') mod -= 5;
+                if (geographyRisk === 'east-japan') mod -= 15;
+                if (geographyRisk === 'west-japan') mod -= 25;
+
+                // 現調・ヒアリングプロセス
+                if (siteSurvey) mod += 8;
+                if (priceAgreement) mod += 12;
+
+                // 現調エビデンス
+                if (termGencho === 'none' || evGencho === 'low') mod -= 15;
+
+                // 最終確度（5%〜98%にクランプ）
+                var realProbability = Math.max(5, Math.min(98, baseProbability + mod));
+                document.getElementById('valRealProbability').innerText = realProbability + '%';
+
+                // 3. 期待粗利益
+                // 顧客カテゴリーや工事区分による標準想定粗利率の算出
+                var margin = 0.22; // デフォルト 22%
+                if (customerSub === 'real-estate' || customerSub === 'event-company') margin = 0.28;
+                if (customerSub === 'architect') margin = 0.25;
+                if (workDetail === 'newbuild') margin = 0.18; // 新築は低め
+
+                var rawProfit = (value * 10000) * margin;
+                var expectedProfit = rawProfit * (realProbability / 100);
+                document.getElementById('valExpectedProfit').innerText = Math.round(expectedProfit).toLocaleString() + ' 円';
+
+                // 4. 機会損失人件費コストの算出
+                // 配置メンバーの職位コストを合計
+                var hourlyRateSum = (memberCounts.cntGeneral * 8000) + 
+                                    (memberCounts.cntSyunin * 10000) + 
+                                    (memberCounts.cntKachouS * 20000) + 
+                                    (memberCounts.cntKachou * 25000) + 
+                                    (memberCounts.cntBuchou * 30000) + 
+                                    (memberCounts.cntOfficer * 35000);
+                
+                var totalPeople = memberCounts.cntGeneral + memberCounts.cntSyunin + memberCounts.cntKachouS + memberCounts.cntKachou + memberCounts.cntBuchou + memberCounts.cntOfficer;
+                if (totalPeople <= 0) totalPeople = 1;
+                document.getElementById('valPeopleCount').innerText = totalPeople + "名";
+
+                // ナレッジ不足や遠隔地エリアは、手配や資料・協力会社探しで営業時間の拘束負荷が激増する
+                var baseHours = 20; 
+                if (internalKnowledge === 'few') baseHours += 15;
+                if (internalKnowledge === 'special') baseHours += 25;
+                if (internalKnowledge === 'none') baseHours += 40; // 完全未知領域
+
+                if (geographyRisk === 'east-japan') baseHours += 15;
+                if (geographyRisk === 'west-japan') baseHours += 30; // 遠隔手配負荷
+
+                var totalLoss = hourlyRateSum * (baseHours / totalPeople);
+                document.getElementById('valLoss').innerText = Math.round(totalLoss).toLocaleString() + ' 円';
+
+                // 5. 【他部署への印籠】10段階連携シグナル ＆ 伴走メッセージ判定
+                var signalLevel = 1;
+                var status = "一歩ずつ、丁寧に確認して進みましょう";
+                var color = "var(--accent-blue)";
+                var bannerTitle = "【通常対応】まずは過去の類似例を参考に、省エネ資料で対話してみましょう";
+                var bannerDesc = "突出した危険要素はありませんが、最初から大きな人員負荷をかけすぎると『積算・設計の空振り（機会損失）』が膨らむ可能性があります。";
+                
+                var steps = [];
+                var tacticalAdv = "";
+
+                // 10段階シグナルスコアを勝率・利益から複雑に判定
+                if (realProbability >= 80) {
+                    if (value >= 15000000) signalLevel = 10;
+                    else if (value >= 3000000) signalLevel = 8;
+                    else signalLevel = 6;
+                } else if (realProbability >= 60) {
+                    if (value >= 15000000) signalLevel = 9;
+                    else if (value >= 3000000) signalLevel = 7;
+                    else signalLevel = 5;
+                } else if (realProbability >= 40) {
+                    if (value >= 10000000) signalLevel = 8;
+                    else if (value >= 3000000) signalLevel = 5;
+                    else signalLevel = 4;
+                } else {
+                    if (value >= 20000000) signalLevel = 6; // 低確度でも大型案件なら他部署対応必須
+                    else if (value >= 3000000) signalLevel = 3;
+                    else signalLevel = 2;
+                }
+
+                // 現調未確定の時はさらにシグナルを下げ、危険を知らせる
+                if (termGencho === 'none' || evGencho === 'low') {
+                    if (signalLevel > 5) signalLevel = 5; // 天井を抑える
+                }
+
+                // 各レベルに応じたシグナルとメッセージ設定
+                let activeColorClass = 'bg-sky-500';
+                let alertColor = 'var(--accent-blue)';
+                
+                if (signalLevel >= 9) {
+                    activeColorClass = 'bg-rose-500';
+                    alertColor = 'var(--accent-red)';
+                    status = "【総力戦：超Aランク推進案件】全力ゴーサイン！";
+                    bannerTitle = "🏆 一丸となって大チャンスを掴み取りましょう！";
+                    bannerDesc = "条件が完璧に揃っています。経営陣、CS本部一丸となって圧倒的なスピードで他社を突き放しましょう。";
+                    steps = [
+                        { t: "CS本部（設計・積算）の最優先スケジュール確保", d: "すぐに小松本部長、阿部革部長へ声をかけ、見積もり・プラン作成のメインラインを予約しましょう。" },
+                        { t: "キーマンへ対面アポイントの打診", d: "意思決定基準を完全にヒアリングするため、次の打ち合わせは『直接会う』ことを最優先に約束します。" },
+                        { t: "他現場の応援・リソース最適化会議の打診", d: "チャンスを最大化するために、東京・仙台などの他チームとの職人手配の調整・応援体制を確保します。" }
+                    ];
+                    tacticalAdv = "<strong>💡 商業内装・得意領域の必勝ハック：</strong><br>今回の顧客カテゴリーは建築知識があまり高くない仲介会社や店舗開発部です。他社とのバッティングが想定される「目に見える内装表層仕上げ」の単価は相場並み、あるいは少し好意的に設定して競合を油断させましょう。その代わり、顧客が中身を判別しにくい<strong>『空調・電気・防災・給排水などの設備系統』</strong>の中に、当社の本命利益を優しく潜伏させて積算書を組むのが、代表が培われた必勝ハックです。";
+                }
+                else if (signalLevel >= 7) {
+                    activeColorClass = 'bg-amber-500';
+                    alertColor = 'var(--accent-gold)';
+                    status = "【最優先アプローチ案件】足元を固めて挑みましょう";
+                    bannerTitle = "🔥 優良案件：あと1つエビデンスを引き上げれば勝機抜群です！";
+                    bannerDesc = "勝率が高く有力です。営業マンがもう一歩踏み込んで、ヒアリングを深めましょう。";
+                    steps = [
+                        { t: "現地ヒアリングシートの徹底回収", d: "KPIであるシート使用率90%を達成するため、顧客の隠れた不満を拾い上げ、設計をリードします。" },
+                        { t: "予算感（上限金額）の口頭事前合意", d: "「この金額以内で進めば、決済がスムーズに通りますか？」と投げかけ、金額規模をがっちりすり合わせます。" }
+                    ];
+                    tacticalAdv = "相見積もりコンペに勝つためには、提出スピードが最大の武器です。CS本部への依頼フォーマットをしっかりと整え、最速で叩き台を提出して先方の決済プロセスを先導しましょう。";
+                }
+                else if (signalLevel >= 5) {
+                    activeColorClass = 'bg-sky-500';
+                    alertColor = 'var(--accent-blue)';
+                    status = "【条件付き推進：地道にチャンスを広げましょう】";
+                    bannerTitle = "📌 準備フェーズ：まずは現地調査の『確実な日付』を頂きましょう";
+                    bannerDesc = "現地調査のエビデンスが低く、足元が流動的な空中戦の状態です。無理に他部署の設計時間を奪ってしまうと空振り機会損失のリスクがあります。";
+                    steps = [
+                        { t: "顧客から現調可能な鍵の開く日程をテキスト回収", d: "「そのうちいけますよ」ではなく、メールやLINE等の『文字』の形で、具体的な現地立ち入りの承諾を引き出してください。" },
+                        { t: "グループ会社包囲網への注意", d: "グループ内にプロの建設会社がいるフラグを検知しました。ウチの見積もりが「当て馬」「情報取り」に利用されないよう、事前ヒアリングを慎重に進めましょう。" }
+                    ];
+                    tacticalAdv = "営業マンがまず汗をかき、日付や図面などの最低限のエビデンスを回収するのが、全社の仲間たちを疲弊させないためのマイルドな鉄則です。一緒にお客さんの懐に入り込みましょう。";
+                }
+                else {
+                    activeColorClass = 'bg-slate-500';
+                    alertColor = 'var(--text-muted)';
+                    status = "【省エネ進行：他現場・本命を優先しましょう】";
+                    bannerTitle = "⚖️ リソース調整：簡易プラン・過去データでコンパクトに対応";
+                    bannerDesc = "競合が多く、商流も深い下請け案件です。積算に過剰なパワーを投じると機会損失が大きくなります。";
+                    steps = [
+                        { t: "過去類似物件のコピペ概算書によるスピード打診", d: "営業所内の過去案件を流用し、1時間程度で作成した概算坪単価提示で、まず顧客の『本気度』を測ります。" },
+                        { t: "他部署への手配をセーブし、既存の優良顧客へ時間を分配", d: "リピート期待度の高いお客様へのフォローを最優先とするため、本案件への設計の手配は一次的に保留または省エネ化します。" }
+                    ];
+                    tacticalAdv = "不必要なコンペに毎回全力で挑んで疲れ果ててしまうと、本当に大切な固定常連顧客（ゼネコンや上場店舗の定着率70%案件など）が来たときに動けなくなります。『引き算の営業』を覚えて、チームの体力を守りましょう。";
+                }
+
+                // 10段階シグナル表示の反映
+                const sBar = document.getElementById('statusBar');
+                sBar.style.borderColor = alertColor;
+                sBar.style.backgroundColor = alertColor === 'var(--accent-red)' ? '#fff5f5' : (alertColor === 'var(--accent-gold)' ? '#fdfbeb' : '#f0f9ff');
+
+                document.getElementById('signal-badge').innerText = `LEVEL ${signalLevel}`;
+                document.getElementById('statusValue').innerText = status;
+                document.getElementById('statusValue').style.color = alertColor;
+
+                // シグナルバーのセグメント着色
+                const signalBar = document.getElementById('signal-bar');
+                if (signalBar) {
+                    const segments = signalBar.querySelectorAll('div');
+                    segments.forEach(seg => {
+                        const idx = parseInt(seg.getAttribute('data-index'));
+                        if (idx <= signalLevel) {
+                            seg.className = `h-2 rounded-sm ${activeColorClass} transition-colors duration-300`;
+                        } else {
+                            seg.className = 'h-2 rounded-sm bg-slate-200';
+                        }
+                    });
+                }
+
+                // メッセージ反映
+                let sigMessage = `他部署への公式承認姿勢は <strong>【レベル ${signalLevel}】</strong> です。`;
+                if (signalLevel >= 9) sigMessage += " 横並びの部署でも、社長承認シグナルとして、CS積算チームや工事部の応援リソースを最優先で割り当てて動かして良いオフィシャル指示書として機能します。";
+                else if (signalLevel >= 5) sigMessage += " 他部署をいきなり動かすのではなく、まずは営業が顧客との間で現調日の確定など、足元のエビデンスを回収するのが公式条件となります。";
+                else sigMessage += " 他部署の負荷を完全に抑え、営業主導での概算コピペ確認に留めてください（機会損失防止の経営方針）。";
+                document.getElementById('signal-message').innerHTML = sigMessage;
+
+                // --- TAB 2用：アドバイス・ステップ反映 ---
+                document.getElementById('actionBannerTitle').innerText = bannerTitle;
+                document.getElementById('actionBannerTitle').style.color = alertColor;
+                document.getElementById('actionBannerDesc').innerText = bannerDesc;
+
+                let stepsHtml = "";
+                steps.forEach((step, idx) => {
+                    stepsHtml += `
+                        <div class="step-box">
+                            <div class="step-num">${idx + 1}</div>
+                            <div class="step-text">
+                                <h4>${step.t}</h4>
+                                <p>${step.d}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                document.getElementById('actionStepsContainer').innerHTML = stepsHtml;
+                document.getElementById('tacticalAdviceBox').innerHTML = tacticalAdv;
+
+                // --- TAB 3用：5つの未来シミュレーションカードの動的更新 ---
+                let enemyCountDesc = compCount > 0 ? `${compCount}社` : "単独指名";
+                let scenariosHtml = `
+                    <div class="scenario-card sc-pattern-1">
+                        <div class="sc-header">
+                            <span class="sc-title">①【大勝利：信頼構築と利益最大化シナリオ】</span>
+                            <span class="sc-prob text-emerald-600 font-bold bg-white px-2 py-0.5 rounded border border-emerald-100">発生確率: ${Math.round(realProbability * 0.75)}%</span>
+                        </div>
+                        <div class="sc-body">私たちが一丸となって迅速に動き、キーマンに優しく寄り添う未来。内装仕上げでライバルを油断させ、設備配管項目などで本命粗利（見込み利益: ${Math.round(rawProfit).toLocaleString()}円）を最大維持して笑顔の受注を果たす最高ロードです。</div>
+                    </div>
+                    <div class="scenario-card sc-pattern-2">
+                        <div class="sc-header">
+                            <span class="sc-title">②【他社コンペの当て馬（リソースの空振り）】</span>
+                            <span class="sc-prob text-amber-600 font-bold bg-white px-2 py-0.5 rounded border border-amber-100">発生確率: ${Math.round((100 - realProbability) * 0.6)}%</span>
+                        </div>
+                        <div class="sc-body">現地調査の遅れや不透明なエビデンスを曖昧に受け入れて進んだ結果、すでに他社内定済みの元請けの比較用当て馬に利用され、ウチの仲間の設計時間（損失コスト: ${Math.round(totalLoss).toLocaleString()}円）がすれ違って失注する未来。事前のテキスト確認で回避しましょう！</div>
+                    </div>
+                    <div class="scenario-card sc-pattern-3">
+                        <div class="sc-header">
+                            <span class="sc-title">③【意思決定の長期化（ズルズル長期お疲れロード）】</span>
+                            <span class="sc-prob text-blue-600 font-bold bg-white px-2 py-0.5 rounded border border-blue-100">発生確率: 40%</span>
+                        </div>
+                        <div class="sc-body">顧客の予算枠が「希望目安」のまま変更を繰り返し、見積書提出後も「やっぱり稟議が通り直して…」と社内往復が発生。ウチの営業もデザイナーも徐々に疲弊してしまう未来。初期段階で金額上限を握ることで未然に防ぎます。</div>
+                    </div>
+                    <div class="scenario-card sc-pattern-4">
+                        <div class="sc-header">
+                            <span class="sc-title">④【泥沼の価格勝負（利益ゼロの赤字リスク）】</span>
+                            <span class="sc-prob text-rose-600 font-bold bg-white px-2 py-0.5 rounded border border-rose-100">発生確率: ${compType === 'bid' ? '50' : '20'}%</span>
+                        </div>
+                        <div class="sc-body">競合多数（競合: ${enemyCountDesc}）の入札・最安値ルールに巻き込まれ、受注したいあまりに極端な値引きを約束。いざ遠方の施工に入ると新規職人手配コストや設備追加を吸収できなくなり、現場が赤字を垂れ流す苦しい未来。</div>
+                    </div>
+                    <div class="scenario-card sc-pattern-5">
+                        <div class="sc-header">
+                            <span class="sc-title">⑤【大逆転カウンター（信頼総取りシナリオ）】</span>
+                            <span class="sc-prob text-purple-600 font-bold bg-white px-2 py-0.5 rounded border border-purple-100">発生確率: 20%</span>
+                        </div>
+                        <div class="sc-body">今はエビデンスが流動的でも、営業が粘り強く「現調シート」を使用し「確定日数のテキスト回収」をして誠意を見せることで、顧客が『この会社の丁寧さは他社と違う！』と感動。コンペが突如終了してウチに特命受注が舞い込む感動の逆転劇未来です！</div>
+                    </div>
+                `;
+                document.getElementById('scenarioGridContainer').innerHTML = scenariosHtml;
+
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+
+        // 役職者表と責任権限制限の連動
+        function updateAuthority(value) {
+            const auth = document.getElementById('auth-authority');
+            const meeting = document.getElementById('recommended-meeting');
+            if (!auth || !meeting) return;
+
+            let authText = '営業責任者確認';
+            let authIcon = 'fa-user-check text-sky-600';
+            let meetings = ['営業担当内の15分レビュー'];
+
+            if (value >= 10000) {
+                authText = '代表・本部長決裁推奨';
+                authIcon = 'fa-crown text-amber-600';
+                meetings = ['営業本部 × 工事本部 × CS本部の事前作戦会議', 'キーマン面談前の金額・工程すり合わせ'];
+            } else if (value >= 3000) {
+                authText = '本部長・部長確認推奨';
+                authIcon = 'fa-people-arrows text-indigo-600';
+                meetings = ['営業本部 × CS本部の積算方針確認', '現調前のヒアリング項目確認'];
+            }
+
+            auth.innerHTML = `<i class="fa-solid ${authIcon}"></i><span>${authText}</span>`;
+            meeting.innerHTML = meetings.map(m => `<li>${m}</li>`).join('');
+        }
+
+        // Gemini API 伴走アドバイス取得
+    // 以前のコードはすべて削除し、この新しい関数を使用してください
+    async function askDeepAI() {
+    const nameInput = document.querySelector('input[name="案件名／案件名"]');
+    const sizeInput = document.querySelector('input[name="金額"]');
+    const aiText = document.getElementById('aiText');
+
+    const data = {
+        name: nameInput ? nameInput.value : '',
+        size: sizeInput ? sizeInput.value : ''
+    };
+
+    // 重要な修正: 宛先を絶対パスの '/api/get-advice' に指定
+    const endpoint = '/api/get-advice';
+
+    try {
+        aiText.textContent = 'AIが思考中...';
+        console.log('Sending data to:', endpoint, data);
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        // サーバーからの応答ステータスを確認
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+             // 403などのエラー詳細を取得
+            const errorText = await response.text();
+            throw new Error(`サーバーエラー (${response.status}): ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('Result:', result);
+        aiText.textContent = result.advice;
+
+    } catch (error) {
+        console.error('Fetch Error:', error);
+        aiText.textContent = '診断エラー: ' + error.message;
+        // エラー時はコンソールも確認してください
+    }
+}
+           // --- 修正後の calculate 関数内の送信ブロック ---
+
+        // ここから修正します
+           <script>
+        async function calculate() {
+            const name = document.getElementById('projectName').value;
+            const size = parseFloat(document.getElementById('projectSize').value || 0);
+            const prob = document.getElementById('valRealProbability').innerText || '--%';
+            const url = document.getElementById('companyUrl').value;
+
+            const aiArea = document.getElementById('aiOutputArea');
+            const aiText = document.getElementById('aiOutputText');
+            
+            aiArea.style.display = 'block';
+            aiText.textContent = 'AIが案件状況を読み取り、伴走アドバイスを作成しています...';
+
+            try {
+                const response = await fetch('/api/get-advice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, size, prob, url })
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'AI診断の取得に失敗しました。');
+                }
+                aiText.textContent = data.advice || 'AIからの回答が空でした。';
+            } catch (error) {
+                aiText.textContent = 'AI診断でエラーが発生しました。' + error.message;
+            }
+        }
+
+        // 2. タブ切り替え関数
+        function switchTab(tabId, btnElement) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btnElement.classList.add('active');
+        }
+
+        
+        // 3. 初期化処理（安全装置付き）
+        document.addEventListener('DOMContentLoaded', function () {
+            // 関数が存在する場合のみ実行する
+            if (typeof updateSubCategory === 'function') updateSubCategory();
+            if (typeof updateWorkSub === 'function') updateWorkSub();
+            if (typeof posChanged === 'function') posChanged();
+            if (typeof compTypeChanged === 'function') compTypeChanged();
+            if (typeof compCountSliderInput === 'function') compCountSliderInput();
+            
+            // calculate 関数を実行
+            if (typeof calculate === 'function') {
+                calculate();
+            } else {
+                console.error("calculate関数が見つかりません。");
+            }
+        });
+    </script>
+</body>
+</html>
+
+    </script>
+</body>
+</html>
