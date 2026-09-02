@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OC Holdings</title>
+<title>お問い合わせ | OC Holdings</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
     :root{
@@ -379,6 +379,92 @@
         .growth-head{ flex-direction:column; align-items:flex-start; }
         .growth-target{ text-align:left; }
     }
+
+    /* ---------- SHARED: SUB-PAGE HERO ---------- */
+    .nav-links a.is-current{ color:var(--bone); border-bottom-color:var(--brass-light); }
+    .page-hero{
+        background: radial-gradient(ellipse 65% 60% at 88% 15%, rgba(179,129,58,0.14), transparent 60%),
+                    radial-gradient(ellipse 60% 50% at 5% 100%, rgba(60,88,114,0.14), transparent 60%),
+                    linear-gradient(180deg, var(--ink) 0%, var(--ink-2) 100%);
+        color:var(--bone);
+        padding:11.5rem 0 4.5rem;
+        border-bottom:1px solid var(--line-dark);
+    }
+    .page-hero .eyebrow{ color:var(--brass-light); margin-bottom:1.3rem; }
+    .page-hero h1{ font-size:clamp(2.1rem,4.4vw,3.3rem); font-weight:700; letter-spacing:-0.015em; color:var(--bone); max-width:20ch; }
+    .page-hero .lead{ margin-top:1.4rem; max-width:58ch; color:var(--bone-soft); font-size:1.03rem; line-height:1.9; }
+
+    /* ---------- ABOUT: HISTORY ---------- */
+    .history{ background:var(--ink-2); padding:6.5rem 0; }
+    .history-list{ border-left:1px solid var(--line-dark); max-width:64ch; }
+    .history-item{ position:relative; padding:0 0 2.8rem 2.4rem; }
+    .history-item:last-child{ padding-bottom:0; }
+    .history-item::before{ content:""; position:absolute; left:-5px; top:0.4rem; width:9px; height:9px; border-radius:50%; background:var(--brass-light); }
+    .history-year{ font-family:var(--mono); font-size:0.76rem; letter-spacing:0.14em; color:var(--brass-light); }
+    .history-title{ margin-top:0.5rem; font-family:var(--serif); font-weight:600; font-size:1.25rem; color:var(--bone); }
+    .history-desc{ margin-top:0.55rem; font-size:0.9rem; color:var(--bone-soft); line-height:1.8; max-width:56ch; }
+
+    /* ---------- ABOUT: FACTS ---------- */
+    .facts{ background:var(--paper); padding:6.5rem 0; }
+    .facts-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--paper-line); border:1px solid var(--paper-line); }
+    .facts-item{ background:var(--paper); padding:1.8rem 2rem; }
+    .facts-label{ font-family:var(--mono); font-size:0.68rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--brass-deep); }
+    .facts-value{ margin-top:0.65rem; font-size:1.02rem; color:var(--ink-text); line-height:1.75; }
+
+    /* ---------- ABOUT: RECRUIT BAND ---------- */
+    .recruit-band{ background:var(--ink); padding:5.5rem 0; text-align:center; }
+    .recruit-band h2{ color:var(--bone); font-size:clamp(1.5rem,2.8vw,2.1rem); }
+    .recruit-band p{ margin-top:1rem; color:var(--bone-soft); max-width:48ch; margin-left:auto; margin-right:auto; }
+    .recruit-band .hero-actions{ justify-content:center; margin-top:2rem; }
+
+    /* ---------- BUSINESS ---------- */
+    .biz-list{ background:var(--paper); }
+    .biz-block{ padding:5.5rem 0; border-bottom:1px solid var(--paper-line); }
+    .biz-block:last-child{ border-bottom:none; }
+    .biz-head{ display:flex; align-items:flex-start; gap:2rem; margin-bottom:1.8rem; }
+    .biz-icon{ width:3.2rem; height:3.2rem; flex-shrink:0; color:var(--brass); }
+    .biz-eyebrow{ font-family:var(--mono); font-size:0.72rem; letter-spacing:0.2em; color:var(--brass-deep); }
+    .biz-head h2{ margin-top:0.5rem; font-size:clamp(1.5rem,2.8vw,2rem); color:var(--ink-text); }
+    .biz-body{ max-width:64ch; margin-left:calc(3.2rem + 2rem); }
+    .biz-body p{ color:var(--ink-soft); font-size:0.98rem; line-height:1.85; }
+    .biz-body p + p{ margin-top:1rem; }
+    .biz-tags{ margin-top:1.6rem; display:flex; flex-wrap:wrap; gap:0.6rem; }
+    .biz-tag{ font-family:var(--mono); font-size:0.7rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--brass-deep); border:1px solid var(--paper-line); padding:0.45rem 0.85rem; }
+
+    /* ---------- NEWS LIST ---------- */
+    .news-filters{ display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:2.4rem; }
+    .news-filter{ font-family:var(--mono); font-size:0.7rem; letter-spacing:0.1em; text-transform:uppercase; padding:0.5rem 1rem; border:1px solid var(--paper-line); color:var(--ink-faint); }
+    .news-filter.is-active{ border-color:var(--brass); color:var(--brass-deep); }
+    .news-pager{ margin-top:2.4rem; display:flex; justify-content:center; gap:1.2rem; font-family:var(--mono); font-size:0.78rem; color:var(--ink-faint); }
+    .news-pager span.is-active{ color:var(--brass-deep); }
+
+    /* ---------- CONTACT ---------- */
+    .contact-grid{ display:grid; grid-template-columns:0.85fr 1.15fr; gap:4.5rem; align-items:start; }
+    .contact-cat{ padding:1.7rem 0; border-top:1px solid var(--paper-line); }
+    .contact-cat:first-child{ border-top:none; padding-top:0; }
+    .contact-cat h3{ font-size:1.05rem; color:var(--ink-text); font-family:var(--serif); font-weight:600; }
+    .contact-cat p{ margin-top:0.55rem; font-size:0.88rem; color:var(--ink-soft); line-height:1.8; }
+    .contact-form{ background:#fff; border:1px solid var(--paper-line); padding:2.4rem; }
+    .form-row{ display:grid; grid-template-columns:1fr 1fr; gap:1.3rem; }
+    .form-field{ margin-bottom:1.3rem; }
+    .form-field label{ display:block; font-size:0.82rem; font-weight:700; color:var(--ink-text); margin-bottom:0.55rem; }
+    .form-field input, .form-field select, .form-field textarea{
+        width:100%; font-family:var(--sans); font-size:0.95rem; padding:0.85rem 1rem;
+        border:1px solid var(--paper-line); background:#fff; color:var(--ink-text);
+    }
+    .form-field textarea{ min-height:130px; resize:vertical; }
+    .form-field input:focus, .form-field select:focus, .form-field textarea:focus{
+        outline:none; border-color:var(--brass); box-shadow:0 0 0 3px rgba(179,129,58,0.14);
+    }
+    .form-note{ font-size:0.78rem; color:var(--ink-faint); margin-top:0.4rem; }
+
+    @media (max-width: 920px){
+        .biz-body{ margin-left:0; }
+        .biz-head{ flex-direction:column; gap:1rem; }
+        .facts-grid{ grid-template-columns:1fr; }
+        .contact-grid{ grid-template-columns:1fr; gap:2.4rem; }
+        .form-row{ grid-template-columns:1fr; }
+    }
 </style>
 
 </head>
@@ -400,312 +486,66 @@
 
 <main id="top">
 
-    <!-- HERO -->
-    <section class="hero">
-        <div class="emblem-holder" aria-hidden="true">
-            <svg viewBox="0 0 600 600">
-                <defs>
-                    <radialGradient id="emblemGlowGrad" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stop-color="#dcb46e" stop-opacity="0.32" />
-                        <stop offset="100%" stop-color="#dcb46e" stop-opacity="0" />
-                    </radialGradient>
-                </defs>
-
-                <!-- fixed bezel: the origin does not move -->
-                <circle class="emblem-glow" cx="300" cy="300" r="280" fill="url(#emblemGlowGrad)" />
-                <circle cx="300" cy="300" r="270" fill="none" stroke="rgba(220,180,110,0.4)" stroke-width="1" />
-                <circle cx="300" cy="300" r="180" fill="none" stroke="rgba(220,180,110,0.28)" stroke-width="1" />
-
-                <!-- the globe, and everything reaching toward its centre, turning together -->
-                <g class="emblem-spin">
-                    <g stroke="rgba(244,239,228,0.14)" fill="none" stroke-width="1">
-                        <circle cx="300" cy="300" r="230" />
-                        <ellipse cx="300" cy="300" rx="230" ry="90" />
-                        <ellipse cx="300" cy="300" rx="230" ry="160" />
-                        <ellipse cx="300" cy="300" rx="90" ry="230" />
-                        <ellipse cx="300" cy="300" rx="160" ry="230" />
-                    </g>
-
-                    <path class="spoke-major" d="M300,300 L507.0,282.1" pathLength="100" style="animation-delay:-0.0s" />
-                    <circle class="spoke-major-dot" cx="507.0" cy="282.1" r="3.2" style="animation-delay:-0.0s" />
-                    <path class="spoke-minor" d="M300,300 L471.2,406.6" pathLength="100" style="animation-delay:-2.62s" />
-                    <circle class="spoke-minor-dot" cx="471.2" cy="406.6" r="2.1" style="animation-delay:-2.62s" />
-                    <path class="spoke-minor" d="M300,300 L424.3,487.0" pathLength="100" style="animation-delay:-5.23s" />
-                    <circle class="spoke-minor-dot" cx="424.3" cy="487.0" r="2.1" style="animation-delay:-5.23s" />
-                    <path class="spoke-minor" d="M300,300 L377.9,522.3" pathLength="100" style="animation-delay:-7.85s" />
-                    <circle class="spoke-minor-dot" cx="377.9" cy="522.3" r="2.1" style="animation-delay:-7.85s" />
-                    <path class="spoke-major" d="M300,300 L268.7,527.7" pathLength="100" style="animation-delay:-10.46s" />
-                    <circle class="spoke-major-dot" cx="268.7" cy="527.7" r="3.2" style="animation-delay:-10.46s" />
-                    <path class="spoke-minor" d="M300,300 L179.4,463.4" pathLength="100" style="animation-delay:-13.08s" />
-                    <circle class="spoke-minor-dot" cx="179.4" cy="463.4" r="2.1" style="animation-delay:-13.08s" />
-                    <path class="spoke-minor" d="M300,300 L49.5,371.6" pathLength="100" style="animation-delay:-15.69s" />
-                    <circle class="spoke-minor-dot" cx="49.5" cy="371.6" r="2.1" style="animation-delay:-15.69s" />
-                    <path class="spoke-minor" d="M300,300 L86.9,287.7" pathLength="100" style="animation-delay:-18.31s" />
-                    <circle class="spoke-minor-dot" cx="86.9" cy="287.7" r="2.1" style="animation-delay:-18.31s" />
-                    <path class="spoke-major" d="M300,300 L109.5,108.8" pathLength="100" style="animation-delay:-20.92s" />
-                    <circle class="spoke-major-dot" cx="109.5" cy="108.8" r="3.2" style="animation-delay:-20.92s" />
-                    <path class="spoke-minor" d="M300,300 L227.6,84.9" pathLength="100" style="animation-delay:-23.54s" />
-                    <circle class="spoke-minor-dot" cx="227.6" cy="84.9" r="2.1" style="animation-delay:-23.54s" />
-                    <path class="spoke-minor" d="M300,300 L369.1,112.7" pathLength="100" style="animation-delay:-26.15s" />
-                    <circle class="spoke-minor-dot" cx="369.1" cy="112.7" r="2.1" style="animation-delay:-26.15s" />
-                    <path class="spoke-minor" d="M300,300 L453.6,144.5" pathLength="100" style="animation-delay:-28.77s" />
-                    <circle class="spoke-minor-dot" cx="453.6" cy="144.5" r="2.1" style="animation-delay:-28.77s" />
-                    <path class="spoke-major" d="M300,300 L462.5,174.7" pathLength="100" style="animation-delay:-31.38s" />
-                    <circle class="spoke-major-dot" cx="462.5" cy="174.7" r="3.2" style="animation-delay:-31.38s" />
-                </g>
-
-                <circle cx="300" cy="300" r="3.5" fill="#dcb46e" />
-            </svg>
-        </div>
-        <div class="wrap hero-inner">
-            <div class="eyebrow hero-tag reveal">OC HOLDINGS GROUP</div>
-            <h1 class="reveal reveal-title d1">すべての、<br><em>はじまり</em>に。</h1>
-            <p class="hero-sub reveal d2">人と技術が支え合う時代に、人にしかできない仕事の意味を、もう一度照らす。OCホールディングスという名前には、"すべての父"という意味を込めています——その始まりの光でありたいという、私たちの意志です。</p>
-            <div class="hero-actions reveal d3">
-                <a href="#belief" class="btn btn-primary">私たちの思想を見る</a>
-                <a href="#pillars" class="btn btn-ghost">事業案内</a>
-            </div>
-        </div>
-        <div class="scroll-cue"><span>SCROLL</span><span class="line"></span></div>
-    </section>
-
-    <!-- BELIEF -->
-    <section class="vision-strip on-ink" id="belief">
+    <section class="page-hero on-ink">
         <div class="wrap">
-            <div class="vs-head reveal">
-                <div>
-                    <div class="eyebrow">OUR BELIEF</div>
-                    <h2 style="margin-top:0.7rem;">規模ではなく、意味の深さで。</h2>
-                </div>
-                <p>大きさは、結果としてついてくるもの。私たちが指針とするのは、数字では測れない意味の深さです。</p>
-            </div>
-            <div class="belief-grid reveal d1">
-                <div class="belief-tile">
-                    <div class="belief-mark belief-mark-kanji">父</div>
-                    <p class="belief-text">OC HOLDINGSという名前は、"すべての父"を意味します。一企業の枠を超え、地球規模で新しい文化そのものを生み出す起点であること。それが、この名前に込めた覚悟です。</p>
-                </div>
-                <div class="belief-tile">
-                    <div class="belief-mark">0 → 1</div>
-                    <p class="belief-text">測れない価値を、生み出す。技術と手を取り合いながら、人にしかできない仕事を、本気で極めていきます。</p>
-                </div>
-                <div class="belief-tile">
-                    <div class="belief-mark">∞</div>
-                    <p class="belief-text">深さに、限りはありません。規模で圧倒するのではなく、意味の深さで、静かに圧倒したいと考えています。</p>
-                </div>
-            </div>
+            <div class="eyebrow">CONTACT</div>
+            <h1>お問い合わせ</h1>
+            <p class="lead">事業に関するご相談、採用、IR、報道関係者の方まで、内容に応じて承っています。</p>
         </div>
     </section>
 
-    <!-- PHILOSOPHY -->
-    <section class="philosophy on-paper">
-        <div class="wrap phi-grid">
-            <p class="phi-quote reveal reveal-title">小さな現場の、小さな約束を守ることでしか、<br>大きな信頼は生まれない。</p>
-            <div class="phi-body reveal d1">
-                <div class="eyebrow" style="margin-bottom:1.1rem;">GROUP PHILOSOPHY</div>
-                <p>OCホールディングスは、単独の事業ではなく、信頼で結ばれた複数の企業がひとつのグループとして力を合わせることで、単体では届かない挑戦を可能にすると考えています。</p>
-                <p>拡大のための拡大ではなく、一社一社の誠実な積み重ねの先に、結果として大きな企業グループが立ち上がる。それが私たちの目指す成長のかたちです。</p>
-                <div class="phi-attr">OC HOLDINGS GROUP PHILOSOPHY</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- OUR LIGHT: TECHNOLOGY x HUMANITY -->
-    <section class="our-light on-ink">
-        <div class="wrap light-grid">
-            <div class="light-copy reveal">
-                <div class="eyebrow">OUR LIGHT</div>
-                <h2 class="reveal-title" style="margin-top:0.9rem;">技術と共に生きる時代に、<br><em>異質な光</em>を放つ。</h2>
-            </div>
-            <div class="light-body reveal d1">
-                <p>人と技術が支え合い、共存共栄していく時代が、確実に近づいています。その中で私たちが本気で向き合いたいのは、「人間にとっての豊かさとは何か」という、根源的な問いです。</p>
-                <p>効率や規模だけでは測れない、人にしかできない仕事。人にしかできない役割。そして、生きる意味そのもの。OCホールディングスは、その探求をこのステージで体現することで、世界の中で異質な、しかし確かな光を放つ企業でありたいと願っています。</p>
-                <p>一つの企業の成長にとどまらない。地球という規模で、新しい文化そのものを築いていくこと——それが、私たちの本当の野心です。</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- PILLARS -->
-    <section class="pillars on-paper" id="pillars">
-        <div class="wrap">
-            <div class="pillars-head reveal">
-                <div class="eyebrow">GROUP BUSINESS</div>
-                <h2>4つの事業領域が、グループの拡張性を支えている。</h2>
-            </div>
-            <div class="pillar-list">
-                <div class="pillar reveal">
-                    <svg class="pillar-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
-                        <rect x="10" y="14" width="18" height="28" />
-                        <rect x="28" y="6" width="12" height="36" />
-                        <line x1="14" y1="20" x2="18" y2="20" /><line x1="14" y1="26" x2="18" y2="26" /><line x1="14" y1="32" x2="18" y2="32" />
-                        <line x1="32" y1="12" x2="36" y2="12" /><line x1="32" y1="18" x2="36" y2="18" /><line x1="32" y1="24" x2="36" y2="24" /><line x1="32" y1="30" x2="36" y2="30" />
-                    </svg>
-                    <h3>不動産開発</h3>
-                    <p>都市と地域の未来を、長期の視点でかたちにする。</p>
+    <section class="news on-paper">
+        <div class="wrap contact-grid">
+            <div class="reveal">
+                <div class="contact-cat">
+                    <h3>事業に関するお問い合わせ</h3>
+                    <p>協業・提携、その他事業に関するご相談はこちらから承っています。</p>
                 </div>
-                <div class="pillar reveal d1">
-                    <svg class="pillar-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
-                        <path d="M6 34 L16 14 L24 34" /><path d="M24 34 L32 10 L42 34" />
-                        <line x1="4" y1="38" x2="44" y2="38" />
-                    </svg>
-                    <h3>インフラ・建設</h3>
-                    <p>社会の基盤を、確かな技術と現場力で支え続ける。</p>
+                <div class="contact-cat">
+                    <h3>IR・株主の皆様へ</h3>
+                    <p>決算や経営に関するお問い合わせは、IR担当窓口までご連絡ください。</p>
                 </div>
-                <div class="pillar reveal d2">
-                    <svg class="pillar-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
-                        <circle cx="20" cy="24" r="15" />
-                        <path d="M20 9 C13 16 13 32 20 39" /><path d="M20 9 C27 16 27 32 20 39" />
-                        <line x1="5" y1="24" x2="35" y2="24" />
-                        <path d="M30 34 L36 26 L44 30 L40 40 Z" fill="currentColor" stroke="none" opacity="0.85" />
-                    </svg>
-                    <h3>グローバル投資</h3>
-                    <p>世界各地の成長機会を、グループの推進力に変える。</p>
+                <div class="contact-cat">
+                    <h3>採用に関するお問い合わせ</h3>
+                    <p>グループ各社の採用に関するご質問は、こちらのフォームをご利用ください。</p>
                 </div>
-                <div class="pillar reveal d3">
-                    <svg class="pillar-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
-                        <rect x="14" y="14" width="20" height="20" />
-                        <rect x="19" y="19" width="10" height="10" />
-                        <line x1="24" y1="4" x2="24" y2="14" /><line x1="24" y1="34" x2="24" y2="44" />
-                        <line x1="4" y1="24" x2="14" y2="24" /><line x1="34" y1="24" x2="44" y2="24" />
-                    </svg>
-                    <h3>デジタル・イノベーション</h3>
-                    <p>テクノロジーへの投資で、次の当たり前を先取りする。</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- GROWTH -->
-    <section class="growth on-ink" id="growth">
-        <div class="wrap">
-            <div class="growth-head reveal">
-                <div>
-                    <div class="eyebrow">OUR GROWTH STORY</div>
-                    <h2>止まらない成長、加速する未来へ。</h2>
-                </div>
-                <div class="growth-target">
-                    <div class="stat-num">2035</div>
-                    <div class="stat-label">NEXT STAGE — 目指す到達点</div>
+                <div class="contact-cat">
+                    <h3>メディア関係者の皆様へ</h3>
+                    <p>取材・掲載に関するお問い合わせもこちらから承っています。</p>
                 </div>
             </div>
 
-            <div class="chart-wrap reveal d1">
-                <svg viewBox="0 0 1200 360" preserveAspectRatio="none" aria-hidden="true">
-                    <defs>
-                        <linearGradient id="growthGrad" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stop-color="#7fa0b8" />
-                            <stop offset="100%" stop-color="#dcb46e" />
-                        </linearGradient>
-                    </defs>
-                    <line x1="0" y1="320" x2="1200" y2="320" stroke="rgba(244,239,228,0.14)" stroke-width="1" />
-                    <path class="growth-path" d="M20,300 C160,300 200,270 260,250 C400,205 460,235 560,190 C700,130 760,170 880,110 C980,65 1040,90 1180,25"
-                          fill="none" stroke="url(#growthGrad)" stroke-width="3" stroke-linecap="round" />
-                    <circle cx="20" cy="300" r="5" fill="#7fa0b8" />
-                    <circle cx="260" cy="250" r="5" fill="#94a9ba" />
-                    <circle cx="560" cy="190" r="5" fill="#b3813a" />
-                    <circle cx="880" cy="110" r="5" fill="#c99752" />
-                    <circle cx="1180" cy="25" r="6" fill="#dcb46e" />
-                </svg>
-            </div>
-
-            <div class="milestones reveal d2">
-                <div class="milestone">
-                    <div class="m-stage">STAGE 01</div>
-                    <div class="m-label">現場に根ざした、信頼の積み重ね</div>
+            <div class="contact-form reveal d1">
+                <div class="form-row">
+                    <div class="form-field">
+                        <label for="cf-name">お名前</label>
+                        <input type="text" id="cf-name" placeholder="山田 太郎">
+                    </div>
+                    <div class="form-field">
+                        <label for="cf-company">会社名</label>
+                        <input type="text" id="cf-company" placeholder="株式会社◯◯">
+                    </div>
                 </div>
-                <div class="milestone">
-                    <div class="m-stage">STAGE 02</div>
-                    <div class="m-label">単一事業から、多角経営へ</div>
+                <div class="form-field">
+                    <label for="cf-email">メールアドレス</label>
+                    <input type="email" id="cf-email" placeholder="you@example.com">
                 </div>
-                <div class="milestone">
-                    <div class="m-stage">STAGE 03</div>
-                    <div class="m-label">グループ経営体制の確立</div>
+                <div class="form-field">
+                    <label for="cf-type">お問い合わせ種別</label>
+                    <select id="cf-type">
+                        <option>事業に関するご相談</option>
+                        <option>IR・株主の皆様へ</option>
+                        <option>採用に関するお問い合わせ</option>
+                        <option>メディア関係者の皆様へ</option>
+                        <option>その他</option>
+                    </select>
                 </div>
-                <div class="milestone">
-                    <div class="m-stage">STAGE 04</div>
-                    <div class="m-label">海外市場・グローバル展開の始動</div>
+                <div class="form-field">
+                    <label for="cf-message">お問い合わせ内容</label>
+                    <textarea id="cf-message" placeholder="お問い合わせ内容をご記入ください"></textarea>
                 </div>
-                <div class="milestone">
-                    <div class="m-stage">2035</div>
-                    <div class="m-label">世界基準の企業グループへ</div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- GLOBAL -->
-    <section class="global on-ink" id="global">
-        <div class="wrap global-grid">
-            <div class="global-copy reveal">
-                <div class="eyebrow">GLOBAL NETWORK</div>
-                <h2>世界へ、これからも広がっていく。</h2>
-                <p>私たちが見据えるのは、日本国内にとどまらない事業と投資のネットワーク。地域で培った信頼を土台に、世界の成長地域へと事業の輪を広げていきます。</p>
-                <div class="region-tags">
-                    <span class="region-tag">ASIA</span>
-                    <span class="region-tag">NORTH AMERICA</span>
-                    <span class="region-tag">EUROPE</span>
-                    <span class="region-tag">MIDDLE EAST</span>
-                    <span class="region-tag">OCEANIA</span>
-                </div>
-            </div>
-            <div class="globe-holder reveal d1">
-                <svg viewBox="0 0 200 200" aria-hidden="true">
-                    <circle cx="100" cy="100" r="78" fill="none" stroke="rgba(244,239,228,0.16)" stroke-width="1" />
-                    <ellipse cx="100" cy="100" rx="78" ry="30" fill="none" stroke="rgba(244,239,228,0.14)" stroke-width="1" />
-                    <ellipse cx="100" cy="100" rx="78" ry="55" fill="none" stroke="rgba(244,239,228,0.1)" stroke-width="1" />
-                    <line x1="22" y1="100" x2="178" y2="100" stroke="rgba(244,239,228,0.14)" stroke-width="1" />
-                    <line x1="100" y1="22" x2="100" y2="178" stroke="rgba(244,239,228,0.1)" stroke-width="1" />
-                    <circle cx="72" cy="70" r="3.5" fill="#dcb46e" />
-                    <circle cx="140" cy="86" r="3.5" fill="#dcb46e" />
-                    <circle cx="120" cy="130" r="3.5" fill="#7fa0b8" />
-                    <circle cx="60" cy="128" r="3.5" fill="#7fa0b8" />
-                    <circle cx="150" cy="140" r="3.5" fill="#dcb46e" />
-                </svg>
-            </div>
-        </div>
-    </section>
-
-    <!-- NEWS -->
-    <section class="news on-paper" id="news">
-        <div class="wrap">
-            <div class="news-head reveal">
-                <div>
-                    <div class="eyebrow">NEWS &amp; TOPICS</div>
-                    <h2>お知らせ</h2>
-                </div>
-                <a href="news.html" class="news-more">VIEW ALL →</a>
-            </div>
-            <div class="news-list reveal d1">
-                <a href="news.html" class="news-item">
-                    <span class="news-date">2026.03.12</span>
-                    <span class="news-cat">GROUP</span>
-                    <span class="news-title">中期経営ビジョン「NEXT STAGE 2035」を策定</span>
-                    <span class="news-arrow">→</span>
-                </a>
-                <a href="news.html" class="news-item">
-                    <span class="news-date">2026.02.20</span>
-                    <span class="news-cat">IR</span>
-                    <span class="news-title">決算説明資料を公開しました</span>
-                    <span class="news-arrow">→</span>
-                </a>
-                <a href="news.html" class="news-item">
-                    <span class="news-date">2026.01.28</span>
-                    <span class="news-cat">PRESS</span>
-                    <span class="news-title">グループ会社が新規プロジェクトを始動</span>
-                    <span class="news-arrow">→</span>
-                </a>
-            </div>
-        </div>
-    </section>
-
-    <!-- CTA -->
-    <section class="cta" id="contact">
-        <div class="wrap cta-inner">
-            <div class="eyebrow" style="justify-content:center;">JOIN US</div>
-            <h2 style="margin-top:0.9rem;">共に、次のステージへ。</h2>
-            <p>グループの成長を共に描くパートナー、そして仲間を求めています。</p>
-            <div class="hero-actions">
-                <a href="contact.html" class="btn btn-primary">お問い合わせはこちら</a>
-                <a href="about.html#recruit" class="btn btn-ghost">採用情報を見る</a>
+                <button type="button" class="btn btn-primary">送信する</button>
+                <p class="form-note">※本ページはデザインコンセプトのモックアップです。このフォームからは送信されません。</p>
             </div>
         </div>
     </section>
@@ -750,10 +590,10 @@
             </div>
         </div>
         <div class="foot-bottom">
-            <span>© 2026 OC Holdings Inc. All Rights Reserved.</span>
-            <span>Concept Design — Meaning over Scale</span>
+            <span>&copy; 2026 OC Holdings Inc. All Rights Reserved.</span>
+            <span>Concept Design &mdash; Meaning over Scale</span>
         </div>
-        <div class="foot-note">※本ページはコーポレートサイト刷新に向けたデザインコンセプト検討用のモックアップです。掲載の会社名・数値・沿革はビジュアル検討のための仮のもので、実際の実績・IR情報を示すものではありません。</div>
+        <div class="foot-note">&#8251;本ページはコーポレートサイト刷新に向けたデザインコンセプト検討用のモックアップです。掲載の会社名・数値・沿革はビジュアル検討のための仮のもので、実際の実績・IR情報を示すものではありません。</div>
     </div>
 </footer>
 
@@ -802,5 +642,6 @@
     // (@keyframes emblemSpin / emblemGlow) and already respect the global
     // prefers-reduced-motion rule at the top of this stylesheet.
 </script>
+
 </body>
 </html>
