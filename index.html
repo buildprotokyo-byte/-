@@ -1,1 +1,708 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OC Holdings</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,900;1,9..144,500&family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+    :root{
+        --ink:#14110d;
+        --ink-2:#1d1912;
+        --ink-3:#26211a;
+        --paper:#efe8db;
+        --paper-deep:#e3dac6;
+        --paper-line: rgba(20,17,13,0.12);
+        --brass:#b3813a;
+        --brass-light:#dcb46e;
+        --brass-deep:#8a5f26;
+        --brass-dim: rgba(179,129,58,0.35);
+        --steel:#3c5872;
+        --steel-light:#7fa0b8;
+        --bone:#f4efe4;
+        --bone-soft: rgba(244,239,228,0.68);
+        --bone-faint: rgba(244,239,228,0.42);
+        --ink-text:#1b1712;
+        --ink-soft: rgba(27,23,18,0.66);
+        --ink-faint: rgba(27,23,18,0.46);
+        --line-dark: rgba(244,239,228,0.14);
+        --max: 1180px;
+        --serif: 'Fraunces', 'Noto Serif JP', serif;
+        --sans: 'Noto Sans JP', 'Hiragino Sans', sans-serif;
+        --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    }
 
+    *{ box-sizing:border-box; }
+    html{ scroll-behavior:smooth; }
+    body{
+        margin:0;
+        background:var(--paper);
+        color:var(--ink-text);
+        font-family:var(--sans);
+        line-height:1.75;
+        -webkit-font-smoothing:antialiased;
+        overflow-x:hidden;
+    }
+    @media (prefers-reduced-motion: reduce){
+        html{ scroll-behavior:auto; }
+        *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+    }
+
+    a{ color:inherit; }
+    img{ max-width:100%; display:block; }
+    h1,h2,h3{ font-family:var(--serif); font-weight:600; letter-spacing:-0.01em; text-wrap:balance; margin:0; }
+    p{ margin:0; }
+    .wrap{ max-width:var(--max); margin:0 auto; padding:0 clamp(1.5rem, 4vw, 3.5rem); }
+    section{ position:relative; }
+
+    .eyebrow{
+        display:inline-flex; align-items:center; gap:0.6em;
+        font-family:var(--mono); font-size:0.72rem; font-weight:500;
+        letter-spacing:0.22em; text-transform:uppercase;
+    }
+    .eyebrow::before{
+        content:""; width:1.6em; height:1px; background:currentColor; opacity:0.55;
+    }
+    .on-ink .eyebrow{ color:var(--brass-light); }
+    .on-paper .eyebrow{ color:var(--brass-deep); }
+
+    .reveal{ opacity:1; transform:none; transition:opacity 0.9s cubic-bezier(.16,.8,.24,1), transform 0.9s cubic-bezier(.16,.8,.24,1); }
+    .reveal.reveal-hidden{ opacity:0; transform:translateY(28px); }
+    .reveal.is-visible{ opacity:1; transform:none; }
+    .reveal.d1{ transition-delay:0.08s; }
+    .reveal.d2{ transition-delay:0.16s; }
+    .reveal.d3{ transition-delay:0.24s; }
+    .reveal.d4{ transition-delay:0.32s; }
+
+    /* ---------- NAV ---------- */
+    nav{
+        position:fixed; top:0; left:0; right:0; z-index:100;
+        padding:1.35rem clamp(1.5rem, 4vw, 3.5rem);
+        display:flex; align-items:center; justify-content:space-between;
+        transition: background 0.4s ease, padding 0.4s ease, border-color 0.4s ease;
+        border-bottom:1px solid transparent;
+    }
+    nav.is-scrolled{
+        background:rgba(20,17,13,0.86);
+        backdrop-filter: blur(14px) saturate(140%);
+        padding:0.9rem clamp(1.5rem, 4vw, 3.5rem);
+        border-bottom-color: var(--line-dark);
+    }
+    .brand{ display:flex; align-items:center; gap:0.65rem; text-decoration:none; }
+    .brand-mark{
+        width:2.15rem; height:2.15rem; flex-shrink:0;
+        border:1px solid var(--brass-light);
+        display:flex; align-items:center; justify-content:center;
+        font-family:var(--serif); font-weight:600; font-size:0.92rem;
+        color:var(--brass-light); letter-spacing:0.02em;
+    }
+    .brand-word{
+        font-family:var(--mono); font-size:0.82rem; letter-spacing:0.16em;
+        color:var(--bone); font-weight:500;
+    }
+    .brand-word span{ color:var(--bone-soft); font-weight:400; }
+    .nav-links{ display:flex; align-items:center; gap:2.1rem; list-style:none; margin:0; padding:0; }
+    .nav-links a{
+        text-decoration:none; color:var(--bone-soft); font-size:0.86rem; letter-spacing:0.02em;
+        padding-bottom:0.2rem; border-bottom:1px solid transparent; transition:color .25s ease, border-color .25s ease;
+    }
+    .nav-links a:hover, .nav-links a:focus-visible{ color:var(--bone); border-bottom-color:var(--brass-light); }
+    .nav-cta{
+        font-size:0.82rem; letter-spacing:0.04em; text-decoration:none;
+        color:var(--ink); background:var(--brass-light); padding:0.6rem 1.15rem;
+        border:1px solid var(--brass-light); transition:opacity .25s ease;
+    }
+    .nav-cta:hover, .nav-cta:focus-visible{ opacity:0.82; }
+    .nav-toggle{ display:none; background:none; border:1px solid var(--line-dark); color:var(--bone); width:2.4rem; height:2.4rem; align-items:center; justify-content:center; }
+    a:focus-visible, button:focus-visible{ outline:2px solid var(--brass-light); outline-offset:3px; }
+
+    /* ---------- HERO ---------- */
+    .hero{
+        background: radial-gradient(ellipse 90% 60% at 18% -10%, rgba(179,129,58,0.16), transparent 55%),
+                    radial-gradient(ellipse 70% 50% at 100% 10%, rgba(60,88,114,0.22), transparent 60%),
+                    linear-gradient(180deg, var(--ink) 0%, var(--ink-2) 100%);
+        color:var(--bone);
+        padding:9.5rem 0 5rem;
+        overflow:hidden;
+    }
+    .hero-canvas-holder{ position:absolute; inset:0; z-index:0; opacity:0.55; }
+    #netCanvas{ width:100%; height:100%; display:block; }
+    .hero-inner{ position:relative; z-index:2; }
+    .hero-tag{ color:var(--brass-light); margin-bottom:1.6rem; }
+    .hero h1{
+        font-size:clamp(2.35rem, 5.4vw, 4.35rem);
+        line-height:1.14;
+        color:var(--bone);
+        max-width:16.5ch;
+    }
+    .hero h1 em{ font-style:italic; font-weight:500; color:var(--brass-light); }
+    .hero-sub{
+        margin-top:1.7rem; max-width:44ch; font-size:1.03rem;
+        color:var(--bone-soft); line-height:1.85;
+    }
+    .hero-actions{ margin-top:2.6rem; display:flex; gap:1rem; flex-wrap:wrap; }
+    .btn{
+        display:inline-flex; align-items:center; gap:0.55rem;
+        font-family:var(--sans); font-weight:700; font-size:0.9rem; letter-spacing:0.01em;
+        text-decoration:none; padding:0.95rem 1.7rem; border:1px solid transparent;
+        transition: transform .25s ease, background .25s ease, border-color .25s ease, color .25s ease;
+    }
+    .btn:hover{ transform:translateY(-2px); }
+    .btn-primary{ background:var(--brass-light); color:var(--ink); border-color:var(--brass-light); }
+    .btn-primary:hover, .btn-primary:focus-visible{ background:var(--brass); border-color:var(--brass); }
+    .btn-ghost{ background:transparent; color:var(--bone); border-color:var(--line-dark); }
+    .btn-ghost:hover, .btn-ghost:focus-visible{ border-color:var(--bone-soft); }
+    .btn-ghost.on-paper{ color:var(--ink-text); border-color:var(--paper-line); }
+    .btn-ghost.on-paper:hover{ border-color:var(--ink-faint); }
+
+    .scroll-cue{
+        position:absolute; right:clamp(1.5rem,4vw,3.5rem); bottom:1.6rem; z-index:2;
+        display:flex; flex-direction:column; align-items:center; gap:0.6rem;
+        font-family:var(--mono); font-size:0.66rem; letter-spacing:0.28em; color:var(--bone-faint);
+    }
+    .scroll-cue .line{ width:1px; height:2.6rem; background:linear-gradient(180deg, var(--brass-light), transparent); animation: cueMove 2.4s ease-in-out infinite; }
+    @keyframes cueMove{ 0%,100%{ transform:scaleY(0.6); opacity:0.5; transform-origin:top; } 50%{ transform:scaleY(1); opacity:1; } }
+
+    /* ---------- VISION STRIP ---------- */
+    .vision-strip{ background:var(--ink-2); color:var(--bone); padding:4.2rem 0 4.6rem; border-top:1px solid var(--line-dark); }
+    .vs-head{ display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:1rem; margin-bottom:2.6rem; }
+    .vs-head h2{ font-size:clamp(1.3rem,2.4vw,1.7rem); color:var(--bone); }
+    .vs-head p{ color:var(--bone-faint); font-size:0.85rem; max-width:34ch; }
+    .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid var(--line-dark); }
+    .stat{ padding:1.8rem 1.6rem 0; border-left:1px solid var(--line-dark); }
+    .stat:first-child{ border-left:none; padding-left:0; }
+    .stat-num{ font-family:var(--mono); font-size:clamp(1.8rem,3vw,2.5rem); color:var(--brass-light); letter-spacing:-0.01em; font-variant-numeric:tabular-nums; }
+    .stat-label{ margin-top:0.6rem; font-size:0.82rem; color:var(--bone-soft); line-height:1.6; }
+
+    /* ---------- PHILOSOPHY ---------- */
+    .philosophy{ background:var(--paper); color:var(--ink-text); padding:7rem 0; }
+    .phi-grid{ display:grid; grid-template-columns:0.85fr 1.15fr; gap:4rem; align-items:start; }
+    .phi-quote{
+        font-family:var(--serif); font-style:italic; font-weight:500;
+        font-size:clamp(1.5rem,2.6vw,2.05rem); line-height:1.5; color:var(--ink-text);
+        border-left:2px solid var(--brass); padding-left:1.8rem;
+    }
+    .phi-body p{ color:var(--ink-soft); font-size:1rem; }
+    .phi-body p + p{ margin-top:1.15rem; }
+    .phi-attr{ margin-top:1.8rem; font-family:var(--mono); font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--brass-deep); }
+
+    /* ---------- PILLARS ---------- */
+    .pillars{ background:var(--paper-deep); padding:6.5rem 0; border-top:1px solid var(--paper-line); border-bottom:1px solid var(--paper-line); }
+    .pillars-head{ max-width:56ch; margin-bottom:3.2rem; }
+    .pillars-head h2{ font-size:clamp(1.6rem,3vw,2.15rem); margin-top:0.9rem; }
+    .pillar-list{ display:grid; grid-template-columns:repeat(4,1fr); }
+    .pillar{ padding:2.1rem 1.7rem 0 0; border-top:1px solid var(--paper-line); position:relative; }
+    .pillar + .pillar{ margin-left:1.7rem; }
+    .pillar-icon{ width:2.5rem; height:2.5rem; color:var(--brass); }
+    .pillar h3{ font-size:1.15rem; margin-top:1.5rem; color:var(--ink-text); }
+    .pillar p{ margin-top:0.7rem; font-size:0.88rem; color:var(--ink-soft); line-height:1.7; }
+
+    /* ---------- GROWTH ---------- */
+    .growth{ background:var(--ink); color:var(--bone); padding:7rem 0 6rem; }
+    .growth-head{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:1.5rem; margin-bottom:3.4rem; }
+    .growth-head h2{ color:var(--bone); font-size:clamp(1.6rem,3vw,2.15rem); margin-top:0.9rem; max-width:20ch; }
+    .growth-target{ text-align:right; }
+    .growth-target .stat-num{ font-size:clamp(2rem,4vw,3rem); }
+    .growth-target .stat-label{ color:var(--bone-faint); }
+    .chart-wrap{ width:100%; }
+    .chart-wrap svg{ width:100%; height:auto; display:block; }
+    .growth-path{ stroke-dasharray:1200; stroke-dashoffset:1200; transition:stroke-dashoffset 1.8s cubic-bezier(.16,.8,.24,1); }
+    .is-visible .growth-path{ stroke-dashoffset:0; }
+    .milestones{ margin-top:3rem; display:grid; grid-template-columns:repeat(5,1fr); gap:1.2rem; }
+    .milestone{ border-top:1px solid var(--line-dark); padding-top:1rem; }
+    .m-stage{ font-family:var(--mono); font-size:0.68rem; letter-spacing:0.14em; color:var(--brass-light); }
+    .m-label{ margin-top:0.55rem; font-size:0.86rem; color:var(--bone-soft); line-height:1.6; }
+
+    /* ---------- GLOBAL ---------- */
+    .global{ background:var(--ink-3); color:var(--bone); padding:6.5rem 0; border-top:1px solid var(--line-dark); }
+    .global-grid{ display:grid; grid-template-columns:1fr 1fr; gap:3.5rem; align-items:center; }
+    .global-copy h2{ color:var(--bone); font-size:clamp(1.6rem,3vw,2.15rem); margin-top:0.9rem; max-width:14ch; }
+    .global-copy p{ margin-top:1.3rem; color:var(--bone-soft); max-width:42ch; font-size:0.98rem; }
+    .region-tags{ margin-top:2rem; display:flex; flex-wrap:wrap; gap:0.6rem; }
+    .region-tag{
+        font-family:var(--mono); font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase;
+        border:1px solid var(--line-dark); color:var(--bone-soft); padding:0.5rem 0.9rem;
+    }
+    .globe-holder{ display:flex; justify-content:center; }
+    .globe-holder svg{ width:100%; max-width:360px; height:auto; }
+
+    /* ---------- NEWS ---------- */
+    .news{ background:var(--paper); padding:6.5rem 0; }
+    .news-head{ display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:1rem; margin-bottom:2.6rem; }
+    .news-head h2{ font-size:clamp(1.4rem,2.6vw,1.85rem); margin-top:0.9rem; }
+    .news-more{ font-family:var(--mono); font-size:0.74rem; letter-spacing:0.1em; text-decoration:none; color:var(--brass-deep); border-bottom:1px solid var(--brass-dim); padding-bottom:0.15rem; }
+    .news-list{ border-top:1px solid var(--paper-line); }
+    .news-item{
+        display:grid; grid-template-columns:9rem 6.5rem 1fr auto; gap:1.6rem; align-items:baseline;
+        padding:1.4rem 0; border-bottom:1px solid var(--paper-line);
+        text-decoration:none; color:inherit; transition:opacity .2s ease;
+    }
+    .news-item:hover{ opacity:0.68; }
+    .news-date{ font-family:var(--mono); font-size:0.78rem; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+    .news-cat{ font-family:var(--mono); font-size:0.68rem; letter-spacing:0.12em; color:var(--brass-deep); }
+    .news-title{ font-size:0.98rem; color:var(--ink-text); }
+    .news-arrow{ color:var(--ink-faint); }
+
+    /* ---------- CTA ---------- */
+    .cta{
+        background: linear-gradient(120deg, var(--ink) 0%, var(--ink-3) 100%);
+        color:var(--bone); padding:6rem 0; text-align:center;
+        position:relative; overflow:hidden;
+    }
+    .cta::before{
+        content:""; position:absolute; inset:-40% -10% auto -10%; height:140%;
+        background: radial-gradient(ellipse at center, rgba(179,129,58,0.18), transparent 62%);
+        pointer-events:none;
+    }
+    .cta-inner{ position:relative; z-index:1; max-width:44ch; margin:0 auto; }
+    .cta h2{ color:var(--bone); font-size:clamp(1.7rem,3.4vw,2.5rem); }
+    .cta p{ margin-top:1.1rem; color:var(--bone-soft); }
+    .cta .hero-actions{ justify-content:center; margin-top:2.2rem; }
+
+    /* ---------- FOOTER ---------- */
+    footer{ background:var(--ink); color:var(--bone-soft); padding:4.5rem 0 2rem; }
+    .foot-top{ display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:3rem; padding-bottom:3rem; border-bottom:1px solid var(--line-dark); }
+    .foot-brand .brand{ margin-bottom:1.1rem; }
+    .foot-brand p{ font-size:0.85rem; color:var(--bone-faint); max-width:32ch; line-height:1.8; }
+    .foot-col h4{ font-family:var(--mono); font-size:0.7rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--bone-faint); margin-bottom:1.1rem; }
+    .foot-col ul{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:0.75rem; }
+    .foot-col a{ text-decoration:none; color:var(--bone-soft); font-size:0.88rem; transition:color .2s ease; }
+    .foot-col a:hover{ color:var(--bone); }
+    .foot-bottom{ padding-top:1.8rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.8rem; font-size:0.78rem; color:var(--bone-faint); }
+    .foot-note{ max-width:70ch; margin-top:0.6rem; font-size:0.72rem; color:rgba(244,239,228,0.32); line-height:1.7; }
+
+    /* ---------- RESPONSIVE ---------- */
+    @media (max-width: 920px){
+        .nav-links{ display:none; }
+        .nav-toggle{ display:flex; }
+        .phi-grid{ grid-template-columns:1fr; gap:2rem; }
+        .pillar-list{ grid-template-columns:repeat(2,1fr); row-gap:2.4rem; }
+        .pillar + .pillar{ margin-left:0; }
+        .pillar{ padding-right:1.2rem; }
+        .stat-grid{ grid-template-columns:repeat(2,1fr); row-gap:1.8rem; }
+        .stat:nth-child(3){ border-left:none; padding-left:0; }
+        .milestones{ grid-template-columns:repeat(2,1fr); row-gap:1.6rem; }
+        .global-grid{ grid-template-columns:1fr; }
+        .news-item{ grid-template-columns:1fr; gap:0.35rem; }
+        .foot-top{ grid-template-columns:1fr 1fr; row-gap:2.4rem; }
+    }
+    @media (max-width: 560px){
+        .pillar-list{ grid-template-columns:1fr; }
+        .foot-top{ grid-template-columns:1fr; }
+        .growth-head{ flex-direction:column; align-items:flex-start; }
+        .growth-target{ text-align:left; }
+    }
+</style>
+
+</head>
+<body>
+<nav id="siteNav">
+    <a href="#top" class="brand">
+        <span class="brand-mark">OC</span>
+        <span class="brand-word">OC HOLDINGS<span> GROUP</span></span>
+    </a>
+    <ul class="nav-links">
+        <li><a href="#vision">VISION</a></li>
+        <li><a href="#pillars">GROUP BUSINESS</a></li>
+        <li><a href="#growth">GROWTH</a></li>
+        <li><a href="#global">GLOBAL</a></li>
+        <li><a href="#news">NEWS</a></li>
+    </ul>
+    <a href="#contact" class="nav-cta">お問い合わせ</a>
+</nav>
+
+<main id="top">
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-canvas-holder"><canvas id="netCanvas"></canvas></div>
+        <div class="wrap hero-inner">
+            <div class="eyebrow hero-tag reveal">OC HOLDINGS — GROUP VISION</div>
+            <h1 class="reveal d1">信頼を、<br><em>次の桁</em>へ。</h1>
+            <p class="hero-sub reveal d2">一つひとつの現場で交わした約束を、誠実に積み重ねてきた実績。私たちはその礎の上に、グループの総力を結集し、世界基準の成長曲線を描くステージへと歩みを進めています。</p>
+            <div class="hero-actions reveal d3">
+                <a href="#growth" class="btn btn-primary">グループビジョンを見る</a>
+                <a href="#pillars" class="btn btn-ghost">事業案内</a>
+            </div>
+        </div>
+        <div class="scroll-cue"><span>SCROLL</span><span class="line"></span></div>
+    </section>
+
+    <!-- VISION NUMBERS -->
+    <section class="vision-strip on-ink" id="vision">
+        <div class="wrap">
+            <div class="vs-head reveal">
+                <div>
+                    <div class="eyebrow">VISION 2035</div>
+                    <h2 style="margin-top:0.7rem;">2035年、私たちが目指す姿</h2>
+                </div>
+                <p>掲げる数字は現在地ではなく、私たちが向かう先。グループの成長を測る羅針盤です。</p>
+            </div>
+            <div class="stat-grid reveal d1">
+                <div class="stat">
+                    <div class="stat-num">50+</div>
+                    <div class="stat-label">グループ会社数</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num">25</div>
+                    <div class="stat-label">事業を展開する国・地域数</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num">1兆円</div>
+                    <div class="stat-label">目標とするグループ売上規模</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num">10,000+</div>
+                    <div class="stat-label">グループ従業員数</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PHILOSOPHY -->
+    <section class="philosophy on-paper">
+        <div class="wrap phi-grid">
+            <p class="phi-quote reveal">小さな現場の、小さな約束を守ることでしか、<br>大きな信頼は生まれない。</p>
+            <div class="phi-body reveal d1">
+                <div class="eyebrow" style="margin-bottom:1.1rem;">GROUP PHILOSOPHY</div>
+                <p>OCホールディングスは、単独の事業ではなく、信頼で結ばれた複数の企業がひとつのグループとして力を合わせることで、単体では届かない規模の挑戦を可能にすると考えています。</p>
+                <p>拡大のための拡大ではなく、一社一社の誠実な積み重ねの先に、結果として大きな企業グループが立ち上がる。それが私たちの目指す成長のかたちです。</p>
+                <div class="phi-attr">OC HOLDINGS GROUP PHILOSOPHY</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PILLARS -->
+    <section class="pillars on-paper" id="pillars">
+        <div class="wrap">
+            <div class="pillars-head reveal">
+                <div class="eyebrow">GROUP BUSINESS</div>
+                <h2>4つの事業領域が、グループの拡張性を支えている。</h2>
+            </div>
+            <div class="pillar-list">
+                <div class="pillar reveal">
+                    <svg class="pillar-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <rect x="10" y="14" width="18" height="28" />
+                        <rect x="28" y="6" width="12" height="36" />
+                        <line x1="14" y1="20" x2="18" y2="20" /><line x1="14" y1="26" x2="18" y2="26" /><line x1="14" y1="32" x2="18" y2="32" />
+                        <line x1="32" y1="12" x2="36" y2="12" /><line x1="32" y1="18" x2="36" y2="18" /><line x1="32" y1="24" x2="36" y2="24" /><line x1="32" y1="30" x2="36" y2="30" />
+                    </svg>
+                    <h3>不動産開発</h3>
+                    <p>都市と地域の未来を、長期の視点でかたちにする。</p>
+                </div>
+                <div class="pillar reveal d1">
+                    <svg class="pillar-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <path d="M6 34 L16 14 L24 34" /><path d="M24 34 L32 10 L42 34" />
+                        <line x1="4" y1="38" x2="44" y2="38" />
+                    </svg>
+                    <h3>インフラ・建設</h3>
+                    <p>社会の基盤を、確かな技術と現場力で支え続ける。</p>
+                </div>
+                <div class="pillar reveal d2">
+                    <svg class="pillar-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <circle cx="20" cy="24" r="15" />
+                        <path d="M20 9 C13 16 13 32 20 39" /><path d="M20 9 C27 16 27 32 20 39" />
+                        <line x1="5" y1="24" x2="35" y2="24" />
+                        <path d="M30 34 L36 26 L44 30 L40 40 Z" fill="currentColor" stroke="none" opacity="0.85" />
+                    </svg>
+                    <h3>グローバル投資</h3>
+                    <p>世界各地の成長機会を、グループの推進力に変える。</p>
+                </div>
+                <div class="pillar reveal d3">
+                    <svg class="pillar-icon" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.4">
+                        <rect x="14" y="14" width="20" height="20" />
+                        <rect x="19" y="19" width="10" height="10" />
+                        <line x1="24" y1="4" x2="24" y2="14" /><line x1="24" y1="34" x2="24" y2="44" />
+                        <line x1="4" y1="24" x2="14" y2="24" /><line x1="34" y1="24" x2="44" y2="24" />
+                    </svg>
+                    <h3>デジタル・イノベーション</h3>
+                    <p>テクノロジーへの投資で、次の当たり前を先取りする。</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GROWTH -->
+    <section class="growth on-ink" id="growth">
+        <div class="wrap">
+            <div class="growth-head reveal">
+                <div>
+                    <div class="eyebrow">OUR GROWTH STORY</div>
+                    <h2>止まらない成長、加速する未来へ。</h2>
+                </div>
+                <div class="growth-target">
+                    <div class="stat-num">2035</div>
+                    <div class="stat-label">NEXT STAGE — 目指す到達点</div>
+                </div>
+            </div>
+
+            <div class="chart-wrap reveal d1">
+                <svg viewBox="0 0 1200 360" preserveAspectRatio="none" aria-hidden="true">
+                    <defs>
+                        <linearGradient id="growthGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#7fa0b8" />
+                            <stop offset="100%" stop-color="#dcb46e" />
+                        </linearGradient>
+                    </defs>
+                    <line x1="0" y1="320" x2="1200" y2="320" stroke="rgba(244,239,228,0.14)" stroke-width="1" />
+                    <path class="growth-path" d="M20,300 C160,300 200,270 260,250 C400,205 460,235 560,190 C700,130 760,170 880,110 C980,65 1040,90 1180,25"
+                          fill="none" stroke="url(#growthGrad)" stroke-width="3" stroke-linecap="round" />
+                    <circle cx="20" cy="300" r="5" fill="#7fa0b8" />
+                    <circle cx="260" cy="250" r="5" fill="#94a9ba" />
+                    <circle cx="560" cy="190" r="5" fill="#b3813a" />
+                    <circle cx="880" cy="110" r="5" fill="#c99752" />
+                    <circle cx="1180" cy="25" r="6" fill="#dcb46e" />
+                </svg>
+            </div>
+
+            <div class="milestones reveal d2">
+                <div class="milestone">
+                    <div class="m-stage">STAGE 01</div>
+                    <div class="m-label">現場に根ざした、信頼の積み重ね</div>
+                </div>
+                <div class="milestone">
+                    <div class="m-stage">STAGE 02</div>
+                    <div class="m-label">単一事業から、多角経営へ</div>
+                </div>
+                <div class="milestone">
+                    <div class="m-stage">STAGE 03</div>
+                    <div class="m-label">グループ経営体制の確立</div>
+                </div>
+                <div class="milestone">
+                    <div class="m-stage">STAGE 04</div>
+                    <div class="m-label">海外市場・グローバル展開の始動</div>
+                </div>
+                <div class="milestone">
+                    <div class="m-stage">2035</div>
+                    <div class="m-label">世界基準の企業グループへ</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GLOBAL -->
+    <section class="global on-ink" id="global">
+        <div class="wrap global-grid">
+            <div class="global-copy reveal">
+                <div class="eyebrow">GLOBAL NETWORK</div>
+                <h2>世界へ、これからも広がっていく。</h2>
+                <p>私たちが見据えるのは、日本国内にとどまらない事業と投資のネットワーク。地域で培った信頼を土台に、世界の成長地域へと事業の輪を広げていきます。</p>
+                <div class="region-tags">
+                    <span class="region-tag">ASIA</span>
+                    <span class="region-tag">NORTH AMERICA</span>
+                    <span class="region-tag">EUROPE</span>
+                    <span class="region-tag">MIDDLE EAST</span>
+                    <span class="region-tag">OCEANIA</span>
+                </div>
+            </div>
+            <div class="globe-holder reveal d1">
+                <svg viewBox="0 0 200 200" aria-hidden="true">
+                    <circle cx="100" cy="100" r="78" fill="none" stroke="rgba(244,239,228,0.16)" stroke-width="1" />
+                    <ellipse cx="100" cy="100" rx="78" ry="30" fill="none" stroke="rgba(244,239,228,0.14)" stroke-width="1" />
+                    <ellipse cx="100" cy="100" rx="78" ry="55" fill="none" stroke="rgba(244,239,228,0.1)" stroke-width="1" />
+                    <line x1="22" y1="100" x2="178" y2="100" stroke="rgba(244,239,228,0.14)" stroke-width="1" />
+                    <line x1="100" y1="22" x2="100" y2="178" stroke="rgba(244,239,228,0.1)" stroke-width="1" />
+                    <circle cx="72" cy="70" r="3.5" fill="#dcb46e" />
+                    <circle cx="140" cy="86" r="3.5" fill="#dcb46e" />
+                    <circle cx="120" cy="130" r="3.5" fill="#7fa0b8" />
+                    <circle cx="60" cy="128" r="3.5" fill="#7fa0b8" />
+                    <circle cx="150" cy="140" r="3.5" fill="#dcb46e" />
+                </svg>
+            </div>
+        </div>
+    </section>
+
+    <!-- NEWS -->
+    <section class="news on-paper" id="news">
+        <div class="wrap">
+            <div class="news-head reveal">
+                <div>
+                    <div class="eyebrow">NEWS &amp; TOPICS</div>
+                    <h2>お知らせ</h2>
+                </div>
+                <a href="#" class="news-more">VIEW ALL →</a>
+            </div>
+            <div class="news-list reveal d1">
+                <a href="#" class="news-item">
+                    <span class="news-date">2026.03.12</span>
+                    <span class="news-cat">GROUP</span>
+                    <span class="news-title">中期経営ビジョン「NEXT STAGE 2035」を策定</span>
+                    <span class="news-arrow">→</span>
+                </a>
+                <a href="#" class="news-item">
+                    <span class="news-date">2026.02.20</span>
+                    <span class="news-cat">IR</span>
+                    <span class="news-title">決算説明資料を公開しました</span>
+                    <span class="news-arrow">→</span>
+                </a>
+                <a href="#" class="news-item">
+                    <span class="news-date">2026.01.28</span>
+                    <span class="news-cat">PRESS</span>
+                    <span class="news-title">グループ会社が新規プロジェクトを始動</span>
+                    <span class="news-arrow">→</span>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta" id="contact">
+        <div class="wrap cta-inner">
+            <div class="eyebrow" style="justify-content:center;">JOIN US</div>
+            <h2 style="margin-top:0.9rem;">共に、次のステージへ。</h2>
+            <p>グループの成長を共に描くパートナー、そして仲間を求めています。</p>
+            <div class="hero-actions">
+                <a href="#" class="btn btn-primary">お問い合わせはこちら</a>
+                <a href="#" class="btn btn-ghost">採用情報を見る</a>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<footer>
+    <div class="wrap">
+        <div class="foot-top">
+            <div class="foot-brand">
+                <a href="#top" class="brand">
+                    <span class="brand-mark">OC</span>
+                    <span class="brand-word">OC HOLDINGS<span> GROUP</span></span>
+                </a>
+                <p>信頼の積み重ねを、次の桁へ。地域から世界へ、グループの総力で挑戦を続けます。</p>
+            </div>
+            <div class="foot-col">
+                <h4>事業紹介</h4>
+                <ul>
+                    <li><a href="#pillars">不動産開発</a></li>
+                    <li><a href="#pillars">インフラ・建設</a></li>
+                    <li><a href="#pillars">グローバル投資</a></li>
+                    <li><a href="#pillars">デジタル・イノベーション</a></li>
+                </ul>
+            </div>
+            <div class="foot-col">
+                <h4>会社情報</h4>
+                <ul>
+                    <li><a href="#vision">グループビジョン</a></li>
+                    <li><a href="#growth">成長ストーリー</a></li>
+                    <li><a href="#global">グローバル展開</a></li>
+                    <li><a href="#news">お知らせ</a></li>
+                </ul>
+            </div>
+            <div class="foot-col">
+                <h4>Contact</h4>
+                <ul>
+                    <li><a href="#contact">お問い合わせ</a></li>
+                    <li><a href="#contact">採用情報</a></li>
+                    <li><a href="#">IRライブラリ</a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="foot-bottom">
+            <span>© 2026 OC Holdings Inc. All Rights Reserved.</span>
+            <span>Concept Design — Global Vision Edition</span>
+        </div>
+        <div class="foot-note">※本ページはコーポレートサイト刷新に向けたデザインコンセプト検討用のモックアップです。掲載の会社名・数値・沿革はビジュアル検討のための仮のもので、実際の実績・IR情報を示すものではありません。</div>
+    </div>
+</footer>
+
+<script>
+    var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Nav scroll state
+    var nav = document.getElementById('siteNav');
+    var onScroll = function(){
+        if (window.scrollY > 40) nav.classList.add('is-scrolled');
+        else nav.classList.remove('is-scrolled');
+    };
+    document.addEventListener('scroll', onScroll, { passive:true });
+    onScroll();
+
+    // Reveal on scroll — anything already on screen at load stays visible immediately;
+    // only elements confirmed below the fold are held back to animate in as they enter view.
+    var revealEls = document.querySelectorAll('.reveal');
+    if (reduceMotion || !('IntersectionObserver' in window)) {
+        revealEls.forEach(function(el){ el.classList.add('is-visible'); });
+    } else {
+        var toObserve = [];
+        revealEls.forEach(function(el){
+            var rect = el.getBoundingClientRect();
+            var inView = rect.top < window.innerHeight * 0.94 && rect.bottom > 0;
+            if (inView) {
+                el.classList.add('is-visible');
+            } else {
+                el.classList.add('reveal-hidden');
+                toObserve.push(el);
+            }
+        });
+        var io = new IntersectionObserver(function(entries){
+            entries.forEach(function(entry){
+                if (entry.isIntersecting) {
+                    entry.target.classList.remove('reveal-hidden');
+                    entry.target.classList.add('is-visible');
+                    io.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.18, rootMargin: '0px 0px -8% 0px' });
+        toObserve.forEach(function(el){ io.observe(el); });
+    }
+
+    // Hero constellation canvas
+    (function(){
+        var canvas = document.getElementById('netCanvas');
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+        var holder = canvas.parentElement;
+        var W, H, nodes = [];
+        var NODE_COUNT = 46;
+
+        function resize(){
+            W = holder.clientWidth; H = holder.clientHeight;
+            canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
+            canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+            ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+        }
+
+        function init(){
+            nodes = [];
+            for (var i=0;i<NODE_COUNT;i++){
+                nodes.push({
+                    x: Math.random()*W, y: Math.random()*H,
+                    vx: (Math.random()-0.5)*0.18, vy:(Math.random()-0.5)*0.18
+                });
+            }
+        }
+
+        function step(){
+            ctx.clearRect(0,0,W,H);
+            for (var i=0;i<nodes.length;i++){
+                var n = nodes[i];
+                n.x += n.vx; n.y += n.vy;
+                if (n.x < 0 || n.x > W) n.vx *= -1;
+                if (n.y < 0 || n.y > H) n.vy *= -1;
+            }
+            for (var i=0;i<nodes.length;i++){
+                for (var j=i+1;j<nodes.length;j++){
+                    var a = nodes[i], b = nodes[j];
+                    var dx = a.x-b.x, dy = a.y-b.y;
+                    var dist = Math.sqrt(dx*dx+dy*dy);
+                    if (dist < 150){
+                        ctx.strokeStyle = 'rgba(220,180,110,' + (0.16 * (1-dist/150)) + ')';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+                    }
+                }
+            }
+            for (var i=0;i<nodes.length;i++){
+                ctx.fillStyle = 'rgba(244,239,228,0.5)';
+                ctx.beginPath(); ctx.arc(nodes[i].x, nodes[i].y, 1.5, 0, Math.PI*2); ctx.fill();
+            }
+            if (!reduceMotion) requestAnimationFrame(step);
+        }
+
+        resize(); init();
+        window.addEventListener('resize', function(){ resize(); init(); });
+        if (reduceMotion) { step(); } else { requestAnimationFrame(step); }
+    })();
+</script>
+</body>
+</html>
