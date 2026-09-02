@@ -46,6 +46,12 @@
     @media (prefers-reduced-motion: reduce){
         html{ scroll-behavior:auto; }
         *{ animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; }
+        /* The animated keyframes above all end on a hidden/zero state, which
+           the 0.001ms override would otherwise freeze on. Pin the network
+           to its fully-connected resting state instead. */
+        .spoke-major, .spoke-minor{ opacity:0.7 !important; stroke-dashoffset:0 !important; }
+        .spoke-major-dot, .spoke-minor-dot{ opacity:1 !important; }
+        .emblem-glow{ opacity:0.7 !important; }
     }
 
     a{ color:inherit; }
@@ -141,20 +147,51 @@
         position:absolute; z-index:0; top:50%; right:-8%;
         width:min(58vw, 760px); aspect-ratio:1/1;
         transform:translateY(-50%);
-        opacity:0.9;
+        opacity:0.95;
         pointer-events:none;
     }
-    .emblem-holder svg{ width:100%; height:100%; display:block; }
+    .emblem-holder svg{ width:100%; height:100%; display:block; overflow:visible; }
+    /* The globe grid and its network of connections turn together, slowly,
+       around the one point that never moves — the origin. Weighty and
+       instrument-like (a turning astrolabe), not a decorative spin. */
     .emblem-spin{
         transform-box:fill-box; transform-origin:50% 50%;
-        animation: emblemSpin 220s linear infinite;
+        animation: emblemSpin 340s linear infinite;
     }
     @keyframes emblemSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
     .emblem-glow{
         transform-box:fill-box; transform-origin:50% 50%;
-        animation: emblemGlow 9s ease-in-out infinite;
+        animation: emblemGlow 10s ease-in-out infinite;
     }
-    @keyframes emblemGlow{ 0%,100%{ opacity:0.55; } 50%{ opacity:0.95; } }
+    @keyframes emblemGlow{ 0%,100%{ opacity:0.5; } 50%{ opacity:0.9; } }
+
+    /* Points across the globe igniting and drawing a line back to the
+       origin, one after another, then fading — as if the whole earth is
+       gradually, endlessly gathering toward a single source. */
+    .spoke-major, .spoke-minor{
+        fill:none; stroke-linecap:round;
+        stroke-dasharray:100; stroke-dashoffset:100;
+        animation: spokeLife 34s ease-in-out infinite;
+    }
+    .spoke-major{ stroke:var(--brass-light); stroke-width:1.4; opacity:0; }
+    .spoke-minor{ stroke:var(--steel-light); stroke-width:0.9; opacity:0; }
+    .spoke-major-dot, .spoke-minor-dot{ animation: dotLife 34s ease-in-out infinite; opacity:0; }
+    .spoke-major-dot{ fill:var(--brass-light); }
+    .spoke-minor-dot{ fill:var(--steel-light); }
+    @keyframes spokeLife{
+        0%{ opacity:0; stroke-dashoffset:100; }
+        10%{ opacity:0.85; stroke-dashoffset:0; }
+        58%{ opacity:0.85; stroke-dashoffset:0; }
+        78%{ opacity:0; stroke-dashoffset:0; }
+        100%{ opacity:0; stroke-dashoffset:100; }
+    }
+    @keyframes dotLife{
+        0%,8%{ opacity:0; }
+        16%{ opacity:1; }
+        58%{ opacity:1; }
+        78%{ opacity:0; }
+        100%{ opacity:0; }
+    }
     .hero-inner{ position:relative; z-index:2; }
     .hero-tag{ color:var(--brass-light); margin-bottom:1.9rem; }
     .hero h1{
@@ -374,56 +411,47 @@
                     </radialGradient>
                 </defs>
 
+                <!-- fixed bezel: the origin does not move -->
                 <circle class="emblem-glow" cx="300" cy="300" r="280" fill="url(#emblemGlowGrad)" />
-
-                <g stroke="rgba(244,239,228,0.14)" fill="none" stroke-width="1">
-                    <circle cx="300" cy="300" r="230" />
-                    <ellipse cx="300" cy="300" rx="230" ry="90" />
-                    <ellipse cx="300" cy="300" rx="230" ry="160" />
-                    <ellipse cx="300" cy="300" rx="90" ry="230" />
-                    <ellipse cx="300" cy="300" rx="160" ry="230" />
-                </g>
-
                 <circle cx="300" cy="300" r="270" fill="none" stroke="rgba(220,180,110,0.4)" stroke-width="1" />
                 <circle cx="300" cy="300" r="180" fill="none" stroke="rgba(220,180,110,0.28)" stroke-width="1" />
 
-                <g class="emblem-spin" stroke="rgba(220,180,110,0.5)" stroke-width="1">
-                    <line x1="450.0" y1="300.0" x2="562.0" y2="300.0" />
-                    <line x1="447.7" y1="326.0" x2="528.5" y2="340.3" />
-                    <line x1="441.0" y1="351.3" x2="529.3" y2="383.5" />
-                    <line x1="429.9" y1="375.0" x2="526.9" y2="431.0" />
-                    <line x1="414.9" y1="396.4" x2="477.7" y2="449.1" />
-                    <line x1="396.4" y1="414.9" x2="456.8" y2="486.9" />
-                    <line x1="375.0" y1="429.9" x2="431.0" y2="526.9" />
-                    <line x1="351.3" y1="441.0" x2="379.3" y2="518.0" />
-                    <line x1="326.0" y1="447.7" x2="342.4" y2="540.3" />
-                    <line x1="300.0" y1="450.0" x2="300.0" y2="562.0" />
-                    <line x1="274.0" y1="447.7" x2="259.7" y2="528.5" />
-                    <line x1="248.7" y1="441.0" x2="216.5" y2="529.3" />
-                    <line x1="225.0" y1="429.9" x2="169.0" y2="526.9" />
-                    <line x1="203.6" y1="414.9" x2="150.9" y2="477.7" />
-                    <line x1="185.1" y1="396.4" x2="113.1" y2="456.8" />
-                    <line x1="170.1" y1="375.0" x2="73.1" y2="431.0" />
-                    <line x1="159.0" y1="351.3" x2="82.0" y2="379.3" />
-                    <line x1="152.3" y1="326.0" x2="59.7" y2="342.4" />
-                    <line x1="150.0" y1="300.0" x2="38.0" y2="300.0" />
-                    <line x1="152.3" y1="274.0" x2="71.5" y2="259.7" />
-                    <line x1="159.0" y1="248.7" x2="70.7" y2="216.5" />
-                    <line x1="170.1" y1="225.0" x2="73.1" y2="169.0" />
-                    <line x1="185.1" y1="203.6" x2="122.3" y2="150.9" />
-                    <line x1="203.6" y1="185.1" x2="143.2" y2="113.1" />
-                    <line x1="225.0" y1="170.1" x2="169.0" y2="73.1" />
-                    <line x1="248.7" y1="159.0" x2="220.7" y2="82.0" />
-                    <line x1="274.0" y1="152.3" x2="257.6" y2="59.7" />
-                    <line x1="300.0" y1="150.0" x2="300.0" y2="38.0" />
-                    <line x1="326.0" y1="152.3" x2="340.3" y2="71.5" />
-                    <line x1="351.3" y1="159.0" x2="383.5" y2="70.7" />
-                    <line x1="375.0" y1="170.1" x2="431.0" y2="73.1" />
-                    <line x1="396.4" y1="185.1" x2="449.1" y2="122.3" />
-                    <line x1="414.9" y1="203.6" x2="486.9" y2="143.2" />
-                    <line x1="429.9" y1="225.0" x2="526.9" y2="169.0" />
-                    <line x1="441.0" y1="248.7" x2="518.0" y2="220.7" />
-                    <line x1="447.7" y1="274.0" x2="540.3" y2="257.6" />
+                <!-- the globe, and everything reaching toward its centre, turning together -->
+                <g class="emblem-spin">
+                    <g stroke="rgba(244,239,228,0.14)" fill="none" stroke-width="1">
+                        <circle cx="300" cy="300" r="230" />
+                        <ellipse cx="300" cy="300" rx="230" ry="90" />
+                        <ellipse cx="300" cy="300" rx="230" ry="160" />
+                        <ellipse cx="300" cy="300" rx="90" ry="230" />
+                        <ellipse cx="300" cy="300" rx="160" ry="230" />
+                    </g>
+
+                    <path class="spoke-major" d="M300,300 L507.0,282.1" pathLength="100" style="animation-delay:-0.0s" />
+                    <circle class="spoke-major-dot" cx="507.0" cy="282.1" r="3.2" style="animation-delay:-0.0s" />
+                    <path class="spoke-minor" d="M300,300 L471.2,406.6" pathLength="100" style="animation-delay:-2.62s" />
+                    <circle class="spoke-minor-dot" cx="471.2" cy="406.6" r="2.1" style="animation-delay:-2.62s" />
+                    <path class="spoke-minor" d="M300,300 L424.3,487.0" pathLength="100" style="animation-delay:-5.23s" />
+                    <circle class="spoke-minor-dot" cx="424.3" cy="487.0" r="2.1" style="animation-delay:-5.23s" />
+                    <path class="spoke-minor" d="M300,300 L377.9,522.3" pathLength="100" style="animation-delay:-7.85s" />
+                    <circle class="spoke-minor-dot" cx="377.9" cy="522.3" r="2.1" style="animation-delay:-7.85s" />
+                    <path class="spoke-major" d="M300,300 L268.7,527.7" pathLength="100" style="animation-delay:-10.46s" />
+                    <circle class="spoke-major-dot" cx="268.7" cy="527.7" r="3.2" style="animation-delay:-10.46s" />
+                    <path class="spoke-minor" d="M300,300 L179.4,463.4" pathLength="100" style="animation-delay:-13.08s" />
+                    <circle class="spoke-minor-dot" cx="179.4" cy="463.4" r="2.1" style="animation-delay:-13.08s" />
+                    <path class="spoke-minor" d="M300,300 L49.5,371.6" pathLength="100" style="animation-delay:-15.69s" />
+                    <circle class="spoke-minor-dot" cx="49.5" cy="371.6" r="2.1" style="animation-delay:-15.69s" />
+                    <path class="spoke-minor" d="M300,300 L86.9,287.7" pathLength="100" style="animation-delay:-18.31s" />
+                    <circle class="spoke-minor-dot" cx="86.9" cy="287.7" r="2.1" style="animation-delay:-18.31s" />
+                    <path class="spoke-major" d="M300,300 L109.5,108.8" pathLength="100" style="animation-delay:-20.92s" />
+                    <circle class="spoke-major-dot" cx="109.5" cy="108.8" r="3.2" style="animation-delay:-20.92s" />
+                    <path class="spoke-minor" d="M300,300 L227.6,84.9" pathLength="100" style="animation-delay:-23.54s" />
+                    <circle class="spoke-minor-dot" cx="227.6" cy="84.9" r="2.1" style="animation-delay:-23.54s" />
+                    <path class="spoke-minor" d="M300,300 L369.1,112.7" pathLength="100" style="animation-delay:-26.15s" />
+                    <circle class="spoke-minor-dot" cx="369.1" cy="112.7" r="2.1" style="animation-delay:-26.15s" />
+                    <path class="spoke-minor" d="M300,300 L453.6,144.5" pathLength="100" style="animation-delay:-28.77s" />
+                    <circle class="spoke-minor-dot" cx="453.6" cy="144.5" r="2.1" style="animation-delay:-28.77s" />
+                    <path class="spoke-major" d="M300,300 L462.5,174.7" pathLength="100" style="animation-delay:-31.38s" />
+                    <circle class="spoke-major-dot" cx="462.5" cy="174.7" r="3.2" style="animation-delay:-31.38s" />
                 </g>
 
                 <circle cx="300" cy="300" r="3.5" fill="#dcb46e" />
@@ -454,7 +482,7 @@
             <div class="belief-grid reveal d1">
                 <div class="belief-tile">
                     <div class="belief-mark belief-mark-kanji">父</div>
-                    <p class="belief-text">OC HOLDINGSという名前は、"すべての父"を意味します。あらゆる挑戦の、始まりであること。それが私たちの原点です。</p>
+                    <p class="belief-text">OC HOLDINGSという名前は、"すべての父"を意味します。一企業の枠を超え、地球規模で新しい文化そのものを生み出す起点であること。それが、この名前に込めた覚悟です。</p>
                 </div>
                 <div class="belief-tile">
                     <div class="belief-mark">0 → 1</div>
@@ -491,6 +519,7 @@
             <div class="light-body reveal d1">
                 <p>人と技術が支え合い、共存共栄していく時代が、確実に近づいています。その中で私たちが本気で向き合いたいのは、「人間にとっての豊かさとは何か」という、根源的な問いです。</p>
                 <p>効率や規模だけでは測れない、人にしかできない仕事。人にしかできない役割。そして、生きる意味そのもの。OCホールディングスは、その探求をこのステージで体現することで、世界の中で異質な、しかし確かな光を放つ企業でありたいと願っています。</p>
+                <p>一つの企業の成長にとどまらない。地球という規模で、新しい文化そのものを築いていくこと——それが、私たちの本当の野心です。</p>
             </div>
         </div>
     </section>
