@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OC Holdings</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,900;1,9..144,500&family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
     :root{
         --ink:#14110d;
@@ -66,13 +66,13 @@
     .on-ink .eyebrow{ color:var(--brass-light); }
     .on-paper .eyebrow{ color:var(--brass-deep); }
 
-    .reveal{ opacity:1; transform:none; transition:opacity 0.9s cubic-bezier(.16,.8,.24,1), transform 0.9s cubic-bezier(.16,.8,.24,1); }
-    .reveal.reveal-hidden{ opacity:0; transform:translateY(28px); }
+    .reveal{ opacity:1; transform:none; transition:opacity 1.2s cubic-bezier(.19,.85,.22,1), transform 1.2s cubic-bezier(.19,.85,.22,1); }
+    .reveal.reveal-hidden{ opacity:0; transform:translateY(22px); }
     .reveal.is-visible{ opacity:1; transform:none; }
-    .reveal.d1{ transition-delay:0.08s; }
-    .reveal.d2{ transition-delay:0.16s; }
-    .reveal.d3{ transition-delay:0.24s; }
-    .reveal.d4{ transition-delay:0.32s; }
+    .reveal.d1{ transition-delay:0.14s; }
+    .reveal.d2{ transition-delay:0.26s; }
+    .reveal.d3{ transition-delay:0.38s; }
+    .reveal.d4{ transition-delay:0.5s; }
 
     /* ---------- NAV ---------- */
     nav{
@@ -118,29 +118,48 @@
 
     /* ---------- HERO ---------- */
     .hero{
-        background: radial-gradient(ellipse 90% 60% at 18% -10%, rgba(179,129,58,0.16), transparent 55%),
-                    radial-gradient(ellipse 70% 50% at 100% 10%, rgba(60,88,114,0.22), transparent 60%),
+        background: radial-gradient(ellipse 60% 55% at 82% 45%, rgba(179,129,58,0.14), transparent 62%),
+                    radial-gradient(ellipse 70% 50% at 8% 100%, rgba(60,88,114,0.16), transparent 60%),
                     linear-gradient(180deg, var(--ink) 0%, var(--ink-2) 100%);
         color:var(--bone);
-        padding:9.5rem 0 5rem;
+        padding:12rem 0 7rem;
         overflow:hidden;
+        border-bottom:1px solid var(--line-dark);
     }
-    .hero-canvas-holder{ position:absolute; inset:0; z-index:0; opacity:0.55; }
-    #netCanvas{ width:100%; height:100%; display:block; }
+    .emblem-holder{
+        position:absolute; z-index:0; top:50%; right:-8%;
+        width:min(58vw, 760px); aspect-ratio:1/1;
+        transform:translateY(-50%);
+        opacity:0.9;
+        pointer-events:none;
+    }
+    .emblem-holder svg{ width:100%; height:100%; display:block; }
+    .emblem-spin{
+        transform-box:fill-box; transform-origin:50% 50%;
+        animation: emblemSpin 220s linear infinite;
+    }
+    @keyframes emblemSpin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
+    .emblem-glow{
+        transform-box:fill-box; transform-origin:50% 50%;
+        animation: emblemGlow 9s ease-in-out infinite;
+    }
+    @keyframes emblemGlow{ 0%,100%{ opacity:0.55; } 50%{ opacity:0.95; } }
     .hero-inner{ position:relative; z-index:2; }
-    .hero-tag{ color:var(--brass-light); margin-bottom:1.6rem; }
+    .hero-tag{ color:var(--brass-light); margin-bottom:1.9rem; }
     .hero h1{
-        font-size:clamp(2.35rem, 5.4vw, 4.35rem);
-        line-height:1.14;
+        font-size:clamp(2.5rem, 5.6vw, 4.6rem);
+        font-weight:700;
+        line-height:1.16;
+        letter-spacing:-0.015em;
         color:var(--bone);
-        max-width:16.5ch;
+        max-width:16ch;
     }
     .hero h1 em{ font-style:italic; font-weight:500; color:var(--brass-light); }
     .hero-sub{
-        margin-top:1.7rem; max-width:44ch; font-size:1.03rem;
-        color:var(--bone-soft); line-height:1.85;
+        margin-top:2rem; max-width:42ch; font-size:1.04rem;
+        color:var(--bone-soft); line-height:1.9;
     }
-    .hero-actions{ margin-top:2.6rem; display:flex; gap:1rem; flex-wrap:wrap; }
+    .hero-actions{ margin-top:3rem; display:flex; gap:1rem; flex-wrap:wrap; }
     .btn{
         display:inline-flex; align-items:center; gap:0.55rem;
         font-family:var(--sans); font-weight:700; font-size:0.9rem; letter-spacing:0.01em;
@@ -160,8 +179,8 @@
         display:flex; flex-direction:column; align-items:center; gap:0.6rem;
         font-family:var(--mono); font-size:0.66rem; letter-spacing:0.28em; color:var(--bone-faint);
     }
-    .scroll-cue .line{ width:1px; height:2.6rem; background:linear-gradient(180deg, var(--brass-light), transparent); animation: cueMove 2.4s ease-in-out infinite; }
-    @keyframes cueMove{ 0%,100%{ transform:scaleY(0.6); opacity:0.5; transform-origin:top; } 50%{ transform:scaleY(1); opacity:1; } }
+    .scroll-cue .line{ width:1px; height:3rem; background:linear-gradient(180deg, var(--brass-light), transparent); animation: cueFade 4.5s ease-in-out infinite; transform-origin:top; }
+    @keyframes cueFade{ 0%,100%{ opacity:0.4; } 50%{ opacity:0.95; } }
 
     /* ---------- VISION STRIP ---------- */
     .vision-strip{ background:var(--ink-2); color:var(--bone); padding:4.2rem 0 4.6rem; border-top:1px solid var(--line-dark); }
@@ -275,6 +294,8 @@
     @media (max-width: 920px){
         .nav-links{ display:none; }
         .nav-toggle{ display:flex; }
+        .hero{ padding:9.5rem 0 5.5rem; }
+        .emblem-holder{ width:min(90vw, 620px); right:-24%; opacity:0.55; }
         .phi-grid{ grid-template-columns:1fr; gap:2rem; }
         .pillar-list{ grid-template-columns:repeat(2,1fr); row-gap:2.4rem; }
         .pillar + .pillar{ margin-left:0; }
@@ -315,7 +336,70 @@
 
     <!-- HERO -->
     <section class="hero">
-        <div class="hero-canvas-holder"><canvas id="netCanvas"></canvas></div>
+        <div class="emblem-holder" aria-hidden="true">
+            <svg viewBox="0 0 600 600">
+                <defs>
+                    <radialGradient id="emblemGlowGrad" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#dcb46e" stop-opacity="0.32" />
+                        <stop offset="100%" stop-color="#dcb46e" stop-opacity="0" />
+                    </radialGradient>
+                </defs>
+
+                <circle class="emblem-glow" cx="300" cy="300" r="280" fill="url(#emblemGlowGrad)" />
+
+                <g stroke="rgba(244,239,228,0.14)" fill="none" stroke-width="1">
+                    <circle cx="300" cy="300" r="230" />
+                    <ellipse cx="300" cy="300" rx="230" ry="90" />
+                    <ellipse cx="300" cy="300" rx="230" ry="160" />
+                    <ellipse cx="300" cy="300" rx="90" ry="230" />
+                    <ellipse cx="300" cy="300" rx="160" ry="230" />
+                </g>
+
+                <circle cx="300" cy="300" r="270" fill="none" stroke="rgba(220,180,110,0.4)" stroke-width="1" />
+                <circle cx="300" cy="300" r="180" fill="none" stroke="rgba(220,180,110,0.28)" stroke-width="1" />
+
+                <g class="emblem-spin" stroke="rgba(220,180,110,0.5)" stroke-width="1">
+                    <line x1="450.0" y1="300.0" x2="562.0" y2="300.0" />
+                    <line x1="447.7" y1="326.0" x2="528.5" y2="340.3" />
+                    <line x1="441.0" y1="351.3" x2="529.3" y2="383.5" />
+                    <line x1="429.9" y1="375.0" x2="526.9" y2="431.0" />
+                    <line x1="414.9" y1="396.4" x2="477.7" y2="449.1" />
+                    <line x1="396.4" y1="414.9" x2="456.8" y2="486.9" />
+                    <line x1="375.0" y1="429.9" x2="431.0" y2="526.9" />
+                    <line x1="351.3" y1="441.0" x2="379.3" y2="518.0" />
+                    <line x1="326.0" y1="447.7" x2="342.4" y2="540.3" />
+                    <line x1="300.0" y1="450.0" x2="300.0" y2="562.0" />
+                    <line x1="274.0" y1="447.7" x2="259.7" y2="528.5" />
+                    <line x1="248.7" y1="441.0" x2="216.5" y2="529.3" />
+                    <line x1="225.0" y1="429.9" x2="169.0" y2="526.9" />
+                    <line x1="203.6" y1="414.9" x2="150.9" y2="477.7" />
+                    <line x1="185.1" y1="396.4" x2="113.1" y2="456.8" />
+                    <line x1="170.1" y1="375.0" x2="73.1" y2="431.0" />
+                    <line x1="159.0" y1="351.3" x2="82.0" y2="379.3" />
+                    <line x1="152.3" y1="326.0" x2="59.7" y2="342.4" />
+                    <line x1="150.0" y1="300.0" x2="38.0" y2="300.0" />
+                    <line x1="152.3" y1="274.0" x2="71.5" y2="259.7" />
+                    <line x1="159.0" y1="248.7" x2="70.7" y2="216.5" />
+                    <line x1="170.1" y1="225.0" x2="73.1" y2="169.0" />
+                    <line x1="185.1" y1="203.6" x2="122.3" y2="150.9" />
+                    <line x1="203.6" y1="185.1" x2="143.2" y2="113.1" />
+                    <line x1="225.0" y1="170.1" x2="169.0" y2="73.1" />
+                    <line x1="248.7" y1="159.0" x2="220.7" y2="82.0" />
+                    <line x1="274.0" y1="152.3" x2="257.6" y2="59.7" />
+                    <line x1="300.0" y1="150.0" x2="300.0" y2="38.0" />
+                    <line x1="326.0" y1="152.3" x2="340.3" y2="71.5" />
+                    <line x1="351.3" y1="159.0" x2="383.5" y2="70.7" />
+                    <line x1="375.0" y1="170.1" x2="431.0" y2="73.1" />
+                    <line x1="396.4" y1="185.1" x2="449.1" y2="122.3" />
+                    <line x1="414.9" y1="203.6" x2="486.9" y2="143.2" />
+                    <line x1="429.9" y1="225.0" x2="526.9" y2="169.0" />
+                    <line x1="441.0" y1="248.7" x2="518.0" y2="220.7" />
+                    <line x1="447.7" y1="274.0" x2="540.3" y2="257.6" />
+                </g>
+
+                <circle cx="300" cy="300" r="3.5" fill="#dcb46e" />
+            </svg>
+        </div>
         <div class="wrap hero-inner">
             <div class="eyebrow hero-tag reveal">OC HOLDINGS — GROUP VISION</div>
             <h1 class="reveal d1">信頼を、<br><em>次の桁</em>へ。</h1>
@@ -646,63 +730,9 @@
         toObserve.forEach(function(el){ io.observe(el); });
     }
 
-    // Hero constellation canvas
-    (function(){
-        var canvas = document.getElementById('netCanvas');
-        if (!canvas) return;
-        var ctx = canvas.getContext('2d');
-        var holder = canvas.parentElement;
-        var W, H, nodes = [];
-        var NODE_COUNT = 46;
-
-        function resize(){
-            W = holder.clientWidth; H = holder.clientHeight;
-            canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
-            canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-            ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
-        }
-
-        function init(){
-            nodes = [];
-            for (var i=0;i<NODE_COUNT;i++){
-                nodes.push({
-                    x: Math.random()*W, y: Math.random()*H,
-                    vx: (Math.random()-0.5)*0.18, vy:(Math.random()-0.5)*0.18
-                });
-            }
-        }
-
-        function step(){
-            ctx.clearRect(0,0,W,H);
-            for (var i=0;i<nodes.length;i++){
-                var n = nodes[i];
-                n.x += n.vx; n.y += n.vy;
-                if (n.x < 0 || n.x > W) n.vx *= -1;
-                if (n.y < 0 || n.y > H) n.vy *= -1;
-            }
-            for (var i=0;i<nodes.length;i++){
-                for (var j=i+1;j<nodes.length;j++){
-                    var a = nodes[i], b = nodes[j];
-                    var dx = a.x-b.x, dy = a.y-b.y;
-                    var dist = Math.sqrt(dx*dx+dy*dy);
-                    if (dist < 150){
-                        ctx.strokeStyle = 'rgba(220,180,110,' + (0.16 * (1-dist/150)) + ')';
-                        ctx.lineWidth = 1;
-                        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
-                    }
-                }
-            }
-            for (var i=0;i<nodes.length;i++){
-                ctx.fillStyle = 'rgba(244,239,228,0.5)';
-                ctx.beginPath(); ctx.arc(nodes[i].x, nodes[i].y, 1.5, 0, Math.PI*2); ctx.fill();
-            }
-            if (!reduceMotion) requestAnimationFrame(step);
-        }
-
-        resize(); init();
-        window.addEventListener('resize', function(){ resize(); init(); });
-        if (reduceMotion) { step(); } else { requestAnimationFrame(step); }
-    })();
+    // The hero emblem's slow rotation and glow breathing are pure CSS
+    // (@keyframes emblemSpin / emblemGlow) and already respect the global
+    // prefers-reduced-motion rule at the top of this stylesheet.
 </script>
 </body>
 </html>
