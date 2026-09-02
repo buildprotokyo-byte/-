@@ -933,6 +933,17 @@
             });
         }, { threshold: 0.18, rootMargin: '0px 0px -8% 0px' });
         toObserve.forEach(function(el){ io.observe(el); });
+
+        // Safety net: whatever the cause — an odd iframe/preview sizing,
+        // a viewport measurement taken before layout settled, a missed
+        // intersection callback — nothing should stay invisible forever.
+        // Force everything visible shortly after load no matter what.
+        setTimeout(function(){
+            document.querySelectorAll('.reveal-hidden').forEach(function(el){
+                el.classList.remove('reveal-hidden');
+                el.classList.add('is-visible');
+            });
+        }, 2000);
     }
 
     // The hero emblem's slow rotation and glow breathing are pure CSS
