@@ -255,7 +255,13 @@
     }
     .phi-body p{ color:var(--ink-soft); font-size:1rem; }
     .phi-body p + p{ margin-top:1.15rem; }
-    .phi-attr{ margin-top:1.8rem; font-family:var(--mono); font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--brass-deep); }
+    .phi-sign{ margin-top:2.2rem; display:flex; align-items:center; gap:1rem; }
+    .phi-mark{
+        width:2.9rem; height:2.9rem; flex-shrink:0; border-radius:50%;
+        border:1px solid var(--brass); display:flex; align-items:center; justify-content:center;
+        font-family:var(--serif); font-weight:600; font-size:1rem; color:var(--brass-deep);
+    }
+    .phi-attr{ font-family:var(--mono); font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--brass-deep); line-height:1.8; }
 
     /* ---------- OUR LIGHT ---------- */
     .our-light{
@@ -280,6 +286,40 @@
     .pillar h3{ font-size:1.15rem; margin-top:1.5rem; color:var(--ink-text); }
     .pillar p{ margin-top:0.7rem; font-size:0.88rem; color:var(--ink-soft); line-height:1.7; }
 
+    /* ---------- STRUCTURE: ORG CHART ---------- */
+    .structure{ background:var(--ink-2); padding:7rem 0; border-top:1px solid var(--line-dark); }
+    .structure-head{ max-width:56ch; margin-bottom:4rem; }
+    .structure-head h2{ color:var(--bone); font-size:clamp(1.6rem,3vw,2.15rem); margin-top:0.9rem; }
+    .orgchart{ display:flex; flex-direction:column; align-items:center; }
+    .org-root{
+        position:relative; text-align:center; padding:1.4rem 2.4rem;
+        border:1px solid var(--brass); background:rgba(179,129,58,0.08);
+        margin-bottom:2.6rem;
+    }
+    .org-root-label{ display:block; font-family:var(--mono); font-size:0.92rem; letter-spacing:0.12em; color:var(--bone); }
+    .org-root-sub{ display:block; margin-top:0.4rem; font-family:var(--serif); font-style:italic; font-size:0.85rem; color:var(--brass-light); }
+    .org-root::after{ content:""; position:absolute; left:50%; bottom:-2.6rem; width:1px; height:2.6rem; background:var(--line-dark); }
+    .org-branches{ width:100%; display:flex; position:relative; padding-top:2.6rem; }
+    .org-branches::before{ content:""; position:absolute; top:0; left:12.5%; right:12.5%; height:1px; background:var(--line-dark); }
+    .org-branch{ flex:1; display:flex; justify-content:center; position:relative; padding:0 0.9rem; }
+    .org-branch::before{ content:""; position:absolute; top:-2.6rem; left:50%; width:1px; height:2.6rem; background:var(--line-dark); }
+    .org-node{
+        width:100%; text-align:center; padding:1.1rem 0.8rem;
+        border:1px solid var(--line-dark); background:var(--ink);
+        font-size:0.86rem; color:var(--bone-soft); line-height:1.5;
+    }
+
+    /* ---------- GROUP COMPANIES ---------- */
+    .companies{ background:var(--paper); padding:7rem 0; }
+    .company-list{ border-top:1px solid var(--paper-line); max-width:920px; }
+    .company-row{
+        display:grid; grid-template-columns:3rem 1fr auto; align-items:baseline; gap:1.2rem;
+        padding:1.35rem 0; border-bottom:1px solid var(--paper-line);
+    }
+    .company-num{ font-family:var(--mono); font-size:0.82rem; color:var(--brass-deep); font-variant-numeric:tabular-nums; }
+    .company-name{ font-family:var(--serif); font-weight:600; font-size:1.08rem; color:var(--ink-text); }
+    .company-segment{ font-family:var(--mono); font-size:0.72rem; letter-spacing:0.09em; text-transform:uppercase; color:var(--ink-faint); text-align:right; white-space:nowrap; }
+
     /* ---------- GROWTH ---------- */
     .growth{ background:var(--ink); color:var(--bone); padding:7rem 0 6rem; }
     .growth-head{ display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:1.5rem; margin-bottom:3.4rem; }
@@ -295,6 +335,13 @@
     .milestone{ border-top:1px solid var(--line-dark); padding-top:1rem; }
     .m-stage{ font-family:var(--mono); font-size:0.68rem; letter-spacing:0.14em; color:var(--brass-light); }
     .m-label{ margin-top:0.55rem; font-size:0.86rem; color:var(--bone-soft); line-height:1.6; }
+    .growth-vision{
+        margin-top:4.5rem; padding-top:3rem; border-top:1px solid var(--line-dark);
+        font-family:var(--serif); font-style:italic; font-weight:500;
+        font-size:clamp(1.35rem,2.4vw,1.85rem); line-height:1.6; color:var(--bone);
+        max-width:34ch;
+    }
+    .growth-vision em{ font-style:italic; color:var(--brass-light); }
 
     /* ---------- GLOBAL ---------- */
     .global{ background:var(--ink-3); color:var(--bone); padding:6.5rem 0; border-top:1px solid var(--line-dark); }
@@ -364,6 +411,12 @@
         .pillar-list{ grid-template-columns:repeat(2,1fr); row-gap:2.4rem; }
         .pillar + .pillar{ margin-left:0; }
         .pillar{ padding-right:1.2rem; }
+        .org-branches{ flex-direction:column; gap:1.2rem; padding-top:1rem; }
+        .org-branches::before{ display:none; }
+        .org-branch{ padding:0; }
+        .org-branch::before{ position:static; height:1.2rem; margin:0 auto; }
+        .company-row{ grid-template-columns:2.4rem 1fr; }
+        .company-segment{ grid-column:1 / -1; text-align:left; margin-top:0.2rem; }
         .belief-grid{ grid-template-columns:1fr; border-top:none; }
         .belief-tile{ border-left:none; padding:1.8rem 0 0; border-top:1px solid var(--line-dark); }
         .belief-tile:first-child{ border-top:none; padding-top:0; }
@@ -389,8 +442,9 @@
         <span class="brand-word">OC HOLDINGS<span> GROUP</span></span>
     </a>
     <ul class="nav-links">
-        <li><a href="#belief">PHILOSOPHY</a></li>
+        <li><a href="#message">MESSAGE</a></li>
         <li><a href="#business">BUSINESS</a></li>
+        <li><a href="#structure">GROUP</a></li>
         <li><a href="#growth">GROWTH</a></li>
         <li><a href="#global">GLOBAL</a></li>
         <li><a href="#news">NEWS</a></li>
@@ -454,13 +508,17 @@
                     <circle class="spoke-major-dot" cx="462.5" cy="174.7" r="3.2" style="animation-delay:-31.38s" />
                 </g>
 
+                <!-- the origin, planted like a standard at the centre of the turning world -->
+                <line x1="300" y1="300" x2="300" y2="272" stroke="#dcb46e" stroke-width="1.4" />
+                <circle cx="300" cy="272" r="7" fill="none" stroke="#dcb46e" stroke-width="1.4" />
+                <circle cx="300" cy="272" r="2.2" fill="#dcb46e" />
                 <circle cx="300" cy="300" r="3.5" fill="#dcb46e" />
             </svg>
         </div>
         <div class="wrap hero-inner">
             <div class="eyebrow hero-tag reveal">OC HOLDINGS GROUP</div>
-            <h1 class="reveal reveal-title d1">世界を担う、<br><em>ひとつの光</em>として。</h1>
-            <p class="hero-sub reveal d2">規模ではなく、希少性で。効率ではなく、深さと意味で。OCホールディングスという名前には、"すべての父"という意味を込めています——あらゆる挑戦の起点として、まだ出会っていない人と、企業と、文化との、新しい出会いを生み出し続ける。それが、私たちの意志です。</p>
+            <h1 class="reveal reveal-title d1">地球に、<br><em>新しい国</em>を築く。</h1>
+            <p class="hero-sub reveal d2">規模ではなく、希少性で。効率ではなく、深さと意味で。OCホールディングスという名前に込めた"すべての父"という意志のもと、地球という舞台の上に、私たちの産業と文化が向かう——新しい国のかたちを、描いていきます。</p>
             <div class="hero-actions reveal d3">
                 <a href="#belief" class="btn btn-primary">私たちの思想を見る</a>
                 <a href="#business" class="btn btn-ghost">事業案内</a>
@@ -497,14 +555,18 @@
     </section>
 
     <!-- PHILOSOPHY -->
-    <section class="philosophy on-paper">
+    <section class="philosophy on-paper" id="message">
         <div class="wrap phi-grid">
             <p class="phi-quote reveal reveal-title">小さな現場の、小さな約束を守ることでしか、<br>大きな信頼は生まれない。</p>
             <div class="phi-body reveal d1">
-                <div class="eyebrow" style="margin-bottom:1.1rem;">GROUP PHILOSOPHY</div>
+                <div class="eyebrow" style="margin-bottom:1.1rem;">GROUP MESSAGE</div>
                 <p>OCホールディングスは、単独の事業ではなく、信頼で結ばれた複数の企業がひとつのグループとして力を合わせることで、単体では届かない挑戦を可能にすると考えています。</p>
                 <p>拡大のための拡大ではなく、一社一社の誠実な積み重ねの先に、結果として大きな企業グループが立ち上がる。それが私たちの目指す成長のかたちです。</p>
-                <div class="phi-attr">OC HOLDINGS GROUP PHILOSOPHY</div>
+                <p>世界一を、規模で競うつもりはありません。私たちが競うのは、希少性であり、深さであり、意味です。誰も見たことのない場所に旗を立てることこそ、この名前に込めた覚悟だと考えています。</p>
+                <div class="phi-sign">
+                    <span class="phi-mark">OC</span>
+                    <div class="phi-attr">GROUP MANAGEMENT<br>OC HOLDINGS INC.</div>
+                </div>
             </div>
         </div>
     </section>
@@ -574,6 +636,80 @@
         </div>
     </section>
 
+    <!-- STRUCTURE: ORG CHART -->
+    <section class="structure on-ink" id="structure">
+        <div class="wrap">
+            <div class="structure-head reveal">
+                <div class="eyebrow">GROUP STRUCTURE</div>
+                <h2>ひとつの起点から、四つの力へ。</h2>
+            </div>
+            <div class="orgchart reveal d1">
+                <div class="org-root">
+                    <span class="org-root-label">OC HOLDINGS</span>
+                    <span class="org-root-sub">すべての父</span>
+                </div>
+                <div class="org-branches">
+                    <div class="org-branch"><div class="org-node">不動産開発</div></div>
+                    <div class="org-branch"><div class="org-node">インフラ・建設</div></div>
+                    <div class="org-branch"><div class="org-node">グローバル投資</div></div>
+                    <div class="org-branch"><div class="org-node">デジタル・イノベーション</div></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GROUP COMPANIES -->
+    <section class="companies on-paper" id="companies">
+        <div class="wrap">
+            <div class="pillars-head reveal">
+                <div class="eyebrow">GROUP COMPANIES</div>
+                <h2>ひとつの意志を分かち合う、グループ各社。</h2>
+            </div>
+            <div class="company-list reveal d1">
+                <div class="company-row">
+                    <span class="company-num">01</span>
+                    <span class="company-name">OCデベロップメント</span>
+                    <span class="company-segment">不動産開発</span>
+                </div>
+                <div class="company-row">
+                    <span class="company-num">02</span>
+                    <span class="company-name">OCコンストラクション</span>
+                    <span class="company-segment">インフラ・建設</span>
+                </div>
+                <div class="company-row">
+                    <span class="company-num">03</span>
+                    <span class="company-name">OCキャピタルパートナーズ</span>
+                    <span class="company-segment">グローバル投資</span>
+                </div>
+                <div class="company-row">
+                    <span class="company-num">04</span>
+                    <span class="company-name">OCデジタルラボ</span>
+                    <span class="company-segment">デジタル・イノベーション</span>
+                </div>
+                <div class="company-row">
+                    <span class="company-num">05</span>
+                    <span class="company-name">OCプロパティマネジメント</span>
+                    <span class="company-segment">不動産管理</span>
+                </div>
+                <div class="company-row">
+                    <span class="company-num">06</span>
+                    <span class="company-name">OCエンジニアリング</span>
+                    <span class="company-segment">設備・技術</span>
+                </div>
+                <div class="company-row">
+                    <span class="company-num">07</span>
+                    <span class="company-name">OCベンチャーズ</span>
+                    <span class="company-segment">新規事業開発</span>
+                </div>
+                <div class="company-row">
+                    <span class="company-num">08</span>
+                    <span class="company-name">OCインターナショナル</span>
+                    <span class="company-segment">海外事業統括</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- GROWTH -->
     <section class="growth on-ink" id="growth">
         <div class="wrap">
@@ -629,6 +765,8 @@
                     <div class="m-label">世界基準の企業グループへ</div>
                 </div>
             </div>
+
+            <p class="growth-vision reveal d3">地球の上に、<em>私たちの産業と文化</em>が息づく——<br>新しい国のかたちを、これから描いていく。</p>
         </div>
     </section>
 
@@ -733,10 +871,10 @@
             <div class="foot-col">
                 <h4>会社情報</h4>
                 <ul>
-                    <li><a href="#belief">私たちの思想</a></li>
+                    <li><a href="#message">代表メッセージ</a></li>
+                    <li><a href="#structure">組織図</a></li>
+                    <li><a href="#companies">グループ企業</a></li>
                     <li><a href="#growth">成長ストーリー</a></li>
-                    <li><a href="#global">グローバル展開</a></li>
-                    <li><a href="#news">お知らせ</a></li>
                 </ul>
             </div>
             <div class="foot-col">
