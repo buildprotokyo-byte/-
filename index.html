@@ -72,24 +72,10 @@
     .on-ink .eyebrow{ color:var(--brass-light); }
     .on-paper .eyebrow{ color:var(--brass-deep); }
 
-    /* Signature reveal: a seam parts from the centre outward, like drawing
-       back a curtain at an unveiling — deliberately not a translateY fade,
-       which reads as a generic template effect. */
-    .reveal{
-        opacity:1; clip-path:inset(0 0 0 0 round 1px); transform:scale(1);
-        transition: opacity 1.6s cubic-bezier(.22,1,.36,1),
-                    clip-path 1.6s cubic-bezier(.22,1,.36,1),
-                    transform 1.6s cubic-bezier(.22,1,.36,1);
-        will-change: clip-path, opacity;
-    }
-    .reveal.reveal-hidden{ opacity:0; clip-path:inset(0 49.5% 0 49.5% round 1px); transform:scale(1.012); }
-    .reveal.is-visible{ opacity:1; clip-path:inset(0 0 0 0 round 1px); transform:scale(1); }
-    .reveal-title{ transition-property: opacity, clip-path, transform, letter-spacing; }
-    .reveal-title.reveal-hidden{ letter-spacing:0.14em; }
-    .reveal.d1{ transition-delay:0.16s; }
-    .reveal.d2{ transition-delay:0.3s; }
-    .reveal.d3{ transition-delay:0.44s; }
-    .reveal.d4{ transition-delay:0.58s; }
+    /* .reveal previously gated visibility on a scroll animation; every
+       section is now plainly visible on load — no JS, no timing, no
+       environment-dependent failure mode. */
+    .reveal{ opacity:1; }
 
     /* ---------- NAV ---------- */
     nav{
@@ -329,8 +315,7 @@
     .growth-target .stat-label{ color:var(--bone-faint); }
     .chart-wrap{ width:100%; }
     .chart-wrap svg{ width:100%; height:auto; display:block; }
-    .growth-path{ stroke-dasharray:1200; stroke-dashoffset:1200; transition:stroke-dashoffset 1.8s cubic-bezier(.16,.8,.24,1); }
-    .is-visible .growth-path{ stroke-dashoffset:0; }
+    .growth-path{ stroke-dasharray:1200; stroke-dashoffset:0; }
     .milestones{ margin-top:3rem; display:grid; grid-template-columns:repeat(5,1fr); gap:1.2rem; }
     .milestone{ border-top:1px solid var(--line-dark); padding-top:1rem; }
     .m-stage{ font-family:var(--mono); font-size:0.68rem; letter-spacing:0.14em; color:var(--brass-light); }
@@ -906,45 +891,9 @@
     document.addEventListener('scroll', onScroll, { passive:true });
     onScroll();
 
-    // Reveal on scroll — anything already on screen at load stays visible immediately;
-    // only elements confirmed below the fold are held back to animate in as they enter view.
-    var revealEls = document.querySelectorAll('.reveal');
-    if (reduceMotion || !('IntersectionObserver' in window)) {
-        revealEls.forEach(function(el){ el.classList.add('is-visible'); });
-    } else {
-        var toObserve = [];
-        revealEls.forEach(function(el){
-            var rect = el.getBoundingClientRect();
-            var inView = rect.top < window.innerHeight * 0.94 && rect.bottom > 0;
-            if (inView) {
-                el.classList.add('is-visible');
-            } else {
-                el.classList.add('reveal-hidden');
-                toObserve.push(el);
-            }
-        });
-        var io = new IntersectionObserver(function(entries){
-            entries.forEach(function(entry){
-                if (entry.isIntersecting) {
-                    entry.target.classList.remove('reveal-hidden');
-                    entry.target.classList.add('is-visible');
-                    io.unobserve(entry.target);
-                }
-            });
-        }, { threshold: 0.18, rootMargin: '0px 0px -8% 0px' });
-        toObserve.forEach(function(el){ io.observe(el); });
-
-        // Safety net: whatever the cause — an odd iframe/preview sizing,
-        // a viewport measurement taken before layout settled, a missed
-        // intersection callback — nothing should stay invisible forever.
-        // Force everything visible shortly after load no matter what.
-        setTimeout(function(){
-            document.querySelectorAll('.reveal-hidden').forEach(function(el){
-                el.classList.remove('reveal-hidden');
-                el.classList.add('is-visible');
-            });
-        }, 2000);
-    }
+    // Content is plain, static CSS — visible immediately, with no
+    // JS-gated reveal-on-scroll step that could fail to fire in some
+    // browser/preview environment and leave sections invisible.
 
     // The hero emblem's slow rotation and glow breathing are pure CSS
     // (@keyframes emblemSpin / emblemGlow) and already respect the global
