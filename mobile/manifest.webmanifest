@@ -1,0 +1,14 @@
+{
+  "name": "BUILD PRO 携帯現場",
+  "short_name": "BUILD PRO",
+  "description": "BUILD PROの携帯現場管理・予定確認",
+  "lang": "ja",
+  "start_url": "BUILDPRO_MOBILE_CURRENT.html?source=home-screen",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6fa",
+  "theme_color": "#12395a",
+  "icons": [
+    {"src":"buildpro-icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}
