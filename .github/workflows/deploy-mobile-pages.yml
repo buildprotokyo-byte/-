@@ -3,7 +3,7 @@ name: Deploy BUILD PRO mobile page to GitHub Pages
 on:
   push:
     branches:
-      - claude/startbuild-pro-launch-bug-i6tltu
+      - main
     paths:
       - "mobile/**"
       - ".github/workflows/deploy-mobile-pages.yml"
