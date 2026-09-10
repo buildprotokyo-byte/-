@@ -12074,7 +12074,7 @@ window.__BUILD_PRO_PC_FULL_V13724__={version:VERSION,fullPcFunctionsPreserved:tr
 <!-- BUILD PRO V13.7.33 | official login + compact top navigation -->
 <style id="bp-v13733-css">
 /* 1-6 primary navigation is always the top-most PC navigation */
-#bp33TopNav{position:sticky;top:0;z-index:2147482100;background:#0b1726;color:#fff;border-bottom:3px solid #7b304a;box-shadow:0 6px 18px rgba(15,23,42,.18)}
+#bp33TopNav{position:sticky;top:var(--bp22-topbar-h,60px);z-index:2147482100;background:#0b1726;color:#fff;border-bottom:3px solid #7b304a;box-shadow:0 6px 18px rgba(15,23,42,.18)}
 #bp33TopNav .bp33-inner{max-width:1280px;margin:0 auto;padding:5px 10px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
 #bp33TopNav button{min-width:0;height:38px;border:1px solid #334155;border-radius:8px;background:#172235;color:#dbe4ee;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 7px;white-space:nowrap;cursor:pointer}
 #bp33TopNav button .n{display:inline-flex;width:20px;height:20px;border-radius:6px;background:#334155;color:#fff;align-items:center;justify-content:center;font-size:10px;flex:0 0 auto}
@@ -14353,6 +14353,26 @@ function wrap(){
 }
 let n=0;const t=setInterval(()=>{if(wrap())clearInterval(t);else if(++n>16)clearInterval(t)},500);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(wrap,0),{once:true});else setTimeout(wrap,0);
+})();
+</script>
+
+<!-- BUILD PRO V13.8.2 | Fix: #bp33TopNav (numbered step tabs) stuck at top:0 overlapped #bp22Topbar instead of sitting below it -->
+<script id="bp-v1382-sticky-header-offset-fix">
+(()=>{'use strict';
+function measure(){
+ const bar=document.getElementById('bp22Topbar');
+ if(!bar)return;
+ const h=Math.ceil(bar.getBoundingClientRect().height);
+ if(h>0)document.documentElement.style.setProperty('--bp22-topbar-h',h+'px');
+}
+function start(){
+ measure();
+ window.addEventListener('resize',measure);
+ const bar=document.getElementById('bp22Topbar');
+ if(bar&&typeof ResizeObserver!=='undefined')new ResizeObserver(measure).observe(bar);
+ let n=0;const t=setInterval(()=>{measure();if(++n>20)clearInterval(t)},500);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(start,0),{once:true});else setTimeout(start,0);
 })();
 </script>
 </body>
