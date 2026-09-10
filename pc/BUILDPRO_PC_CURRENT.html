@@ -14216,5 +14216,38 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 else schedule();
 })();
 </script>
+
+<!-- BUILD PRO V13.8.1 | Plan margin gate: block plan confirmation below the company margin rank floor -->
+<script id="bp-v1381-plan-margin-gate">
+(()=>{'use strict';
+function marginGate(){
+ try{
+  const ev=window.bpEvaluateConstructionV1358?.();
+  const grade=ev?.plan?.margin?.grade;
+  if(grade==='D'||grade==='E')return {severity:'error',step:'detail',title:'粗利ランクが基準を大きく下回っています（D・E）',detail:`現在の粗利ランク：${grade}。D・Eランクのままでは計画決定できません。予算・見積条件を見直すか、上長承認のうえ「受注区分・理由」タグを付けてください。`};
+ }catch(e){}
+ return null;
+}
+function wrap(){
+ if(typeof window.bpCpCheckPlan!=='function'||window.bpCpCheckPlan.__bpV1381)return false;
+ const old=window.bpCpCheckPlan;
+ const f=function(show=true){
+  const result=old.apply(this,arguments)||{errors:[],warnings:[],goods:[]};
+  const gate=marginGate();
+  if(gate&&!result.errors.some(x=>x.title===gate.title)){
+   result.errors.push(gate);
+   try{window.bpCpRenderCheck?.()}catch(e){}
+   const btn=document.getElementById('bp-cp-confirm-plan');if(btn)btn.disabled=true;
+  }
+  return result;
+ };
+ f.__bpV1381=true;
+ window.bpCpCheckPlan=f;
+ return true;
+}
+let n=0;const t=setInterval(()=>{if(wrap())clearInterval(t);else if(++n>16)clearInterval(t)},500);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(wrap,0),{once:true});else setTimeout(wrap,0);
+})();
+</script>
 </body>
 </html>
