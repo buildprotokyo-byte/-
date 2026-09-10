@@ -14403,5 +14403,92 @@ let n=0;const t=setInterval(()=>{reorder();if(++n>150)clearInterval(t)},400);
 document.addEventListener('click',()=>setTimeout(reorder,60),true);
 })();
 </script>
+
+<!-- BUILD PRO V13.8.3 | 現場管理: promote the real 自分の現場一覧 to a bold, always-open panel; make 変更なし/変更あり/緊急 big, tappable, high-contrast buttons -->
+<style id="bp-v1383-impact-style">
+#bpV1383MySites{background:#fff;border:1px solid #cbd5e1;border-left:5px solid #0f766e;border-radius:20px;padding:18px 20px;box-shadow:0 10px 28px rgba(15,23,42,.07);margin-bottom:16px}
+#bpV1383MySites .bp1383-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap}
+#bpV1383MySites .bp1383-eyebrow{font-size:10px;font-weight:1000;letter-spacing:.1em;color:#0f766e}
+#bpV1383MySites h3{margin:3px 0 0;font-size:22px;font-weight:1000;color:#0f172a}
+#bpV1383MySites .bp1383-sub{margin:4px 0 0;font-size:12px;color:#64748b;line-height:1.6;max-width:52ch}
+#bpV1383MySites .bp1383-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+#bpV1383MySites .bp1383-tools input#bpV1373ProjectSearch{flex:1;min-width:220px;min-height:46px;border:1px solid #94a3b8;border-radius:12px;padding:0 14px;font-size:14px}
+#bpV1383MySites .bp1383-tools select#bpV1373ProjectScope{min-height:46px;border:1px solid #94a3b8;border-radius:12px;padding:0 12px;font-size:13px;font-weight:800}
+#bpV1383MySites .bp1383-tools button{min-height:46px;padding:0 18px;border-radius:12px;font-size:13px;font-weight:1000}
+#bpV1373ProjectStatus{font-size:11px;color:#64748b;margin-top:8px}
+#bpV1383MySites .bp-v1373-project-list,#bpV1383MySites .bp-v1375-project-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;margin-top:14px}
+#bpV1383MySites .bp-v1373-project{border:1px solid #dbe4ee;border-left:4px solid #93c5fd;border-radius:16px;padding:15px 16px;background:#f8fafc;box-shadow:0 3px 10px rgba(15,23,42,.04);transition:transform .12s,box-shadow .12s;position:relative;min-height:78px}
+#bpV1383MySites .bp-v1373-project:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(15,23,42,.1);border-left-color:#2563eb;background:#eff6ff}
+#bpV1383MySites .bp-v1373-project:active{transform:translateY(0)}
+#bpV1383MySites .bp-v1373-project b{font-size:16px;font-weight:1000;color:#0f172a}
+#bpV1383MySites .bp-v1373-project span{font-size:11px;color:#64748b;margin-top:5px;line-height:1.5}
+#bpV1383MySites .bp-v1373-project.active{border-left-color:#0f766e;background:#ecfdf5;box-shadow:0 4px 14px rgba(15,118,110,.18)}
+#bpV1383MySites .bp-v1373-project.active::before{content:"選択中";position:absolute;top:-10px;right:12px;background:#0f766e;color:#fff;font-size:10px;font-weight:1000;padding:4px 10px;border-radius:999px;box-shadow:0 2px 6px rgba(15,118,110,.35)}
+#bpV1383CaseBadgeSlot .bp-v1373-home-badge,#bpV1383CaseBadgeSlot .bp-v1375-badge{font-size:12px;padding:8px 12px}
+@media(max-width:640px){#bpV1383MySites .bp-v1373-project-list,#bpV1383MySites .bp-v1375-project-list{grid-template-columns:1fr}}
+
+#bpV1377FieldHome .bp77-head h3{font-size:24px}
+#bpV1377FieldHome .bp77-axis-grid{grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+#bpV1377FieldHome .bp77-axis{padding:16px;border-radius:16px;border-width:2px}
+#bpV1377FieldHome .bp77-axis .label{font-size:15px}
+#bpV1377FieldHome .bp77-axis .state{font-size:11px;padding:6px 10px}
+#bpV1377FieldHome .bp77-axis .mini{font-size:12px;min-height:auto;line-height:1.6;margin-top:8px}
+#bpV1377FieldHome .bp77-axis .bp77-actions{margin-top:12px;gap:8px}
+#bpV1377FieldHome .bp77-btn{min-height:56px;font-size:15px;font-weight:1000;padding:14px 16px;border-radius:14px;letter-spacing:.01em;transition:transform .1s}
+#bpV1377FieldHome .bp77-btn:active{transform:scale(.96)}
+#bpV1377FieldHome .bp77-btn.good{background:#ecfdf3;color:#027a48;border:2px solid #6ee7b0}
+#bpV1377FieldHome .bp77-btn.amber{background:#fff7ed;color:#b45309;border:2px solid #fdba74}
+#bpV1377FieldHome .bp77-btn.red{background:#fff1f2;color:#b91c1c;border:2px solid #fca5a5}
+#bpV1377FieldHome .bp77-master{gap:10px}
+#bpV1377FieldHome .bp77-master .bp77-btn{min-height:58px;font-size:15px}
+#bpV1377FieldHome .bp77-master .allgood{font-size:16px}
+#bpV1377FieldHome .bp77-current{gap:10px}
+#bpV1377FieldHome .bp77-current>div{padding:14px;border-radius:14px}
+#bpV1377FieldHome .bp77-current span{font-size:10px}
+#bpV1377FieldHome .bp77-current b{font-size:21px}
+</style>
+<script id="bp-v1383-my-sites-panel">
+(()=>{'use strict';
+function buildPanel(){
+ let panel=document.getElementById('bpV1383MySites');
+ if(panel)return panel;
+ panel=document.createElement('section');
+ panel.id='bpV1383MySites';
+ panel.innerHTML='<div class="bp1383-head"><div><div class="bp1383-eyebrow">MY SITE LIST</div><h3>自分の現場一覧</h3><p class="bp1383-sub">担当している現場をいつでも一覧で確認し、タップしてすぐ切り替えられます。ここが現場管理の出発点です。</p></div><span id="bpV1383CaseBadgeSlot"></span></div><div class="bp1383-tools" id="bpV1383ToolsSlot"></div><div id="bpV1383ListSlot"></div>';
+ return panel;
+}
+function relocate(){
+ const root=document.getElementById('bpV1373SiteHome');
+ if(!root)return false;
+ const panel=buildPanel();
+ if(root.firstElementChild!==panel)root.insertBefore(panel,root.firstChild);
+ const badgeSlot=document.getElementById('bpV1383CaseBadgeSlot');
+ const badge=document.getElementById('bpV1373CurrentCaseBadge');
+ if(badge&&badgeSlot&&badge.parentElement!==badgeSlot)badgeSlot.appendChild(badge);
+ const toolsSlot=document.getElementById('bpV1383ToolsSlot');
+ if(toolsSlot){
+  const search=document.getElementById('bpV1373ProjectSearch');
+  const scope=document.getElementById('bpV1373ProjectScope');
+  const refreshBtn=document.querySelector('[onclick*="bpV1373RefreshProjects("]');
+  if(search&&search.parentElement!==toolsSlot)toolsSlot.appendChild(search);
+  if(scope&&scope.parentElement!==toolsSlot)toolsSlot.appendChild(scope);
+  if(refreshBtn&&refreshBtn.parentElement!==toolsSlot)toolsSlot.appendChild(refreshBtn);
+ }
+ const status=document.getElementById('bpV1373ProjectStatus');
+ if(status&&toolsSlot&&status.parentElement!==panel)panel.insertBefore(status,document.getElementById('bpV1383ListSlot'));
+ const listSlot=document.getElementById('bpV1383ListSlot');
+ const list=document.getElementById('bpV1373ProjectList');
+ if(list&&listSlot&&list.parentElement!==listSlot)listSlot.appendChild(list);
+ return !!(list&&listSlot);
+}
+let refreshed=false;
+function tick(){
+ const ok=relocate();
+ if(ok&&!refreshed){refreshed=true;try{window.bpV1373RefreshProjects?.()}catch(e){}}
+}
+let n=0;const t=setInterval(()=>{tick();if(++n>150)clearInterval(t)},400);
+document.addEventListener('click',()=>setTimeout(tick,80),true);
+})();
+</script>
 </body>
 </html>
