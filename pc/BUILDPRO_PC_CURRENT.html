@@ -13233,6 +13233,8 @@ function stabilizeDashboard(){
  if(!tab)return false;
  let dash=$('bpTodayWorkDashboard');
  if(!dash){render();dash=$('bpTodayWorkDashboard')}
+ const legacyWrap=$('bpV1382LegacyFieldWrap');
+ if(dash&&legacyWrap){if(dash.parentElement!==legacyWrap)legacyWrap.appendChild(dash);return !!dash}
  if(dash&&dash.parentElement!==tab)tab.insertBefore(dash,tab.firstChild);
  return !!dash;
 }
@@ -14373,6 +14375,32 @@ function start(){
  let n=0;const t=setInterval(()=>{measure();if(++n>20)clearInterval(t)},500);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(start,0),{once:true});else setTimeout(start,0);
+})();
+</script>
+
+<!-- BUILD PRO V13.8.2b | 現場管理: put the current 「SITE CONTROL & PROGRESS」 design first, tuck the older calendar dashboard behind a collapsed details -->
+<script id="bp-v1382-site-tab-reorder">
+(()=>{'use strict';
+function reorder(){
+ const tab=document.getElementById('tab-site-control');
+ const shell=tab?document.querySelector('#tab-site-control > .bp-v1371-site-shell'):null;
+ if(!tab||!shell)return false;
+ let wrap=document.getElementById('bpV1382LegacyFieldWrap');
+ if(!wrap){
+  wrap=document.createElement('details');
+  wrap.id='bpV1382LegacyFieldWrap';
+  wrap.innerHTML='<summary style="cursor:pointer;font-weight:900;padding:11px 4px;color:#475569;font-size:12px">旧・詳細なカレンダー画面を開く（Outlook予定表・週間ビューなど）</summary>';
+  tab.appendChild(wrap);
+ }
+ [...tab.children].forEach(child=>{
+  if(child===shell||child===wrap||child.id==='bp22LegacySiteDetails')return;
+  wrap.appendChild(child);
+ });
+ if(tab.firstElementChild!==shell)tab.insertBefore(shell,tab.firstChild);
+ return true;
+}
+let n=0;const t=setInterval(()=>{reorder();if(++n>150)clearInterval(t)},400);
+document.addEventListener('click',()=>setTimeout(reorder,60),true);
 })();
 </script>
 </body>
