@@ -3835,9 +3835,9 @@ window.bpIsCalibrationControlEvent=function(e){
 
         // ============================================================
         // 企業ホームページ自動リサーチ機能
-        //  ①中継サービス経由でホームページのHTMLを取得
-        //  ②タグ除去して本文テキストのみ抽出
-        //  ③LM StudioのローカルAIに読ませて営業に使える形に要約
+        //  ①中継サービス経由でトップページのHTMLを取得
+        //  ②本文中のリンクから「会社概要・拠点・実績・ニュース・代表挨拶」らしきページを自動で数枚追う
+        //  ③タグ除去して本文テキストのみ抽出し、まとめて共有AI（未接続時はローカルAI）に読ませて営業に使える形に要約
         // ============================================================
 
         // ブラウザから直接fetchすると大半の企業サイトはCORS制限で失敗するため、
@@ -3846,6 +3846,15 @@ window.bpIsCalibrationControlEvent=function(e){
             (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
             (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
             (url) => `https://r.jina.ai/${url}`
+        ];
+
+        // トップページから追いかける、営業が知りたい情報が載っていそうなページの手がかり
+        const COMPANY_SUBPAGE_HINTS = [
+            { key: 'about', label: '会社概要', words: ['会社概要', '企業情報', '会社案内', 'company', 'about'] },
+            { key: 'access', label: '拠点・アクセス', words: ['アクセス', '拠点', '店舗一覧', '事業所', '営業所一覧', 'access'] },
+            { key: 'works', label: '施工・導入実績', words: ['施工事例', '施工実績', '導入事例', '実績紹介', 'works', 'case'] },
+            { key: 'news', label: 'ニュース・お知らせ', words: ['ニュース', 'お知らせ', 'topics', 'news', 'プレスリリース'] },
+            { key: 'message', label: '代表挨拶・企業理念', words: ['ご挨拶', '代表挨拶', '経営理念', '企業理念', 'message', 'philosophy'] }
         ];
 
         // HTML文字列から script/style を除去し、タグを取り除いて本文テキストだけにする
@@ -3857,8 +3866,8 @@ window.bpIsCalibrationControlEvent=function(e){
             return text;
         }
 
-        // 中継サービスを順番に試してホームページの本文テキストを取得する
-        async function fetchWebsiteText(targetUrl) {
+        // 中継サービスを順番に試して、指定URLの生のレスポンス文字列を取得する
+        async function fetchRawViaProxies(targetUrl) {
             let lastError = null;
             for (const buildProxyUrl of CORS_PROXIES) {
                 try {
@@ -3867,16 +3876,62 @@ window.bpIsCalibrationControlEvent=function(e){
                     if (!res.ok) throw new Error(`HTTPステータス ${res.status}`);
                     const raw = await res.text();
                     if (!raw || raw.length < 20) throw new Error('取得結果が空でした');
-                    // r.jina.ai は最初からテキスト化された結果を返すのでタグ除去は不要
-                    const text = raw.trim().startsWith('<') ? extractTextFromHtml(raw) : raw;
-                    if (text && text.length > 20) return text;
-                    throw new Error('本文の抽出に失敗しました');
+                    return raw;
                 } catch (e) {
                     lastError = e;
                     continue; // 次のプロキシへフォールバック
                 }
             }
             throw lastError || new Error('すべての取得経路で失敗しました');
+        }
+
+        // トップページの生HTMLから、会社概要・拠点・実績・ニュース・代表挨拶らしきリンクを1件ずつ探す
+        function findCompanySubpageLinks(html, baseUrl) {
+            const found = {};
+            try {
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const anchors = [...doc.querySelectorAll('a[href]')].slice(0, 500);
+                for (const hint of COMPANY_SUBPAGE_HINTS) {
+                    for (const a of anchors) {
+                        const text = (a.textContent || '').trim();
+                        const href = a.getAttribute('href') || '';
+                        if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) continue;
+                        const hay = (text + ' ' + href).toLowerCase();
+                        if (hint.words.some(w => hay.includes(w.toLowerCase()))) {
+                            try {
+                                const abs = new URL(href, baseUrl).href;
+                                if (/^https?:\/\//.test(abs) && abs !== baseUrl) { found[hint.key] = abs; break; }
+                            } catch (e) { /* 不正なURLは無視 */ }
+                        }
+                    }
+                }
+            } catch (e) { /* リンク抽出に失敗しても、トップページの本文だけで続行する */ }
+            return found;
+        }
+
+        // トップページ＋関連ページ（最大4枚）をまとめて取得し、ラベル付きの本文セクション配列を返す
+        async function fetchCompanySiteCorpus(targetUrl) {
+            const homeRaw = await fetchRawViaProxies(targetUrl);
+            const homeIsHtml = homeRaw.trim().startsWith('<');
+            const homeText = homeIsHtml ? extractTextFromHtml(homeRaw) : homeRaw;
+            if (!homeText || homeText.length < 20) throw new Error('本文の抽出に失敗しました');
+            const sections = [{ label: 'トップページ', url: targetUrl, text: homeText }];
+            // r.jina.aiなど、最初からテキスト化された結果が返る経路ではリンクを拾えないため、生HTMLの時だけ追加ページを探す
+            if (homeIsHtml) {
+                const links = findCompanySubpageLinks(homeRaw, targetUrl);
+                const jobs = Object.entries(links).slice(0, 4);
+                for (const [key, url] of jobs) {
+                    try {
+                        const raw = await fetchRawViaProxies(url);
+                        const text = raw.trim().startsWith('<') ? extractTextFromHtml(raw) : raw;
+                        if (text && text.length > 20) {
+                            const label = COMPANY_SUBPAGE_HINTS.find(h => h.key === key)?.label || key;
+                            sections.push({ label, url, text });
+                        }
+                    } catch (e) { /* このページは取得できなくても、他のページで続行する */ }
+                }
+            }
+            return sections;
         }
 
         function safeParseResearchJson(text) {
@@ -3940,6 +3995,15 @@ window.bpIsCalibrationControlEvent=function(e){
             if (has(['AI', 'DX', '効率化', 'データ', '自動化'])) salesHooks.push('AITEM連携で、工事後の管理・業務改善・データ活用まで提案余地を確認する');
             if (has(['ブランド', 'デザイン', '空間', 'プロデュース'])) salesHooks.push('CRIDO連携で、空間価値・ブランド設計まで相談できる会社として入る');
 
+            // ここから：多店舗展開・自社施工体制・改修/ホテル需要の当たりを、キーワード頻度だけで簡易判定する
+            // （AI接続時はここを使わず、AIが本文の文脈から直接判定する。あくまでAI未接続時の代用）
+            const countHits = (words) => words.reduce((n, w) => n + (t.split(w).length - 1) + (lower.split(String(w).toLowerCase()).length - 1), 0);
+            const levelFromCount = (n, high, mid) => n >= high ? '高' : n >= mid ? '中' : n > 0 ? '低' : '不明';
+            const multiSiteHits = countHits(['店舗', '拠点', '事業所', '全国', 'チェーン', '直営店']);
+            const siteMgmtHits = countHits(['現場監督', '施工管理', '自社施工', '工事部', '建築部', '一級建築士']);
+            const renovationHits = countHits(['改修', 'リノベーション', '大規模修繕', '一棟', 'ビルまるごと']);
+            const hotelHits = countHits(['ホテル', '旅館', '宿泊', 'インバウンド']);
+
             return {
                 company_type: companyType,
                 growth_phase: growthPhase,
@@ -3948,8 +4012,45 @@ window.bpIsCalibrationControlEvent=function(e){
                 recent_signals: Array.from(new Set(recent)),
                 risk_signals: Array.from(new Set(risks)),
                 sales_hooks: Array.from(new Set(salesHooks)),
-                recommended_questions: Array.from(new Set(questions))
+                recommended_questions: Array.from(new Set(questions)),
+
+                headquarters: '要確認（AI接続時に本文から自動抽出）',
+                branch_locations: [],
+                company_scale: { employees: '要確認', capital: '要確認', annual_revenue: '要確認', scale_note: 'キーワード判定のみのため数字は取得できません。AI接続時に自動抽出します。' },
+                business_category: companyType,
+                recent_projects: [],
+                talk_topics: recent.slice(0, 4),
+                philosophy_direction: '要確認（AI接続時に代表挨拶・企業理念のページから推察）',
+                fit_multi_site: { judgement: levelFromCount(multiSiteHits, 6, 2), evidence: `店舗・拠点関連の語が本文に${multiSiteHits}回出現` },
+                fit_site_management: { judgement: levelFromCount(siteMgmtHits, 4, 1), evidence: `現場監督・自社施工関連の語が本文に${siteMgmtHits}回出現` },
+                target_focus_signal: {
+                    renovation_whole_building: levelFromCount(renovationHits, 4, 1),
+                    hotel_related: levelFromCount(hotelHits, 4, 1),
+                    evidence: `改修関連${renovationHits}回／ホテル関連${hotelHits}回の言及`
+                },
+                department_fit_signal: { target_department_guess: '要確認', judgement: '不明', evidence: '組織図・部署名の読み取りはAI接続時のみ対応します。' },
+                partner_names_mentioned: [],
+                missing_but_important: ['本社所在地', '拠点一覧', '会社規模の具体的な数字', '直近の施工・案件実績', '組織図・担当部署']
             };
+        }
+
+        // AIが抽出した取引先・パートナー企業名を、この端末に保存済みの過去案件の顧客名と照合する
+        // （一致すれば「この会社、過去にうちの案件と接点があるかもしれない」の手がかりになる）
+        async function matchKnownClients(names) {
+            const list = Array.isArray(names) ? names.filter(Boolean) : [];
+            if (!list.length || !window.bpCaseStore?.all) return [];
+            try {
+                const snaps = await window.bpCaseStore.all('snapshots');
+                const known = Array.from(new Set(snaps.map(s => (s.form?.clientName || s.caseName || '').trim()).filter(Boolean)));
+                const hits = [];
+                for (const name of list) {
+                    const n = String(name).trim();
+                    if (!n) continue;
+                    const match = known.find(k => k.includes(n) || n.includes(k));
+                    if (match) hits.push({ name: n, matchedCase: match });
+                }
+                return hits;
+            } catch (e) { return []; }
         }
 
         function buildOCHDSynergiesFromResearch(structured, text) {
@@ -4001,11 +4102,11 @@ window.bpIsCalibrationControlEvent=function(e){
 
             btn.disabled = true;
             resultBox.classList.remove('hidden');
-            resultBox.innerHTML = '🔎 ホームページを読み込んでいます…（サイトによっては10〜20秒ほどかかります）';
+            resultBox.innerHTML = '🔎 ホームページを読み込んでいます…（会社概要・拠点・実績・ニュースのページも自動で探します。サイトによっては10〜20秒ほどかかります）';
 
-            let pageText;
+            let sections;
             try {
-                pageText = await fetchWebsiteText(targetUrl);
+                sections = await fetchCompanySiteCorpus(targetUrl);
             } catch (e) {
                 console.error(e);
                 resultBox.innerHTML =
@@ -4015,17 +4116,19 @@ window.bpIsCalibrationControlEvent=function(e){
                 return;
             }
 
-            // PC性能と応答モードに応じ、本文を前後から圧縮する
+            // PC性能と応答モードに応じ、取得した各ページの本文を配分して圧縮する
             const aiProfile = bpAIProfile();
-            const rawPageText = String(pageText || '');
             const keepChars = aiProfile.companyChars;
-            const headChars = Math.round(keepChars * 0.7);
-            const tailChars = keepChars - headChars;
-            const trimmedText = rawPageText.length <= keepChars
-                ? rawPageText
-                : rawPageText.slice(0, headChars) + '\n\n--- 中略（ページ後半の重要情報へ続く） ---\n\n' + rawPageText.slice(-tailChars);
+            const perSection = Math.max(400, Math.floor(keepChars / sections.length));
+            const trimmedText = sections.map(s => {
+                const body = s.text.length <= perSection
+                    ? s.text
+                    : s.text.slice(0, Math.round(perSection * 0.7)) + '\n…\n' + s.text.slice(-Math.round(perSection * 0.3));
+                return `【${s.label}｜${s.url}】\n${body}`;
+            }).join('\n\n');
+            const pageCountNote = sections.map(s => s.label).join('・');
 
-            resultBox.innerHTML = '🤖 取得した内容をAIが分析しています… <span id="bpCompanyAIElapsed" class="font-bold text-indigo-700">0秒</span><br><span class="text-xs text-slate-500">初回はモデル読込を含め1〜5分かかる場合があります。処理中はボタンを再度押さないでください。</span>';
+            resultBox.innerHTML = `🤖 ${escapeHtml(pageCountNote)}（${sections.length}ページ）を読み込み、AIが分析しています… <span id="bpCompanyAIElapsed" class="font-bold text-indigo-700">0秒</span><br><span class="text-xs text-slate-500">初回はモデル読込を含め1〜5分かかる場合があります。処理中はボタンを再度押さないでください。</span>`;
             const aiStartedAt = Date.now();
             const aiElapsedTimer = setInterval(() => {
                 const el = document.getElementById('bpCompanyAIElapsed');
@@ -4045,44 +4148,32 @@ window.bpIsCalibrationControlEvent=function(e){
                         messages: [
                             {
                                 role: "system",
-                                content: "あなたはOCホールディングス/BUILD PROの企業調査担当です。ホームページ本文に書かれた具体的事実だけを使い、経験の浅い営業担当が次の電話で使える情報へ変換してください。一般論・抽象語・テンプレートは禁止。分からない項目は要確認と書き、推測を事実として断定しないでください。JSONのみで返してください。スキーマ:{\"company_type\":\"具体的な企業類型\",\"growth_phase\":\"根拠付きの局面\",\"decision_style\":\"想定と確認先\",\"evidence_facts\":[\"本文で確認できた具体的事実\"],\"construction_needs\":[\"具体的な工事需要仮説\"],\"strong_signals\":[\"事実→営業上の意味→使い方\"],\"weak_signals\":[\"事実または不足→失注・利益リスク\"],\"recent_signals\":[\"直近の具体的な動き\"],\"risk_signals\":[\"確認不足または競合リスク\"],\"sales_hooks\":[\"相手企業の事実に結び付いた会話の切り口\"],\"recommended_questions\":[\"誰に何を確認するか明確な実際の質問文\"]}。各配列は最大4件。質問はそのまま電話で読める日本語にしてください。OCグループ横断提案は本文との接点がある場合だけ出してください。"
+                                content: "あなたはBUILD PRO（建設・改修工事会社）の営業担当が訪問前に読む「企業リサーチ要約」を作る担当です。渡された複数ページの本文に書かれた具体的事実だけを使ってください。憶測で数字や固有名詞を作ってはいけません。分からない項目は必ず「要確認」と書いてください。営業担当はこの情報を2つの目的だけに使います。①訪問時に会話を広げるための話題（直近の実績・ニュース・理念から読み取れる方向性）。②BUILD PROが提供できる工事（特にビル一棟などの大規模改修、ホテル関連）と、この会社が合うかどうかを判断する基礎データ（本社・拠点、会社規模、多店舗展開の有無、自社に現場監督・施工管理機能があるか、組織図や部署名から訪問すべき部署が分かるか、取引先・パートナー企業名）。情報量が多いと営業担当が迷うため、各項目は簡潔に、事実ベースで、配列は最大5件までにしてください。JSONのみで返してください。スキーマ:{\"company_type\":\"具体的な企業類型\",\"growth_phase\":\"根拠付きの局面\",\"decision_style\":\"想定と確認先\",\"recent_signals\":[\"直近の具体的な動き\"],\"risk_signals\":[\"確認不足または競合リスク\"],\"sales_hooks\":[\"相手企業の事実に結び付いた会話の切り口\"],\"recommended_questions\":[\"誰に何を確認するか明確な実際の質問文\"],\"headquarters\":\"本社所在地(本文にあれば)\",\"branch_locations\":[\"営業所・拠点(最大5件)\"],\"company_scale\":{\"employees\":\"\",\"capital\":\"\",\"annual_revenue\":\"\",\"scale_note\":\"根拠\"},\"business_category\":\"事業内容の大カテゴリー\",\"recent_projects\":[{\"name\":\"物件・実績名\",\"property_type\":\"建物種別\",\"scope\":\"内容\"}],\"talk_topics\":[\"訪問時に話せる直近ニュース・トピック(最大4件)\"],\"philosophy_direction\":\"企業理念・代表挨拶から読み取れる会社の方向性\",\"fit_multi_site\":{\"judgement\":\"高/中/低/不明\",\"evidence\":\"根拠\"},\"fit_site_management\":{\"judgement\":\"高/中/低/不明\",\"evidence\":\"根拠\"},\"target_focus_signal\":{\"renovation_whole_building\":\"高/中/低/不明\",\"hotel_related\":\"高/中/低/不明\",\"evidence\":\"根拠\"},\"department_fit_signal\":{\"target_department_guess\":\"訪問すべき部署の推測\",\"judgement\":\"高/中/低/不明\",\"evidence\":\"根拠\"},\"partner_names_mentioned\":[\"本文に出てきた取引先・パートナー企業名(最大6件)\"],\"missing_but_important\":[\"確認できなかった重要項目\"]}。質問はそのまま電話で読める日本語にしてください。"
                             },
                             {
                                 role: "user",
-                                content: `会社名（入力値）: ${companyName || '未入力'}\nURL: ${targetUrl}\n\n---ホームページ本文（抜粋）---\n${trimmedText}\n\n/no_think`
+                                content: `会社名（入力値）: ${companyName || '未入力'}\nURL: ${targetUrl}\n\n---ホームページ本文（複数ページ抜粋）---\n${trimmedText}\n\n/no_think`
                             }
                         ]
                     })
                 });
-                if (!response.ok) throw new Error(`LM Studio HTTPエラー ${response.status}`);
+                if (!response.ok) throw new Error(`AI HTTPエラー ${response.status}`);
                 const data = await response.json();
                 const summary = data?.choices?.[0]?.message?.content || '';
-                if (!summary.trim()) throw new Error('AI応答が空です。LM Studioのコンテキスト長を8192以上にしてください。');
+                if (!summary.trim()) throw new Error('AI応答が空です。');
                 const structured = safeParseResearchJson(summary) || analyzeCompanyTextHeuristically(trimmedText, companyName);
                 updateCompanyResearchData({ url: targetUrl, summary, structured, pageText: trimmedText });
-                const synergies = companyResearchData.ochdSynergies || [];
-                resultBox.innerHTML = `
-                    <span class="font-bold text-indigo-700">✅ 企業リサーチをAI推論に接続しました</span><br>
-                    <span class="text-xs text-slate-500">この情報はタブ②のバッド要素・勝ち筋・OC横断営業トークに反映されます。</span><br><br>
-                    <strong>企業タイプ：</strong>${escapeHtml(structured.company_type || '要確認')}<br>
-                    <strong>推定中核事業：</strong>${escapeHtml(structured.main_business || '要確認')}<br>
-                    <strong>会社規模：</strong>${escapeHtml(structured.company_scale?.scale_judgement || '要確認')}（従業員：${escapeHtml(structured.company_scale?.employees || '不明')}／資本金：${escapeHtml(structured.company_scale?.capital || '不明')}）<br>
-                    <strong>成長/変化サイン：</strong>${escapeHtml(structured.growth_phase || '要確認')}<br>
-                    <strong>想定決裁スタイル：</strong>${escapeHtml(structured.decision_style || '要確認')}<br>
-                    <strong>建設ニーズ仮説：</strong>${escapeHtml((structured.construction_needs || []).join(' / ') || '要確認')}<br>
-                    <strong>OC横断シナジー：</strong>${escapeHtml(synergies.map(s => s.company).join(' / ') || 'BUILD PRO')}<br>
-                    <div class="bp-ai-v11-company"><b>確認できた具体的事実</b><br>${(structured.evidence_facts || structured.recent_signals || []).slice(0,4).map(x=>'・'+escapeHtml(x)).join('<br>') || '・具体的事実を確認できません。電話で最新状況を確認してください。'}</div>
-                    <div class="bp-ai-v11-company"><b>営業上の強み・使い方</b><br>${(structured.strong_signals || []).slice(0,4).map(x=>'・'+escapeHtml(x)).join('<br>') || '・選定理由と工事需要を電話で確認してください。'}</div>
-                    <div class="bp-ai-v11-company"><b>営業上の弱み・失注リスク</b><br>${(structured.weak_signals || structured.risk_signals || []).slice(0,4).map(x=>'・'+escapeHtml(x)).join('<br>') || '・決裁者、競合、予算、実施時期が未確認です。'}</div>
-                    <div class="bp-ai-v11-company"><b>次回そのまま使える質問</b><br>${(structured.recommended_questions || []).slice(0,4).map(q=>'・'+escapeHtml(typeof q==='string'?q:(q.question||JSON.stringify(q)))).join('<br>')}</div>
-                `;
+                const clientMatches = await matchKnownClients(structured.partner_names_mentioned);
+                resultBox.innerHTML = renderCompanyResearchResult(structured, sections, clientMatches);
 
-                // 住所が未入力の場合、本文から住所らしき行を簡易的に拾って補完（見つかった場合のみ）
+                // 住所が未入力の場合、AIが抽出した本社所在地、または本文の住所らしき行で補完する
                 const addressField = document.getElementById('clientAddress');
                 if (addressField && !addressField.value) {
-                    const addrMatch = trimmedText.match(/(東京都|北海道|(?:京都|大阪)府|.{2,3}県)[^\n、。]{2,40}/);
-                    if (addrMatch) {
-                        addressField.value = addrMatch[0].trim();
+                    if (structured.headquarters && !/要確認/.test(structured.headquarters)) {
+                        addressField.value = structured.headquarters;
+                    } else {
+                        const addrMatch = trimmedText.match(/(東京都|北海道|(?:京都|大阪)府|.{2,3}県)[^\n、。]{2,40}/);
+                        if (addrMatch) addressField.value = addrMatch[0].trim();
                     }
                 }
                 calculate();
@@ -4092,16 +4183,69 @@ window.bpIsCalibrationControlEvent=function(e){
                 const structured = analyzeCompanyTextHeuristically(trimmedText, companyName);
                 updateCompanyResearchData({ url: targetUrl, summary: '', structured, pageText: trimmedText });
                 resultBox.innerHTML =
-                    'ホームページの本文取得はできましたが、<span class="text-rose-600 font-bold">ローカルAI（LM Studio）との通信に失敗しました。</span><br>' +
-                    'ただし、簡易キーワード分析でタブ②のOC横断シナジー推論には反映しました。より精密にする場合はLM Studioを起動し、Server SettingsでCORSをオンにしてから、もう一度お試しください。<br><br>' +
-                    '<strong>簡易判定：</strong>' + escapeHtml(structured.company_type || '要確認') + ' / ' + escapeHtml(structured.growth_phase || '要確認') + '<br>' +
-                    '<span class="text-xs text-slate-500">参考：取得できた本文の冒頭</span><br>' +
-                    `<span class="text-xs text-slate-500">${escapeHtml(trimmedText.slice(0, 300).replace(/\n/g, ' '))}…</span>`;
+                    `${escapeHtml(pageCountNote)}（${sections.length}ページ）の本文取得はできましたが、<span class="text-rose-600 font-bold">AIとの通信に失敗しました。</span><br>` +
+                    'ただし、簡易キーワード分析で下記の判定とタブ②のOC横断シナジー推論には反映しました。<br><br>' +
+                    renderCompanyResearchResult(structured, sections, [], true);
                 calculate();
             } finally {
                 clearInterval(aiElapsedTimer);
                 btn.disabled = false;
             }
+        }
+
+        // AI分析結果を「①話を広げる材料」「②うちと合うか判断する基礎データ」の2つに整理して表示する
+        function renderCompanyResearchResult(structured, sections, clientMatches, isHeuristicOnly) {
+            const s = structured || {};
+            const scale = s.company_scale || {};
+            const focus = s.target_focus_signal || {};
+            const multi = s.fit_multi_site || {};
+            const siteMgmt = s.fit_site_management || {};
+            const dept = s.department_fit_signal || {};
+            const projects = (s.recent_projects || []).slice(0, 5);
+            const partners = (s.partner_names_mentioned || []).slice(0, 6);
+            const missing = s.missing_but_important || [];
+
+            const headHtml = isHeuristicOnly
+                ? `<strong>簡易判定：</strong>${escapeHtml(s.company_type || '要確認')} / ${escapeHtml(s.growth_phase || '要確認')}`
+                : `<span class="font-bold text-indigo-700">✅ 企業リサーチをAI推論に接続しました</span><br>` +
+                  `<span class="text-xs text-slate-500">読み込んだページ：${escapeHtml(sections.map(x => x.label).join('・'))}｜企業タイプ：${escapeHtml(s.company_type || '要確認')}｜この情報はタブ②のバッド要素・勝ち筋・OC横断営業トークにも反映されます。</span>`;
+
+            const partnerLine = partners.length
+                ? partners.map(p => {
+                    const hit = clientMatches.find(m => m.name === p);
+                    return '・' + escapeHtml(p) + (hit ? `　<span class="text-emerald-700 font-bold">→過去案件「${escapeHtml(hit.matchedCase)}」と一致の可能性</span>` : '');
+                }).join('<br>')
+                : '・本文からは確認できません。';
+
+            return `
+                ${headHtml}<br><br>
+                <div class="bp-ai-v11-company">
+                    <b>① 訪問時に話を広げる材料</b><br>
+                    <u>直近の施工・案件実績</u><br>
+                    ${projects.length ? projects.map(p => `・${escapeHtml(p.name || '実績名不明')}（${escapeHtml(p.property_type || '建物種別不明')}）：${escapeHtml(p.scope || '')}`).join('<br>') : '・本文からは確認できません（施工事例・実績ページが見当たらない可能性があります）。'}<br><br>
+                    <u>話せる話題・直近ニュース</u><br>
+                    ${(s.talk_topics || []).slice(0, 4).map(x => '・' + escapeHtml(x)).join('<br>') || '・特筆すべき話題は確認できません。'}<br><br>
+                    <u>理念・代表挨拶から読み取れる方向性</u><br>
+                    ・${escapeHtml(s.philosophy_direction || '要確認')}
+                </div>
+                <div class="bp-ai-v11-company">
+                    <b>② うちと合うか判断する基礎データ</b><br>
+                    <u>本社・拠点</u><br>
+                    ・本社：${escapeHtml(s.headquarters || '要確認')}<br>
+                    ・拠点：${escapeHtml((s.branch_locations || []).join(' / ') || '要確認')}<br><br>
+                    <u>会社規模・事業内容</u><br>
+                    ・従業員：${escapeHtml(scale.employees || '不明')}／資本金：${escapeHtml(scale.capital || '不明')}／年商：${escapeHtml(scale.annual_revenue || '不明')}<br>
+                    ・事業内容：${escapeHtml(s.business_category || '要確認')}<br><br>
+                    <u>需要・体制の当たり</u><br>
+                    ・多店舗展開：<b>${escapeHtml(multi.judgement || '不明')}</b>（${escapeHtml(multi.evidence || '根拠不明')}）<br>
+                    ・自社に現場監督/施工管理機能：<b>${escapeHtml(siteMgmt.judgement || '不明')}</b>（${escapeHtml(siteMgmt.evidence || '根拠不明')}）<br>
+                    ・ビル一棟等の大規模改修ニーズ：<b>${escapeHtml(focus.renovation_whole_building || '不明')}</b>／ホテル関連：<b>${escapeHtml(focus.hotel_related || '不明')}</b>（${escapeHtml(focus.evidence || '根拠不明')}）<br><br>
+                    <u>訪問すべき部署・取引先</u><br>
+                    ・部署の推測：${escapeHtml(dept.target_department_guess || '要確認')}（確度：${escapeHtml(dept.judgement || '不明')}／${escapeHtml(dept.evidence || '根拠不明')}）<br>
+                    ・取引先・パートナー企業名：<br>${partnerLine}
+                </div>
+                ${missing.length ? `<div class="bp-ai-v11-company"><b>本文からは確認できなかった項目（電話・訪問時に確認）</b><br>${missing.map(x => '・' + escapeHtml(x)).join('<br>')}</div>` : ''}
+            `;
         }
 
         // LM Studio ローカルAI通信 - V11 具体的営業実行ナビ
