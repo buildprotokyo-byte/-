@@ -5127,7 +5127,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(ranks.schedule===1)add(c,'time',['win'],1,'時間対応が選定要因',2),add(c,'time',['execution','profit','resilience'],-2,'工程最優先',2);
 
     const size=v('sizeType');add(c,'money',['condition','profit','resilience'],size==='fixed_evidence'?2:size==='range'?0:-2,size==='fixed_evidence'?'予算根拠あり':size==='range'?'予算レンジ':'予算根拠が弱い',size==='fixed_evidence'?3:1);
-    if(checked('price-agreement'))add(c,'money',['condition','profit','resilience'],2,'予算感を事前合意',3);else add(c,'money',['condition','profit'],-1,'予算感未合意',1);
+    if(checked('price-agreement'))add(c,'money',['win','condition','profit','resilience'],2,'予算感を事前合意（計画成熟度が高い）',3);else add(c,'money',['win','condition','profit'],-1,'予算感未合意（計画成熟度が低い）',1);
     if(ranks.price===1)add(c,'money',['win','profit','resilience'],-3,'価格最優先',2);else if(ranks.price===2)add(c,'money',['win','profit'],-2,'価格優先度が高い',2);
     const comp=v('compType');if(comp==='exclusive')add(c,'money',['win','profit'],2,'単独特命',3);if(comp==='bid')add(c,'money',['win','profit','resilience'],-2,'入札条件',3);
     if(comp!=='exclusive'){const compCount=parseInt(v('comp-count-slider','2'),10)||2;if(compCount>=6)add(c,'money',['win'],-2,'競合非常に多い',2);else if(compCount>=3)add(c,'money',['win'],-1,'競合が多い',1);}
