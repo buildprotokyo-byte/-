@@ -5152,6 +5152,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const winRate=v('relationship-win-rate');if(winRate==='80-100')add(c,'relationship',['win','resilience'],3,'過去の受注率が高い',2);else if(winRate==='60-80')add(c,'relationship',['win','resilience'],1,'過去の受注率が良好',1);else if(winRate==='0-25'||winRate==='25-40')add(c,'relationship',['win'],-2,'過去の受注率が低い',2);
     const commit=v('commitment-level');add(c,'relationship',['condition','resilience'],commit==='order-intent'?3:commit==='design-contract'?2:commit==='concept'?1:commit==='verbal'?0:-2,commit==='none'?'発注意思の根拠不足':'案件具体度を確認',commit==='order-intent'?3:1);
     if(ranks.trust===1)add(c,'relationship',['win','resilience'],2,'信頼・安心が最優先',2);
+    if(v('group-construction')==='exist')add(c,'relationship',['win','resilience'],-2,'顧客グループ内に建設・設計機能あり',2);
+    if(v('dept-scale')==='21over')add(c,'relationship',['condition','resilience'],-1,'相手部署の人数が多い',1);
     return c;
   }
   function finalize(c){
