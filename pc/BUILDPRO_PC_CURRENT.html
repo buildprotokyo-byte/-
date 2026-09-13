@@ -7677,6 +7677,36 @@ document.addEventListener('DOMContentLoaded',()=>setTimeout(init,800));window.ad
 .bp-cp-course-badge.show{display:inline-flex}
 .bp-cp-course-badge u{text-decoration:underline;font-weight:900}
 @media(max-width:760px){.bp-cp-gate-cards,.bp-cp-gate-cards.two{grid-template-columns:1fr}}
+.bp-cp-wizard-launcher{display:none;align-items:center;gap:.5rem;border:1px solid #a5f3fc;background:#ecfeff;color:#0e7490;border-radius:.85rem;padding:.7rem .9rem;font-size:.74rem;font-weight:800;cursor:pointer;width:fit-content}
+.bp-cp-wizard-launcher.show{display:flex}
+.bp-cp-wizard{position:fixed;inset:0;z-index:9100;background:rgba(15,23,42,.78);display:none;align-items:center;justify-content:center;padding:16px}
+.bp-cp-wizard.open{display:flex}
+.bp-cp-wizard-card{width:min(560px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:1.2rem;padding:1.3rem;box-shadow:0 24px 70px rgba(15,23,42,.4);display:flex;flex-direction:column;gap:.9rem}
+.bp-cp-wizard-top{display:flex;align-items:center;justify-content:space-between;gap:.6rem}
+.bp-cp-wizard-progress{font-size:.66rem;font-weight:900;color:#0891b2}
+.bp-cp-wizard-progress-bar{height:5px;border-radius:999px;background:#e2e8f0;overflow:hidden}
+.bp-cp-wizard-progress-bar i{display:block;height:100%;background:linear-gradient(90deg,#0891b2,#22d3ee);border-radius:999px;transition:width .25s}
+.bp-cp-wizard-close{border:0;background:none;color:#94a3b8;font-size:1.1rem;cursor:pointer;line-height:1}
+.bp-cp-wizard-q b{display:block;font-size:1.02rem;font-weight:900;color:#0f172a;line-height:1.4}
+.bp-cp-wizard-q p{margin:.35rem 0 0;font-size:.72rem;color:#64748b;line-height:1.5}
+.bp-cp-wizard-answer{display:flex;flex-direction:column;gap:.5rem}
+.bp-cp-wizard-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}
+.bp-cp-wizard-choice{border:1.5px solid #cbd5e1;border-radius:.75rem;background:#f8fafc;padding:.65rem .7rem;text-align:left;cursor:pointer;font:inherit;font-size:.78rem;font-weight:800;color:#0f172a}
+.bp-cp-wizard-choice:hover{border-color:#0891b2}
+.bp-cp-wizard-choice.is-selected{border-color:#0891b2;background:#ecfeff;color:#0e7490}
+.bp-cp-wizard-answer input,.bp-cp-wizard-answer textarea{width:100%;border:1px solid #cbd5e1;border-radius:.7rem;padding:.7rem .8rem;font-size:.85rem;font:inherit}
+.bp-cp-wizard-answer textarea{min-height:90px;resize:vertical}
+.bp-cp-wizard-voice{display:none;align-items:center;gap:.5rem}
+.bp-cp-wizard-mic{border:1.5px solid #0891b2;background:#ecfeff;color:#0e7490;border-radius:999px;width:2.6rem;height:2.6rem;font-size:1.1rem;cursor:pointer;flex:0 0 auto}
+.bp-cp-wizard-mic.listening{background:#0891b2;color:#fff;animation:bpCpWizardPulse 1s infinite}
+@keyframes bpCpWizardPulse{0%,100%{box-shadow:0 0 0 0 rgba(8,145,178,.45)}50%{box-shadow:0 0 0 8px rgba(8,145,178,0)}}
+.bp-cp-wizard-heard{font-size:.68rem;color:#0891b2;font-weight:800}
+.bp-cp-wizard-foot{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding-top:.7rem;border-top:1px solid #e2e8f0}
+.bp-cp-wizard-foot-left{display:flex;gap:.4rem}
+.bp-cp-wizard-trade-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem;max-height:280px;overflow:auto;padding:.2rem}
+.bp-cp-wizard-trade{border:1.5px solid #cbd5e1;border-radius:.6rem;background:#f8fafc;padding:.5rem .6rem;text-align:left;cursor:pointer;font:inherit;font-size:.7rem;font-weight:800}
+.bp-cp-wizard-trade.is-selected{border-color:#0891b2;background:#ecfeff;color:#0e7490}
+@media(max-width:760px){.bp-cp-wizard-choices,.bp-cp-wizard-trade-grid{grid-template-columns:1fr}}
 </style>
 <script id="bp-construction-planner-v4-js">
 (function(){
@@ -7697,6 +7727,7 @@ let activeStep='handoff';
 let selectedDetailId='';
 let tradeChecks=new Set();
 let draggingId='';
+let wizardQueue=[],wizardIndex=0,wizardTradeSel=new Set(),wizardRec=null;
 let scheduleRefreshTimer=null;
 let lastCheck={errors:[],warnings:[],goods:[]};
 const ORDER_STATUS=[['not_started','未打診'],['oral_possible','口頭で打診可能'],['checking','日程・対応可否を確認中'],['quote_waiting','見積もり待ち'],['quote_confirmed','見積受領・金額確定'],['ordered','発注済み']];
@@ -7732,8 +7763,18 @@ function gateHtml(){return `<div class="bp-cp-gate" id="bp-cp-gate"><div class="
  <select id="bp-cp-course-size" style="display:none">${['',...COURSE_SIZES.map(x=>x[0])].map(v=>`<option value="${v}"></option>`).join('')}</select>
  <select id="bp-cp-course-method" style="display:none">${['',...COURSE_METHODS.map(x=>x[0])].map(v=>`<option value="${v}"></option>`).join('')}</select>
  <select id="bp-cp-course-voice" style="display:none">${['',...COURSE_VOICE.map(x=>x[0])].map(v=>`<option value="${v}"></option>`).join('')}</select>`}
+function wizardHtml(){return `<button type="button" class="bp-cp-wizard-launcher" id="bp-cp-wizard-launcher" onclick="bpCpWizardOpen()">🎙️ 自動オペレーションで質問に答えながら入力を進める</button>
+<div class="bp-cp-wizard" id="bp-cp-wizard"><div class="bp-cp-wizard-card">
+ <div class="bp-cp-wizard-top"><span class="bp-cp-wizard-progress" id="bp-cp-wizard-progress">質問 1/1</span><button type="button" class="bp-cp-wizard-close" onclick="bpCpWizardClose()">×</button></div>
+ <div class="bp-cp-wizard-progress-bar"><i id="bp-cp-wizard-bar" style="width:0%"></i></div>
+ <div class="bp-cp-wizard-q"><b id="bp-cp-wizard-title"></b><p id="bp-cp-wizard-help"></p></div>
+ <div class="bp-cp-wizard-answer" id="bp-cp-wizard-answer"></div>
+ <div class="bp-cp-wizard-voice" id="bp-cp-wizard-voice-row"><button type="button" class="bp-cp-wizard-mic" id="bp-cp-wizard-mic" onclick="bpCpWizardListen()">🎤</button><span class="bp-cp-wizard-heard" id="bp-cp-wizard-heard"></span></div>
+ <div class="bp-cp-wizard-foot"><div class="bp-cp-wizard-foot-left"><button type="button" class="bp-cp-btn" onclick="bpCpWizardBack()" id="bp-cp-wizard-back">← 前へ</button><button type="button" class="bp-cp-btn" onclick="bpCpWizardSkip()" id="bp-cp-wizard-skip">スキップ</button></div><button type="button" class="bp-cp-btn primary" onclick="bpCpWizardNext()" id="bp-cp-wizard-next">次へ →</button></div>
+</div></div>`}
 function shellHtml(){return `<div id="bp-cp-v4">
  ${gateHtml()}
+ ${wizardHtml()}
  <div class="bp-cp-hero"><div><h3>施工管理計画｜営業引継ぎから横断工程まで</h3><p>縦長入力をやめ、必要な作業を段階ごとに確認。計画チェックに合格するまで「計画決定」へ進めません。</p></div><div class="bp-cp-hero-actions"><button class="bp-cp-btn primary" type="button" onclick="bpCpInheritSales()">案件取得情報を引き継ぐ</button><button class="bp-cp-btn accent" type="button" onclick="bpCpCheckPlan(true)">自分の計画をチェック</button><button class="bp-cp-btn" type="button" onclick="saveConstructionPlan()">保存</button></div></div>
  <div class="bp-cp-stepbar" id="bp-cp-stepbar">${[['handoff','1','案件引継ぎ'],['basic','2','基本入力'],['confirm','3','基本確認'],['trades','4','工種選択'],['schedule','5','工程編集'],['detail','6','詳細・発注'],['check','7','計画チェック'],['operation','8','現場運用']].map(([id,n,t])=>`<button type="button" class="bp-cp-step ${id==='handoff'?'is-active':''}" data-step="${id}" onclick="bpCpSwitchStep('${id}')"><span class="bp-cp-step-no">${n}</span><span class="bp-cp-step-title">${t}</span><span class="bp-cp-step-status" data-status="${id}"></span></button>`).join('')}</div>
  ${panelHandoff()}${panelBasic()}${panelConfirm()}${panelTrades()}${panelSchedule()}${panelDetail()}${panelCheck()}${panelOperation()}
@@ -7752,8 +7793,9 @@ function bpCpLoadFields(){try{const raw=JSON.parse(localStorage.getItem('bpConst
 function bpCpCourseLabel(group,v){const src=group==='size'?COURSE_SIZES:group==='method'?COURSE_METHODS:COURSE_VOICE;return src.find(x=>x[0]===v)?.[1]||''}
 window.bpCpGatePick=function(group,v){const card=document.querySelector(`#bp-cp-gate [data-gate-group="${group}"]`);if(!card)return;card.querySelectorAll('.bp-cp-gate-card').forEach(b=>b.classList.toggle('is-selected',b.dataset.gateValue===v));const sel=q('bp-cp-course-'+group);if(sel)sel.value=v;const done=['size','method','voice'].every(g=>value('bp-cp-course-'+g));const next=q('bp-cp-gate-next'),hint=q('bp-cp-gate-hint');if(next)next.disabled=!done;if(hint)hint.textContent=done?'選択できました。内容を確認して始めてください。':'上の3項目をすべて選んでください。'};
 function bpCpGateBadgeText(){const size=value('bp-cp-course-size'),method=value('bp-cp-course-method'),voice=value('bp-cp-course-voice');if(!size||!method||!voice)return'';return `進め方：<u>${bpCpCourseLabel('size',size)}</u>／<u>${bpCpCourseLabel('method',method)}</u>／<u>${bpCpCourseLabel('voice',voice)}</u>（変更）`}
-function bpCpGateApplyBadge(){const b=q('bp-cp-course-badge');if(!b)return;const t=bpCpGateBadgeText();if(t){b.innerHTML=t;b.classList.add('show')}else{b.classList.remove('show')}}
-window.bpCpGateConfirm=function(){if(!(value('bp-cp-course-size')&&value('bp-cp-course-method')&&value('bp-cp-course-voice')))return;q('bp-cp-gate')?.classList.remove('open');bpCpGateApplyBadge();bpCpFieldChanged();try{window.bpCpUpdateStepStatus?.()}catch(e){}try{const raw=JSON.parse(localStorage.getItem('bpConstructionPlan_v3')||'null')||{version:3,fields:{}};raw.fields=raw.fields||{};['size','method','voice'].forEach(g=>{raw.fields['bp-cp-course-'+g]={value:value('bp-cp-course-'+g)}});localStorage.setItem('bpConstructionPlan_v3',JSON.stringify(raw))}catch(e){}};
+function bpCpWizardSyncLauncher(){const btn=q('bp-cp-wizard-launcher');if(!btn)return;const c=window.bpCpEntryCourse?window.bpCpEntryCourse():null;btn.classList.toggle('show',!!(c&&c.ready&&c.method==='auto'))}
+function bpCpGateApplyBadge(){const b=q('bp-cp-course-badge');if(!b)return;const t=bpCpGateBadgeText();if(t){b.innerHTML=t;b.classList.add('show')}else{b.classList.remove('show')}bpCpWizardSyncLauncher()}
+window.bpCpGateConfirm=function(){if(!(value('bp-cp-course-size')&&value('bp-cp-course-method')&&value('bp-cp-course-voice')))return;q('bp-cp-gate')?.classList.remove('open');bpCpGateApplyBadge();bpCpFieldChanged();try{window.bpCpUpdateStepStatus?.()}catch(e){}try{const raw=JSON.parse(localStorage.getItem('bpConstructionPlan_v3')||'null')||{version:3,fields:{}};raw.fields=raw.fields||{};['size','method','voice'].forEach(g=>{raw.fields['bp-cp-course-'+g]={value:value('bp-cp-course-'+g)}});localStorage.setItem('bpConstructionPlan_v3',JSON.stringify(raw))}catch(e){}if(value('bp-cp-course-method')==='auto')setTimeout(()=>window.bpCpWizardOpen?.(),150)};
 window.bpCpGateReopen=function(){['size','method','voice'].forEach(g=>{const v=value('bp-cp-course-'+g);document.querySelectorAll(`#bp-cp-gate [data-gate-group="${g}"] .bp-cp-gate-card`).forEach(b=>b.classList.toggle('is-selected',b.dataset.gateValue===v))});const next=q('bp-cp-gate-next');if(next)next.disabled=!(value('bp-cp-course-size')&&value('bp-cp-course-method')&&value('bp-cp-course-voice'));q('bp-cp-gate')?.classList.add('open')};
 function bpCpGateSync(){const done=value('bp-cp-course-size')&&value('bp-cp-course-method')&&value('bp-cp-course-voice');if(done){bpCpGateApplyBadge();q('bp-cp-gate')?.classList.remove('open')}else{bpCpGateApplyBadge();window.bpCpGateReopen()}}
 window.bpCpEntryCourse=function(){return{size:value('bp-cp-course-size')||'',method:value('bp-cp-course-method')||'',voice:value('bp-cp-course-voice')||'',ready:!!(value('bp-cp-course-size')&&value('bp-cp-course-method')&&value('bp-cp-course-voice'))}};
@@ -7802,6 +7844,78 @@ window.bpCpConfirmPlan=function(){bpCpCheckPlan(false);if(lastCheck.errors.lengt
 function bpCpUpdateStepStatus(){const set=(step,status)=>{const e=document.querySelector(`[data-status="${step}"]`);if(e)e.className='bp-cp-step-status '+status};set('handoff',value('bp-cp-client-name')&&value('bp-cp-project-name')&&value('bp-cp-major-handoff')?'done':'warn');const basic=['bp-cp-project-template','bp-cp-manager','bp-cp-site-start','bp-cp-work-complete','bp-cp-inspection-internal','bp-cp-inspection-external','bp-cp-handover'].every(value);set('basic',basic?'done':'warn');const conf=['bp-cp-doc-status','bp-cp-missing-status','bp-cp-direct-cost-deadline','bp-cp-indirect-cost-deadline','bp-cp-order-reply-deadline','bp-cp-subcontract-order-deadline','bp-cp-material-order-deadline'].every(value);set('confirm',conf?'done':'warn');const s=getState();set('trades',s?.workPackages?.length?'done':'warn');set('schedule',taskRows().length?'done':'warn');const detailOk=s?.workPackages?.length&&s.workPackages.every(w=>w.name&&(['support_action','other_expense'].includes(w.category)||Number(w.totalDays)>0));set('detail',detailOk?'done':'warn');set('check',lastCheck.errors.length?'error':lastCheck.goods.length?'done':'warn');set('operation',s?.cpPlan?.confirmed?'done':'warn')}
 function bpCpRenderAll(){normalizeState();ensureExtras();bpCpRenderTradeCatalog(value('bp-cp-trade-search'));renderSelectedTrades();bpCpRenderScheduleEditor();bpCpRenderGantt();bpCpRenderDetail();bpCpUpdateStepStatus()}
 window.bpCpRenderAll=bpCpRenderAll;
+function wizardParseDate(text){if(!text)return'';const t=String(text).replace(/[、。\s]/g,'');let m=t.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);if(m)return`${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;m=t.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);if(m)return`${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;m=t.match(/(\d{1,2})月(\d{1,2})日/);if(m){const now=new Date();let y=now.getFullYear();if(Number(m[1])<now.getMonth()-4)y+=1;return`${y}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}`}return''}
+function wizardParseNumber(text){const m=String(text||'').replace(/,/g,'').match(/\d+(\.\d+)?/);return m?m[0]:''}
+function wizardCourse(){return window.bpCpEntryCourse?window.bpCpEntryCourse():{size:'standard',method:'manual',voice:'manual-only',ready:false}}
+function wizardVoiceEnabled(){return wizardCourse().voice==='voice'}
+function wizardQuestionVisible(qq){return!qq.condition||qq.condition()}
+function buildWizardQueue(){const small=wizardCourse().size==='small';const base=[
+ {id:'client-name',step:'handoff',type:'text',field:'bp-cp-client-name',title:'お客様（発注者）のお名前は？',help:'法人名・個人名など、そのままお答えください。'},
+ {id:'project-name',step:'handoff',type:'text',field:'bp-cp-project-name',title:'案件・物件の名前は？',help:'例：〇〇マンション101号室リノベーション'},
+ {id:'sales-owner',step:'handoff',type:'text',field:'bp-cp-sales-owner',optional:true,title:'営業担当者のお名前は？'},
+ {id:'major-handoff',step:'handoff',type:'text',multiline:true,field:'bp-cp-major-handoff',title:'この案件で絶対に外せない重大な条件はありますか？',help:'例：開業日が絶対条件。価格より短工期と安心を優先。'},
+ {id:'customer-character',step:'handoff',type:'text',multiline:true,optional:true,field:'bp-cp-customer-character',title:'お客様の性格や、施工上の注意点はありますか？'},
+ {id:'project-priority',step:'basic',type:'choice',field:'bp-cp-project-priority',title:'この工事で最も求められているものは？',options:[['quality','品質'],['budget','予算・価格'],['schedule','工程'],['trust','信用'],['communication','コミュニケーション']]},
+ {id:'manager',step:'basic',type:'text',field:'bp-cp-manager',title:'施工管理担当者のお名前は？'},
+ {id:'project-template',step:'basic',type:'choice',field:'bp-cp-project-template',title:'工事タイプは？',options:Object.entries(PRESETS).map(([v,p])=>[v,p.label])},
+ {id:'order-confirmed',step:'basic',type:'date',field:'bp-cp-order-confirmed',title:'受注確定日はいつですか？'},
+ {id:'estimate-submitted',step:'basic',type:'date',field:'bp-cp-estimate-submitted',optional:true,title:'見積もり提出日はいつですか？'},
+ {id:'site-start',step:'basic',type:'date',field:'bp-cp-site-start',title:'着工日はいつですか？'},
+ {id:'work-complete',step:'basic',type:'date',field:'bp-cp-work-complete',title:'工事完了日はいつですか？'},
+ {id:'inspection-internal',step:'basic',type:'date',field:'bp-cp-inspection-internal',title:'社内検査日はいつですか？',condition:()=>!small},
+ {id:'inspection-external',step:'basic',type:'date',field:'bp-cp-inspection-external',title:'社外検査日はいつですか？',condition:()=>!small},
+ {id:'handover',step:'basic',type:'date',field:'bp-cp-handover',title:'お引き渡し日はいつですか？'},
+ {id:'doc-status',step:'confirm',type:'choice',field:'bp-cp-doc-status',title:'必要な図面・資料は揃っていますか？',options:[['complete','揃っている'],['partial','一部不足している'],['missing','大きく不足している']]},
+ {id:'doc-select',step:'confirm',type:'docs',title:'受け取っている資料を選んでください',help:'タップ、または資料名を話して選んでください。複数選べます。'},
+ {id:'missing-status',step:'confirm',type:'choice',field:'bp-cp-missing-status',title:'不足している情報はありますか？',options:[['none','不足なし'],['yes','不足あり']]},
+ {id:'missing-detail',step:'confirm',type:'text',field:'bp-cp-missing-detail',title:'何が、誰が、いつまでに必要ですか？',condition:()=>value('bp-cp-missing-status')==='yes'},
+ {id:'direct-cost-deadline',step:'confirm',type:'date',field:'bp-cp-direct-cost-deadline',title:'直接工事費を確定する期限は？',condition:()=>!small},
+ {id:'indirect-cost-deadline',step:'confirm',type:'date',field:'bp-cp-indirect-cost-deadline',title:'間接経費を確定する期限は？',condition:()=>!small},
+ {id:'order-reply-deadline',step:'confirm',type:'date',field:'bp-cp-order-reply-deadline',title:'受注確定の回答期限は？',condition:()=>!small},
+ {id:'subcontract-order-deadline',step:'confirm',type:'date',field:'bp-cp-subcontract-order-deadline',title:'下請発注を完了する期限は？',condition:()=>!small},
+ {id:'material-order-deadline',step:'confirm',type:'date',field:'bp-cp-material-order-deadline',title:'材料発注を完了する期限は？',condition:()=>!small},
+ {id:'trades-base',step:'trades',type:'trade-base',title:'工種選択：まず基本セットを使いますか？',help:'工事タイプに応じた基本工種セットを自動で追加できます。'},
+ {id:'trades-extra',step:'trades',type:'trade-extra',title:'追加で必要な工種はありますか？',optional:true,help:'タップ、または工種名を話して選んでください。複数選べます。不要なら「スキップ」してください。'},
+ {id:'trade-detail-gen',step:'detail',type:'detail-generate',title:''},
+ {id:'contract-total',step:'budget',type:'number',field:'bp-cp-contract-total',title:'受注金額・契約金額はいくらですか？（万円・税別）',help:'例：1500'},
+ {id:'schedule-generate',step:'schedule',type:'schedule-generate',title:'工程表を自動生成します',help:'着工日・引き渡し日など、ここまでの回答から横断工程表を作成します。'},
+ {id:'final-check',step:'check',type:'final-check',title:'計画チェックを実行します',help:'未入力・矛盾がないか、最後に確認します。'}
+];return base}
+function wizardExpandDetailQuestions(){const works=(getState()?.workPackages||[]).filter(w=>!['support_action','other_expense'].includes(w.category));const extra=[];works.forEach(w=>{const label=w.name||tradeLabel(w.category);extra.push({id:'amt-'+w.id,step:'detail',type:'detail',title:`「${label}」の発注予定金額は？（万円）`,help:'おおよその金額で構いません。あとから調整できます。',optional:true,getVal:()=>w.orderAmount||'',setVal:v=>window.bpCpUpdatePackage(w.id,'orderAmount',v,false)});extra.push({id:'days-'+w.id,step:'detail',type:'detail',title:`「${label}」の合計作業日数は？`,help:'現場での実働日数の目安です。',optional:true,getVal:()=>w.totalDays||'',setVal:v=>window.bpCpUpdatePackage(w.id,'totalDays',v,false)})});wizardQueue.splice(wizardIndex+1,0,...extra)}
+function bpCpWizardCommit(qq){if(qq.type==='text'||qq.type==='date'||qq.type==='number'){const el=q('bp-cp-wizard-input');if(!el)return;const target=q(qq.field);if(target){target.value=el.value;target.dispatchEvent(new Event('input',{bubbles:true}));target.dispatchEvent(new Event('change',{bubbles:true}));if(qq.type==='date'&&window.bpCpDateChanged)window.bpCpDateChanged(qq.field);else bpCpFieldChanged()}}else if(qq.type==='detail'){const el=q('bp-cp-wizard-input');if(el)qq.setVal(el.value)}else if(qq.type==='trade-extra'){wizardTradeSel.forEach(v=>tradeChecks.add(v));if(tradeChecks.size)window.bpCpAddCheckedTrades();wizardTradeSel=new Set()}else if(qq.type==='schedule-generate'){if(value('bp-cp-site-start')&&value('bp-cp-handover'))window.bpCpGenerateSchedule(false)}else if(qq.type==='final-check'){window.bpCpRenderAll?.();window.bpCpCheckPlan(false)}}
+function bpCpWizardFinish(){bpCpWizardClose();try{window.bpCpSwitchStep?.('check',true)}catch(e){}}
+function bpCpWizardGotoValid(start,dir){let i=start;while(i>=0&&i<wizardQueue.length&&!wizardQuestionVisible(wizardQueue[i]))i+=dir;if(i<0){wizardIndex=0}else if(i>=wizardQueue.length){bpCpWizardFinish();return}else{wizardIndex=i}bpCpWizardRender()}
+function wizardMatchLabel(text,label){if(!text||!label)return false;if(text.includes(label)||label.includes(text))return true;return label.split(/[・\/／\s、,]+/).some(t=>t.length>=2&&text.includes(t))}
+function bpCpWizardApplyVoice(qq,text){if(!text)return;if(qq.type==='text'){const el=q('bp-cp-wizard-input');if(el)el.value=text}else if(qq.type==='number'||qq.type==='detail'){const n=wizardParseNumber(text);const el=q('bp-cp-wizard-input');if(el&&n)el.value=n}else if(qq.type==='date'){const d=wizardParseDate(text);const el=q('bp-cp-wizard-input');if(el&&d)el.value=d}else if(qq.type==='choice'){const hit=qq.options.find(([v,l])=>wizardMatchLabel(text,l));if(hit)window.bpCpWizardChoosePick(hit[0])}else if(qq.type==='trade-extra'){const already=new Set(getState()?.workPackages?.map(w=>w.category)||[]);allTrades().filter(([v])=>!['support_action','other_work','other_expense'].includes(v)&&!already.has(v)).forEach(([v,l])=>{if(wizardMatchLabel(text,l))window.bpCpWizardToggleTrade(v)})}else if(qq.type==='docs'){DOCS.forEach(([v,l])=>{if(wizardMatchLabel(text,l))window.bpCpWizardToggleDoc(v)})}}
+function bpCpWizardRender(){const qq=wizardQueue[wizardIndex];if(!qq){bpCpWizardFinish();return}
+ const prog=q('bp-cp-wizard-progress'),bar=q('bp-cp-wizard-bar'),titleEl=q('bp-cp-wizard-title'),helpEl=q('bp-cp-wizard-help'),backBtn=q('bp-cp-wizard-back'),skipBtn=q('bp-cp-wizard-skip'),heard=q('bp-cp-wizard-heard'),voiceRow=q('bp-cp-wizard-voice-row'),box=q('bp-cp-wizard-answer'),nextBtn=q('bp-cp-wizard-next');
+ if(!prog||!box)return;
+ prog.textContent=`質問 ${wizardIndex+1}/${wizardQueue.length}`;bar.style.width=Math.round(wizardIndex/(wizardQueue.length-1||1)*100)+'%';
+ titleEl.textContent=qq.title;helpEl.textContent=qq.help||'';backBtn.disabled=wizardIndex===0;
+ skipBtn.style.display=(qq.optional)?'':'none';heard.textContent='';nextBtn.style.display='';nextBtn.textContent='次へ →';
+ voiceRow.style.display=(wizardVoiceEnabled()&&['text','date','number','choice','trade-extra','detail','docs'].includes(qq.type))?'flex':'none';
+ if(qq.type==='text'){box.innerHTML=qq.multiline?`<textarea id="bp-cp-wizard-input">${esc(value(qq.field))}</textarea>`:`<input id="bp-cp-wizard-input" value="${esc(value(qq.field))}">`}
+ else if(qq.type==='date'){box.innerHTML=`<input type="date" id="bp-cp-wizard-input" value="${esc(value(qq.field))}">`}
+ else if(qq.type==='number'){box.innerHTML=`<input inputmode="decimal" id="bp-cp-wizard-input" value="${esc(value(qq.field))}" placeholder="数字のみ">`}
+ else if(qq.type==='choice'){box.innerHTML=`<div class="bp-cp-wizard-choices">${qq.options.map(([v,l])=>`<button type="button" class="bp-cp-wizard-choice ${value(qq.field)===v?'is-selected':''}" data-wiz-choice="${esc(v)}" onclick="bpCpWizardChoosePick('${v}')">${esc(l)}</button>`).join('')}</div>`}
+ else if(qq.type==='trade-base'){const tpl=value('bp-cp-project-template')||'mansion-renovation',preset=PRESETS[tpl]||PRESETS.other;helpEl.textContent=(qq.help||'')+`（${preset.label}の基本セット：${preset.trades.map(x=>x[1]).join('・')||'なし'}）`;box.innerHTML=`<div class="bp-cp-wizard-choices"><button type="button" class="bp-cp-wizard-choice" onclick="bpCpWizardTradeBase(true)">はい、基本セットを使う</button><button type="button" class="bp-cp-wizard-choice" onclick="bpCpWizardTradeBase(false)">いいえ、使わない</button></div>`;nextBtn.style.display='none'}
+ else if(qq.type==='trade-extra'){const already=new Set(getState()?.workPackages?.map(w=>w.category)||[]);box.innerHTML=`<div class="bp-cp-wizard-trade-grid">${allTrades().filter(([v])=>!['support_action','other_work','other_expense'].includes(v)).map(([v,l])=>`<button type="button" class="bp-cp-wizard-trade ${already.has(v)||wizardTradeSel.has(v)?'is-selected':''}" data-wiz-trade="${esc(v)}" ${already.has(v)?'disabled':''} onclick="bpCpWizardToggleTrade('${v}')">${esc(l)}${already.has(v)?'（追加済）':''}</button>`).join('')}</div>`}
+ else if(qq.type==='docs'){box.innerHTML=`<div class="bp-cp-wizard-trade-grid">${DOCS.map(([v,l])=>`<button type="button" class="bp-cp-wizard-trade ${checked('bp-cp-doc-'+v)?'is-selected':''}" data-wiz-doc="${esc(v)}" onclick="bpCpWizardToggleDoc('${v}')">${esc(l)}</button>`).join('')}</div>`}
+ else if(qq.type==='detail-generate'){wizardExpandDetailQuestions();bpCpWizardGotoValid(wizardIndex+1,1);return}
+ else if(qq.type==='detail'){box.innerHTML=`<input inputmode="decimal" id="bp-cp-wizard-input" value="${esc(qq.getVal())}">`}
+ else if(qq.type==='schedule-generate'){nextBtn.textContent='工程表を生成して次へ →';const ok=value('bp-cp-site-start')&&value('bp-cp-handover');box.innerHTML=ok?`<div class="bp-cp-card good">着工日：${esc(value('bp-cp-site-start'))}／引き渡し日：${esc(value('bp-cp-handover'))}</div>`:`<div class="bp-cp-card warning">着工日・引き渡し日が未入力のため、工程表は生成できません。「前へ」で戻って入力してください。</div>`}
+ else if(qq.type==='final-check'){nextBtn.textContent='計画チェックを見る →';box.innerHTML=`<div class="bp-cp-card">ここまでの回答を確認・保存します。押すと計画チェック画面へ移動します。</div>`}
+}
+window.bpCpWizardOpen=function(){if(!q('bp-cp-wizard'))return;wizardQueue=buildWizardQueue();wizardIndex=0;wizardTradeSel=new Set();q('bp-cp-wizard').classList.add('open');bpCpWizardGotoValid(0,1)};
+window.bpCpWizardClose=function(){q('bp-cp-wizard')?.classList.remove('open');try{wizardRec?.stop?.()}catch(e){}wizardRec=null};
+window.bpCpWizardNext=function(){const qq=wizardQueue[wizardIndex];if(!qq)return;bpCpWizardCommit(qq);bpCpWizardGotoValid(wizardIndex+1,1)};
+window.bpCpWizardBack=function(){bpCpWizardGotoValid(wizardIndex-1,-1)};
+window.bpCpWizardSkip=function(){bpCpWizardGotoValid(wizardIndex+1,1)};
+window.bpCpWizardChoosePick=function(v){const qq=wizardQueue[wizardIndex];if(!qq||qq.type!=='choice')return;const el=q(qq.field);if(el){el.value=v;bpCpFieldChanged()}document.querySelectorAll('#bp-cp-wizard-answer [data-wiz-choice]').forEach(b=>b.classList.toggle('is-selected',b.dataset.wizChoice===v))};
+window.bpCpWizardTradeBase=function(yes){if(yes){const tpl=value('bp-cp-project-template')||'mansion-renovation';if(q('bp-cp-trade-preset')&&!q('bp-cp-trade-preset').value)q('bp-cp-trade-preset').value=tpl;window.bpCpApplyPreset()}bpCpWizardGotoValid(wizardIndex+1,1)};
+window.bpCpWizardToggleTrade=function(v){const already=new Set(getState()?.workPackages?.map(w=>w.category)||[]);if(already.has(v))return;wizardTradeSel.has(v)?wizardTradeSel.delete(v):wizardTradeSel.add(v);document.querySelectorAll('#bp-cp-wizard-answer [data-wiz-trade]').forEach(b=>b.classList.toggle('is-selected',wizardTradeSel.has(b.dataset.wizTrade)||already.has(b.dataset.wizTrade)))};
+window.bpCpWizardToggleDoc=function(v){const el=q('bp-cp-doc-'+v);if(!el)return;el.checked=!el.checked;el.dispatchEvent(new Event('change',{bubbles:true}));document.querySelectorAll('#bp-cp-wizard-answer [data-wiz-doc]').forEach(b=>b.classList.toggle('is-selected',checked('bp-cp-doc-'+b.dataset.wizDoc)))};
+window.bpCpWizardListen=function(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const mic=q('bp-cp-wizard-mic'),heard=q('bp-cp-wizard-heard');if(!SR){if(heard)heard.textContent='このブラウザでは音声認識が使えません。直接入力してください。';return}if(wizardRec){try{wizardRec.stop()}catch(e){}wizardRec=null;mic?.classList.remove('listening');return}const qq=wizardQueue[wizardIndex];if(!qq)return;const rec=new SR();wizardRec=rec;rec.lang='ja-JP';rec.interimResults=false;rec.maxAlternatives=1;mic?.classList.add('listening');if(heard)heard.textContent='聞き取り中…';rec.onresult=e=>{const text=e.results?.[0]?.[0]?.transcript||'';if(heard)heard.textContent=text?`認識：${text}`:'聞き取れませんでした';bpCpWizardApplyVoice(qq,text)};rec.onerror=e=>{if(heard)heard.textContent='音声入力エラー：'+(e.error||'不明')};rec.onend=()=>{wizardRec=null;mic?.classList.remove('listening')};try{rec.start()}catch(e){if(heard)heard.textContent='音声入力を開始できませんでした。'}};
 document.addEventListener('DOMContentLoaded',()=>setTimeout(install,250));window.addEventListener('load',()=>setTimeout(install,900));const bpCpInstallObserver=new MutationObserver(()=>{if(q('tab-construction')&&!q('bp-cp-v4'))install();if(q('bp-cp-v4'))bpCpInstallObserver.disconnect()});bpCpInstallObserver.observe(document.documentElement,{subtree:true,childList:true});
 })();
 </script>
