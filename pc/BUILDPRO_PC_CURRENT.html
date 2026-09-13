@@ -12317,6 +12317,7 @@ window.__BUILD_PRO_PC_FULL_V13724__={version:VERSION,fullPcFunctionsPreserved:tr
      try{typeof updateCaseLabel==='function'&&updateCaseLabel()}catch(_){ }
      try{window.calculate?.()}catch(_){ }
      try{window.bpCpRenderAll?.()}catch(_){ }
+     try{window.bpCpWizardClose?.()}catch(_){ }
      try{window.restoreConstructionModuleState?.()}catch(_){ }
      try{window.bpCloseModal?.('bpCaseLibraryModal')}catch(_){ const m=$('bpCaseLibraryModal'); if(m)m.classList.remove('is-open'); }
      try{window.switchTab?.('tab-input',document.querySelector('[onclick*="tab-input"]'))}catch(_){ }
@@ -12744,6 +12745,7 @@ async function startNewCase(){
     const last=$('bpLastSavedLabel');if(last)last.textContent='--';
     try{typeof updateSession==='function'&&updateSession()}catch(_){}
     try{window.bpCpRenderAll?.();window.renderConstructionPlan?.()}catch(_){}
+    try{window.bpCpWizardClose?.()}catch(_){}
     try{window.bpCloseModal?.('bpCaseLibraryModal')}catch(_){$('bpCaseLibraryModal')?.classList.remove('is-open')}
     try{window.bp22Close?.()}catch(_){}
     try{window.switchTab?.('tab-input',document.querySelector('[onclick*="tab-input"]'))}catch(_){}
