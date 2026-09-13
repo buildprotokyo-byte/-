@@ -220,21 +220,41 @@ window.bpIsCalibrationControlEvent=function(e){
         </div>
     </header>
 
+    <style id="bp-header-compact-style">
+      /* 上部サマリー(スコアバー・数理データサマリー・分離指標)を小さく表示。
+         複数のJSがclassNameを丸ごと上書きするため、!importantで確実に効かせる。 */
+      #statusBar{padding:.75rem!important;gap:.5rem!important}
+      #statusBar h2{font-size:.875rem!important}
+      #statusBar p{font-size:.75rem!important;margin-top:.25rem!important}
+      #statusBar .btn-ai-execute{padding:.5rem 1rem!important;font-size:.8125rem!important}
+      #signal-badge{padding:.125rem .625rem!important;font-size:.6875rem!important}
+      #signal-bar{height:.5rem!important}
+      #valOverallLevel{display:none!important}
+      #bpTopScoreCard,#bpTopScoreCard~div{padding:.625rem!important}
+      #valRealProbability{font-size:1.25rem!important}
+      #valOverallIcon{font-size:1.125rem!important}
+      #valExpectedProfit,#valLoss{font-size:1rem!important}
+      #valPeopleCount{font-size:.875rem!important}
+      #bpSeparatedMetricsArea .bg-white{padding:.75rem!important}
+      #bpSeparatedMetricsArea .bp-metric-card{padding:.5rem!important}
+      #bpSeparatedMetricsArea h3{font-size:.875rem!important}
+      #bpMetricWin,#bpMetricMaturity,#bpMetricExecution,#bpMetricProfit,#bpMetricStability{font-size:1.125rem!important}
+    </style>
     <!-- 伴走シグナルステータスバー（10段階の印籠を大きく表示） -->
     <div class="max-w-7xl w-full mx-auto px-4 md:px-6 mt-6">
-        <div class="bg-blue-50 border-l-8 border-sky-500 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4" id="statusBar">
-            <div class="space-y-1">
-                <span class="text-xs font-bold text-sky-600 tracking-wider block">【経営陣承認・オフィシャル姿勢指示】</span>
-                <div class="flex items-center gap-3">
-                    <span id="signal-badge" class="px-3.5 py-1 rounded-full text-sm font-black bg-sky-500 text-white shadow-sm">LEVEL --</span>
-                    <h2 id="statusValue" class="text-xl font-extrabold text-slate-800">未診断</h2>
+        <div class="bg-blue-50 border-l-8 border-sky-500 rounded-2xl p-3 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-2" id="statusBar">
+            <div class="space-y-0.5">
+                <span class="text-[10px] font-bold text-sky-600 tracking-wider block">【経営陣承認・オフィシャル姿勢指示】</span>
+                <div class="flex items-center gap-2">
+                    <span id="signal-badge" class="px-2.5 py-0.5 rounded-full text-xs font-black bg-sky-500 text-white shadow-sm">未診断</span>
+                    <h2 id="statusValue" class="text-sm font-extrabold text-slate-800">未診断</h2>
                 </div>
-                <p id="signal-message" class="text-sm text-slate-600 mt-2 leading-relaxed">
-                    パラメータを入力すると、他部署を動かすための「公式承認レベル（1〜10）」がここに表示されます。
+                <p id="signal-message" class="text-xs text-slate-600 mt-1 leading-snug">
+                    パラメータを入力すると、この案件の状態がここに表示されます。
                 </p>
-                <div id="signal-bar" class="flex gap-1 w-full max-w-md h-3 mt-1"></div>
+                <div id="signal-bar" class="flex gap-1 w-full max-w-md h-2 mt-1"></div>
             </div>
-            <button class="btn-ai-execute bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold px-6 py-3 rounded-xl shadow-md hover:from-amber-400 hover:to-amber-500 transition duration-150 flex items-center gap-2" onclick="askDeepAI()">
+            <button class="btn-ai-execute bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold px-4 py-2 text-sm rounded-xl shadow-md hover:from-amber-400 hover:to-amber-500 transition duration-150 flex items-center gap-2" onclick="askDeepAI()">
                 <i class="fa-solid fa-brain"></i> 深層AIに経営相談する
             </button>
         </div>
@@ -258,63 +278,63 @@ window.bpIsCalibrationControlEvent=function(e){
 
     <!-- 数理データサマリー -->
     <div class="max-w-7xl w-full mx-auto px-4 md:px-6 mt-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-            <div id="bpTopScoreCard" class="bp-score-card bg-white p-4 rounded-xl border-2 border-amber-300 shadow-sm text-center" style="--bp-accent:#f59e0b">
-                <span class="text-xs text-slate-500 font-bold block mb-1">総合スコア</span>
-                <div class="flex items-center justify-center gap-2">
-                    <span id="valOverallIcon" class="text-2xl" aria-hidden="true">●</span>
-                    <span id="valRealProbability" class="text-3xl font-black text-amber-600">50点</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2.5">
+            <div id="bpTopScoreCard" class="bp-score-card bg-white p-2.5 rounded-xl border-2 border-amber-300 shadow-sm text-center" style="--bp-accent:#f59e0b">
+                <span class="text-[11px] text-slate-500 font-bold block mb-0.5">総合スコア</span>
+                <div class="flex items-center justify-center gap-1.5">
+                    <span id="valOverallIcon" class="text-lg" aria-hidden="true">●</span>
+                    <span id="valRealProbability" class="text-xl font-black text-amber-600">50点</span>
                 </div>
-                <span id="valOverallLevel" class="inline-flex mt-2 px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-800">LEVEL 5 / 10</span>
-                <span id="valOverallStatus" class="block mt-1 text-sm font-black text-slate-700">NORMAL・標準</span>
+                <span id="valOverallLevel" class="hidden">LEVEL 5 / 10</span>
+                <span id="valOverallStatus" class="block mt-1 text-xs font-black text-slate-700">NORMAL・標準</span>
             </div>
-            <div class="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm text-center">
-                <span class="text-xs text-slate-500 font-bold block mb-1">期待粗利レンジ</span>
-                <span id="valExpectedProfit" class="text-xl font-black text-emerald-600">--円</span>
-                <span class="block text-xs text-slate-500 mt-2">受注確度を加味した利益期待</span>
+            <div class="bg-white p-2.5 rounded-xl border border-emerald-200 shadow-sm text-center">
+                <span class="text-[11px] text-slate-500 font-bold block mb-0.5">期待粗利レンジ</span>
+                <span id="valExpectedProfit" class="text-base font-black text-emerald-600">--円</span>
+                <span class="block text-[11px] text-slate-500 mt-1">受注確度を加味した利益期待</span>
             </div>
-            <div class="bg-white p-4 rounded-xl border border-rose-200 shadow-sm text-center">
-                <span class="text-xs text-slate-500 font-bold block mb-1">失注時の機会損失レンジ</span>
-                <span id="valLoss" class="text-xl font-black text-rose-600">--円</span>
-                <span class="block text-xs text-slate-500 mt-2">投入人材が他で生んだ価値</span>
+            <div class="bg-white p-2.5 rounded-xl border border-rose-200 shadow-sm text-center">
+                <span class="text-[11px] text-slate-500 font-bold block mb-0.5">失注時の機会損失レンジ</span>
+                <span id="valLoss" class="text-base font-black text-rose-600">--円</span>
+                <span class="block text-[11px] text-slate-500 mt-1">投入人材が他で生んだ価値</span>
             </div>
-            <div class="bg-white p-4 rounded-xl border border-indigo-200 shadow-sm text-center">
-                <span class="text-xs text-slate-500 font-bold block mb-1">推奨初動フォーメーション</span>
-                <span id="valPeopleCount" class="text-lg font-black text-indigo-600">--</span>
-                <span id="formationAuthorityNote" class="block text-xs text-slate-500 mt-2">部署横断の初動指示案</span>
+            <div class="bg-white p-2.5 rounded-xl border border-indigo-200 shadow-sm text-center">
+                <span class="text-[11px] text-slate-500 font-bold block mb-0.5">推奨初動フォーメーション</span>
+                <span id="valPeopleCount" class="text-sm font-black text-indigo-600">--</span>
+                <span id="formationAuthorityNote" class="block text-[11px] text-slate-500 mt-1">部署横断の初動指示案</span>
             </div>
-            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-xs text-slate-500 font-bold">ボラティリティ</span>
-                    <span id="valVolatility" class="text-sm font-black text-slate-700">--</span>
+            <div class="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[11px] text-slate-500 font-bold">ボラティリティ</span>
+                    <span id="valVolatility" class="text-xs font-black text-slate-700">--</span>
                 </div>
-                <div class="w-full bg-slate-200 h-3 rounded-full overflow-hidden">
+                <div class="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
                     <div id="volatilityBar" class="h-full bg-amber-500 rounded-full" style="width:0%"></div>
                 </div>
-                <div id="topVolatilityExplanation" class="text-xs text-slate-600 mt-2 leading-relaxed">条件変化への崩れやすさを5段階で表示します。</div>
+                <div id="topVolatilityExplanation" class="text-[11px] text-slate-600 mt-1 leading-snug">条件変化への崩れやすさを5段階で表示します。</div>
             </div>
         </div>
         <span id="valUpside" class="hidden"></span><span id="valDownside" class="hidden"></span>
-        <div id="bpScoreExplanation" class="mt-3 text-xs text-slate-600 bg-white border border-slate-200 rounded-xl p-3">総合スコアは5指標の加重評価です。初期表示の標準案件を50点として、条件変更による差分を判定します。</div>
+        <div id="bpScoreExplanation" class="mt-2 text-[11px] text-slate-600 bg-white border border-slate-200 rounded-xl p-2">総合スコアは5指標の加重評価です。初期表示の標準案件を50点として、条件変更による差分を判定します。</div>
     </div>
 
 
     <!-- 営業判断の分離指標（既存計算を壊さない独立表示） -->
-    <div class="max-w-7xl w-full mx-auto px-4 md:px-6 mt-4" id="bpSeparatedMetricsArea">
-        <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2 mb-4">
+    <div class="max-w-7xl w-full mx-auto px-4 md:px-6 mt-2.5" id="bpSeparatedMetricsArea">
+        <div class="bg-white border border-slate-200 rounded-2xl p-3 shadow-sm">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-1 mb-2">
                 <div>
-                    <div class="text-xs font-black text-indigo-600 tracking-wider">案件を一つの数字にまとめない分離判断</div>
-                    <h3 class="text-lg font-black text-slate-900">この案件は、何が強く、何が弱く、どこが崩れやすいか</h3>
+                    <div class="text-[10px] font-black text-indigo-600 tracking-wider">案件を一つの数字にまとめない分離判断</div>
+                    <h3 class="text-sm font-black text-slate-900">この案件は、何が強く、何が弱く、どこが崩れやすいか</h3>
                 </div>
                 <div id="bpOverallStoryBadge" class="hidden">判定中</div>
             </div>
-            <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                <div class="bp-metric-card rounded-xl border border-amber-200 bg-amber-50 p-3"><div class="text-xs font-black text-amber-800">案件の受注角度</div><div id="bpMetricWin" class="text-2xl font-black text-amber-700">--%</div><div id="bpMetricWinNote" class="text-xs text-slate-600 mt-1">受注ポジション</div></div>
-                <div class="bp-metric-card rounded-xl border border-sky-200 bg-sky-50 p-3"><div class="text-xs font-black text-sky-800">案件のバランス度</div><div id="bpMetricMaturity" class="text-2xl font-black text-sky-700">--%</div><div id="bpMetricMaturityNote" class="text-xs text-slate-600 mt-1">予算・図面・日程</div></div>
-                <div class="bp-metric-card rounded-xl border border-cyan-200 bg-cyan-50 p-3"><div class="text-xs font-black text-cyan-800">工事リスク</div><div id="bpMetricExecution" class="text-2xl font-black text-cyan-700">--%</div><div id="bpMetricExecutionNote" class="text-xs text-slate-600 mt-1">高いほど工事リスクが低い</div></div>
-                <div class="bp-metric-card rounded-xl border border-emerald-200 bg-emerald-50 p-3"><div class="text-xs font-black text-emerald-800">利益確保度</div><div id="bpMetricProfit" class="text-2xl font-black text-emerald-700">--%</div><div id="bpMetricProfitNote" class="text-xs text-slate-600 mt-1">原価・価格競争・条件</div></div>
-                <div class="bp-metric-card rounded-xl border border-violet-200 bg-violet-50 p-3"><div class="text-xs font-black text-violet-800">現在の安定性（急変リスク）</div><div id="bpMetricStability" class="text-2xl font-black text-violet-700">--%</div><div id="bpMetricStabilityNote" class="text-xs text-slate-600 mt-1">高いほど急変リスクが低い</div></div>
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                <div class="bp-metric-card rounded-xl border border-amber-200 bg-amber-50 p-2"><div class="text-[11px] font-black text-amber-800">案件の受注角度</div><div id="bpMetricWin" class="text-lg font-black text-amber-700">--%</div><div id="bpMetricWinNote" class="text-[11px] text-slate-600 mt-0.5">受注ポジション</div></div>
+                <div class="bp-metric-card rounded-xl border border-sky-200 bg-sky-50 p-2"><div class="text-[11px] font-black text-sky-800">案件のバランス度</div><div id="bpMetricMaturity" class="text-lg font-black text-sky-700">--%</div><div id="bpMetricMaturityNote" class="text-[11px] text-slate-600 mt-0.5">予算・図面・日程</div></div>
+                <div class="bp-metric-card rounded-xl border border-cyan-200 bg-cyan-50 p-2"><div class="text-[11px] font-black text-cyan-800">工事リスク</div><div id="bpMetricExecution" class="text-lg font-black text-cyan-700">--%</div><div id="bpMetricExecutionNote" class="text-[11px] text-slate-600 mt-0.5">高いほど工事リスクが低い</div></div>
+                <div class="bp-metric-card rounded-xl border border-emerald-200 bg-emerald-50 p-2"><div class="text-[11px] font-black text-emerald-800">利益確保度</div><div id="bpMetricProfit" class="text-lg font-black text-emerald-700">--%</div><div id="bpMetricProfitNote" class="text-[11px] text-slate-600 mt-0.5">原価・価格競争・条件</div></div>
+                <div class="bp-metric-card rounded-xl border border-violet-200 bg-violet-50 p-2"><div class="text-[11px] font-black text-violet-800">現在の安定性（急変リスク）</div><div id="bpMetricStability" class="text-lg font-black text-violet-700">--%</div><div id="bpMetricStabilityNote" class="text-[11px] text-slate-600 mt-0.5">高いほど急変リスクが低い</div></div>
             </div>
             <div id="bpVolatilitySignal" class="hidden">入力内容から安定性とボラティリティを判定します。</div>
         </div>
@@ -2936,7 +2956,7 @@ window.bpIsCalibrationControlEvent=function(e){
                 }
 
                 document.getElementById('signal-badge').className = `px-3.5 py-1 rounded-full text-sm font-black ${activeColorClass} text-white shadow-sm`;
-                document.getElementById('signal-badge').innerText = 'LEVEL ' + signalLevel;
+                document.getElementById('signal-badge').innerText = status.match(/【([^】]+)】/)?.[1] || status;
                 document.getElementById('statusValue').innerText = status;
                 document.getElementById('statusBar').className = statusBarClass;
 
@@ -4663,7 +4683,7 @@ window.bpIsCalibrationControlEvent=function(e){
             const icon=total>=80?'◆':total>=65?'▲':total>=45?'●':total>=30?'▼':'!'; set('valOverallIcon',icon);
             const levelEl=$('valOverallLevel'); if(levelEl) levelEl.className='inline-flex mt-2 px-3 py-1 rounded-full text-xs font-black '+signal.cls;
             const sb=$('signal-badge'), sv=$('statusValue'), sm=$('signal-message'), sbar=$('statusBar');
-            if(sb){sb.textContent='LEVEL '+level;sb.className='px-3.5 py-1 rounded-full text-sm font-black text-white shadow-sm '+(total>=80?'bg-emerald-600':total>=65?'bg-sky-600':total>=45?'bg-amber-500':total>=30?'bg-orange-500':'bg-rose-600');}
+            if(sb){sb.textContent=signal.name;sb.className='px-3.5 py-1 rounded-full text-sm font-black text-white shadow-sm '+(total>=80?'bg-emerald-600':total>=65?'bg-sky-600':total>=45?'bg-amber-500':total>=30?'bg-orange-500':'bg-rose-600');}
             if(sv)sv.textContent=signal.name+'｜総合スコア '+total+'点';
             if(sm)sm.textContent='10段階の公式承認レベルです。受注可能性を最重視し、案件成立・施工・利益・安定性を加重して判定します。';
             if(sbar)sbar.className='rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-l-8 '+(total>=80?'bg-emerald-50 border-emerald-500':total>=65?'bg-sky-50 border-sky-500':total>=45?'bg-amber-50 border-amber-500':total>=30?'bg-orange-50 border-orange-500':'bg-rose-50 border-rose-600');
@@ -5785,7 +5805,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if($('valRealProbability'))$('valRealProbability').textContent=score+'点';
     if($('valOverallLevel'))$('valOverallLevel').textContent='LEVEL '+level+' / 10';
     if($('valOverallStatus'))$('valOverallStatus').textContent=signal[0]+'（B公式）';
-    if($('signal-badge')){$('signal-badge').textContent='LEVEL '+level;$('signal-badge').className='px-3.5 py-1 rounded-full text-sm font-black text-white shadow-sm '+signal[1]}
+    if($('signal-badge')){$('signal-badge').textContent=signal[0];$('signal-badge').className='px-3.5 py-1 rounded-full text-sm font-black text-white shadow-sm '+signal[1]}
     if($('statusValue'))$('statusValue').textContent=signal[0]+'｜営業マン補足後 '+score+'点';
     if($('signal-message'))$('signal-message').textContent=`選択式カルテA ${diag.baselineScore.toFixed(1)}点に、営業マンの肌感・裏情報を5指標へ分解してB ${diag.officialScore.toFixed(1)}点を算出しています。`;
     metricOrder.forEach(k=>{const id={win:'bpMetricWin',maturity:'bpMetricMaturity',execution:'bpMetricExecution',profit:'bpMetricProfit',stability:'bpMetricStability'}[k];if($(id))$(id).textContent=Math.round(diag.officialMetrics[k])+'%'});
