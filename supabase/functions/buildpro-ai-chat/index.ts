@@ -43,8 +43,8 @@ Deno.serve(async(request:Request)=>{
     if(!base)return json(503,{ok:false,error:'shared_ai_not_configured'});
     const key=env('BUILDPRO_OSS_AI_API_KEY',false),model=env('BUILDPRO_OSS_AI_MODEL',false)||'Qwen/Qwen2.5-7B-Instruct';
     const temperature=Math.min(1,Math.max(0,Number(body.temperature)||.2));
-    const maxTokens=Math.min(2000,Math.max(64,Number(body.max_tokens)||900));
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),60000);
+    const maxTokens=Math.min(4000,Math.max(64,Number(body.max_tokens)||900));
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),100000);
     try{
       const response=await fetch(`${base}/chat/completions`,{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',...(key?{Authorization:`Bearer ${key}`}:{})},body:JSON.stringify({model,temperature,max_tokens:maxTokens,stream:false,messages})});
       if(!response.ok)throw new Error(`oss_ai_http_${response.status}`);
