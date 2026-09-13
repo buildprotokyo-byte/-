@@ -11973,10 +11973,55 @@ function menuHtml(){return `<div id="bp22DrawerLayer"><aside id="bp22Drawer" onc
 <section class="bp22-group"><div class="bp22-gtitle">施工</div><div class="bp22-grid"><button class="bp22-item primary" onclick="bp22Go('tab-construction')">施工管理計画<small>基本入力・工程・予算</small></button><button class="bp22-item primary" onclick="bp22Go('tab-site-control')">現場管理<small>日々の進捗・変化・承認</small></button><button class="bp22-item" onclick="bp22Go('tab-results')">振り返り<small>結果・事実・学び</small></button><button class="bp22-item" onclick="bp22Go('tab-history')">過去案件・担当履歴<small>案件一覧・担当者別</small></button></div></section>
 <section class="bp22-group"><div class="bp22-gtitle">案件・保存・共有</div><div class="bp22-grid"><button class="bp22-item" onclick="bp22Call('bpOpenSaveDialog')">名前を付けて保存<small>PCの案件を保存</small></button><button class="bp22-item" onclick="bp22Call('bpOpenCaseLibrary')">案件・履歴<small>保存案件を開く</small></button><button class="bp22-item" onclick="bp22Call('bpServerOpen')">サーバー共有<small>クラウド同期・共有</small></button><button class="bp22-item" onclick="bp22Call('bpV1350OpenRecovery')">復元履歴<small>自動保存・復旧</small></button></div></section>
 <section class="bp22-group"><div class="bp22-gtitle">管理・設定</div><div class="bp22-grid"><button class="bp22-item" onclick="bp22Go('tab-admin')">管理・補正<small>基準・マスター・設定</small></button><button class="bp22-item" onclick="bp22Go('tab-eval-guide')">評価ガイド<small>判断基準を確認</small></button><button class="bp22-item" onclick="bp22Call('bpV13714OpenNotifications')">現場通知<small>変更・緊急通知</small></button><button class="bp22-item" onclick="bp22Call('bpOpenAISettings')">AI接続設定<small>将来のハブAI接続</small></button><button class="bp22-item" onclick="bp22Call('bpOpenUserManager')">利用者設定<small>ユーザー・権限</small></button><button class="bp22-item" onclick="bp22Call('bpLockApp')">画面ロック<small>離席時の保護</small></button></div></section>
-<section class="bp22-group"><div class="bp22-gtitle">テスト期間だけ</div><div class="bp22-grid"><button class="bp22-item test" onclick="bp22MobilePreview()">携帯UIプレビュー<small>PC上で390pxの現場専用UIを確認</small></button><button class="bp22-item test" onclick="bp22Call('bpStartTestUser')">テストで入る<small>パスワードなし確認</small></button></div></section></aside></div>`}
+<section class="bp22-group"><div class="bp22-gtitle">テスト期間だけ</div><div class="bp22-grid"><button class="bp22-item test" onclick="bp22MobilePreview('worker')">携帯UI（職人側）<small>PC上で390pxの現場専用UIを確認</small></button><button class="bp22-item test" onclick="bp22MobilePreview('customer')">携帯UI（お客様側）<small>PC上でお客様に見える画面を確認</small></button><button class="bp22-item test" onclick="bp22Call('bpStartTestUser')">テストで入る<small>パスワードなし確認</small></button></div></section></aside></div>`}
 function relocateLegacy(){const site=$('tab-site-control'),a=$('cm-phase4'),b=$('cm-phase5');if(!site||(!a&&!b))return;let d=$('bp22LegacySiteDetails');if(!d){d=document.createElement('details');d.id='bp22LegacySiteDetails';d.innerHTML='<summary>詳細な旧四大管理・変更承認を開く（必要な時だけ）</summary><div id="bp22LegacySiteHost"></div>';site.appendChild(d)}const h=$('bp22LegacySiteHost');[a,b].forEach(e=>{if(e&&h&&!h.contains(e)){e.classList.remove('cm-workspace-hidden');h.appendChild(e)}})}
-function installPreview(){if($('bp22MobilePreview'))return;document.body.insertAdjacentHTML('beforeend',`<div id="bp22MobilePreview"><div class="bp22-phonewrap"><div class="bp22-previewhead"><span>テスト用｜携帯現場専用UIプレビュー</span><button onclick="bp22CloseMobilePreview()">閉じる</button></div><div class="bp22-phone"><iframe id="bp22MobileFrame" title="携帯UIプレビュー"></iframe></div></div></div>`);$('bp22MobilePreview').addEventListener('click',e=>{if(e.target===$('bp22MobilePreview'))closePreview()})}
-function preview(){close();installPreview();const f=$('bp22MobileFrame');if(f&&!f.src)f.src='BUILDPRO_MOBILE_FIELD_V13722.html?preview=1';$('bp22MobilePreview').classList.add('open')}
+function installPreview(){if($('bp22MobilePreview'))return;document.body.insertAdjacentHTML('beforeend',`<div id="bp22MobilePreview"><div class="bp22-phonewrap"><div class="bp22-previewhead"><span id="bp22PreviewLabel">テスト用｜携帯UIプレビュー</span><button onclick="bp22CloseMobilePreview()">閉じる</button></div><div class="bp22-phone"><iframe id="bp22MobileFrame" title="携帯UIプレビュー"></iframe></div></div></div>`);$('bp22MobilePreview').addEventListener('click',e=>{if(e.target===$('bp22MobilePreview'))closePreview()})}
+function bp22Field(id){return document.getElementById(id)?.value?.trim()||''}
+function bp22CustomerPreviewHtml(){
+ const client=bp22Field('bp-cp-client-name')||bp22Field('clientName')||bp22Field('customerName');
+ const project=bp22Field('bp-cp-project-name')||bp22Field('projectName')||bp22Field('caseName')||'ご依頼の工事';
+ const manager=bp22Field('bp-cp-manager')||bp22Field('sales-owner')||'';
+ const siteStart=bp22Field('bp-cp-site-start'),workComplete=bp22Field('bp-cp-work-complete'),handover=bp22Field('bp-cp-handover'),inspIn=bp22Field('bp-cp-inspection-internal'),inspEx=bp22Field('bp-cp-inspection-external');
+ const jp=d=>{if(!d)return'';const x=new Date(d+'T00:00:00');return isNaN(x)?'':`${x.getFullYear()}年${x.getMonth()+1}月${x.getDate()}日`};
+ const today=new Date().toISOString().slice(0,10);
+ const milestones=[['着工',siteStart],['工事完了',workComplete],['社内検査',inspIn],['社外検査',inspEx],['お引き渡し',handover]].filter(x=>x[1]);
+ let stage='ご準備中';
+ if(handover&&today>handover)stage='お引き渡し済み';else if(workComplete&&today>=workComplete)stage='仕上げ・検査の段階です';else if(siteStart&&today>=siteStart)stage='工事を進めています';else if(siteStart)stage='着工に向けてご準備中です';
+ const esc=s=>(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+ body{margin:0;font-family:'Hiragino Sans','Yu Gothic',sans-serif;background:#f5f7fb;color:#0f172a}
+ .cph{background:linear-gradient(135deg,#1d4ed8,#1e3a8a);color:#fff;padding:22px 18px 26px}
+ .cph small{opacity:.85;font-size:11px;font-weight:700;letter-spacing:.04em}
+ .cph h1{margin:6px 0 2px;font-size:19px;line-height:1.4}
+ .cph .stage{margin-top:12px;display:inline-block;background:rgba(255,255,255,.16);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:800}
+ .cbody{padding:16px}
+ .ccard{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(15,23,42,.04)}
+ .ccard h2{margin:0 0 10px;font-size:13px;color:#1e3a8a}
+ .cms{display:flex;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px}
+ .cms:last-child{border-bottom:0}
+ .cms .dot{width:9px;height:9px;border-radius:50%;background:#2563eb;flex:0 0 auto}
+ .cms b{flex:1}
+ .ccontact{font-size:12px;color:#334155;line-height:1.7}
+ .cnote{font-size:10px;color:#94a3b8;text-align:center;margin-top:6px}
+ </style></head><body>
+ <div class="cph"><small>BUILD PRO｜工事の進捗確認</small><h1>${esc(project)}</h1>${client?`<div style="font-size:12px;opacity:.9">${esc(client)} 様</div>`:''}<div class="stage">${esc(stage)}</div></div>
+ <div class="cbody">
+ <div class="ccard"><h2>工事の予定</h2>${milestones.length?milestones.map(([l,d])=>`<div class="cms"><span class="dot"></span><b>${esc(l)}</b><span>${jp(d)}</span></div>`).join(''):'<div style="font-size:12px;color:#94a3b8">予定はまだ準備中です。担当者よりご案内します。</div>'}</div>
+ <div class="ccard"><h2>担当者</h2><div class="ccontact">${manager?esc(manager)+'（施工管理担当）':'担当者情報は準備中です'}<br>ご不明点はいつでもご連絡ください。</div></div>
+ <div class="cnote">これはお客様に表示される画面のプレビュー（社内確認用）です</div>
+ </div></body></html>`;
+}
+function preview(mode){
+ mode=mode==='customer'?'customer':'worker';
+ close();installPreview();
+ const f=$('bp22MobileFrame'),label=$('bp22PreviewLabel');
+ if(label)label.textContent=mode==='customer'?'テスト用｜お客様側に表示される画面':'テスト用｜職人側の現場専用UI';
+ if(f){
+  if(mode==='customer'){f.removeAttribute('src');f.srcdoc=bp22CustomerPreviewHtml()}
+  else{f.removeAttribute('srcdoc');f.src=new URL('../mobile/BUILDPRO_MOBILE_CURRENT.html?preview=1',location.href).href}
+ }
+ $('bp22MobilePreview').classList.add('open');
+}
 function closePreview(){$('bp22MobilePreview')?.classList.remove('open')}
 function install(){if($('bp22Topbar'))return;markSales();document.body.insertAdjacentHTML('afterbegin',`<div id="bp22Topbar"><div class="inner"><button class="bp22-menu" onclick="bp22Open()">☰ メニュー</button><div class="bp22-context"><b id="bp22Title">BUILD PRO</b><span id="bp22Sub">PC全機能版</span></div><button class="bp22-save" onclick="bp22Call('bpOpenSaveDialog')">保存</button></div></div>`);document.body.insertAdjacentHTML('beforeend',menuHtml());$('bp22DrawerLayer')?.addEventListener('click',close);installPreview();relocateLegacy();const old=window.switchTab;if(typeof old==='function'&&!old.__bp22){const f=function(id,btn){const r=old.apply(this,arguments);mode(id);setTimeout(relocateLegacy,20);return r};f.__bp22=true;window.switchTab=f}mode(activeId());
  const q=new URLSearchParams(location.search);const p=q.get('previewTab');if(p){const map={sales:'tab-input',stories:'tab-scenarios',action:'tab-action',plan:'tab-construction',site:'tab-site-control',result:'tab-results'};setTimeout(()=>go(map[p]||p),2200)}
@@ -12025,8 +12070,7 @@ function sanitize(){
   const title=$('bp22Title'); if(title&&document.title.includes('V13.7.22'))document.title=document.title.replace('V13.7.22','V13.7.24'); const badge=$('bpV13718PcBadge');if(badge)badge.textContent='PC全機能版 V13.7.24';
  }catch(e){console.warn('V13.7.24 sanitize',e)}
 }
-function patchPreview(){const f=$('bp22MobileFrame');if(f&&(!f.src||/V13722/.test(f.src)))f.src='BUILDPRO_MOBILE_FIELD_V13729.html?preview=1'}
-const oldPreview=window.bp22MobilePreview;if(typeof oldPreview==='function'&&!oldPreview.__v13724){const fn=function(){const r=oldPreview.apply(this,arguments);setTimeout(patchPreview,30);return r};fn.__v13724=true;window.bp22MobilePreview=fn}
+/* V13.7.29 patch superseded by bp22MobilePreview(mode) which sets the correct source per mode directly. */
 const oldSwitch=window.switchTab;if(typeof oldSwitch==='function'&&!oldSwitch.__v13724sanitize){const fn=function(){const r=oldSwitch.apply(this,arguments);setTimeout(sanitize,40);return r};fn.__v13724sanitize=true;window.switchTab=fn}
 const oldSite=window.bpV1375OpenSite;if(typeof oldSite==='function'&&!oldSite.__v13724sanitize){const fn=function(){const r=oldSite.apply(this,arguments);setTimeout(sanitize,180);return r};fn.__v13724sanitize=true;window.bpV1375OpenSite=fn}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setTimeout(sanitize,1200);setTimeout(sanitize,3600)},{once:true});else{setTimeout(sanitize,900);setTimeout(sanitize,3200)}
@@ -13708,11 +13752,11 @@ window.bpServerSyncSafetyTestAPI={projectKeyFromNode,nameFromProjectList,canonic
 <script id="bp-mobile-preview-bridge">
 (()=>{
 'use strict';
-const VERSION='13.7.65',MOBILE_FILE='BUILDPRO_MOBILE_FIELD_V13732.html';
-function setPreviewSource(){const frame=document.getElementById('bp22MobileFrame');if(!frame)return false;const wanted=new URL(MOBILE_FILE+'?preview=1',location.href).href;if(frame.src!==wanted)frame.src=wanted;return true}
-function install(){const old=window.bp22MobilePreview;if(typeof old!=='function'||old.__bp13765)return false;const wrapped=function(){const result=old.apply(this,arguments);setPreviewSource();return result};wrapped.__bp13765=true;window.bp22MobilePreview=wrapped;return true}
-function boot(){install();setPreviewSource();setTimeout(()=>{install();setPreviewSource()},3400);window.__BUILD_PRO_MOBILE_PREVIEW_BRIDGE__={version:VERSION,file:MOBILE_FILE,sameOrigin:true}}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+/* V13.7.65 bridge retired: it forced the preview iframe to a file (BUILDPRO_MOBILE_FIELD_V13732.html) that
+   does not exist in this repository, which is why 携帯UIプレビュー errored. bp22MobilePreview(mode) now
+   sets the correct source itself (mobile/BUILDPRO_MOBILE_CURRENT.html for 職人側, a generated srcdoc for
+   お客様側), so this bridge is intentionally left inert. */
+window.__BUILD_PRO_MOBILE_PREVIEW_BRIDGE__={version:'13.7.65',retired:true};
 })();
 </script>
 <style id="bp-outlook-calendar-sync-style">
