@@ -6794,18 +6794,18 @@ function metrics(){const d=window.bpSalesLayerV2||window.bpOfficialDiagnosis||{}
 function extremes(m){const a=Object.entries(m).map(([key,value])=>({key,value:Number(value)||0,label:metricLabels[key]})).sort((x,y)=>x.value-y.value);return {weak:a[0],second:a[1],strong:a[a.length-1]}}
 function context(){return {name:val('clientName')||'この案件',purpose:sel('request-purpose')||'依頼目的未確認',priority:topPriority(),comp:sel('compType'),keyman:sel('keyman'),site:sel('termGencho'),drawing:sel('drawing-precision'),knowledge:sel('internal-knowledge'),budget:sel('sizeType'),position:checked('ourPosition'),status:sel('project-status'),work:[sel('work-main-cat'),sel('work-sub-cat'),sel('work-detail-cat')].filter(Boolean).join('／'),intuition:val('sales-intuition')}}
 function topPriority(){const a=[['price','価格'],['quality','品質'],['trust','信頼・安心'],['schedule','工程・時間'],['other','その他']].map(([k,l])=>({l,r:Number(val('priority-'+k)||99)})).sort((x,y)=>x.r-y.r);return a[0]?.l||'未設定'}
-const rows=[['purpose','目的・要求','顧客が実現したいこと'],['information','情報・資料','判断材料の確かさ'],['time','時間・工程','期限と段取り'],['money','お金・契約','予算と責任分界'],['delivery','施工・体制','実際に動かす力']];
+const rows=[['purpose','目的・要求','顧客が実現したいこと'],['relationship','関係・決裁','商流・キーマン・受注確度'],['time','時間・工程','期限と段取り'],['money','お金・契約','予算と責任分界'],['capability','施工・体制','実際に動かす力']];
 const cols=[['win','案件の受注角度'],['condition','案件のバランス度'],['execution','工事リスク'],['profit','利益確保度'],['resilience','現在の安定性（急変リスク）']];
 const cellTitles={
  purpose:{win:'要求が指名理由になるか',condition:'目的が条件化されているか',execution:'要求を施工へ翻訳できるか',profit:'要求を利益条件へ変えられるか',resilience:'要求変更に耐えられるか'},
- information:{win:'情報量が提案差になるか',condition:'資料が判断できる状態か',execution:'現調・図面で施工できるか',profit:'不明点を追加費用化できるか',resilience:'情報更新を追跡できるか'},
+ relationship:{win:'関係の深さが選定に効くか',condition:'決裁ルート・信頼が固まっているか',execution:'現場対応まで一貫して任されるか',profit:'関係の深さが価格交渉に効くか',resilience:'関係が崩れても取引が続くか'},
  time:{win:'速さが選定理由になるか',condition:'期限の根拠が固まっているか',execution:'工程が現実に成立するか',profit:'特急対応を回収できるか',resilience:'遅れを吸収できるか'},
  money:{win:'予算内で選ばれる余地',condition:'予算・決裁が確定しているか',execution:'予算で必要品質を実現できるか',profit:'粗利を守れる契約か',resilience:'追加変更を回収できるか'},
- delivery:{win:'施工力が指名理由になるか',condition:'担当・職人が確定しているか',execution:'現場を再現性高く動かせるか',profit:'現場負荷を利益へ反映できるか',resilience:'欠員・変更時に崩れないか'}
+ capability:{win:'施工力が指名理由になるか',condition:'担当・職人が確定しているか',execution:'現場を再現性高く動かせるか',profit:'現場負荷を利益へ反映できるか',resilience:'欠員・変更時に崩れないか'}
 };
-function rowFact(r,c){return {purpose:`依頼目的「${c.purpose}」・優先1位「${c.priority}」`,information:`現調「${c.site}」・図面「${c.drawing}」`,time:`案件状態「${c.status}」`,money:`予算根拠「${c.budget}」・商流「${c.position||'未確認'}」`,delivery:`${c.work||'工種未確認'}・社内実績「${c.knowledge}」`}[r]}
+function rowFact(r,c){return {purpose:`依頼目的「${c.purpose}」・優先1位「${c.priority}」`,relationship:`商流「${c.position||'未確認'}」・接触者「${c.keyman||'未確認'}」`,time:`案件状態「${c.status}」`,money:`予算根拠「${c.budget}」・商流「${c.position||'未確認'}」`,capability:`現調「${c.site}」・図面「${c.drawing}」・${c.work||'工種未確認'}・社内実績「${c.knowledge}」`}[r]}
 function cellAnswer(r,k,score,c){const pos=score>1,neg=score<-1;const f=rowFact(r,c);const tails={win:pos?'選ばれる理由へ転換できます':neg?'競合に覆される弱点です':'選定理由になるか追加確認が必要です',condition:pos?'次工程へ渡せる状態です':neg?'未確定のまま進む危険があります':'担当者と期限を固定する必要があります',execution:pos?'施工へ再現できます':neg?'現場で初めて問題化する恐れがあります':'現調・図面・責任範囲の確認が必要です',profit:pos?'利益を守る材料です':neg?'自社負担へ流れる恐れがあります':'追加・除外・精算条件で方向が変わります',resilience:pos?'条件変更にも耐えられます':neg?'一つの変更で評価が反転します':'再確認日と書面化が必要です'};return `${f}は、${tails[k]}`}
-function cellAction(r,k,c){const a={purpose:`「${c.priority}を守るため、何を変えられるか」を顧客へ確認`,information:'最新版資料・未確認箇所・現調範囲を一枚に整理',time:'完了日から顧客承認日・発注期限を逆算',money:'予算根拠・除外・追加費用の承認方法を合意',delivery:'今回動く担当者・職人・代替体制を確定'}[r];const b={win:'回答を指名理由へ変える',condition:'担当者と期限を付ける',execution:'施工引継ぎ条件へする',profit:'見積条件へ明記する',resilience:'再確認日を設定する'}[k];return `${a}。${b}。`}
+function cellAction(r,k,c){const a={purpose:`「${c.priority}を守るため、何を変えられるか」を顧客へ確認`,relationship:'商流上の立場・決裁者・キーマンとの接点を強化する',time:'完了日から顧客承認日・発注期限を逆算',money:'予算根拠・除外・追加費用の承認方法を合意',capability:'今回動く担当者・職人・代替体制を確定'}[r];const b={win:'回答を指名理由へ変える',condition:'担当者と期限を付ける',execution:'施工引継ぎ条件へする',profit:'見積条件へ明記する',resilience:'再確認日を設定する'}[k];return `${a}。${b}。`}
 function color(score,unknown){if(unknown)return ['#64748b','#f1f5f9'];if(score>=1.4)return ['#059669','#ecfdf5'];if(score<=-1.4)return ['#e11d48','#fff1f2'];if(score<-.3)return ['#d97706','#fffbeb'];return ['#6366f1','#eef2ff']}
 function openFuture(title,html){const modal=q('bpFutureV5Modal');if(!modal)return;q('bpFutureV5ModalTitle').textContent=title;q('bpFutureV5ModalBody').innerHTML=html;modal.classList.add('is-open');document.body.style.overflow='hidden'}
 let bp25Ai={signature:'',cells:{},pending:false,failed:false};
