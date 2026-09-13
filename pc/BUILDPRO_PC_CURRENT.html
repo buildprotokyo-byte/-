@@ -5148,13 +5148,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if(ranks.trust===1)add(c,'relationship',['win','resilience'],2,'信頼・安心が最優先',2);
     const cfBreakdown=typeof getClientFunctionPenaltyBreakdown==='function'?getClientFunctionPenaltyBreakdown():null;
     if(cfBreakdown&&cfBreakdown.total>0)add(c,'relationship',['win','resilience'],-Math.min(3,cfBreakdown.total/4),'顧客に専門機能あり（'+cfBreakdown.items.map(i=>i.label).join('・')+'）',2);
-    const hq=v('headquarters'),hqScore=({tokyo:2,kanagawa:1,sendai:0,osaka:-1,other:-2})[hq];if(hq&&hqScore)add(c,'relationship',['win','condition','resilience'],hqScore,hqScore>0?'本社が得意商業圏内':'本社が商業圏外・決裁が遠い',1);
-    const ba=v('business-area'),baScore=({kanto:2,east:0,national:-2})[ba];if(ba&&baScore)add(c,'relationship',['win','condition','resilience'],baScore,baScore>0?'営業範囲が得意商業圏中心':'営業範囲が広域・関係構築コストに注意',1);
+    const hq=v('headquarters'),hqScore=({tokyo:2,kanagawa:1,sendai:0,osaka:-1,other:-2})[hq];if(hq&&hqScore)add(c,'relationship',['win','condition','resilience'],hqScore/2,hqScore>0?'本社が得意商業圏内':'本社が商業圏外・決裁が遠い',1);
+    const ba=v('business-area'),baScore=({kanto:2,east:0,national:-2})[ba];if(ba&&baScore)add(c,'relationship',['win','condition','resilience'],baScore/2,baScore>0?'営業範囲が得意商業圏中心':'営業範囲が広域・関係構築コストに注意',1);
     if(v('dept-scale')==='21over')add(c,'relationship',['condition','resilience'],-1,'相手部署の人数が多い',1);
     const empScale=v('employee-scale'),empAdj=({small:-5,mid:-2,large:2,huge:5})[empScale]||0;
-    if(empAdj)add(c,'relationship',['win'],empAdj/2.5,empAdj<0?'従業員規模が小さい':'従業員規模が大きい',1);
+    if(empAdj)add(c,'relationship',['win','condition','resilience'],empAdj/2.5,empAdj<0?'従業員規模が小さい':'従業員規模が大きい',1);
     const custKey=v('customer-sub-cat'),custProfile=custKey&&typeof getCustomerCategoryProfile==='function'?getCustomerCategoryProfile(custKey):null;
-    if(custProfile){const custRel=(custProfile.coreBase-40)/10;if(Math.abs(custRel)>=.3)add(c,'relationship',['win'],custRel,custProfile.label,1);}
+    if(custProfile){const custRel=(custProfile.coreBase-40)/10;if(Math.abs(custRel)>=.3)add(c,'relationship',['win','condition','resilience'],custRel,custProfile.label,1);}
     return c;
   }
   function finalize(c){
