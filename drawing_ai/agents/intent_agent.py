@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+from .. import grounding
 from ..config import settings
 from ..prompts import INTENT_SYSTEM_PROMPT, INTENT_USER_TEMPLATE
 from ..schemas import IntentStatement, Tile
@@ -18,7 +19,7 @@ logger = logging.getLogger("drawing_ai.agents.intent")
 
 async def extract_intent(tile: Tile) -> IntentStatement | None:
     client = get_client(settings.child_vlm)
-    prompt = INTENT_USER_TEMPLATE.format(ocr_text=tile.ocr_text[:2000])
+    prompt = INTENT_USER_TEMPLATE.format(ocr_text=grounding.grounding_context(tile)[:2000])
 
     try:
         response = await client.chat(

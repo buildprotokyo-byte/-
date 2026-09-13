@@ -8,9 +8,13 @@ from __future__ import annotations
 import pytest
 from PIL import Image
 
-from drawing_ai import config
-from drawing_ai.orchestrator import run_pipeline
-from drawing_ai.schemas import SheetType
+from .conftest import build_synthetic_vector_pdf
+
+fitz = pytest.importorskip("fitz")
+
+from drawing_ai import config  # noqa: E402
+from drawing_ai.orchestrator import run_pipeline  # noqa: E402
+from drawing_ai.schemas import SheetType  # noqa: E402
 
 
 @pytest.mark.asyncio
@@ -81,3 +85,35 @@ async def test_run_pipeline_survives_partial_agent_failures(tmp_path, monkeypatc
     # that didn't hit the simulated failure.
     assert len(result.sheets) == 1
     assert result.phase2.statements
+
+
+@pytest.mark.asyncio
+async def test_run_pipeline_grounds_against_vector_pdf(tmp_path, monkeypatch, fake_clients):
+    """When the source is a born-digital PDF, tiles should pick up exact
+    ground-truth text, dimension readings that match it should be marked
+    verified_by_vector, OCR should be skipped for those tiles, and the
+    solid model should extract real wall/ceiling-height geometry -- none of
+    which a plain raster image (the other tests here) can exercise."""
+    monkeypatch.setattr(config.settings, "tile_px", 700)
+    monkeypatch.setattr(config.settings, "tile_overlap_px", 100)
+    monkeypatch.setattr(config.settings, "phase3_ensemble_size", 1)
+
+    pdf_path = tmp_path / "vector.pdf"
+    build_synthetic_vector_pdf(str(pdf_path))
+
+    result = await run_pipeline([str(pdf_path)], str(tmp_path / "work"))
+
+    assert len(result.sheets) == 1
+
+    # The fake VLM's canned Phase 3 response always reports "2,730" -- the
+    # synthetic PDF's text layer contains the matching "2730", so this
+    # reading must come back vector-verified.
+    matching = [d for d in result.phase3.dimensions if d.raw_text == "2,730"]
+    assert matching
+    assert matching[0].verified_by_vector is True
+
+    # The synthetic PDF has one CH=2500 label and one wall-colored filled
+    # rectangle -- the solid model should pick up both, with the wall's
+    # height matched to that label.
+    assert result.phase3.solid_model.wall_segments
+    assert result.phase3.solid_model.wall_segments[0].height_mm == pytest.approx(2500.0)

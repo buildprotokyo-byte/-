@@ -13,7 +13,11 @@ Two layers of merging happen:
    plausible one and record the disagreement in ``low_confidence_flags``.
    This step is skipped (falling back to the higher-confidence deterministic
    pick) if the parent LLM call fails, so the pipeline degrades gracefully
-   instead of losing all Phase 3 output.
+   instead of losing all Phase 3 output. Readings already verified against
+   the PDF's own vector/text layer (``verified_by_vector``) are held out of
+   this step entirely -- they are ground truth, not something a model call
+   should be able to rewrite, drop, or silently un-verify -- and are spliced
+   back into the result untouched.
 """
 from __future__ import annotations
 
@@ -45,12 +49,22 @@ def _dim_key(d: DimensionReading, tile_sheet: dict[str, str]) -> tuple[str, str]
     return (tile_sheet.get(d.tile_id, ""), d.raw_text.strip())
 
 
+def _rank(confidence: float, verified_by_vector: bool) -> tuple[bool, float]:
+    """Sort key preferring a vector-verified reading over a merely
+    higher-confidence one -- confidence already reflects verification via
+    the grounding bonus, so this is mostly a tie-break, but it's an
+    explicit safety net rather than relying on that bonus alone."""
+    return (verified_by_vector, confidence)
+
+
 def _dedupe_dimensions(items: list[DimensionReading], tile_sheet: dict[str, str]) -> list[DimensionReading]:
     best: dict[tuple[str, str], DimensionReading] = {}
     for d in items:
         key = _dim_key(d, tile_sheet)
         current = best.get(key)
-        if current is None or d.confidence > current.confidence:
+        if current is None or _rank(d.confidence, d.verified_by_vector) > _rank(
+            current.confidence, current.verified_by_vector
+        ):
             best[key] = d
     return list(best.values())
 
@@ -60,7 +74,9 @@ def _dedupe_symbols(items: list[SymbolReading], tile_sheet: dict[str, str]) -> l
     for s in items:
         key = (tile_sheet.get(s.tile_id, ""), s.symbol_text_or_glyph.strip())
         current = best.get(key)
-        if current is None or s.confidence > current.confidence:
+        if current is None or _rank(s.confidence, s.verified_by_vector) > _rank(
+            current.confidence, current.verified_by_vector
+        ):
             best[key] = s
     return list(best.values())
 
@@ -72,7 +88,7 @@ def _dedupe_elements(items: list[ElementReading]) -> list[ElementReading]:
         current = best.get(key)
         if current is None:
             best[key] = e
-        elif e.confidence > current.confidence:
+        elif _rank(e.confidence, e.verified_by_vector) > _rank(current.confidence, current.verified_by_vector):
             merged = e.model_copy()
             merged.tile_ids = list(set(current.tile_ids) | set(e.tile_ids))
             best[key] = merged
@@ -108,8 +124,29 @@ async def aggregate_phase3(
     ]
 
     if use_llm_reconciliation and (dimensions or symbols or elements):
-        dimensions, symbols, elements, extra_flags = await _llm_reconcile(dimensions, symbols, elements)
-        low_confidence_flags.extend(extra_flags)
+        # Vector-verified readings are ground truth (see grounding.py) --
+        # they must never be rewritten, dropped, or have their
+        # verified_by_vector flag silently lost by passing through a model
+        # call that doesn't know to preserve it. Only the unverified
+        # remainder, where a real conflict might exist, goes to the parent
+        # LLM; verified readings are spliced back in untouched afterward.
+        verified_dims = [d for d in dimensions if d.verified_by_vector]
+        verified_syms = [s for s in symbols if s.verified_by_vector]
+        verified_elems = [e for e in elements if e.verified_by_vector]
+        unverified_dims = [d for d in dimensions if not d.verified_by_vector]
+        unverified_syms = [s for s in symbols if not s.verified_by_vector]
+        unverified_elems = [e for e in elements if not e.verified_by_vector]
+
+        if unverified_dims or unverified_syms or unverified_elems:
+            reconciled_dims, reconciled_syms, reconciled_elems, extra_flags = await _llm_reconcile(
+                unverified_dims, unverified_syms, unverified_elems
+            )
+            low_confidence_flags.extend(extra_flags)
+        else:
+            reconciled_dims, reconciled_syms, reconciled_elems = [], [], []
+        dimensions = verified_dims + reconciled_dims
+        symbols = verified_syms + reconciled_syms
+        elements = verified_elems + reconciled_elems
 
     all_confidences = [d.confidence for d in dimensions] + [s.confidence for s in symbols] + [
         e.confidence for e in elements
@@ -210,7 +247,9 @@ def aggregate_phase1(all_facts: list[SiteFact]) -> Phase1Result:
     best: dict[str, SiteFact] = {}
     for fact in all_facts:
         current = best.get(fact.key)
-        if current is None or fact.confidence > current.confidence:
+        if current is None or _rank(fact.confidence, fact.verified_by_vector) > _rank(
+            current.confidence, current.verified_by_vector
+        ):
             best[fact.key] = fact
         elif fact.confidence == current.confidence:
             # Independent agreement across tiles/sheets on the same fact is

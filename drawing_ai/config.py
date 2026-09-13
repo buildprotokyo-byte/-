@@ -90,10 +90,16 @@ class Settings:
     ocr_engine: str = os.environ.get("DRAWING_AI_OCR_ENGINE", "paddleocr")
     ocr_lang: str = os.environ.get("DRAWING_AI_OCR_LANG", "japan")
 
-    # Ensemble: how many independent child reads to run per tile for
-    # Phase 3 (majority-vote / disagreement-flagging improves precision on
-    # small numerals and symbols far more than a single pass does).
-    phase3_ensemble_size: int = _env_int("DRAWING_AI_PHASE3_ENSEMBLE", 2)
+    # Ensemble: how many independent child reads to run per tile.
+    # Phase 1 gets the largest ensemble of any phase -- it has no downstream
+    # phase left to catch a mistake, and its explicit target is 100%
+    # accuracy, so redundancy is weighted most heavily there. Phase 3 also
+    # runs an ensemble (majority-vote / disagreement-flagging improves
+    # precision on small numerals and symbols far more than a single pass
+    # does); Phase 2 (prose intent) does not, since there's no crisp
+    # "agree/disagree" signal for a free-text sentence to vote on.
+    phase1_ensemble_size: int = _env_int("DRAWING_AI_PHASE1_ENSEMBLE", 3)
+    phase3_ensemble_size: int = _env_int("DRAWING_AI_PHASE3_ENSEMBLE", 3)
 
 
 settings = Settings()

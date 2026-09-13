@@ -14,6 +14,13 @@ drawing-set target:
 - Phase 3's ensemble re-reads already happen inside ``detail_agent`` using
   the same concurrency pool, so they parallelize for free rather than
   serializing on top of the tile loop.
+- Vector ground-truth extraction (vector_extractor.py) and the downstream
+  geometry checks/solid model (solid_model_agent.py) run with zero model
+  calls, so they're pure wall-clock overhead on top of I/O -- negligible
+  next to the VLM calls -- while measurably raising accuracy (see
+  drawing_ai/README.md's accuracy-formation section) and, where they apply,
+  let OCR be skipped entirely for a tile (one fewer thing on the critical
+  path, not an extra one).
 """
 from __future__ import annotations
 
@@ -23,12 +30,14 @@ import time
 import uuid
 from pathlib import Path
 
+from . import vector_extractor as ve
 from .agents import (
     detail_agent,
     intent_agent,
     overview_agent,
     parent_agent,
     site_agent,
+    solid_model_agent,
     vertical_synthesis_agent,
 )
 from .config import settings
@@ -93,13 +102,38 @@ async def run_pipeline(
     sheet_overviews = [o for o in sheet_overviews if o is not None]
     overview_by_id = {o.sheet_id: o for o in sheet_overviews}
 
+    # --- Vector ground-truth extraction (deterministic, no model calls) ---
+    # For a born-digital PDF sheet this pulls the CAD file's own exact text
+    # and wall geometry (see vector_extractor.py); for a scanned image or an
+    # already-rasterized DWG/DXF/JWW it comes back None and everything below
+    # transparently falls back to OCR + AI-only reading.
+    ground_truths: dict[str, ve.SheetGroundTruth] = {}
+    for sheet in sheets:
+        gt = await asyncio.to_thread(ve.extract_ground_truth, sheet)
+        if gt is not None:
+            ground_truths[sheet.sheet_id] = gt
+    logger.info(
+        "[%s] vector ground truth available for %d/%d sheet(s)",
+        run_id, len(ground_truths), len(sheets),
+    )
+
     # --- Tiling + OCR (shared by Phase 1-3) -------------------------------
     all_tiles: list[Tile] = []
     for sheet in sheets:
         tiles = tile_sheet(sheet, work_dir_path / "tiles")
+        gt = ground_truths.get(sheet.sheet_id)
+        if gt is not None:
+            for t in tiles:
+                t.ground_truth_text = ve.words_in_bbox(gt, t.x0, t.y0, t.x1, t.y1)
+                t.has_vector_ground_truth = True
         all_tiles.extend(tiles)
 
     async def _ocr(tile: Tile) -> None:
+        # Vector ground truth already gives exact text for this tile; OCR
+        # would only add noise on top of it (see README), so it's skipped
+        # for tiles that have ground truth and only run where it's needed.
+        if tile.has_vector_ground_truth:
+            return
         result = await asyncio.to_thread(ocr_tile, tile.image_path)
         tile.ocr_text = result.text
 
@@ -160,13 +194,28 @@ async def run_pipeline(
         tile_sheet_map,
         use_llm_reconciliation=run_llm_reconciliation,
     )
+
+    # --- Deterministic geometry layer (no model calls) ----------------------
+    # Dimension-chain arithmetic self-check (加算検算) and the solid wall/
+    # ceiling-height model both run purely off the vector ground truth
+    # extracted above -- independent of, and a cross-check against, every
+    # AI-derived reading above.
+    for gt in ground_truths.values():
+        phase3.dimension_chain_flags.extend(ve.check_dimension_chains(gt))
+
+    tiles_by_id = {t.tile_id: t for t in all_tiles}
+    phase3.solid_model = solid_model_agent.build_solid_model(ground_truths, phase3.elements, tiles_by_id)
+
     logger.info(
-        "[%s] phase3: %d dimension(s), %d symbol(s), %d element(s), accuracy_estimate=%.2f",
+        "[%s] phase3: %d dimension(s), %d symbol(s), %d element(s), accuracy_estimate=%.2f, "
+        "%d dimension-chain flag(s), %d wall segment(s)",
         run_id,
         len(phase3.dimensions),
         len(phase3.symbols),
         len(phase3.elements),
         phase3.accuracy_estimate,
+        len(phase3.dimension_chain_flags),
+        len(phase3.solid_model.wall_segments),
     )
 
     elapsed = time.monotonic() - start
@@ -182,7 +231,7 @@ async def run_pipeline(
 
     model_calls = (
         len(sheets)  # phase0
-        + len(site_tiles)  # phase1
+        + len(site_tiles) * max(1, settings.phase1_ensemble_size)  # phase1
         + len(all_tiles)  # phase2
         + len(all_tiles) * max(1, settings.phase3_ensemble_size)  # phase3
         + (1 if statements else 0)  # project summary

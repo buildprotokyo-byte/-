@@ -6,17 +6,20 @@ results are reconciled locally before being handed up to the parent agent:
 - a dimension reading that agrees (same raw_text, close value) across passes
   has its confidence boosted and is kept once
 - a reading that only shows up in one pass is kept but not boosted
-- readings are additionally cross-checked against the tile's OCR text: a
-  numeric raw_text that does not appear anywhere in the OCR output has its
-  confidence penalized, since that is the single strongest signal of a
-  vision-only hallucination.
+- readings are additionally cross-checked against the tile's best available
+  text-grounding source. When the sheet is a born-digital PDF, that source
+  is exact text pulled from the CAD file itself (see vector_extractor.py)
+  and disagreement is treated as a strong hallucination signal (-0.5);
+  otherwise it falls back to OCR, which is far less reliable (confirmed on
+  a real sample drawing -- see README), so the adjustment there stays a
+  gentle +0.1 / -0.2.
 """
 from __future__ import annotations
 
 import asyncio
 import logging
-import re
 
+from .. import grounding
 from ..config import settings
 from ..prompts import DETAIL_SYSTEM_PROMPT, DETAIL_USER_TEMPLATE
 from ..schemas import DimensionReading, ElementReading, SymbolReading, Tile
@@ -24,16 +27,12 @@ from ..vlm_client import VLMCallError, extract_json, get_client
 
 logger = logging.getLogger("drawing_ai.agents.detail")
 
-_DIGITS_RE = re.compile(r"[0-9,.]+")
-
-
-def _normalize_number(text: str) -> str:
-    return _DIGITS_RE.sub(lambda m: m.group(0).replace(",", ""), text)
+_normalize_number = grounding.normalize_number
 
 
 async def _one_pass(tile: Tile) -> dict:
     client = get_client(settings.child_vlm)
-    prompt = DETAIL_USER_TEMPLATE.format(ocr_text=tile.ocr_text[:2000])
+    prompt = DETAIL_USER_TEMPLATE.format(ocr_text=grounding.grounding_context(tile)[:2000])
     response = await client.chat(
         DETAIL_SYSTEM_PROMPT,
         prompt,
@@ -45,14 +44,6 @@ async def _one_pass(tile: Tile) -> dict:
     if not isinstance(data, dict):
         raise ValueError("expected a JSON object with dimensions/symbols/elements")
     return data
-
-
-def _ocr_grounding_bonus(raw_text: str, ocr_text: str) -> float:
-    needle = _normalize_number(raw_text)
-    if not needle:
-        return 0.0
-    haystack = _normalize_number(ocr_text)
-    return 0.1 if needle and needle in haystack else -0.2
 
 
 def _reconcile_dimensions(passes: list[list[dict]], tile: Tile) -> list[DimensionReading]:
@@ -68,8 +59,8 @@ def _reconcile_dimensions(passes: list[list[dict]], tile: Tile) -> list[Dimensio
     for key, items in seen.items():
         best = max(items, key=lambda it: float(it.get("confidence", 0.0)))
         agreement_bonus = 0.15 * (len(items) - 1) if len(items) > 1 else 0.0
-        grounding = _ocr_grounding_bonus(str(best.get("raw_text", "")), tile.ocr_text)
-        confidence = max(0.0, min(1.0, float(best.get("confidence", 0.0)) + agreement_bonus + grounding))
+        grounding_delta, verified = grounding.numeric_adjustment(str(best.get("raw_text", "")), tile)
+        confidence = max(0.0, min(1.0, float(best.get("confidence", 0.0)) + agreement_bonus + grounding_delta))
         value = best.get("value")
         out.append(
             DimensionReading(
@@ -80,6 +71,7 @@ def _reconcile_dimensions(passes: list[list[dict]], tile: Tile) -> list[Dimensio
                 role_ja=str(best.get("role_ja", "")),
                 associated_elements=[str(e) for e in best.get("associated_elements", [])],
                 confidence=confidence,
+                verified_by_vector=verified,
             )
         )
     return out
@@ -98,7 +90,8 @@ def _reconcile_symbols(passes: list[list[dict]], tile: Tile) -> list[SymbolReadi
     for key, items in seen.items():
         best = max(items, key=lambda it: float(it.get("confidence", 0.0)))
         agreement_bonus = 0.1 * (len(items) - 1) if len(items) > 1 else 0.0
-        confidence = max(0.0, min(1.0, float(best.get("confidence", 0.0)) + agreement_bonus))
+        grounding_delta, verified = grounding.text_adjustment(key, tile)
+        confidence = max(0.0, min(1.0, float(best.get("confidence", 0.0)) + agreement_bonus + grounding_delta))
         out.append(
             SymbolReading(
                 tile_id=tile.tile_id,
@@ -106,6 +99,7 @@ def _reconcile_symbols(passes: list[list[dict]], tile: Tile) -> list[SymbolReadi
                 meaning_ja=str(best.get("meaning_ja", "")),
                 location_hint=str(best.get("location_hint", "")),
                 confidence=confidence,
+                verified_by_vector=verified,
             )
         )
     return out
@@ -124,7 +118,8 @@ def _reconcile_elements(passes: list[list[dict]], tile: Tile) -> list[ElementRea
     for (element_type, label_ja), items in seen.items():
         best = max(items, key=lambda it: float(it.get("confidence", 0.0)))
         agreement_bonus = 0.1 * (len(items) - 1) if len(items) > 1 else 0.0
-        confidence = max(0.0, min(1.0, float(best.get("confidence", 0.0)) + agreement_bonus))
+        grounding_delta, verified = grounding.text_adjustment(label_ja, tile)
+        confidence = max(0.0, min(1.0, float(best.get("confidence", 0.0)) + agreement_bonus + grounding_delta))
         out.append(
             ElementReading(
                 element_id=f"{tile.tile_id}-{element_type}-{len(out)}",
@@ -134,6 +129,7 @@ def _reconcile_elements(passes: list[list[dict]], tile: Tile) -> list[ElementRea
                 tile_ids=[tile.tile_id],
                 attributes={str(k): str(v) for k, v in dict(best.get("attributes", {})).items()},
                 confidence=confidence,
+                verified_by_vector=verified,
             )
         )
     return out

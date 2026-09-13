@@ -43,6 +43,15 @@ class Tile(BaseModel):
     y1: int
     image_path: str
     ocr_text: str = ""
+    # Exact text extracted from the PDF's own vector/text layer that falls
+    # inside this tile's pixel region (see vector_extractor.py). Empty when
+    # the source sheet is not a born-digital PDF page (e.g. a scanned image,
+    # DWG/DXF/JWW already rasterized upstream). When non-empty this is
+    # authoritative -- it is literally what the CAD software wrote, not a
+    # transcription -- and downstream agents should trust it far more than
+    # OCR or a VLM's own reading.
+    ground_truth_text: str = ""
+    has_vector_ground_truth: bool = False
 
 
 class SheetOverview(BaseModel):
@@ -76,6 +85,7 @@ class SiteFact(BaseModel):
     source_sheet_ids: list[str] = Field(default_factory=list)
     raw_evidence_text: str = ""  # OCR/読み取り原文(監査用)
     needs_human_review: bool = False
+    verified_by_vector: bool = False  # PDFのベクター/文字レイヤーと一致確認済みか
 
 
 class Phase1Result(BaseModel):
@@ -112,6 +122,7 @@ class SymbolReading(BaseModel):
     meaning_ja: str  # 意味(例: "電源コンセント", "防水区画境界")
     location_hint: str = ""  # タイル内座標や近傍テキストなど
     confidence: float = Field(ge=0.0, le=1.0)
+    verified_by_vector: bool = False
 
 
 class DimensionReading(BaseModel):
@@ -124,6 +135,8 @@ class DimensionReading(BaseModel):
     role_ja: str = ""  # 例: "壁芯-芯距離", "天井高", "開口幅"
     associated_elements: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
+    verified_by_vector: bool = False  # PDFの文字レイヤーに同一表記が存在した
+    verified_by_geometry: bool = False  # 対応する線分の実寸換算長と数値が一致した
 
 
 class ElementReading(BaseModel):
@@ -136,6 +149,7 @@ class ElementReading(BaseModel):
     tile_ids: list[str] = Field(default_factory=list)
     attributes: dict[str, str] = Field(default_factory=dict)
     confidence: float = Field(ge=0.0, le=1.0)
+    verified_by_vector: bool = False
 
 
 class VerticalSynthesisNote(BaseModel):
@@ -149,6 +163,73 @@ class VerticalSynthesisNote(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
+class ScaleConsistencyFlag(BaseModel):
+    """A dimension number whose printed value disagrees with the real-world
+    length measured from its nearby vector line, via the sheet's known
+    print scale. This is a purely geometric/mathematical check -- no AI
+    involved -- so a flag here means either a genuine drafting error in the
+    source drawing, or that the wrong line was matched to the wrong number
+    (in which case treat it as "unverifiable", not "wrong")."""
+
+    sheet_id: str
+    raw_text: str
+    printed_value_mm: float
+    measured_length_mm: float
+    delta_pct: float
+    location_hint: str = ""
+
+
+class DimensionChainFlag(BaseModel):
+    """A run of collinear dimension numbers whose parts don't sum to the
+    stated total (加算検算 -- the same arithmetic check a human estimator
+    does by hand). Purely arithmetic, no AI involved."""
+
+    sheet_id: str
+    axis: str  # "horizontal" | "vertical"
+    component_raw_texts: list[str] = Field(default_factory=list)
+    component_sum_mm: float
+    total_raw_text: str
+    total_value_mm: float
+    delta_mm: float
+
+
+class WallSegmentGeometry(BaseModel):
+    """One wall footprint polygon extracted directly from the PDF's filled
+    vector paths (not inferred by any model), extruded to a height pulled
+    from the nearest CH=(天井高) ground-truth text on the same sheet."""
+
+    sheet_id: str
+    polygon_mm: list[list[float]] = Field(default_factory=list)  # [[x,y], ...] real-world mm
+    height_mm: Optional[float] = None
+    height_source: str = ""  # e.g. "CH=2850 (nearest label, 340px away)"
+
+
+class RoomHeightFact(BaseModel):
+    """A room/zone label matched to its nearest CH=(ceiling height) text on
+    the same sheet -- both sides of the match are exact vector text, so this
+    is near-ground-truth once the spatial match itself is correct."""
+
+    sheet_id: str
+    room_label: str
+    ceiling_height_mm: float
+    match_distance_px: float
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class SolidModel(BaseModel):
+    """Lightweight parametric 3D structure assembled from verified 2D
+    geometry (wall footprints) + verified height text (CH=), mirroring the
+    human step of mentally standing the plan up into a building. This is
+    not a full BIM model -- it is the smallest 3D representation that is
+    fully traceable back to ground-truth text/geometry rather than model
+    guesswork."""
+
+    wall_segments: list[WallSegmentGeometry] = Field(default_factory=list)
+    room_heights: list[RoomHeightFact] = Field(default_factory=list)
+    sheet_scale_mm_per_px: dict[str, float] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class Phase3Result(BaseModel):
     """数字・線・記号を正確に読み取り、意味を理解した結果。"""
 
@@ -158,6 +239,9 @@ class Phase3Result(BaseModel):
     vertical_synthesis: list[VerticalSynthesisNote] = Field(default_factory=list)
     low_confidence_flags: list[str] = Field(default_factory=list)
     accuracy_estimate: float = Field(ge=0.0, le=1.0, default=0.0)
+    scale_consistency_flags: list[ScaleConsistencyFlag] = Field(default_factory=list)
+    dimension_chain_flags: list[DimensionChainFlag] = Field(default_factory=list)
+    solid_model: SolidModel = Field(default_factory=SolidModel)
 
 
 class PipelineRun(BaseModel):

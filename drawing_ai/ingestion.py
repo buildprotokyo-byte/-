@@ -34,6 +34,11 @@ class RenderedSheet:
     image_path: str
     width: int
     height: int
+    # Only set when the sheet came from a PDF page: lets vector_extractor.py
+    # re-open that exact page to pull its native text/vector-line layer
+    # (ground truth) instead of only having the rasterized PNG to work with.
+    source_pdf_path: str | None = None
+    source_pdf_page_index: int | None = None
 
 
 def _new_sheet_id(index: int) -> str:
@@ -71,6 +76,8 @@ def render_pdf(path: str | Path, out_dir: str | Path) -> list[RenderedSheet]:
                     image_path=str(out_path),
                     width=pix.width,
                     height=pix.height,
+                    source_pdf_path=str(path),
+                    source_pdf_page_index=index,
                 )
             )
     return sheets

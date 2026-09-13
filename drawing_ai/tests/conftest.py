@@ -15,6 +15,28 @@ from dataclasses import dataclass
 import pytest
 
 
+def build_synthetic_vector_pdf(path: str) -> None:
+    """A tiny born-digital PDF (real text + a real filled wall path) shared
+    by vector_extractor and end-to-end pipeline tests, so both exercise the
+    same ground-truth extraction code path without any external file."""
+    import fitz
+
+    doc = fitz.open()
+    page = doc.new_page(width=600, height=400)
+    page.insert_text((500, 380), "縮尺", fontsize=8)
+    page.insert_text((520, 380), "1/50", fontsize=8)
+    page.insert_text((250, 150), "CH=2500", fontsize=8)
+    page.insert_text((300, 200), "2730", fontsize=8)
+
+    shape = page.new_shape()
+    shape.draw_rect(fitz.Rect(300, 250, 340, 290))
+    shape.finish(fill=(0.494, 0.463, 0.447), color=None)
+    shape.commit()
+
+    doc.save(path)
+    doc.close()
+
+
 @dataclass
 class FakeResponse:
     text: str
