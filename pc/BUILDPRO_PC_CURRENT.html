@@ -14399,13 +14399,38 @@ function answerFor(q){const s=String(q||'').trim(),c=context();
  if(/原因分類|自己原因|外部変化|不可抗力|戦略変更/.test(s))return{title:'原因分類の使い方',items:['変更を登録する際、日々の変更記録ごとに「自己原因・外部変化・戦略変更・不可抗力」を選びます（案件全体で1つではありません）。','外部変化・戦略変更・不可抗力を選んだ場合は「予算影響見込・工程影響見込」も入力してください。結果30点の予算・工程のズレから、その分が差し引かれます。','自己原因の場合は影響見込の入力は任意です。'],warn:'原因分類は減点を免除するためではなく、発生原因と発生後の対応を分けて評価するために使います。'};
  if(/計画決定|粗利ランク|D・E|ロック|承認状況/.test(s))return{title:'計画決定・承認状況の自動化',items:['粗利ランクがD・Eのままだと「計画を決定」ボタンは押せません。予算・見積条件を見直すか、上長承認のうえ理由タグを付けてください。','承認状況は、案件内の全変更記録から自動集計されます（未承認が1件でもあれば全体も未承認扱い）。個別入力欄はもうありません。','結果評価は、計画側（粗利ランク・原価レンジ・工程マイルストーン）が確定するまで確定できません。'],warn:'計画チェックの「要修正」項目は、該当ステップへのボタンからそのまま移動できます。'};
  if(/現場|変更なし|日次|工程|予算/.test(s))return{title:'現場で迷ったときの順番',items:['「自分の現場」で対象現場を選び、工程・予算・最近の登録・これから起きることを確認します。','今日の現場管理で、工程・予算・品質・コミュニケーションの変化を登録します。','変化あり／緊急は理由と次の対応まで残し、登録後に残件数と履歴が更新されたことを確認します。'],warn:'反応中はボタンを連打せず、「処理中」表示が消えるまで待ってください。'};
- return{title:`${c.screen}での次の一手`,items:['画面上の対象案件と本人名が正しいことを確認します。','必須項目を上から埋め、保存または登録後の完了表示まで待ちます。','結果が反映されたことを一覧・履歴・件数のいずれかで確認します。'],warn:'判断できない項目は推測で埋めず、質問欄へ「画面名・押したボタン・表示された文」を入力してください。'} }
+ return null; // 決まった話題に一致しない自由質問は、内蔵の定型文で埋めず共有AIの回答を待つ
+}
+function fallbackAnswer(c){return{title:`${c.screen}での次の一手`,items:['画面上の対象案件と本人名が正しいことを確認します。','必須項目を上から埋め、保存または登録後の完了表示まで待ちます。','結果が反映されたことを一覧・履歴・件数のいずれかで確認します。'],warn:'共有AIに接続できなかったため、内蔵の一般的な案内を表示しています。もう一度質問すると、共有AIへ再度確認します。'} }
 function futureAnswer(c){const weak=c.weak||'予算・決裁者・現地条件など、未確認情報があります。',strong=c.strong||'入力済みの事実から使える強みを確認します。';return{title:'未来ストーリー伴走AIの整理',items:[`現在の案件：${c.caseName}。まず悪い分岐を生む未確認事項を固定します。`,`弱点候補：${weak.slice(0,180)}`,`活かす材料：${strong.slice(0,180)}`,'今日：決裁者・予算・期限・競合・現地条件のうち未確認を電話で確認します。','確認当日：回答をメールや記録へ固定し、施工・積算担当へ影響を確認します。','次回接点：条件が崩れた場合の代替案と中止条件を、相手と共有します。'],warn:'事実が未入力の項目はAIが推測で補いません。案件カルテを更新すると、未来ストーリーの整理内容も変わります。'} }
 function htmlAnswer(a,source='内蔵伴走AI'){return`<h4>${esc(a.title)}</h4><ol>${a.items.map(x=>`<li>${esc(x)}</li>`).join('')}</ol>${a.warn?`<div class="warn">${esc(a.warn)}</div>`:''}<div class="bpua-meta">${esc(source)}｜端末へのAIソフト追加は不要です</div>`}
 function gatewayUrl(){try{return String(window.BUILDPRO_START_CONFIG?.aiGatewayUrl||localStorage.getItem('BP_SHARED_AI_GATEWAY_URL')||'https://hqhfmsmepzchdvlasbpl.supabase.co/functions/v1/buildpro-ai-guide').trim()}catch(_){return''}}
 async function gatewayAsk(question,c){const url=gatewayUrl();if(!url)return null;const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),18000);try{const session=JSON.parse(localStorage.getItem('BP_SB_SESSION_V1363')||'null');const headers={'Content-Type':'application/json',apikey:'sb_publishable_6TZvnhXkOp9w380fbDj2kQ_H1xbn2X1'};if(session?.access_token)headers.Authorization='Bearer '+session.access_token;const r=await fetch(url,{method:'POST',headers,body:JSON.stringify({question,context:c}),signal:ctrl.signal});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();return String(d.answer||'').trim()||null}finally{clearTimeout(tm)}}
 function renderAnswer(a){const out=$('bpUniversalAIAnswer');if(out)out.innerHTML=htmlAnswer(a)}
-async function ask(question){const q=String(question||$('bpUniversalAIInput')?.value||'').trim()||'この画面で次に何を確認しますか';const local=answerFor(q);renderAnswer(local);const out=$('bpUniversalAIAnswer'),url=gatewayUrl();if(!url||!out)return;const marker=document.createElement('div');marker.className='bpua-meta';marker.textContent='会社の共有AIでも確認しています…';out.appendChild(marker);try{const remote=await gatewayAsk(q,context());if(remote)out.innerHTML=`<h4>共有AIの回答</h4><div>${esc(remote).replace(/\n/g,'<br>')}</div><div class="bpua-meta">会社共有のオープンソースAI｜内蔵伴走AIで安全に補助</div>`;else marker.remove()}catch(e){marker.textContent='共有AIへ接続できないため、上の内蔵回答を表示しています。'}}
+async function ask(question){
+ const q=String(question||$('bpUniversalAIInput')?.value||'').trim()||'この画面で次に何を確認しますか';
+ const local=answerFor(q);
+ const out=$('bpUniversalAIAnswer');
+ if(local)renderAnswer(local);
+ else if(out)out.innerHTML='<div class="bpua-meta">共有AIが回答を考えています…少々お待ちください。</div>';
+ const url=gatewayUrl();
+ if(!url||!out)return;
+ let marker=null;
+ if(local){marker=document.createElement('div');marker.className='bpua-meta';marker.textContent='会社の共有AIでも確認しています…';out.appendChild(marker)}
+ try{
+  const remote=await gatewayAsk(q,context());
+  if(remote){
+   out.innerHTML=`<h4>共有AIの回答</h4><div>${esc(remote).replace(/\n/g,'<br>')}</div><div class="bpua-meta">会社共有のオープンソースAI｜内蔵伴走AIで安全に補助</div>`;
+  }else if(local&&marker){
+   marker.remove();
+  }else if(!local){
+   renderAnswer(fallbackAnswer(context()));
+  }
+ }catch(e){
+  if(local&&marker)marker.textContent='共有AIへ接続できないため、上の内蔵回答を表示しています。';
+  else if(!local)renderAnswer(fallbackAnswer(context()));
+ }
+}
 function installShell(){if($('bpUniversalAIShell'))return;document.body.insertAdjacentHTML('beforeend',`<button id="bpUniversalAIButton" type="button" aria-label="操作をAIに相談">◆ AIに聞く</button><div id="bpUniversalAIShell" role="dialog" aria-modal="true" aria-label="BUILD PRO伴走AI"><section class="bpua-panel"><header class="bpua-head"><div><div class="bpua-kicker">BUILD PRO GUIDE</div><h2>迷ったら、ここで相談</h2></div><button class="bpua-close" type="button" aria-label="閉じる">×</button></header><div class="bpua-body"><div class="bpua-status"><b>内蔵伴走AI：動作中</b>LM Studioや端末へのモデル導入は不要です。会社の共有AIが未接続でも基本案内と未来ストーリー整理は止まりません。</div><section class="bpua-section"><h3>よくある相談</h3><div class="bpua-quick"><button class="bpua-btn" data-q="初めて使います。ログインと本人確認は？">初回ログイン</button><button class="bpua-btn" data-q="Outlook予定はどこで確認しますか">Outlook予定</button><button class="bpua-btn" data-q="未来ストーリーの次の一手を教えて">未来ストーリー</button><button class="bpua-btn" data-q="現場管理で何を登録しますか">現場管理</button><button class="bpua-btn" data-q="月次の振り返り評価を教えて">振り返り評価</button><button class="bpua-btn" data-q="想定リスクと事前の握り事項の入力方法を教えて">計画35点の入力</button><button class="bpua-btn" data-q="計画決定ボタンが押せません">計画決定できない</button><button class="bpua-btn" data-q="この画面で次に何をしますか">この画面の次</button></div></section><section class="bpua-section"><h3>そのまま質問できます</h3><textarea id="bpUniversalAIInput" class="bpua-input" placeholder="例：未来ストーリーで何を確認すればよいですか"></textarea><button id="bpUniversalAISend" class="bpua-btn primary" type="button">AIに聞く</button><div id="bpUniversalAIAnswer" class="bpua-answer" aria-live="polite">質問を選ぶか、困っていることを入力してください。</div></section></div></section></div>`);$('bpUniversalAIButton').onclick=()=>open();$('bpUniversalAIShell').querySelector('.bpua-close').onclick=close;$('bpUniversalAIShell').onclick=e=>{if(e.target.id==='bpUniversalAIShell')close()};$('bpUniversalAISend').onclick=()=>ask();$('bpUniversalAIInput').addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter')ask()});document.querySelectorAll('#bpUniversalAIShell [data-q]').forEach(b=>b.onclick=()=>{const q=b.dataset.q;$('bpUniversalAIInput').value=q;ask(q)})}
 function open(question=''){installShell();$('bpUniversalAIShell').classList.add('open');if(question){$('bpUniversalAIInput').value=question;ask(question)}setTimeout(()=>$('bpUniversalAIInput')?.focus(),50)}
 function close(){$('bpUniversalAIShell')?.classList.remove('open')}
@@ -14635,6 +14660,74 @@ function tick(){
 }
 let n=0;const t=setInterval(()=>{tick();if(++n>150)clearInterval(t)},400);
 document.addEventListener('click',()=>setTimeout(tick,80),true);
+})();
+</script>
+
+<!-- BUILD PRO V13.8.4 | すべてのフリーテキスト欄（タブ1〜6）に音声入力ボタンを自動で付ける -->
+<style id="bp-v1384-voice-everywhere-style">
+.bp1384-mic-wrap{position:relative;display:block}
+.bp1384-mic-btn{position:absolute;top:6px;right:6px;z-index:5;border:1px solid #94a3b8;background:#fff;color:#334155;border-radius:8px;padding:4px 8px;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 1px 4px rgba(15,23,42,.12)}
+.bp1384-mic-btn:hover{background:#eef2ff;border-color:#6366f1;color:#3730a3}
+.bp1384-mic-btn.is-listening{background:#fee2e2;border-color:#fca5a5;color:#991b1b}
+.bp1384-mic-status{font-size:10px;color:#64748b;margin-top:3px}
+</style>
+<script id="bp-v1384-voice-everywhere">
+(()=>{'use strict';
+let seq=0;
+const dedicatedVoiceIds=new Set([...document.documentElement.outerHTML.matchAll(/toggleVoiceInput\('([a-zA-Z0-9_-]+)'/g)].map(m=>m[1]));
+function isFreeTextField(e){
+ if(!e.id)return false;
+ if(e.dataset.bp1384Skip)return false;
+ if(e.closest('.bp1384-mic-wrap'))return false; // すでに対応済み
+ if(e.closest('.bp-v1375-voice-row'))return false; // 既存の専用音声UIと二重にしない
+ if(dedicatedVoiceIds.has(e.id))return false; // すでに専用の音声入力ボタンがこの欄に付いている
+ if(e.readOnly||e.disabled)return false;
+ const t=(e.type||'').toLowerCase();
+ if(e.tagName==='TEXTAREA')return true;
+ if(e.tagName==='INPUT'&&(t===''||t==='text'||t==='search'))return true;
+ return false;
+}
+function attachMic(e){
+ const parent=e.parentElement;
+ if(!parent)return;
+ // 入力欄をラップして、右上にマイクボタンを重ねて配置する（レイアウトを崩さない）
+ const wrap=document.createElement('div');
+ wrap.className='bp1384-mic-wrap';
+ parent.insertBefore(wrap,e);
+ wrap.appendChild(e);
+ const pad=e.tagName==='TEXTAREA'?'78px':'64px';
+ e.style.paddingRight=pad;
+ const btn=document.createElement('button');
+ btn.type='button';
+ btn.className='bp1384-mic-btn';
+ btn.textContent='🎙 音声';
+ btn.title='音声入力（もう一度押すと停止）';
+ const sid=`bpV1384MicStatus${seq++}`;
+ const status=document.createElement('div');
+ status.id=sid;
+ status.className='bp1384-mic-status';
+ btn.onclick=(ev)=>{
+  ev.preventDefault();ev.stopPropagation();
+  const listening=btn.classList.toggle('is-listening');
+  btn.textContent=listening?'⏹ 停止':'🎙 音声';
+  window.toggleVoiceInput?.(e.id,sid);
+ };
+ wrap.appendChild(btn);
+ wrap.appendChild(status);
+}
+function scan(root){
+ if(!root)return;
+ root.querySelectorAll('textarea,input').forEach(e=>{
+  if(isFreeTextField(e))attachMic(e);
+ });
+}
+function scanVisibleTab(){
+ document.querySelectorAll('.tab-content:not(.hidden)').forEach(scan);
+ // タブ切替の外側（サイドバー・モーダル等）で開いている入力欄も対象にする
+ document.querySelectorAll('[role="dialog"], .bp-modal-shell.is-open, .bp-v1361-modal.is-open').forEach(scan);
+}
+let n=0;const t=setInterval(()=>{scanVisibleTab();if(++n>400)clearInterval(t)},600);
+document.addEventListener('click',()=>setTimeout(scanVisibleTab,200),true);
 })();
 </script>
 </body>
