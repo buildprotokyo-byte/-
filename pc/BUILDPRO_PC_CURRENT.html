@@ -7876,7 +7876,7 @@ function buildWizardQueue(){const small=wizardCourse().size==='small';const base
  {id:'material-order-deadline',step:'confirm',type:'date',field:'bp-cp-material-order-deadline',title:'材料発注を完了する期限は？',condition:()=>!small},
  {id:'trades-base',step:'trades',type:'trade-base',title:'工種選択：まず基本セットを使いますか？',help:'工事タイプに応じた基本工種セットを自動で追加できます。'},
  {id:'trades-extra',step:'trades',type:'trade-extra',title:'追加で必要な工種はありますか？',optional:true,help:'タップ、または工種名を話して選んでください。複数選べます。不要なら「スキップ」してください。'},
- {id:'trade-detail-gen',step:'detail',type:'detail-generate',title:''},
+ {id:'trade-detail-gen',step:'detail',type:'detail-generate',title:'',expanded:false,condition:function(){return!this.expanded}},
  {id:'contract-total',step:'budget',type:'number',field:'bp-cp-contract-total',title:'受注金額・契約金額はいくらですか？（万円・税別）',help:'例：1500'},
  {id:'schedule-generate',step:'schedule',type:'schedule-generate',title:'工程表を自動生成します',help:'着工日・引き渡し日など、ここまでの回答から横断工程表を作成します。'},
  {id:'final-check',step:'check',type:'final-check',title:'計画チェックを実行します',help:'未入力・矛盾がないか、最後に確認します。'}
@@ -7901,7 +7901,7 @@ function bpCpWizardRender(){const qq=wizardQueue[wizardIndex];if(!qq){bpCpWizard
  else if(qq.type==='trade-base'){const tpl=value('bp-cp-project-template')||'mansion-renovation',preset=PRESETS[tpl]||PRESETS.other;helpEl.textContent=(qq.help||'')+`（${preset.label}の基本セット：${preset.trades.map(x=>x[1]).join('・')||'なし'}）`;box.innerHTML=`<div class="bp-cp-wizard-choices"><button type="button" class="bp-cp-wizard-choice" onclick="bpCpWizardTradeBase(true)">はい、基本セットを使う</button><button type="button" class="bp-cp-wizard-choice" onclick="bpCpWizardTradeBase(false)">いいえ、使わない</button></div>`;nextBtn.style.display='none'}
  else if(qq.type==='trade-extra'){const already=new Set(getState()?.workPackages?.map(w=>w.category)||[]);box.innerHTML=`<div class="bp-cp-wizard-trade-grid">${allTrades().filter(([v])=>!['support_action','other_work','other_expense'].includes(v)).map(([v,l])=>`<button type="button" class="bp-cp-wizard-trade ${already.has(v)||wizardTradeSel.has(v)?'is-selected':''}" data-wiz-trade="${esc(v)}" ${already.has(v)?'disabled':''} onclick="bpCpWizardToggleTrade('${v}')">${esc(l)}${already.has(v)?'（追加済）':''}</button>`).join('')}</div>`}
  else if(qq.type==='docs'){box.innerHTML=`<div class="bp-cp-wizard-trade-grid">${DOCS.map(([v,l])=>`<button type="button" class="bp-cp-wizard-trade ${checked('bp-cp-doc-'+v)?'is-selected':''}" data-wiz-doc="${esc(v)}" onclick="bpCpWizardToggleDoc('${v}')">${esc(l)}</button>`).join('')}</div>`}
- else if(qq.type==='detail-generate'){wizardExpandDetailQuestions();bpCpWizardGotoValid(wizardIndex+1,1);return}
+ else if(qq.type==='detail-generate'){if(!qq.expanded){qq.expanded=true;wizardExpandDetailQuestions()}bpCpWizardGotoValid(wizardIndex+1,1);return}
  else if(qq.type==='detail'){box.innerHTML=`<input inputmode="decimal" id="bp-cp-wizard-input" value="${esc(qq.getVal())}">`}
  else if(qq.type==='schedule-generate'){nextBtn.textContent='工程表を生成して次へ →';const ok=value('bp-cp-site-start')&&value('bp-cp-handover');box.innerHTML=ok?`<div class="bp-cp-card good">着工日：${esc(value('bp-cp-site-start'))}／引き渡し日：${esc(value('bp-cp-handover'))}</div>`:`<div class="bp-cp-card warning">着工日・引き渡し日が未入力のため、工程表は生成できません。「前へ」で戻って入力してください。</div>`}
  else if(qq.type==='final-check'){nextBtn.textContent='計画チェックを見る →';box.innerHTML=`<div class="bp-cp-card">ここまでの回答を確認・保存します。押すと計画チェック画面へ移動します。</div>`}
