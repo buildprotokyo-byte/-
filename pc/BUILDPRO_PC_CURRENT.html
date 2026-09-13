@@ -858,14 +858,7 @@ window.bpIsCalibrationControlEvent=function(e){
                             </div>
 
                             <!-- 営業対応プロセス（合意状況） -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <label class="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs">
-                                    <input type="checkbox" id="site-survey" checked class="mt-1 h-4 w-4 rounded text-indigo-600 border-slate-300" onchange="calculate()">
-                                    <div>
-                                        <span class="font-bold text-slate-800 block text-sm">現調・ヒアリングシートの使用</span>
-                                        <span class="text-slate-400">（工事本部KPI：使用率90%以上）</span>
-                                    </div>
-                                </label>
+                            <div class="grid grid-cols-1 gap-4">
                                 <label class="flex items-start gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs">
                                     <input type="checkbox" id="price-agreement" class="mt-1 h-4 w-4 rounded text-indigo-600 border-slate-300" onchange="calculate()">
                                     <div>
@@ -2739,7 +2732,6 @@ window.bpIsCalibrationControlEvent=function(e){
                 });
                 const termMitsumori = scheduleRisk.termMitsumori;
 
-                const siteSurvey = getChecked('site-survey');
                 const priceAgreement = getChecked('price-agreement');
                 const salesIntuitionText = getVal('sales-intuition');
                 const salespersonStory = getVal('salesperson-story', 'unknown');
@@ -2968,7 +2960,7 @@ window.bpIsCalibrationControlEvent=function(e){
                     name, value, realProbability, expectedProfit, rawProfit, margin, downside, totalLoss, signalLevel,
                     budgetRange, customerSub, workMain, workSub, workDetail, internalKnowledge, geographyRisk,
                     drawingPrecision, termMitsumori, termGencho, evGencho, sizeType, keyman, pos, compType,
-                    compCountRaw, groupConst, deptScale, projectStatus, commitmentLevel, siteSurvey, priceAgreement,
+                    compCountRaw, groupConst, deptScale, projectStatus, commitmentLevel, priceAgreement,
                     missing, zeroAlert, resourceDraft, companyResearch: companyResearchData, salesIntuition: intuitionDraft, customFields, scheduleRisk
                 });
 
@@ -2993,7 +2985,7 @@ window.bpIsCalibrationControlEvent=function(e){
                     zeroAlert, missing, compType, compCountRaw, budgetRange, pos, relYears, relCount, relWinRate,
                     customerSub, workMain, workSub, workDetail, termGencho, evGencho, drawingPrecision, sizeType,
                     keyman, termMitsumori, geographyRisk, internalKnowledge, groupConst, deptScale,
-                    projectStatus, commitmentLevel, siteSurvey, priceAgreement, companyResearch: companyResearchData, salesIntuition: intuitionDraft, customFields, scheduleRisk
+                    projectStatus, commitmentLevel, priceAgreement, companyResearch: companyResearchData, salesIntuition: intuitionDraft, customFields, scheduleRisk
                 });
 
             } catch (e) {
@@ -4254,7 +4246,7 @@ window.bpIsCalibrationControlEvent=function(e){
         function bpV11Items(id,limit=5){const e=document.getElementById(id);if(!e)return[];return [...e.querySelectorAll(':scope > div,article,li')].map(x=>x.textContent.replace(/\s+/g,' ').trim()).filter(Boolean).slice(0,limit)}
         function bpV11Context(){
             const d=window.bpSalesLayerV2||window.bpOfficialDiagnosis||{},om=d.officialMetrics||{};
-            const fields={'project-status':'案件ステータス','commitment-level':'顧客確約度','customer-main-cat':'顧客大分類','customer-sub-cat':'顧客中分類','employee-scale':'顧客規模','dept-scale':'対象部署規模','ourPosition':'商流上の立ち位置','compType':'競合方式','comp-count-slider':'競合社数','request-purpose':'依頼目的','work-main-cat':'工事大分類','work-sub-cat':'工事中分類','work-detail-cat':'工事詳細','projectSize':'案件規模','sizeType':'予算確度','internal-knowledge':'社内ナレッジ','assigned-experience':'担当者経験','craft-availability':'職人確保','geography-risk':'施工エリア','schedule-pattern':'日程パターン','deadline-rigidity':'期限固定度','deadline-reason':'期限背景','termGencho':'現調条件','keyman':'接触相手・キーマン','site-survey':'現地調査','price-agreement':'価格合意','salesperson-story':'営業マン自己予測','sales-intuition':'営業マンの肌感・裏情報'};
+            const fields={'project-status':'案件ステータス','commitment-level':'顧客確約度','customer-main-cat':'顧客大分類','customer-sub-cat':'顧客中分類','employee-scale':'顧客規模','dept-scale':'対象部署規模','ourPosition':'商流上の立ち位置','compType':'競合方式','comp-count-slider':'競合社数','request-purpose':'依頼目的','work-main-cat':'工事大分類','work-sub-cat':'工事中分類','work-detail-cat':'工事詳細','projectSize':'案件規模','sizeType':'予算確度','internal-knowledge':'社内ナレッジ','assigned-experience':'担当者経験','craft-availability':'職人確保','geography-risk':'施工エリア','schedule-pattern':'日程パターン','deadline-rigidity':'期限固定度','deadline-reason':'期限背景','termGencho':'現調条件','keyman':'接触相手・キーマン','price-agreement':'価格合意','salesperson-story':'営業マン自己予測','sales-intuition':'営業マンの肌感・裏情報'};
             const facts=[];Object.entries(fields).forEach(([id,l])=>{const v=bpV11Value(id);if(v&&v!=='選択してください'&&v!=='未選択')facts.push(`${l}:${v}`)});
             const docs=[['doc-existing-drawing','既存図面'],['doc-plan-drawing','計画図'],['doc-detailed-drawing','詳細図'],['doc-specification','仕様書'],['doc-reference-full','他社見積一式'],['doc-reference-qty','数量資料'],['doc-none','資料なし']].filter(([id])=>document.getElementById(id)?.checked).map(([,l])=>l);if(docs.length)facts.push(`資料:${docs.join('・')}`);
             return {case_name:bpV11Value('clientName')||'未入力',overall_score:d.officialScore??d.baselineScore??'',metrics:{win:bpV11Text('bpMetricWin',50)||om.win||'',balance:bpV11Text('bpMetricMaturity',50)||om.maturity||'',execution:bpV11Text('bpMetricExecution',50)||om.execution||'',profit:bpV11Text('bpMetricProfit',50)||om.profit||'',stability:bpV11Text('bpMetricStability',50)||om.stability||''},customer_priorities:bpV11Text('customer-value-summary',350),case_facts:facts.slice(0,45),strengths:bpV11Items('bpStrongFactors',5),weaknesses:bpV11Items('bpWeakFactors',6),neutralizers:bpV11Items('bpNeutralizers',5),official_interpretation:bpV11Text('thinkingSummaryBox',1000),future_story:bpV11Text('scenarioGridContainer',700),salesperson_intuition:bpV11Value('sales-intuition'),attachments:window.bpAttachmentInferenceContext?window.bpAttachmentInferenceContext():'登録なし',company_research:(typeof companyResearchData!=='undefined'?companyResearchData?.structured:{})||{}};
@@ -6933,7 +6925,7 @@ const fields={
  s2:['ourPosition','compType','comp-count-slider','relationship-years','relationship-count','relationship-win-rate'],
  s3:['request-purpose','priority-price','priority-quality','priority-trust','priority-schedule','priority-other','priority-other-text','work-main-cat','work-sub-cat','work-detail-cat','projectSize','sizeType'],
  s4:['internal-knowledge','knowledge-recency','assigned-experience','craft-availability','geography-risk'],
- s5:['schedule-pattern','date-inquiry','date-info-received','date-site-confirmed','date-estimate-due','date-award-expected','date-construction-start','date-completion-desired','fixed-milestone','deadline-rigidity','deadline-reason','termGencho','evGencho','doc-existing-drawing','doc-plan-drawing','doc-detailed-drawing','doc-specification','doc-reference-full','doc-reference-qty','doc-none','keyman','site-survey','price-agreement'],
+ s5:['schedule-pattern','date-inquiry','date-info-received','date-site-confirmed','date-estimate-due','date-award-expected','date-construction-start','date-completion-desired','fixed-milestone','deadline-rigidity','deadline-reason','termGencho','evGencho','doc-existing-drawing','doc-plan-drawing','doc-detailed-drawing','doc-specification','doc-reference-full','doc-reference-qty','doc-none','keyman','price-agreement'],
  s6:['sales-intuition','salesperson-story','bp-attachment-inference-text']
 };
 const labels={
@@ -9125,7 +9117,7 @@ function seedGeneral(){
  force('deadline-reason','営業開始日が確定しているため引渡し日は固定。社内検査後に是正期間を確保する。');
  ['project-status','commitment-level','employee-scale','dept-scale','headquarters','business-area','relationship-years','relationship-count','relationship-win-rate','work-sub-cat','work-detail-cat','projectSize','sizeType','fixed-milestone','deadline-rigidity','internal-knowledge','knowledge-recency','assigned-experience','craft-availability','geography-risk','termGencho','keyman','salesperson-story'].forEach(id=>setSelect(id,1));
  const ds={'date-inquiry':add(0),'date-info-received':add(1),'date-site-confirmed':add(2),'date-estimate-due':add(4),'date-award-expected':add(7),'date-construction-start':add(14),'date-completion-desired':add(49)};Object.entries(ds).forEach(([k,v])=>force(k,v));
- if($('site-survey'))$('site-survey').checked=true;if($('price-agreement'))$('price-agreement').checked=true;
+ if($('price-agreement'))$('price-agreement').checked=true;
 }
 function seedConstruction(){
  force('bp-cp-client-name','株式会社テストプロジェクト');force('bp-cp-project-name','テスト案件｜オフィス改修工事');force('bp-cp-sales-owner','営業テスト担当');force('bp-cp-manager','施工テスト担当');
