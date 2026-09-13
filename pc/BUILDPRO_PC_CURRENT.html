@@ -5154,6 +5154,10 @@ document.addEventListener('DOMContentLoaded', function(){
     if(ranks.trust===1)add(c,'relationship',['win','resilience'],2,'信頼・安心が最優先',2);
     if(v('group-construction')==='exist')add(c,'relationship',['win','resilience'],-2,'顧客グループ内に建設・設計機能あり',2);
     if(v('dept-scale')==='21over')add(c,'relationship',['condition','resilience'],-1,'相手部署の人数が多い',1);
+    const empScale=v('employee-scale'),empAdj=({small:-5,mid:-2,large:2,huge:5})[empScale]||0;
+    if(empAdj)add(c,'relationship',['win'],empAdj/2.5,empAdj<0?'従業員規模が小さい':'従業員規模が大きい',1);
+    const custKey=v('customer-sub-cat'),custProfile=custKey&&typeof getCustomerCategoryProfile==='function'?getCustomerCategoryProfile(custKey):null;
+    if(custProfile){const custRel=(custProfile.coreBase-40)/10;if(Math.abs(custRel)>=.3)add(c,'relationship',['win'],custRel,custProfile.label,1);}
     return c;
   }
   function finalize(c){
