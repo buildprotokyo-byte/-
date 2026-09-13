@@ -5130,13 +5130,13 @@ document.addEventListener('DOMContentLoaded', function(){
     if(checked('price-agreement'))add(c,'money',['condition','profit','resilience'],2,'予算感を事前合意',3);else add(c,'money',['condition','profit'],-1,'予算感未合意',1);
     if(ranks.price===1)add(c,'money',['win','profit','resilience'],-3,'価格最優先',2);else if(ranks.price===2)add(c,'money',['win','profit'],-2,'価格優先度が高い',2);
     const comp=v('compType');if(comp==='exclusive')add(c,'money',['win','profit'],2,'単独特命',3);if(comp==='bid')add(c,'money',['win','profit','resilience'],-2,'入札条件',3);
-    if(comp!=='exclusive'){const compCount=parseInt(v('comp-count-slider','2'),10)||2;if(compCount>=6)add(c,'money',['win'],-2,'競合非常に多い',2);else if(compCount>=4)add(c,'money',['win'],-1,'競合が多い',1);}
+    if(comp!=='exclusive'){const compCount=parseInt(v('comp-count-slider','2'),10)||2;if(compCount>=6)add(c,'money',['win'],-2,'競合非常に多い',2);else if(compCount>=3)add(c,'money',['win'],-1,'競合が多い',1);}
 
     const docs=v('drawing-precision');add(c,'capability',['condition','execution','profit','resilience'],docs==='detailed'?2:docs==='plan'?0:-2,docs==='detailed'?'詳細図面あり':docs==='plan'?'概略図面':'図面不足',docs==='detailed'?3:1);
     const gen=v('termGencho');add(c,'capability',['condition','execution','resilience'],['full-access','scheduled-access'].includes(gen)?2:gen==='limited-access'?-1:-2,['full-access','scheduled-access'].includes(gen)?'現調可能':'現調条件に制約',2);
     const know=v('internal-knowledge');add(c,'capability',['execution','profit','resilience'],know==='rich'?3:know==='mid-rich'?1:know==='few'?-1:know==='special'?-2:-3,know==='rich'?'社内実績が豊富':know==='mid-rich'?'類似実績あり':'経験・ナレッジに注意',2);
     const recency=v('knowledge-recency');if(recency==='old')add(c,'capability',['execution','resilience'],-1,'実績はあるが最近はない',1);else if(recency==='none')add(c,'capability',['execution','profit','resilience'],-1,'実績が最近確認できない',1);else if(recency==='recent')add(c,'capability',['resilience'],1,'直近の実績が継続している',1);
-    const assignedExp=v('assigned-experience');if(assignedExp==='expert')add(c,'capability',['execution','profit','resilience'],2,'熟練者を配置可能',2);else if(assignedExp==='support')add(c,'capability',['execution','resilience'],-1,'未経験者中心の配置',1);else if(assignedExp==='novice')add(c,'capability',['execution','profit','resilience'],-2,'担当者に同種経験なし',2);
+    const assignedExp=v('assigned-experience');if(assignedExp==='expert')add(c,'capability',['execution','profit','resilience'],2,'熟練者を配置可能',2);else if(assignedExp==='support')add(c,'capability',['execution','resilience'],-2,'未経験者中心の配置',1);else if(assignedExp==='novice')add(c,'capability',['execution','profit','resilience'],-2,'担当者に同種経験なし',2);
     const craft=v('craft-availability');if(craft==='secured')add(c,'capability',['execution','profit','resilience'],2,'職人体制確保',3);if(craft==='search')add(c,'capability',['execution','profit','resilience'],-2,'職人探索中',2);if(craft==='difficult')add(c,'capability',['execution','profit','resilience'],-3,'職人確保困難',3);
 
     const pos=document.querySelector('input[name="ourPosition"]:checked')?.value||'';add(c,'relationship',['win','condition','resilience'],pos==='prime'?2:pos==='sub1'?0:pos==='sub2'?-1:-2,pos==='prime'?'元請け・主導権あり':'商流上の主導権に注意',2);
@@ -5150,7 +5150,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(cfBreakdown&&cfBreakdown.total>0)add(c,'relationship',['win','resilience'],-Math.min(3,cfBreakdown.total/4),'顧客に専門機能あり（'+cfBreakdown.items.map(i=>i.label).join('・')+'）',2);
     const hq=v('headquarters'),hqScore=({tokyo:2,kanagawa:1,sendai:0,osaka:-1,other:-2})[hq];if(hq&&hqScore)add(c,'relationship',['win','condition','resilience'],hqScore/2,hqScore>0?'本社が得意商業圏内':'本社が商業圏外・決裁が遠い',1);
     const ba=v('business-area'),baScore=({kanto:2,east:0,national:-2})[ba];if(ba&&baScore)add(c,'relationship',['win','condition','resilience'],baScore/2,baScore>0?'営業範囲が得意商業圏中心':'営業範囲が広域・関係構築コストに注意',1);
-    if(v('dept-scale')==='21over')add(c,'relationship',['condition','resilience'],-1,'相手部署の人数が多い',1);
+    const deptScale=v('dept-scale');if(deptScale==='21over')add(c,'relationship',['condition','resilience'],-1,'相手部署の人数が多い',1);else if(deptScale==='1to5')add(c,'relationship',['condition','resilience'],1,'相手部署の人数が少なく合意しやすい',1);
     const empScale=v('employee-scale'),empAdj=({small:-5,mid:-2,large:2,huge:5})[empScale]||0;
     if(empAdj)add(c,'relationship',['win','condition','resilience'],empAdj/2.5,empAdj<0?'従業員規模が小さい':'従業員規模が大きい',1);
     const custKey=v('customer-sub-cat'),custProfile=custKey&&typeof getCustomerCategoryProfile==='function'?getCustomerCategoryProfile(custKey):null;
