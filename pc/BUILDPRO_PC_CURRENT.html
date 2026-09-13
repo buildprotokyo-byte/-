@@ -5136,6 +5136,7 @@ document.addEventListener('DOMContentLoaded', function(){
     if(checked('price-agreement'))add(c,'money',['condition','profit','resilience'],2,'予算感を事前合意',3);else add(c,'money',['condition','profit'],-1,'予算感未合意',1);
     if(ranks.price===1)add(c,'money',['win','profit','resilience'],-3,'価格最優先',2);else if(ranks.price===2)add(c,'money',['win','profit'],-2,'価格優先度が高い',2);
     const comp=v('compType');if(comp==='exclusive')add(c,'money',['win','profit'],2,'単独特命',3);if(comp==='bid')add(c,'money',['win','profit','resilience'],-2,'入札条件',3);
+    if(comp!=='exclusive'){const compCount=parseInt(v('comp-count-slider','2'),10)||2;if(compCount>=6)add(c,'money',['win'],-2,'競合非常に多い',2);else if(compCount>=4)add(c,'money',['win'],-1,'競合が多い',1);}
 
     const docs=v('drawing-precision');add(c,'capability',['condition','execution','profit','resilience'],docs==='detailed'?2:docs==='plan'?0:-2,docs==='detailed'?'詳細図面あり':docs==='plan'?'概略図面':'図面不足',docs==='detailed'?3:1);
     const gen=v('termGencho');add(c,'capability',['condition','execution','resilience'],['full-access','scheduled-access'].includes(gen)?2:gen==='limited-access'?-1:-2,['full-access','scheduled-access'].includes(gen)?'現調可能':'現調条件に制約',2);
@@ -5145,6 +5146,8 @@ document.addEventListener('DOMContentLoaded', function(){
     const pos=document.querySelector('input[name="ourPosition"]:checked')?.value||'';add(c,'relationship',['win','condition','resilience'],pos==='prime'?2:pos==='sub1'?0:pos==='sub2'?-1:-2,pos==='prime'?'元請け・主導権あり':'商流上の主導権に注意',2);
     const key=v('keyman');add(c,'relationship',['win','condition'],key==='executive'?3:key==='manager'?1:-1,key==='executive'?'代表・役員接触':key==='manager'?'管理職接触':'担当者止まり',2);if(key==='executive')add(c,'relationship',['resilience'],-1,'トップ判断への依存',2);
     const rel=v('relationship-years');if(rel==='5years')add(c,'relationship',['win','resilience'],3,'長期継続取引',3);else if(rel==='3years')add(c,'relationship',['win','resilience'],2,'継続取引',3);else if(rel==='2years')add(c,'relationship',['win'],1,'取引実績あり',2);
+    const relCount=v('relationship-count');if(relCount==='11over')add(c,'relationship',['win','resilience'],2,'取引実績件数が多い',2);else if(relCount==='6to10')add(c,'relationship',['win','resilience'],1,'取引実績件数が多い',1);else if(relCount==='0')add(c,'relationship',['win'],-1,'取引実績なし',1);
+    const winRate=v('relationship-win-rate');if(winRate==='80-100')add(c,'relationship',['win','resilience'],3,'過去の受注率が高い',2);else if(winRate==='60-80')add(c,'relationship',['win','resilience'],1,'過去の受注率が良好',1);else if(winRate==='0-25'||winRate==='25-40')add(c,'relationship',['win'],-2,'過去の受注率が低い',2);
     const commit=v('commitment-level');add(c,'relationship',['condition','resilience'],commit==='order-intent'?3:commit==='design-contract'?2:commit==='concept'?1:commit==='verbal'?0:-2,commit==='none'?'発注意思の根拠不足':'案件具体度を確認',commit==='order-intent'?3:1);
     if(ranks.trust===1)add(c,'relationship',['win','resilience'],2,'信頼・安心が最優先',2);
     return c;
