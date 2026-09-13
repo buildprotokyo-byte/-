@@ -4072,6 +4072,7 @@ window.bpIsCalibrationControlEvent=function(e){
                 ochdSynergies: buildOCHDSynergiesFromResearch(safeStructured, pageText || summary || ''),
                 rawSignals: []
             };
+            window.bpCompanyResearchData = companyResearchData;
         }
 
         async function fetchCompanyInfo() {
@@ -6800,7 +6801,12 @@ const checked=name=>{const e=document.querySelector(`[name="${name}"]:checked`);
 const metricLabels={win:'受注可能性',maturity:'案件成立度',execution:'施工安全性',profit:'利益安全性',stability:'安定性'};
 function metrics(){const d=window.bpSalesLayerV2||window.bpOfficialDiagnosis||{},m=d.officialMetrics||d.baselineMetrics||{};const dom=(id,f=50)=>Number((q(id)?.textContent||'').replace(/[^0-9.-]/g,''))||f;return {win:Number(m.win??dom('bpMetricWin')),maturity:Number(m.maturity??dom('bpMetricMaturity')),execution:Number(m.execution??dom('bpMetricExecution')),profit:Number(m.profit??dom('bpMetricProfit')),stability:Number(m.stability??dom('bpMetricStability'))}}
 function extremes(m){const a=Object.entries(m).map(([key,value])=>({key,value:Number(value)||0,label:metricLabels[key]})).sort((x,y)=>x.value-y.value);return {weak:a[0],second:a[1],strong:a[a.length-1]}}
-function context(){return {name:val('clientName')||'この案件',purpose:sel('request-purpose')||'依頼目的未確認',priority:topPriority(),comp:sel('compType'),keyman:sel('keyman'),site:sel('termGencho'),drawing:sel('drawing-precision'),knowledge:sel('internal-knowledge'),budget:sel('sizeType'),position:checked('ourPosition'),status:sel('project-status'),work:[sel('work-main-cat'),sel('work-sub-cat'),sel('work-detail-cat')].filter(Boolean).join('／'),intuition:val('sales-intuition')}}
+function context(){
+ const custom=typeof getCustomKarteInputs==='function'?getCustomKarteInputs().map(f=>`${f.label||f.id}：${f.value}`).join('／'):'';
+ const cr=window.bpCompanyResearchData;
+ const crSummary=cr&&cr.loaded?String(cr.summary||'').slice(0,600):'';
+ return {name:val('clientName')||'この案件',purpose:sel('request-purpose')||'依頼目的未確認',priority:topPriority(),comp:sel('compType'),keyman:sel('keyman'),site:sel('termGencho'),drawing:sel('drawing-precision'),knowledge:sel('internal-knowledge'),budget:sel('sizeType'),position:checked('ourPosition'),status:sel('project-status'),work:[sel('work-main-cat'),sel('work-sub-cat'),sel('work-detail-cat')].filter(Boolean).join('／'),intuition:val('sales-intuition'),salespersonHunch:sel('salesperson-story'),customNotes:custom,companyResearch:crSummary}
+}
 function topPriority(){const a=[['price','価格'],['quality','品質'],['trust','信頼・安心'],['schedule','工程・時間'],['other','その他']].map(([k,l])=>({l,r:Number(val('priority-'+k)||99)})).sort((x,y)=>x.r-y.r);return a[0]?.l||'未設定'}
 const rows=[['purpose','目的・要求','顧客が実現したいこと'],['relationship','関係・決裁','商流・キーマン・受注確度'],['time','時間・工程','期限と段取り'],['money','お金・契約','予算と責任分界'],['capability','施工・体制','実際に動かす力']];
 const cols=[['win','案件の受注角度'],['condition','案件のバランス度'],['execution','工事リスク'],['profit','利益確保度'],['resilience','現在の安定性（急変リスク）']];
@@ -6830,8 +6836,8 @@ async function generate25MatrixAi(force){
  if(!force&&bp25Ai.signature===sig&&Object.keys(bp25Ai.cells).length)return;
  bp25Ai.pending=true;bp25AiStatus('🤖 AIが25マスを読み解いています…');
  try{
-  const r=await bpAiFetch('/chat/completions',{bpTimeoutMs:120000,method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:await bpGetActiveAIModel(),temperature:.2,max_tokens:3200,stream:false,messages:[
-   {role:'system',content:'あなたはBUILD PROの「25マス案件構造カルテ」を、営業担当がすぐ理解できる自然な日本語に変換する担当です。渡されるのは、すでに計算済みの評価データ（各マスのスコア・根拠メモ・状態）です。新しい判断や新しい数字は作らず、渡された事実だけを使って自然な文章にしてください。スコアがプラスなら安心材料、マイナスなら警戒材料として書きます。unknownがtrueのマスは断定せず、何を確認すべきかを書いてください。「しっかり確認しましょう」のような一般論・抽象語だけで終わる文は禁止です。JSON配列のみで返してください。各要素のスキーマ:{"key":"渡されたkeyそのまま","summary":"一覧表示用の一文。30〜45字。","detail":"詳細ポップアップ用の説明。この2つの情報を掛け合わせるとなぜそうなるのかを、この案件の具体的事実で2〜3文。","action":"この結果を確かめる・良くするための具体的な次の一手。1文。"}。渡された25件すべてに1件ずつ対応させてください。'},
+  const r=await bpAiFetch('/chat/completions',{bpTimeoutMs:120000,method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:await bpGetActiveAIModel(),temperature:.3,max_tokens:4000,stream:false,messages:[
+   {role:'system',content:'あなたはBUILD PROの「25マス案件構造カルテ」の思考エンジンです。渡されたスコアをそのまま日本語に置き換えるだけの翻訳係ではなく、渡された事実から推論して意味を作る役割です。\n\n【縦軸と横軸の意味】\n縦軸(row)は顧客側から得られた生の情報カテゴリーです（目的・要求／関係・決裁／時間・工程／お金・契約／施工・体制）。横軸(col)は、その情報を使って営業側が判断しなければならない問いです（受注角度／案件のバランス度／工事リスク／利益確保度／安定性）。25マスの本質は、1つの縦軸の情報を5つの横軸の問いすべてに変換することです。渡す数値スコアは土台の参考値にすぎず、あなたの仕事は「この情報とこの情報を掛け合わせると、なぜそう言えるのか」を具体的な条件文・解釈文として書くことです。\n\n【隠れフラグを見抜く】\n顧客側の1つの発言・1つの入力は、複数の意図を同時に含んでいることがあります。書く前に必ず「この情報の裏にありうる意図は何か」を2〜3つ想定してから、各横軸に当てはめてください。\n例1：「急いでいる」＋「安さを求めている」→受注角度への変換は「素早く動ける・価格を抑えられるなら、この2条件がそのまま選ばれる理由になります」という条件文にする。\n例2：「既存の施工体制を増やしたい」という一言には、(a)既存業者の技術力への不安、(b)価格を下げたい意図、(c)短工期でも対応できる体制が欲しい、という複数の意図が隠れている可能性があります。detailやactionでは、これらの可能性を切り分けて書いてください（「〜という可能性があります」という書き方で構いません）。\n\n【事実と推論を区別する】\ncaseに渡された事実（選択済みの項目、自由記述、会社調査結果、営業マンの肌感）にない新しい日付・金額・固有名詞は作らないでください。ただし、渡された事実が何を意味しうるかを推論すること（隠れフラグの想定、条件文への変換）は歓迎します。推論部分は「〜の可能性があります」「〜だとすれば」のように、事実と地続きだと分かる書き方にしてください。\n\n【出力ルール】\nスコアがプラスなら安心材料、マイナスなら警戒材料として書きます。unknownがtrueのマスは断定せず、何を確認すべきかを書いてください。「しっかり確認しましょう」のような一般論・抽象語だけで終わる文は禁止です。渡された25件すべてに1件ずつ対応させ、JSON配列のみで返してください。各要素のスキーマ:{"key":"渡されたkeyそのまま","summary":"一覧表示用の一文。30〜45字。","detail":"詳細ポップアップ用の説明。関連する複数の情報・隠れた意図を掛け合わせ、なぜそう言えるかをこの案件の具体的事実で2〜4文。","action":"この結果を確かめる・良くするための具体的な次の一手。1文。"}'},
    {role:'user',content:JSON.stringify(bp25Payload())}
   ]})});
   if(!r.ok)throw new Error('AI HTTP '+r.status);
