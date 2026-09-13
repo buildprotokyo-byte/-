@@ -1,1 +1,18 @@
-
+services:
+  - type: web
+    name: buildpro-drawing-ai
+    runtime: python
+    plan: standard
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DRAWING_AI_CHILD_BASE_URL
+        sync: false
+      - key: DRAWING_AI_CHILD_MODEL
+        sync: false
+      - key: DRAWING_AI_PARENT_BASE_URL
+        sync: false
+      - key: DRAWING_AI_PARENT_MODEL
+        sync: false
+      - key: DRAWING_AI_OCR_ENGINE
+        value: tesseract

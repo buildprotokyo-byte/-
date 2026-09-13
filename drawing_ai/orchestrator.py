@@ -1,0 +1,203 @@
+"""Wires Phase 0 -> 1 -> 2 -> 3 together and runs child agents in parallel.
+
+Performance strategy for the 15-30 minute / ~100,000-character-dense
+drawing-set target:
+- Phase 0 (one small image per sheet) and OCR (CPU-bound, run in a thread
+  pool) are cheap and run first so later phases can be scoped down (e.g.
+  Phase 1 only runs against tiles from site/plan sheets).
+- Phase 2 and Phase 3 child-agent calls are the bulk of the work. They are
+  dispatched concurrently across *all* tiles at once; the actual concurrency
+  ceiling is enforced by each VLMClient's semaphore
+  (``settings.child_vlm.max_concurrency``), not by this module, so raising
+  that one number (more GPU headroom / more replicas behind the same
+  OpenAI-compatible URL) is the single lever to speed the whole pipeline up.
+- Phase 3's ensemble re-reads already happen inside ``detail_agent`` using
+  the same concurrency pool, so they parallelize for free rather than
+  serializing on top of the tile loop.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+import uuid
+from pathlib import Path
+
+from .agents import (
+    detail_agent,
+    intent_agent,
+    overview_agent,
+    parent_agent,
+    site_agent,
+    vertical_synthesis_agent,
+)
+from .config import settings
+from .ingestion import load_drawing_set, make_overview_image, tile_sheet
+from .ocr_engine import ocr_tile
+from .schemas import (
+    DimensionReading,
+    ElementReading,
+    PipelineRun,
+    SheetOverview,
+    SheetType,
+    SiteFact,
+    SymbolReading,
+    Tile,
+)
+
+logger = logging.getLogger("drawing_ai.orchestrator")
+
+# Phase 1 only makes sense against sheets that are plausibly showing site
+# info; UNKNOWN is included so a misclassified sheet doesn't silently lose
+# its site facts.
+SITE_RELEVANT_SHEET_TYPES = {SheetType.SITE_PLAN, SheetType.UNKNOWN}
+
+
+async def _gather_bounded(coros: list) -> list:
+    """gather() that turns exceptions into logged warnings + None instead of
+    aborting the whole batch -- one bad tile must not lose every other
+    tile's result."""
+    results = await asyncio.gather(*coros, return_exceptions=True)
+    out = []
+    for r in results:
+        if isinstance(r, Exception):
+            logger.warning("child task failed: %s", r)
+            out.append(None)
+        else:
+            out.append(r)
+    return out
+
+
+async def run_pipeline(
+    file_paths: list[str],
+    work_dir: str,
+    *,
+    run_llm_reconciliation: bool = True,
+) -> PipelineRun:
+    run_id = f"run-{uuid.uuid4().hex[:10]}"
+    start = time.monotonic()
+    work_dir_path = Path(work_dir)
+    work_dir_path.mkdir(parents=True, exist_ok=True)
+    warnings: list[str] = []
+
+    sheets = load_drawing_set(file_paths, work_dir_path / "sheets")
+    logger.info("[%s] loaded %d sheet(s) from %d file(s)", run_id, len(sheets), len(file_paths))
+
+    # --- Phase 0: overview ------------------------------------------------
+    overview_images = {
+        s.sheet_id: make_overview_image(s, work_dir_path / "overview") for s in sheets
+    }
+    sheet_overviews: list[SheetOverview] = await _gather_bounded(
+        [overview_agent.classify_sheet(s, overview_images[s.sheet_id]) for s in sheets]
+    )
+    sheet_overviews = [o for o in sheet_overviews if o is not None]
+    overview_by_id = {o.sheet_id: o for o in sheet_overviews}
+
+    # --- Tiling + OCR (shared by Phase 1-3) -------------------------------
+    all_tiles: list[Tile] = []
+    for sheet in sheets:
+        tiles = tile_sheet(sheet, work_dir_path / "tiles")
+        all_tiles.extend(tiles)
+
+    async def _ocr(tile: Tile) -> None:
+        result = await asyncio.to_thread(ocr_tile, tile.image_path)
+        tile.ocr_text = result.text
+
+    await _gather_bounded([_ocr(t) for t in all_tiles])
+    logger.info("[%s] built %d tile(s) across %d sheet(s)", run_id, len(all_tiles), len(sheets))
+
+    tile_sheet_map = {t.tile_id: t.sheet_id for t in all_tiles}
+
+    def _sheet_type_of(tile: Tile) -> SheetType:
+        overview = overview_by_id.get(tile.sheet_id)
+        return overview.sheet_type if overview else SheetType.UNKNOWN
+
+    # --- Phase 1: site facts ------------------------------------------------
+    site_tiles = [t for t in all_tiles if _sheet_type_of(t) in SITE_RELEVANT_SHEET_TYPES]
+    site_fact_lists: list[list[SiteFact]] = await _gather_bounded(
+        [site_agent.extract_site_facts(t) for t in site_tiles]
+    )
+    all_site_facts = [f for group in site_fact_lists if group for f in group]
+    phase1 = parent_agent.aggregate_phase1(all_site_facts)
+    logger.info(
+        "[%s] phase1: %d fact(s), completeness=%.2f", run_id, len(phase1.facts), phase1.completeness_score
+    )
+
+    # --- Phase 2: intent ------------------------------------------------
+    intent_results = await _gather_bounded([intent_agent.extract_intent(t) for t in all_tiles])
+    statements = [s for s in intent_results if s is not None]
+    project_summary = await parent_agent.summarize_project(statements)
+    phase2 = parent_agent.aggregate_phase2(statements, project_summary_ja=project_summary)
+    logger.info("[%s] phase2: %d intent statement(s)", run_id, len(phase2.statements))
+
+    # --- Phase 3: precise detail reading ------------------------------------
+    detail_results = await _gather_bounded([detail_agent.extract_details(t) for t in all_tiles])
+    all_dimensions: list[DimensionReading] = []
+    all_symbols: list[SymbolReading] = []
+    all_elements: list[ElementReading] = []
+    for result in detail_results:
+        if result is None:
+            continue
+        dims, syms, elems = result
+        all_dimensions.extend(dims)
+        all_symbols.extend(syms)
+        all_elements.extend(elems)
+
+    section_dim_tiles = {
+        t.tile_id for t in all_tiles if _sheet_type_of(t) in (SheetType.ELEVATION, SheetType.SECTION)
+    }
+    section_dimensions = [d for d in all_dimensions if d.tile_id in section_dim_tiles] or all_dimensions
+
+    vertical_notes = await vertical_synthesis_agent.synthesize_vertical(
+        sheet_overviews, all_elements, section_dimensions
+    )
+
+    phase3 = await parent_agent.aggregate_phase3(
+        all_dimensions,
+        all_symbols,
+        all_elements,
+        vertical_notes,
+        tile_sheet_map,
+        use_llm_reconciliation=run_llm_reconciliation,
+    )
+    logger.info(
+        "[%s] phase3: %d dimension(s), %d symbol(s), %d element(s), accuracy_estimate=%.2f",
+        run_id,
+        len(phase3.dimensions),
+        len(phase3.symbols),
+        len(phase3.elements),
+        phase3.accuracy_estimate,
+    )
+
+    elapsed = time.monotonic() - start
+    if elapsed > settings.time_budget_s:
+        warnings.append(
+            f"処理時間が目標({settings.time_budget_s}秒)を超過しました: {elapsed:.0f}秒。"
+            "child_vlm.max_concurrencyの引き上げ、またはタイルサイズの見直しを検討してください。"
+        )
+    elif elapsed > settings.time_budget_target_s:
+        warnings.append(
+            f"処理時間が目安({settings.time_budget_target_s}秒)を超えています: {elapsed:.0f}秒。"
+        )
+
+    model_calls = (
+        len(sheets)  # phase0
+        + len(site_tiles)  # phase1
+        + len(all_tiles)  # phase2
+        + len(all_tiles) * max(1, settings.phase3_ensemble_size)  # phase3
+        + (1 if statements else 0)  # project summary
+        + (1 if run_llm_reconciliation else 0)  # phase3 reconciliation
+        + (1 if vertical_notes else 0)
+    )
+
+    return PipelineRun(
+        run_id=run_id,
+        sheets=sheet_overviews,
+        phase1=phase1,
+        phase2=phase2,
+        phase3=phase3,
+        elapsed_s=elapsed,
+        tile_count=len(all_tiles),
+        model_calls=model_calls,
+        warnings=warnings,
+    )

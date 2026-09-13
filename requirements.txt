@@ -1,1 +1,18 @@
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+python-multipart==0.0.19
+pydantic==2.10.4
+httpx==0.28.1
+pillow==11.0.0
+PyMuPDF==1.25.1
 
+# OCR backend (pluggable, see drawing_ai/ocr_engine.py). PaddleOCR is the
+# default; it pulls in paddlepaddle which is a large CPU/GPU-specific
+# wheel, so it's commented out here rather than force-installed -- uncomment
+# the pair below to enable it, or install pytesseract + the system
+# `tesseract-ocr`/`tesseract-ocr-jpn` packages and set
+# DRAWING_AI_OCR_ENGINE=tesseract instead.
+# paddleocr==2.9.1
+# paddlepaddle==2.6.2
+
+pytesseract==0.3.13
