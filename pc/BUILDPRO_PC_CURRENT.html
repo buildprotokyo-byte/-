@@ -5121,6 +5121,8 @@ document.addEventListener('DOMContentLoaded', function(){
   function profile(){
     const c=blank(), ranks={price:+v('priority-price',4),quality:+v('priority-quality',2),trust:+v('priority-trust',1),schedule:+v('priority-schedule',3),other:+v('priority-other',5)};
     add(c,'purpose',['condition','resilience'],v('request-purpose','unknown')==='unknown'?-2:1,v('request-purpose')==='unknown'?'依頼の本質が未確認':'依頼目的を確認',2);
+    const purposeKey=v('request-purpose','unknown'),pp=typeof getRequestPurposeProfile==='function'?getRequestPurposeProfile(purposeKey):null;
+    if(pp){if(pp.win)add(c,'purpose',['win'],pp.win/10,pp.label,2);if(pp.maturity)add(c,'purpose',['condition'],pp.maturity/10,pp.label,2);if(pp.execution)add(c,'purpose',['execution'],pp.execution/10,pp.label,2);if(pp.profit)add(c,'purpose',['profit'],pp.profit/10,pp.label,2);if(pp.stability)add(c,'purpose',['resilience'],pp.stability/10,pp.label,2);}
     if(ranks.quality===1)add(c,'purpose',['execution','condition'],1,'品質優先が明確',2);
     if(ranks.other<=2&&!String(v('priority-other-text','')).trim())add(c,'purpose',['condition','resilience'],-2,'上位要求が未定義',1);
     const status=v('project-status');add(c,'purpose',['condition'],({idea:-2,planning:-1,decided:1,running:2,final:3}[status]??0),'案件ステータス',2);
