@@ -6,6 +6,8 @@ only, after a fuller grid-reconstruction attempt failed against real data.
 """
 from __future__ import annotations
 
+import pytest
+
 from drawing_ai import measurement as m
 from drawing_ai.vector_extractor import GroundTruthWord
 
@@ -71,3 +73,28 @@ def test_project_span_mm_sums_multiple_matched_labels():
     assert result is not None
     assert result.total_mm == 300.0
     assert set(result.matched_texts) == {"100", "200"}
+
+
+def test_calibrate_axis_from_anchors_recovers_known_scale():
+    # a perfect axis: px = 50 + mm * 0.2 (i.e. 5mm/px)
+    anchors = [(50.0, 0.0), (250.0, 1000.0), (450.0, 2000.0)]
+    cal = m.calibrate_axis_from_anchors(anchors)
+    assert cal is not None
+    assert cal.px_per_mm == pytest.approx(0.2)
+    assert cal.origin_px == pytest.approx(50.0)
+    assert cal.residual_stdev_px == pytest.approx(0.0, abs=1e-9)
+    assert cal.mm_of(250.0) == pytest.approx(1000.0)
+
+
+def test_calibrate_axis_from_anchors_reports_noise_when_anchors_disagree():
+    # not perfectly co-linear -- the third anchor is off the line the first
+    # two define; residual_stdev_px must reflect that rather than hiding it
+    anchors = [(50.0, 0.0), (250.0, 1000.0), (500.0, 2000.0)]  # third should be ~450
+    cal = m.calibrate_axis_from_anchors(anchors)
+    assert cal is not None
+    assert cal.residual_stdev_px > 10.0
+
+
+def test_calibrate_axis_from_anchors_needs_at_least_two():
+    assert m.calibrate_axis_from_anchors([(50.0, 0.0)]) is None
+    assert m.calibrate_axis_from_anchors([]) is None

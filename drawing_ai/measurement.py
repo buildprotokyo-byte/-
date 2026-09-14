@@ -29,10 +29,40 @@ project drawings, not assumed):
    scale token is found) -- ``pixel_distance_to_mm`` and ``polygon_area_sqm``
    do this for a length and an enclosed area respectively.
 
-Both techniques require a known ``mm_per_px`` (technique 2) or a legible
-dimension chain (technique 1) to be *present on the sheet in the first
-place* -- neither invents a measurement a real estimator couldn't also make
-from the same drawing.
+3. **Self-calibrating a fine reference grid from a few trusted anchors.**
+   When neither of the above is fully usable -- no dimension sits exactly
+   where you need it, and the sheet's own stated print scale is missing or
+   not trusted -- a human picks two or more places where a clean, unambiguous
+   "round number" dimension is legible (e.g. exactly "3000" or "1000", not
+   an odd value that's easy to misread), notes each one's position on the
+   page, and derives the real px-per-mm scale directly from that evidence
+   (not from the sheet's printed scale label, which may be wrong or
+   illegible). More anchors -- a finer mesh -- average out noise and can
+   reveal local distortion a single global scale would miss.
+   ``calibrate_axis_from_anchors`` implements the calibration step (a
+   least-squares fit of pixel position against real mm position, needing
+   only 2+ anchors); ``pixel_to_mm`` applies it to project any other pixel
+   position -- including one with no dimension label at all -- onto the
+   same real-world axis.
+
+   Honest finding from testing this against real data (see README 3.12):
+   applied to the amusement-facility page-4 exterior chain (the same one
+   used to validate technique 1), the residuals were large and inconsistent
+   across three different assumptions about where each label sits relative
+   to its segment (start/end/midpoint of the cumulative run), and the
+   best-fit slope disagreed with the page's independently-verified true
+   scale by about 20%. That means this particular chain's members likely
+   are not one single physically co-linear dimension run (or some other
+   structural assumption here is wrong) -- flagged as needing further
+   investigation (most likely real extension/witness-line vector detection)
+   rather than shipped as if it reliably works. The function itself is
+   still useful and correctly implemented (see its unit tests, which use
+   synthetic anchors with a known-correct answer) -- the caveat is about
+   which real chains are trustworthy to calibrate from, not the math.
+
+All three techniques require real evidence already on the sheet (a chain, a
+scale token, or a couple of trusted anchors) -- none invents a measurement a
+human estimator couldn't also make from the same drawing.
 """
 from __future__ import annotations
 
@@ -177,3 +207,51 @@ def project_span_mm(
         matched_texts=[w.text for w in matched],
         coverage_note=coverage,
     )
+
+
+@dataclass
+class AxisCalibration:
+    origin_px: float
+    px_per_mm: float
+    residual_stdev_px: float
+    n_anchors: int
+
+    def mm_of(self, position_px: float) -> float:
+        """This pixel position's real-world coordinate along the calibrated
+        axis (relative to the anchors' own zero point -- callers wanting a
+        span between two positions should subtract two ``mm_of`` results,
+        not read this as an absolute building coordinate)."""
+        return (position_px - self.origin_px) / self.px_per_mm
+
+
+def calibrate_axis_from_anchors(anchors: list[tuple[float, float]]) -> AxisCalibration | None:
+    """Fit ``position_px = origin_px + position_mm * px_per_mm`` from 2+
+    trusted (position_px, position_mm) reference points -- the "pick a few
+    clean round-number dimensions, derive the real scale from them instead
+    of trusting the sheet's stated scale" technique (see module docstring
+    technique 3). More anchors reduce noise; this is an ordinary
+    least-squares line fit, not axis-specific magic.
+
+    Returns ``None`` for fewer than 2 anchors (nothing to fit) or when all
+    anchors share the same position_mm (zero variance, undefined slope).
+    ``residual_stdev_px`` is reported so a caller can judge fit quality --
+    a large value (see README 3.12's real finding) means the anchors likely
+    don't lie on one physically co-linear axis and the fit shouldn't be
+    trusted, not just a number to ignore.
+    """
+    n = len(anchors)
+    if n < 2:
+        return None
+    positions_px = [a[0] for a in anchors]
+    positions_mm = [a[1] for a in anchors]
+    mean_px = sum(positions_px) / n
+    mean_mm = sum(positions_mm) / n
+    var_mm = sum((m - mean_mm) ** 2 for m in positions_mm)
+    if var_mm == 0:
+        return None
+    cov = sum((positions_mm[i] - mean_mm) * (positions_px[i] - mean_px) for i in range(n))
+    px_per_mm = cov / var_mm
+    origin_px = mean_px - px_per_mm * mean_mm
+    residuals = [positions_px[i] - (origin_px + px_per_mm * positions_mm[i]) for i in range(n)]
+    residual_stdev = (sum(r**2 for r in residuals) / n) ** 0.5
+    return AxisCalibration(origin_px=origin_px, px_per_mm=px_per_mm, residual_stdev_px=residual_stdev, n_anchors=n)
