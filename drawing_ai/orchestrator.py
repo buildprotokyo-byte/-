@@ -127,6 +127,41 @@ async def run_pipeline(
         run_id, len(ground_truths), len(sheets),
     )
 
+    # Gross-footprint fallback (deterministic, no model calls): run against
+    # *every* sheet with vector ground truth, not just SITE_PLAN-typed
+    # ones. A sheet's own wall-fill polygons (SolidModel) may not be
+    # extractable (scanned drawing, field-measurement overlay, a CAD
+    # vendor's fill convention that doesn't match), and the fact this is
+    # meant to recover -- "what is the overall floor area" -- is exactly
+    # the kind of information that turns up on whichever sheet happens to
+    # carry a clean outer dimension chain, not necessarily the sheet
+    # labeled as the site/floor plan. These become additional SiteFact
+    # candidates for the same aggregate_phase1() dedup/cross-check pool
+    # spec basic-info facts already feed into below.
+    footprint_facts: list[SiteFact] = []
+    for sheet in sheets:
+        gt = ground_truths.get(sheet.sheet_id)
+        if gt is None:
+            continue
+        footprint = ve.estimate_gross_footprint(gt)
+        if footprint is None:
+            continue
+        width_mm, depth_mm, basis = footprint
+        area_sqm = (width_mm / 1000.0) * (depth_mm / 1000.0)
+        footprint_facts.append(
+            SiteFact(
+                key="gross_footprint_sqm",
+                label_ja="延床面積(概算・グリッド外形基準)",
+                value=f"{area_sqm:.1f}",
+                unit="m2",
+                confidence=0.55,
+                source_sheet_ids=[sheet.sheet_id],
+                raw_evidence_text=basis,
+                needs_human_review=True,
+                verified_by_vector=True,
+            )
+        )
+
     # --- Tiling + OCR (shared by Phase 1-3) -------------------------------
     all_tiles: list[Tile] = []
     for sheet in sheets:
@@ -178,6 +213,7 @@ async def run_pipeline(
     all_site_facts = [f for group in site_fact_lists if group for f in group]
     for spec_result_tile in spec_tile_results:
         all_site_facts.extend(spec_result_tile.basic_facts)
+    all_site_facts.extend(footprint_facts)
     phase1 = parent_agent.aggregate_phase1(all_site_facts)
     logger.info(
         "[%s] phase1: %d fact(s), completeness=%.2f", run_id, len(phase1.facts), phase1.completeness_score

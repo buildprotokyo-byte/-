@@ -195,6 +195,44 @@ def test_extract_table_rows_empty_bbox_returns_empty(synthetic_sheet):
     assert ve.extract_table_rows(gt, x0=0, y0=0, x1=1, y1=1) == []
 
 
+def test_estimate_gross_footprint_uses_largest_chain_per_axis(synthetic_sheet):
+    gt = ve.extract_ground_truth(synthetic_sheet)
+    result = ve.estimate_gross_footprint(gt)
+    assert result is not None
+    width_mm, depth_mm, basis = result
+    # Horizontal axis (same-y band): 100+200+300=600 beats the lone 9999
+    # only if 9999 doesn't join that band (it's far away, per
+    # test_far_away_number_does_not_merge_into_chain) -- so the winning
+    # horizontal band is either the 100/200/300 chain (600) or the
+    # 50/60/70 chain (180); the former is larger.
+    assert width_mm == pytest.approx(600.0)
+    assert "外形概算" in basis
+
+
+def test_estimate_gross_footprint_returns_none_without_enough_numeric_words(tmp_path):
+    import fitz
+
+    pdf_path = tmp_path / "sparse.pdf"
+    doc = fitz.open()
+    page = doc.new_page(width=200, height=200)
+    page.insert_text((50, 50), "100", fontsize=8)
+    doc.save(str(pdf_path))
+    doc.close()
+
+    sheet = RenderedSheet(
+        sheet_id="sparse",
+        sheet_index=0,
+        source_name="sparse.pdf#page=1",
+        image_path=str(tmp_path / "unused.png"),
+        width=int(200 * settings.render_dpi / 72),
+        height=int(200 * settings.render_dpi / 72),
+        source_pdf_path=str(pdf_path),
+        source_pdf_page_index=0,
+    )
+    gt = ve.extract_ground_truth(sheet)
+    assert ve.estimate_gross_footprint(gt) is None
+
+
 def test_no_vector_ground_truth_for_plain_image(tmp_path):
     sheet = RenderedSheet(
         sheet_id="sheet-img",

@@ -84,8 +84,8 @@ def test_aggregate_phase1_completeness_and_review_flags():
     ]
     result = parent_agent.aggregate_phase1(facts)
     assert len(result.facts) == 2
-    # 2 of 7 expected keys found -> completeness = 2/7
-    assert abs(result.completeness_score - (2 / 7)) < 1e-6
+    # 2 of 8 expected keys found -> completeness = 2/8
+    assert abs(result.completeness_score - (2 / 8)) < 1e-6
     # missing keys + the low-confidence fact should both surface as unresolved questions
     assert any("前面道路幅員" in q for q in result.unresolved_questions)
     assert any("所在地" in q for q in result.unresolved_questions)

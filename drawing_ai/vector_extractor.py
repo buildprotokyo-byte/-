@@ -395,6 +395,52 @@ def _check_axis_bands(sheet_id: str, words: list[GroundTruthWord], key, perp_key
     return flags
 
 
+def estimate_gross_footprint(gt: SheetGroundTruth) -> tuple[float, float, str] | None:
+    """Estimate a sheet's overall (width_mm, depth_mm, basis) footprint from
+    the largest horizontal and vertical dimension chains found on the sheet,
+    returning ``None`` if no usable chain exists on either axis.
+
+    This exists as a fallback for exactly the case that otherwise collapses
+    to "不明": a sheet with no usable wall-fill polygons for
+    ``wall_segments_mm`` (a scanned/rasterized drawing, a field-measured
+    annotation overlay, or a CAD export whose wall-fill convention doesn't
+    match ``_WALL_FILL_COLOR``) still very often has its overall dimension
+    chain printed as text -- exactly what a human estimator reads off the
+    outermost dimension line when a detailed area takeoff isn't otherwise
+    available. The result is deliberately labeled as a *gross* (grid/outer
+    envelope) figure, not a net interior area.
+
+    Reuses the same per-axis collinear-chain clustering as
+    ``check_dimension_chains`` rather than requiring its own vector layer
+    -- the "largest chain sum on each axis" heuristic naturally picks out
+    the overall span over smaller room-by-room breakdown chains, since the
+    whole is definitionally >= any of its parts. Deliberately not gated to
+    any particular sheet type: this is run against every sheet with vector
+    ground truth (see orchestrator.py), on the same "don't assume only the
+    obviously-relevant document has the answer" principle used to fold
+    COAI-01 spec facts into Phase 1 -- an electrical or MEP sheet can carry
+    the same outer dimension chain as the floor plan it was traced from.
+    """
+    numeric = [w for w in gt.words if _NUMERIC_PATTERN.match(w.text.replace(",", ""))]
+    if len(numeric) < _CHAIN_MIN_MEMBERS:
+        return None
+
+    h_bands = _band_cluster(numeric, key=lambda w: w.cy, perp_key=lambda w: w.cx)
+    v_bands = _band_cluster(numeric, key=lambda w: w.cx, perp_key=lambda w: w.cy)
+
+    def _largest_span_mm(bands: list[list[GroundTruthWord]]) -> float | None:
+        sums = [sum(float(w.text.replace(",", "")) for w in band) for band in bands]
+        return max(sums) if sums else None
+
+    width_mm = _largest_span_mm(h_bands)
+    depth_mm = _largest_span_mm(v_bands)
+    if width_mm is None or depth_mm is None:
+        return None
+
+    basis = f"最大寸法チェーン(横={width_mm:.0f}mm, 縦={depth_mm:.0f}mm)による外形概算"
+    return width_mm, depth_mm, basis
+
+
 def wall_segments_mm(gt: SheetGroundTruth) -> list[WallSegmentGeometry]:
     if gt.mm_per_px is None:
         return []

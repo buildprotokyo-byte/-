@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import logging
 
+from .. import grounding
 from ..config import settings
 from ..prompts import PARENT_AGGREGATE_SYSTEM_PROMPT, PARENT_AGGREGATE_USER_TEMPLATE
 from ..schemas import (
@@ -241,25 +242,84 @@ EXPECTED_SITE_KEYS = {
     "floor_area_ratio": "容積率",
     "setback_m": "セットバック",
     "address": "所在地",
+    "gross_footprint_sqm": "延床面積(概算)",
 }
+
+# How far apart two numeric readings of "the same fact" may sit and still
+# be treated as agreement rather than a genuine disagreement worth
+# flagging. Deliberately generous -- this compares readings that may come
+# from entirely different source documents/sheets (see
+# vector_extractor.estimate_gross_footprint's docstring on why a fact is
+# looked for across every sheet, not just the "obviously relevant" one),
+# so exact match isn't expected the way it is within one sheet's own
+# dimension-chain self-check.
+_DISAGREEMENT_TOLERANCE_PCT = 0.10
+
+
+def _numeric_or_none(value: str) -> float | None:
+    try:
+        return float(grounding.normalize_number(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _values_disagree(a: str, b: str) -> bool:
+    na, nb = _numeric_or_none(a), _numeric_or_none(b)
+    if na is not None and nb is not None:
+        if na == 0 and nb == 0:
+            return False
+        return abs(na - nb) > _DISAGREEMENT_TOLERANCE_PCT * max(abs(na), abs(nb))
+    return a.strip() != b.strip()
 
 
 def aggregate_phase1(all_facts: list[SiteFact]) -> Phase1Result:
-    """Dedupe site facts by key, preferring the highest-confidence reading."""
+    """Dedupe site facts by key, preferring the highest-confidence reading.
+
+    Facts for the same key can legitimately arrive from multiple, entirely
+    different source documents (a floor plan's own dimension chain, a
+    spec-document basic-info fact, a footprint estimate off an unrelated
+    MEP sheet that happens to carry the same outer dimension). This is
+    exactly the cross-source redundancy a human estimator uses to raise
+    confidence when sources agree -- and to flag a genuine discrepancy
+    worth a human's attention, rather than silently discarding it, when
+    they don't.
+    """
     best: dict[str, SiteFact] = {}
+    disagreement_flags: list[str] = []
+
     for fact in all_facts:
         current = best.get(fact.key)
-        if current is None or _rank(fact.confidence, fact.verified_by_vector) > _rank(
+        if current is None:
+            best[fact.key] = fact
+            continue
+
+        disagrees = _values_disagree(current.value, fact.value)
+        if _rank(fact.confidence, fact.verified_by_vector) > _rank(
             current.confidence, current.verified_by_vector
         ):
+            if disagrees:
+                disagreement_flags.append(
+                    f"「{fact.label_ja or fact.key}」で情報源ごとに値が食い違いました: "
+                    f"{current.value}(confidence={current.confidence:.2f}, "
+                    f"sheets={current.source_sheet_ids}) と "
+                    f"{fact.value}(confidence={fact.confidence:.2f}, sheets={fact.source_sheet_ids})。"
+                    f"確信度の高い{fact.value}を採用しましたが要確認。"
+                )
             best[fact.key] = fact
         elif fact.confidence == current.confidence:
-            # Independent agreement across tiles/sheets on the same fact is
-            # itself evidence -- merge sources and nudge confidence up.
-            current.source_tile_ids = list(set(current.source_tile_ids) | set(fact.source_tile_ids))
-            current.source_sheet_ids = list(set(current.source_sheet_ids) | set(fact.source_sheet_ids))
-            current.confidence = min(1.0, current.confidence + 0.05)
-            current.needs_human_review = current.confidence < 0.8
+            if disagrees:
+                disagreement_flags.append(
+                    f"「{fact.label_ja or fact.key}」で同程度の確信度の情報源同士が食い違いました: "
+                    f"{current.value} vs {fact.value}。両方とも要確認。"
+                )
+            else:
+                # Independent agreement across tiles/sheets on the same
+                # fact is itself evidence -- merge sources and nudge
+                # confidence up.
+                current.source_tile_ids = list(set(current.source_tile_ids) | set(fact.source_tile_ids))
+                current.source_sheet_ids = list(set(current.source_sheet_ids) | set(fact.source_sheet_ids))
+                current.confidence = min(1.0, current.confidence + 0.05)
+                current.needs_human_review = current.confidence < 0.8
 
     facts = list(best.values())
     found_keys = {f.key for f in facts}
@@ -272,6 +332,7 @@ def aggregate_phase1(all_facts: list[SiteFact]) -> Phase1Result:
         for f in facts
         if f.needs_human_review
     ]
+    unresolved += disagreement_flags
 
     return Phase1Result(facts=facts, completeness_score=completeness, unresolved_questions=unresolved)
 

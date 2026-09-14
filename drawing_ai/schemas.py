@@ -159,6 +159,12 @@ class ElementReading(BaseModel):
     attributes: dict[str, str] = Field(default_factory=dict)
     confidence: float = Field(ge=0.0, le=1.0)
     verified_by_vector: bool = False
+    # room要素向け: 図面に印字された面積表記(例: "5.3m2", "12.5畳")を
+    # area_parsing.parse_area_text() で数値化したもの。壁ポリゴンからの
+    # 算出(SolidModel)が使えない図面でも、印字された面積を直接使えるように
+    # するためのフォールバック経路(未算出ならNone)。
+    area_sqm: Optional[float] = None
+    area_source: str = "none"  # "printed_sqm" | "tatami_conversion" | "none"
 
 
 class VerticalSynthesisNote(BaseModel):

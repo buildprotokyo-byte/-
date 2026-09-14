@@ -20,6 +20,7 @@ import asyncio
 import logging
 
 from .. import grounding
+from ..area_parsing import parse_area_text
 from ..config import settings
 from ..prompts import DETAIL_SYSTEM_PROMPT, DETAIL_USER_TEMPLATE
 from ..schemas import DimensionReading, ElementReading, SymbolReading, Tile
@@ -120,6 +121,13 @@ def _reconcile_elements(passes: list[list[dict]], tile: Tile) -> list[ElementRea
         agreement_bonus = 0.1 * (len(items) - 1) if len(items) > 1 else 0.0
         grounding_delta, verified = grounding.text_adjustment(label_ja, tile)
         confidence = max(0.0, min(1.0, float(best.get("confidence", 0.0)) + agreement_bonus + grounding_delta))
+
+        area_sqm = None
+        area_source = "none"
+        parsed = parse_area_text(str(best.get("area_text", "")))
+        if parsed is not None:
+            area_sqm, area_source = parsed
+
         out.append(
             ElementReading(
                 element_id=f"{tile.tile_id}-{element_type}-{len(out)}",
@@ -130,6 +138,8 @@ def _reconcile_elements(passes: list[list[dict]], tile: Tile) -> list[ElementRea
                 attributes={str(k): str(v) for k, v in dict(best.get("attributes", {})).items()},
                 confidence=confidence,
                 verified_by_vector=verified,
+                area_sqm=area_sqm,
+                area_source=area_source,
             )
         )
     return out
