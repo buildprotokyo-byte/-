@@ -232,7 +232,20 @@ def extract_ground_truth(sheet: RenderedSheet) -> SheetGroundTruth | None:
 
 def _find_scale(words: list[GroundTruthWord]) -> tuple[str | None, int | None]:
     """Find a "N/M" (e.g. "1/50") scale token, preferring one positioned
-    near a "縮尺" (scale) label if present, else the only such token found."""
+    near a "縮尺" (scale) label if present, else the only such token found.
+
+    A site plan commonly has *other* legitimate "N/M"-shaped tokens that
+    are not the drawing scale at all -- a ramp/slope gradient (e.g.
+    "1/12") is a standard site-plan annotation and matches the same
+    pattern. Without a "縮尺" label to anchor the distance sort, picking
+    "the first token found" risked silently grabbing a slope ratio instead
+    of the real scale (and every downstream mm-per-px conversion would
+    then be wrong without any signal that it happened). When multiple
+    candidates exist and none can be anchored to a label, this refuses to
+    guess rather than silently pick one -- the same principle used
+    elsewhere in this module (see the wall-fill trade-off note) for not
+    publishing an unreliable geometric check in place of no check at all.
+    """
     scale_words = [w for w in words if _SCALE_PATTERN.match(w.text)]
     if not scale_words:
         return None, None
@@ -240,6 +253,8 @@ def _find_scale(words: list[GroundTruthWord]) -> tuple[str | None, int | None]:
     label = next((w for w in words if "縮尺" in w.text or "縮 尺" in w.text), None)
     if label:
         scale_words.sort(key=lambda w: (w.cx - label.cx) ** 2 + (w.cy - label.cy) ** 2)
+    elif len(scale_words) > 1:
+        return None, None
 
     chosen = scale_words[0]
     m = _SCALE_PATTERN.match(chosen.text)

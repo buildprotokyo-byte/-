@@ -236,3 +236,90 @@ def test_dedupe_elements_without_position_info_never_merges():
     elements = [_room_element("t1"), _room_element("t2")]
     out = parent_agent._dedupe_elements(elements, tiles_by_id=None)
     assert len(out) == 2
+
+
+# --- 敷地(Phase1)の精度: 縮尺とスロープ勾配の混同を防ぐ -------------------
+# ユーザーの指示により、ハードルが低いと考えられる「敷地」の文字・数字読み
+# 取り精度を優先して見直した際に見つかったバグ。敷地図にはスロープ勾配
+# (例: 1/12)のような「縮尺と同じ見た目のN/M表記」が、縮尺そのもの
+# (例: 1/50)とは別に載っていることが多い。
+
+
+from drawing_ai import vector_extractor as ve
+
+
+def test_find_scale_picks_nearest_to_label_even_with_slope_present():
+    label = ve.GroundTruthWord(text="縮尺", x0=500, y0=500, x1=520, y1=510)
+    real_scale = ve.GroundTruthWord(text="1/50", x0=525, y0=500, x1=545, y1=510)
+    slope = ve.GroundTruthWord(text="1/12", x0=0, y0=0, x1=20, y1=10)
+    text, denom = ve._find_scale([slope, label, real_scale])
+    assert text == "1/50"
+    assert denom == 50
+
+
+def test_find_scale_refuses_to_guess_when_ambiguous_without_label():
+    slope = ve.GroundTruthWord(text="1/12", x0=0, y0=0, x1=20, y1=10)
+    real_scale = ve.GroundTruthWord(text="1/50", x0=500, y0=500, x1=520, y1=510)
+    # 「縮尺」ラベルが無いため、どちらが本当の縮尺か判断できない -> 推測しない
+    text, denom = ve._find_scale([slope, real_scale])
+    assert text is None
+    assert denom is None
+
+
+def test_find_scale_still_works_with_single_unambiguous_token():
+    only_scale = ve.GroundTruthWord(text="1/50", x0=500, y0=500, x1=520, y1=510)
+    text, denom = ve._find_scale([only_scale])
+    assert text == "1/50"
+    assert denom == 50
+
+
+# --- 識字(文字認識)精度: 断片化した自由記述(住所等)の取り違え防止 -------
+
+
+from drawing_ai.schemas import SiteFact
+
+
+def test_aggregate_phase1_prefers_complete_address_over_truncated_fragment():
+    fragment = SiteFact(key="address", label_ja="所在地", value="石川県", confidence=0.75)
+    complete = SiteFact(key="address", label_ja="所在地", value="石川県金沢市XX町1-2-3", confidence=0.65)
+    result = parent_agent.aggregate_phase1([fragment, complete])
+    assert len(result.facts) == 1
+    assert result.facts[0].value == "石川県金沢市XX町1-2-3"
+
+
+def test_aggregate_phase1_prefers_complete_address_regardless_of_order():
+    fragment = SiteFact(key="address", label_ja="所在地", value="石川県", confidence=0.9)
+    complete = SiteFact(key="address", label_ja="所在地", value="石川県金沢市XX町1-2-3", confidence=0.5)
+    result = parent_agent.aggregate_phase1([complete, fragment])
+    assert result.facts[0].value == "石川県金沢市XX町1-2-3"
+
+
+# --- 識字(文字認識)精度: OCRエンジンのフォールバックが無言だった問題 -------
+
+
+def test_get_ocr_engine_warns_and_falls_back_when_dependency_missing(monkeypatch, caplog):
+    from drawing_ai import ocr_engine as oe
+
+    monkeypatch.setattr(oe.settings, "ocr_engine", "paddleocr")
+    oe.get_ocr_engine.cache_clear()
+    try:
+        with caplog.at_level("WARNING", logger="drawing_ai.ocr_engine"):
+            engine = oe.get_ocr_engine()
+        assert isinstance(engine, oe.NullOcrEngine)
+        assert any("falling back to no OCR grounding" in r.message for r in caplog.records)
+    finally:
+        oe.get_ocr_engine.cache_clear()
+
+
+def test_get_ocr_engine_warns_on_unknown_engine_name(monkeypatch, caplog):
+    from drawing_ai import ocr_engine as oe
+
+    monkeypatch.setattr(oe.settings, "ocr_engine", "not_a_real_engine")
+    oe.get_ocr_engine.cache_clear()
+    try:
+        with caplog.at_level("WARNING", logger="drawing_ai.ocr_engine"):
+            engine = oe.get_ocr_engine()
+        assert isinstance(engine, oe.NullOcrEngine)
+        assert any("unknown DRAWING_AI_OCR_ENGINE" in r.message for r in caplog.records)
+    finally:
+        oe.get_ocr_engine.cache_clear()

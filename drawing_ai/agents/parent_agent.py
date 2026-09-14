@@ -335,6 +335,31 @@ def _values_disagree(a: str, b: str) -> bool:
     return a.strip() != b.strip()
 
 
+def _prefer_more_complete(a: SiteFact, b: SiteFact) -> SiteFact | None:
+    """If one fact's value is a substring of the other's, prefer the
+    longer/more complete reading outright, ahead of the usual confidence-
+    based comparison.
+
+    Free-text site facts (an address, most visibly) are exactly the kind
+    of field one ensemble pass can plausibly read in full while another
+    reads only a truncated fragment (e.g. "石川県" vs the complete
+    "石川県金沢市...1-2-3") -- reconcile_site_facts's own per-tile
+    reconciliation keys strictly by (key, value), so two such readings
+    survive as fully independent SiteFact candidates rather than being
+    merged, and a higher-confidence fragment could otherwise beat a
+    complete reading on rank alone. Returns None when the two values
+    aren't in a substring relationship, i.e. they are genuinely different
+    candidate readings that the normal comparison should decide.
+    """
+    if a.value == b.value:
+        return None
+    if a.value and a.value in b.value:
+        return b
+    if b.value and b.value in a.value:
+        return a
+    return None
+
+
 def aggregate_phase1(all_facts: list[SiteFact]) -> Phase1Result:
     """Dedupe site facts by key, preferring the highest-confidence reading.
 
@@ -354,6 +379,11 @@ def aggregate_phase1(all_facts: list[SiteFact]) -> Phase1Result:
         current = best.get(fact.key)
         if current is None:
             best[fact.key] = fact
+            continue
+
+        more_complete = _prefer_more_complete(current, fact)
+        if more_complete is not None:
+            best[fact.key] = more_complete
             continue
 
         disagrees = _values_disagree(current.value, fact.value)

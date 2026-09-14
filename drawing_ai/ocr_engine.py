@@ -19,10 +19,13 @@ the rest of the package.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
 
 from .config import settings
+
+logger = logging.getLogger("drawing_ai.ocr_engine")
 
 
 @dataclass
@@ -116,14 +119,35 @@ class NullOcrEngine(OcrEngine):
 
 @lru_cache(maxsize=1)
 def get_ocr_engine() -> OcrEngine:
+    """Instantiate the configured OCR engine, falling back to a no-op
+    engine if its dependency isn't installed.
+
+    That fallback used to be silent -- for a sheet with no vector text
+    layer at all (a plain scanned drawing; confirmed on a real project's
+    11-page drawing set, every page of which was exactly this), OCR is
+    the *only* text-recognition path available, so losing it invisibly
+    means that sheet's Stage 1 (character recognition) silently produces
+    nothing, with no signal to the operator that the configured engine
+    never actually loaded. Now logged at warning level so a missing
+    dependency shows up in the logs instead of just quietly degrading
+    accuracy.
+    """
     engine = settings.ocr_engine.lower()
     try:
         if engine == "paddleocr":
             return PaddleOcrEngine(lang=settings.ocr_lang)
         if engine == "tesseract":
             return TesseractOcrEngine()
-    except ImportError:
-        pass
+    except ImportError as exc:
+        logger.warning(
+            "configured OCR engine '%s' is not installed (%s) -- falling back to "
+            "no OCR grounding. Sheets with no vector text layer will lose their only "
+            "text-recognition path entirely.",
+            engine, exc,
+        )
+        return NullOcrEngine()
+
+    logger.warning("unknown DRAWING_AI_OCR_ENGINE '%s' -- falling back to no OCR grounding.", engine)
     return NullOcrEngine()
 
 
