@@ -1,18 +1,25 @@
-# Recommended production setup (see drawing_ai/README.md 3.16 for the full
-# rationale): point the existing OpenAI-compatible VLM client at Anthropic's
-# documented OpenAI SDK compatibility layer (https://api.anthropic.com/v1/,
-# confirmed via platform.claude.com/docs/en/cli-sdks-libraries/libraries/openai-sdk)
-# instead of a self-hosted Ollama server. This needs ZERO code changes --
-# vlm_client.py was already built for "any OpenAI-compatible endpoint" -- only
-# the two *_API_KEY values below (entered once in the Render dashboard, never
-# committed to git) and picking a model name. child_vlm reads tile images
-# (needs vision); parent_llm only reasons over already-extracted text (no
-# vision needed), so a lighter/cheaper model is enough there.
+# Cost posture (see drawing_ai/README.md 3.16/3.17): the feature that's
+# actually wired into the 見積作成 tab today -- POST /phase1/analyze,
+# character/number recognition -- uses Tesseract only and calls no paid API,
+# so it costs nothing beyond Render hosting itself. `plan: free` below keeps
+# that hosting free too (real limits: spins down on idle, cold starts on the
+# next request -- acceptable for now, see README).
+#
+# The DRAWING_AI_CHILD_*/PARENT_* vars point the existing OpenAI-compatible
+# VLM client at Anthropic's documented OpenAI SDK compatibility layer
+# (https://api.anthropic.com/v1/, confirmed via
+# platform.claude.com/docs/en/cli-sdks-libraries/libraries/openai-sdk) --
+# this is for the FULL Phase0-3 pipeline (POST /analyze), which the
+# 見積作成 tab does not call yet. Leave DRAWING_AI_CHILD_API_KEY /
+# DRAWING_AI_PARENT_API_KEY BLANK for now: nothing calls that pipeline, so
+# an unset key costs nothing and risks nothing. Fill them in only when
+# deliberately moving past Phase 1 to real VLM-backed reading -- at that
+# point, and only then, does usage-based Anthropic billing begin.
 services:
   - type: web
     name: buildpro-drawing-ai
     runtime: python
-    plan: standard
+    plan: free
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
@@ -36,7 +43,6 @@ services:
         # falls back to no OCR-grounding signal) rather than failing the
         # whole pipeline -- see drawing_ai/README.md 3.16. Fixing this
         # properly needs a Dockerfile-based Render deploy instead of the
-        # plain Python buildCommand above; not done here since the VLM
-        # (Claude) path above is the primary recognition engine now, and OCR
-        # was always meant as a secondary cross-check on top of it, not the
-        # sole source of truth.
+        # plain Python buildCommand above; deferred for the same reason as
+        # the free plan choice -- don't add cost/complexity before the free
+        # tier proves the feature is worth it.
