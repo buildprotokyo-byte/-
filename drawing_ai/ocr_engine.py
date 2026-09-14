@@ -153,3 +153,56 @@ def get_ocr_engine() -> OcrEngine:
 
 def ocr_tile(image_path: str) -> OcrResult:
     return get_ocr_engine().run(image_path)
+
+
+def _tile_core_rect(tile, neighbors: dict) -> tuple[float, float, float, float]:
+    """This tile's exclusive "owned" region in full-sheet pixel coords: the
+    midpoint line to each adjacent tile (row/col +-1), or the tile's own
+    edge where there is no neighbor (a true sheet boundary).
+
+    ``tile_sheet``'s overlap means every interior boundary is covered by
+    TWO tiles; assigning each word to whichever single tile's core rect
+    contains the word's own center point gives each word exactly one
+    owner, and that owner is always the tile where the word sits closest
+    to the middle (never the tile where it's cut by the crop edge) --
+    see ``merge_tile_words`` for why this matters.
+    """
+    left = neighbors.get((tile.row, tile.col - 1))
+    right = neighbors.get((tile.row, tile.col + 1))
+    top = neighbors.get((tile.row - 1, tile.col))
+    bottom = neighbors.get((tile.row + 1, tile.col))
+    x0 = (tile.x0 + left.x1) / 2 if left else tile.x0
+    x1 = (tile.x1 + right.x0) / 2 if right else tile.x1
+    y0 = (tile.y0 + top.y1) / 2 if top else tile.y0
+    y1 = (tile.y1 + bottom.y0) / 2 if bottom else tile.y1
+    return x0, y0, x1, y1
+
+
+def merge_tile_words(tiles_with_words: list[tuple]) -> list:
+    """Merge one sheet's per-tile OCR word lists into a single deduplicated,
+    full-sheet-coordinate list -- fixes a real bug found running this
+    against 千倉相川邸 p.1 (README 3.13): with no merge step, a word sitting
+    in the overlap band between two tiles is read TWICE, and the copy from
+    whichever tile happens to crop through the middle of that word (not the
+    word's own boundary, since the crop grid doesn't know where words are)
+    comes back as garbled 1-2 character noise -- "A", "を", "に", "-" -- even
+    though the SAME word was already read correctly and in full by the
+    neighboring tile that contains it whole. That noise then gets shown to
+    a human reviewer as if it were a real misread of legible text, which it
+    is not: it's an artifact of not merging overlapping tiles.
+
+    ``tiles_with_words``: list of ``(tile, [GroundTruthWord, ...])`` pairs,
+    words already in full-sheet pixel coordinates (tile.x0/y0 already
+    added), for every tile of ONE sheet. Returns the deduplicated list:
+    each word kept exactly once, attributed to whichever tile's "core"
+    (non-overlap-shared) region contains that word's own center -- see
+    ``_tile_core_rect``.
+    """
+    neighbors = {(t.row, t.col): t for t, _ in tiles_with_words}
+    merged = []
+    for tile, words in tiles_with_words:
+        cx0, cy0, cx1, cy1 = _tile_core_rect(tile, neighbors)
+        for w in words:
+            if cx0 <= w.cx < cx1 and cy0 <= w.cy < cy1:
+                merged.append(w)
+    return merged
