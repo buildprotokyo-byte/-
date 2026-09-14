@@ -100,6 +100,11 @@ class Settings:
     # "agree/disagree" signal for a free-text sentence to vote on.
     phase1_ensemble_size: int = _env_int("DRAWING_AI_PHASE1_ENSEMBLE", 3)
     phase3_ensemble_size: int = _env_int("DRAWING_AI_PHASE3_ENSEMBLE", 3)
+    # 仕様書読解(COAI-01)のアンサンブル数。この工程は工事範囲の大部分を
+    # 決定づけるとして最優先で精度を上げる対象と位置づけられているため、
+    # Phase 1と同じ大きさのアンサンブルを既定値とする(config分離により、
+    # 将来的にPhase1と独立してチューニングできるようにしている)。
+    spec_ensemble_size: int = _env_int("DRAWING_AI_SPEC_ENSEMBLE", 3)
 
 
 settings = Settings()

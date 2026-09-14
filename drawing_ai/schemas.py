@@ -52,6 +52,15 @@ class Tile(BaseModel):
     # OCR or a VLM's own reading.
     ground_truth_text: str = ""
     has_vector_ground_truth: bool = False
+    # Ground-truth words inside this tile's bbox, already grouped into
+    # visual table rows (see vector_extractor.extract_table_rows). Empty
+    # when the tile has no vector ground truth, or the region isn't
+    # table-shaped. Populated once in the orchestrator alongside
+    # ground_truth_text so every agent can use it, but it is currently
+    # consumed only by spec_agent (COAI-01), where a specification sheet's
+    # 仕上表/建具表 layout varies enough between design offices that
+    # structure should be extracted before meaning is inferred.
+    ground_truth_table_rows: list[list[str]] = Field(default_factory=list)
 
 
 class SheetOverview(BaseModel):
@@ -244,11 +253,65 @@ class Phase3Result(BaseModel):
     solid_model: SolidModel = Field(default_factory=SolidModel)
 
 
+class SpecProduct(BaseModel):
+    """メーカー製品情報。仕様書に型番等の記載がある場合のみ意味を持つ。"""
+
+    manufacturer: Optional[str] = None
+    model_number: Optional[str] = None
+    category: str = ""
+    looked_up_details: str = ""  # Web調査等で得られた寸法・色・施工条件(取得できた場合のみ)
+    lookup_status: str = "not_attempted"  # found | not_found | not_attempted
+
+
+class SpecItem(BaseModel):
+    """仕様書の1行(場所×仕上げ×下地)。COAI-01(仕様書読解AI)が扱う最小単位。
+
+    「記載がある=改修工事の対象範囲」「下地が既存利用か新規か」という、
+    仕様書読解AIの役割定義(COAI_DEFINITIONS.md参照)で確定した2つの含意を、
+    in_scope / substrate_status としてそれぞれ独立に保持する。
+    """
+
+    finish: str  # 正規化された仕上げ名(正規化できなければraw_finish_termと同じ)
+    substrate: str = ""
+    substrate_status: str = "unknown"  # existing | new | unknown
+    notes: str = ""
+    in_scope: bool = True
+    product: SpecProduct = Field(default_factory=SpecProduct)
+    raw_finish_term: str = ""  # 仕様書に実際に書かれていた原文表記(正規化前)
+    canonical_finish_term: Optional[str] = None  # 公開基準用語への正規化結果。見つからなければnull
+    confidence: float = Field(ge=0.0, le=1.0, default=0.0)
+    verified_by_vector: bool = False
+    needs_human_review: bool = False
+    source_tile_ids: list[str] = Field(default_factory=list)
+
+
+class SpecRoom(BaseModel):
+    """仕様書上の1区画。設計者の区切り方(部屋単位)をそのまま保持する。"""
+
+    room_name: str
+    specs: list[SpecItem] = Field(default_factory=list)
+    source_sheet_ids: list[str] = Field(default_factory=list)
+
+
+class SpecResult(BaseModel):
+    """仕様書読解AI(COAI-01)の最終出力。"""
+
+    rooms: list[SpecRoom] = Field(default_factory=list)
+    # 「工事範囲を絞り込む言葉」(例: 2階居室のみ, 外壁のみ) -- 既存のPhase1/2の
+    # どちらにも対応物が無い、仕様書読解AI固有の出力。
+    scope_target_terms: list[str] = Field(default_factory=list)
+    # タイル間(=仕様書ページの異なる領域)で同じ部屋・同じ仕上げの下地判定が
+    # 食い違った場合など、黙って片方を採用せず正直に記録する項目。
+    ambiguous_flags: list[str] = Field(default_factory=list)
+    completeness_note: str = ""
+
+
 class PipelineRun(BaseModel):
     """Top-level result returned by the orchestrator / API."""
 
     run_id: str
     sheets: list[SheetOverview] = Field(default_factory=list)
+    spec: SpecResult = Field(default_factory=SpecResult)
     phase1: Phase1Result = Field(default_factory=Phase1Result)
     phase2: Phase2Result = Field(default_factory=Phase2Result)
     phase3: Phase3Result = Field(default_factory=Phase3Result)

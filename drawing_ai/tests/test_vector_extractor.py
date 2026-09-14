@@ -177,6 +177,24 @@ def test_solid_model_matches_room_element_to_ceiling_height(synthetic_sheet):
     assert model.room_heights[0].room_label == "テスト室"
 
 
+def test_extract_table_rows_groups_by_row(synthetic_sheet):
+    gt = ve.extract_ground_truth(synthetic_sheet)
+    zoom = settings.render_dpi / 72.0
+    # Covers the y=100 row (100/200/300/9999, spread across a wide x range --
+    # extract_table_rows groups purely by row, it deliberately does not
+    # split a row on a large x gap the way dimension-chain clustering does,
+    # since a real table row can legitimately have far-apart cells) and the
+    # y=120 row (the single "600" total) from _build_synthetic_pdf above.
+    rows = ve.extract_table_rows(gt, x0=0, y0=90 * zoom, x1=600 * zoom, y1=130 * zoom)
+    assert ["100", "200", "300", "9999"] in rows
+    assert ["600"] in rows
+
+
+def test_extract_table_rows_empty_bbox_returns_empty(synthetic_sheet):
+    gt = ve.extract_ground_truth(synthetic_sheet)
+    assert ve.extract_table_rows(gt, x0=0, y0=0, x1=1, y1=1) == []
+
+
 def test_no_vector_ground_truth_for_plain_image(tmp_path):
     sheet = RenderedSheet(
         sheet_id="sheet-img",

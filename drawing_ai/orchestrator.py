@@ -38,6 +38,7 @@ from .agents import (
     parent_agent,
     site_agent,
     solid_model_agent,
+    spec_agent,
     vertical_synthesis_agent,
 )
 from .config import settings
@@ -46,10 +47,12 @@ from .ocr_engine import ocr_tile
 from .schemas import (
     DimensionReading,
     ElementReading,
+    IntentStatement,
     PipelineRun,
     SheetOverview,
     SheetType,
     SiteFact,
+    SpecRoom,
     SymbolReading,
     Tile,
 )
@@ -60,6 +63,13 @@ logger = logging.getLogger("drawing_ai.orchestrator")
 # info; UNKNOWN is included so a misclassified sheet doesn't silently lose
 # its site facts.
 SITE_RELEVANT_SHEET_TYPES = {SheetType.SITE_PLAN, SheetType.UNKNOWN}
+
+# COAI-01 (仕様書読解AI) only makes sense against sheets classified as
+# specification-like (仕様書・仕上げ表・特記仕様書 etc. -- see
+# prompts.OVERVIEW_USER_TEMPLATE for the full alias list); UNKNOWN is
+# included for the same "don't silently lose it to misclassification"
+# reason as SITE_RELEVANT_SHEET_TYPES above.
+SPEC_RELEVANT_SHEET_TYPES = {SheetType.SPECIFICATION, SheetType.UNKNOWN}
 
 
 async def _gather_bounded(coros: list) -> list:
@@ -125,6 +135,7 @@ async def run_pipeline(
         if gt is not None:
             for t in tiles:
                 t.ground_truth_text = ve.words_in_bbox(gt, t.x0, t.y0, t.x1, t.y1)
+                t.ground_truth_table_rows = ve.extract_table_rows(gt, t.x0, t.y0, t.x1, t.y1)
                 t.has_vector_ground_truth = True
         all_tiles.extend(tiles)
 
@@ -146,12 +157,27 @@ async def run_pipeline(
         overview = overview_by_id.get(tile.sheet_id)
         return overview.sheet_type if overview else SheetType.UNKNOWN
 
+    # --- Spec: specification-document reading (COAI-01) ---------------------
+    # Run against specification-like sheets (仕様書・仕上げ表・特記仕様書 等),
+    # independent of Phase 1-3. The user singled this agent out as the
+    # highest-priority accuracy investment -- a well-read spec document
+    # narrows roughly 80% of a renovation's construction scope before a
+    # single drawing symbol is interpreted -- so its output is folded into
+    # Phase 1/2's own pools below rather than kept as an isolated result,
+    # letting the spec document's (often higher-fidelity) basic info and
+    # intent statements directly raise those phases' accuracy too.
+    spec_tiles = [t for t in all_tiles if _sheet_type_of(t) in SPEC_RELEVANT_SHEET_TYPES]
+    spec_tile_results = await _gather_bounded([spec_agent.extract_spec(t) for t in spec_tiles])
+    spec_tile_results = [r for r in spec_tile_results if r is not None]
+
     # --- Phase 1: site facts ------------------------------------------------
     site_tiles = [t for t in all_tiles if _sheet_type_of(t) in SITE_RELEVANT_SHEET_TYPES]
     site_fact_lists: list[list[SiteFact]] = await _gather_bounded(
         [site_agent.extract_site_facts(t) for t in site_tiles]
     )
     all_site_facts = [f for group in site_fact_lists if group for f in group]
+    for spec_result_tile in spec_tile_results:
+        all_site_facts.extend(spec_result_tile.basic_facts)
     phase1 = parent_agent.aggregate_phase1(all_site_facts)
     logger.info(
         "[%s] phase1: %d fact(s), completeness=%.2f", run_id, len(phase1.facts), phase1.completeness_score
@@ -159,10 +185,21 @@ async def run_pipeline(
 
     # --- Phase 2: intent ------------------------------------------------
     intent_results = await _gather_bounded([intent_agent.extract_intent(t) for t in all_tiles])
-    statements = [s for s in intent_results if s is not None]
+    statements: list[IntentStatement] = [s for s in intent_results if s is not None]
+    for spec_result_tile in spec_tile_results:
+        statements.extend(spec_result_tile.intent_statements)
     project_summary = await parent_agent.summarize_project(statements)
     phase2 = parent_agent.aggregate_phase2(statements, project_summary_ja=project_summary)
     logger.info("[%s] phase2: %d intent statement(s)", run_id, len(phase2.statements))
+
+    # --- Spec aggregation (COAI-01 detailed room/spec output) ---------------
+    all_spec_rooms: list[SpecRoom] = [room for r in spec_tile_results for room in r.rooms]
+    all_scope_terms = [term for r in spec_tile_results for term in r.scope_target_terms]
+    spec = parent_agent.aggregate_spec(all_spec_rooms, scope_target_terms=all_scope_terms)
+    logger.info(
+        "[%s] spec: %d room(s), %d ambiguous flag(s) -- %s",
+        run_id, len(spec.rooms), len(spec.ambiguous_flags), spec.completeness_note,
+    )
 
     # --- Phase 3: precise detail reading ------------------------------------
     detail_results = await _gather_bounded([detail_agent.extract_details(t) for t in all_tiles])
@@ -231,6 +268,7 @@ async def run_pipeline(
 
     model_calls = (
         len(sheets)  # phase0
+        + len(spec_tiles) * max(1, settings.spec_ensemble_size)  # spec (COAI-01)
         + len(site_tiles) * max(1, settings.phase1_ensemble_size)  # phase1
         + len(all_tiles)  # phase2
         + len(all_tiles) * max(1, settings.phase3_ensemble_size)  # phase3
@@ -242,6 +280,7 @@ async def run_pipeline(
     return PipelineRun(
         run_id=run_id,
         sheets=sheet_overviews,
+        spec=spec,
         phase1=phase1,
         phase2=phase2,
         phase3=phase3,

@@ -8,7 +8,7 @@ from __future__ import annotations
 import pytest
 from PIL import Image
 
-from .conftest import build_synthetic_vector_pdf
+from .conftest import DEFAULT_DISPATCH, FakeVLMClient, build_synthetic_vector_pdf
 
 fitz = pytest.importorskip("fitz")
 
@@ -117,3 +117,50 @@ async def test_run_pipeline_grounds_against_vector_pdf(tmp_path, monkeypatch, fa
     # height matched to that label.
     assert result.phase3.solid_model.wall_segments
     assert result.phase3.solid_model.wall_segments[0].height_mm == pytest.approx(2500.0)
+
+
+@pytest.mark.asyncio
+async def test_run_pipeline_folds_spec_into_phase1_and_phase2(tmp_path, monkeypatch):
+    """A sheet classified as `specification` should run through COAI-01
+    (spec_agent), and its fixed-question output (basic info / desired
+    changes) should be folded into Phase 1 / Phase 2's own pools -- not
+    kept as an isolated fourth result -- while its per-room detail lands in
+    result.spec."""
+    monkeypatch.setattr(config.settings, "tile_px", 150)
+    monkeypatch.setattr(config.settings, "tile_overlap_px", 20)
+    monkeypatch.setattr(config.settings, "phase3_ensemble_size", 1)
+    monkeypatch.setattr(config.settings, "spec_ensemble_size", 1)
+
+    spec_dispatch = dict(DEFAULT_DISPATCH)
+    spec_dispatch["一次確認担当"] = {
+        **DEFAULT_DISPATCH["一次確認担当"],
+        "sheet_type": "specification",
+    }
+    client = FakeVLMClient(spec_dispatch)
+
+    for modpath in [
+        "drawing_ai.agents.overview_agent",
+        "drawing_ai.agents.site_agent",
+        "drawing_ai.agents.intent_agent",
+        "drawing_ai.agents.detail_agent",
+        "drawing_ai.agents.vertical_synthesis_agent",
+        "drawing_ai.agents.parent_agent",
+        "drawing_ai.agents.spec_agent",
+    ]:
+        monkeypatch.setattr(f"{modpath}.get_client", lambda _endpoint, _c=client: _c)
+
+    img_path = tmp_path / "spec_sheet.png"
+    Image.new("RGB", (300, 220), color=(255, 255, 255)).save(img_path)
+
+    result = await run_pipeline([str(img_path)], str(tmp_path / "work"))
+
+    assert result.sheets[0].sheet_type == SheetType.SPECIFICATION
+
+    # COAI-01's own detailed output.
+    assert any(r.room_name == "洋室A" for r in result.spec.rooms)
+    assert result.spec.scope_target_terms == ["2階居室のみ"]
+
+    # Folded into Phase 1 (basic info) and Phase 2 (desired-change intent)
+    # rather than kept separate.
+    assert any(f.key == "building_structure" for f in result.phase1.facts)
+    assert any("洋室" in s.text_ja for s in result.phase2.statements)

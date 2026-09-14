@@ -34,6 +34,8 @@ from ..schemas import (
     Phase2Result,
     Phase3Result,
     SiteFact,
+    SpecResult,
+    SpecRoom,
     SymbolReading,
     VerticalSynthesisNote,
 )
@@ -272,6 +274,60 @@ def aggregate_phase1(all_facts: list[SiteFact]) -> Phase1Result:
     ]
 
     return Phase1Result(facts=facts, completeness_score=completeness, unresolved_questions=unresolved)
+
+
+def aggregate_spec(all_rooms: list[SpecRoom], scope_target_terms: list[str] | None = None) -> SpecResult:
+    """Merge per-tile SpecRoom lists (COAI-01, one call per spec-sheet tile)
+    into one result, combining spec items for the same room found across
+    multiple/overlapping tiles.
+
+    A within-room disagreement on substrate_status (existing vs. new) found
+    across different tiles is exactly the "図面との矛盾" case COAI-01's
+    design conversation flagged as still open -- rather than silently
+    picking one side, it is recorded in ``ambiguous_flags`` and the
+    higher-confidence reading is kept, per the tentative "図面優先だが
+    矛盾はフラグを立てて両方残す" default noted in COAI_DEFINITIONS.md.
+    """
+    rooms: dict[str, SpecRoom] = {}
+    ambiguous_flags: list[str] = []
+
+    for room in all_rooms:
+        existing = rooms.get(room.room_name)
+        if existing is None:
+            rooms[room.room_name] = room.model_copy(deep=True)
+            continue
+        existing.source_sheet_ids = list(set(existing.source_sheet_ids) | set(room.source_sheet_ids))
+        for item in room.specs:
+            key = (item.raw_finish_term, item.substrate)
+            match = next((s for s in existing.specs if (s.raw_finish_term, s.substrate) == key), None)
+            if match is None:
+                existing.specs.append(item)
+                continue
+            if (
+                match.substrate_status != item.substrate_status
+                and "unknown" not in (match.substrate_status, item.substrate_status)
+            ):
+                ambiguous_flags.append(
+                    f"「{room.room_name}」の「{item.raw_finish_term}」で下地の既存/新規判定が"
+                    f"タイル間で食い違いました({match.substrate_status} vs {item.substrate_status})。要確認。"
+                )
+            if item.confidence > match.confidence:
+                existing.specs[existing.specs.index(match)] = item
+
+    review_count = sum(1 for room in rooms.values() for item in room.specs if item.needs_human_review)
+    total_items = sum(len(room.specs) for room in rooms.values())
+
+    deduped_terms: list[str] = []
+    for term in scope_target_terms or []:
+        if term not in deduped_terms:
+            deduped_terms.append(term)
+
+    return SpecResult(
+        rooms=list(rooms.values()),
+        scope_target_terms=deduped_terms,
+        ambiguous_flags=ambiguous_flags,
+        completeness_note=f"{len(rooms)}部屋・{total_items}項目を読み取りました。要確認{review_count}件。",
+    )
 
 
 def aggregate_phase2(statements: list[IntentStatement], project_summary_ja: str = "") -> Phase2Result:

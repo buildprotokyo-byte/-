@@ -44,7 +44,14 @@ async def _one_pass(tile: Tile) -> list[dict]:
     return data
 
 
-def _reconcile(passes: list[list[dict]], tile: Tile) -> list[SiteFact]:
+def reconcile_site_facts(passes: list[list[dict]], tile: Tile) -> list[SiteFact]:
+    """Ensemble-reconcile raw per-pass fact dicts into scored SiteFacts.
+
+    Public (no leading underscore) so spec_agent.py can reuse it for the
+    仕様書 "basic info" fixed-question block, which is the same
+    key/value/confidence shape and deserves the same ensemble-agreement +
+    grounding treatment as site facts -- rather than reimplementing it.
+    """
     seen: dict[tuple[str, str], list[dict]] = {}
     for pass_items in passes:
         for item in pass_items:
@@ -97,4 +104,4 @@ async def extract_site_facts(tile: Tile) -> list[SiteFact]:
 
     if not passes:
         return []
-    return _reconcile(passes, tile)
+    return reconcile_site_facts(passes, tile)

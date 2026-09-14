@@ -119,6 +119,48 @@ DEFAULT_DISPATCH = {
             "confidence": 0.6,
         }
     ],
+    "基本仕様書": {
+        "basic_info_facts": [
+            {
+                "key": "building_structure",
+                "label_ja": "建物構造",
+                "value": "木造2階建て",
+                "unit": None,
+                "confidence": 0.9,
+                "raw_evidence_text": "木造2階建て",
+            }
+        ],
+        "scope_target_terms": ["2階居室のみ"],
+        "desired_change_statements": [
+            {
+                "text_ja": "和室を洋室に改装する。",
+                "construction_categories": ["大工工事"],
+                "confidence": 0.8,
+            }
+        ],
+        "rooms": [
+            {
+                "room_name": "洋室A",
+                "specs": [
+                    {
+                        "finish": "CL",
+                        "substrate": "石膏ボード",
+                        "substrate_status": "new",
+                        "notes": "",
+                        "in_scope": True,
+                        "confidence": 0.85,
+                        "product": {
+                            "manufacturer": None,
+                            "model_number": None,
+                            "category": "",
+                            "looked_up_details": "",
+                            "lookup_status": "not_attempted",
+                        },
+                    }
+                ],
+            }
+        ],
+    },
     "案件概要文をまとめる担当": "本件は既存木造住宅の内装改修工事であり、和室の洋室化とフローリング張替えを含む。",
     "子AIが図面の断片ごとに読み取った結果を統合": {
         "dimensions": [
@@ -173,6 +215,7 @@ def fake_clients(monkeypatch):
         "drawing_ai.agents.detail_agent",
         "drawing_ai.agents.vertical_synthesis_agent",
         "drawing_ai.agents.parent_agent",
+        "drawing_ai.agents.spec_agent",
     ]:
         monkeypatch.setattr(f"{modpath}.get_client", _get_client)
 

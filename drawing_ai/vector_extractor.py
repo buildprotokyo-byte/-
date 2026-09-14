@@ -80,6 +80,14 @@ _CHAIN_MAX_GAP_PT = 350.0
 # chain, rather than an unrelated number elsewhere on the sheet.
 _CHAIN_TOTAL_SPAN_MARGIN_PT = 60.0
 
+# Row-grouping tolerance for extract_table_rows(), in PDF points. Wider than
+# _CHAIN_BAND_TOLERANCE_PT (which targets same-baseline dimension digits)
+# because a spec-sheet table row's cells are not always perfectly
+# baseline-aligned (merged cells, differing font sizes between a label and
+# its value) -- this is a separate, independently-tuned constant rather than
+# reusing the dimension-chain one, since the two serve different purposes.
+_TABLE_ROW_TOLERANCE_PT = 9.0
+
 
 @dataclass
 class GroundTruthWord:
@@ -243,6 +251,32 @@ def words_in_bbox(gt: SheetGroundTruth, x0: float, y0: float, x1: float, y1: flo
     hits = [w for w in gt.words if x0 <= w.cx <= x1 and y0 <= w.cy <= y1]
     hits.sort(key=lambda w: (round(w.cy / 20), w.cx))
     return " ".join(w.text for w in hits)
+
+
+def extract_table_rows(gt: SheetGroundTruth, x0: float, y0: float, x1: float, y1: float) -> list[list[str]]:
+    """Group ground-truth words inside a bbox into visual table rows
+    (by y-band, ordered left-to-right within each row), with zero model
+    calls and no semantic interpretation.
+
+    This is the "table structure first, meaning second" step agreed on for
+    the specification-reading agent (see agents/spec_agent.py): a model
+    reasoning over already row-grouped text is far more robust to spec-sheet
+    layouts that vary between design offices (仕上表/建具表/仕様書一覧 etc.)
+    than reasoning over an unordered word soup or the raw image alone.
+    """
+    hits = [w for w in gt.words if x0 <= w.cx <= x1 and y0 <= w.cy <= y1]
+    if not hits:
+        return []
+
+    ordered = sorted(hits, key=lambda w: w.cy)
+    rows: list[list[GroundTruthWord]] = []
+    for w in ordered:
+        if rows and abs(w.cy - rows[-1][-1].cy) <= _TABLE_ROW_TOLERANCE_PT:
+            rows[-1].append(w)
+        else:
+            rows.append([w])
+
+    return [[w.text for w in sorted(row, key=lambda w: w.cx)] for row in rows]
 
 
 def check_dimension_chains(gt: SheetGroundTruth) -> list[DimensionChainFlag]:
