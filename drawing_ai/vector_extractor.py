@@ -117,10 +117,51 @@ class SheetGroundTruth:
     wall_polygons_px: list[list[tuple[float, float]]] = field(default_factory=list)
     mm_per_px: float | None = None
     scale_text: str | None = None
+    # "cad_native" | "ocr_layer_over_scan" -- see _has_full_page_scan_image.
+    # A PDF's own text layer is not automatically CAD-exact: a scanned
+    # drawing run through OCR-to-searchable-PDF software also has a real
+    # text layer that get_text("words") happily returns, but it carries
+    # the same unreliability as OCR, not CAD-native exactness. Confirmed
+    # on a real project (KDX802's field-survey drawing): 78% of the page
+    # was one scanned image with a text layer on top, and that "vector"
+    # text contained visible OCR garbling ("ワ子", "江け" mixed into
+    # otherwise-numeric dimension strings) while still being treated as
+    # verified_by_vector-grade -- a false-confidence bug, not a rare edge
+    # case. Wall-fill polygon extraction (wall_segments_mm) is unaffected:
+    # it reads actual vector graphics (get_drawings()), which a raster
+    # scan doesn't have regardless of any OCR text layer on top.
+    text_trust_tier: str = "cad_native"
+
+
+def _has_full_page_scan_image(page, threshold: float = 0.7) -> bool:
+    """True if a single embedded image covers most of the page -- the
+    signature of a scanned drawing (as opposed to a small logo/stamp
+    image sitting alongside real vector content, which does not by
+    itself make the page's text layer OCR-derived)."""
+    try:
+        page_area = abs(page.rect.width * page.rect.height)
+    except Exception:  # noqa: BLE001
+        return False
+    if page_area <= 0:
+        return False
+    for img in page.get_images(full=True):
+        try:
+            bbox = page.get_image_bbox(img)
+        except Exception:  # noqa: BLE001
+            continue
+        if abs(bbox.width * bbox.height) / page_area >= threshold:
+            return True
+    return False
 
 
 def is_vector_native(sheet: RenderedSheet) -> bool:
-    """Cheap check: does this sheet have a real PDF text/vector layer?"""
+    """Cheap check: does this sheet have a real PDF text/vector layer?
+
+    Note: "has a text layer" (checked here) and "that text layer is
+    CAD-exact" (see SheetGroundTruth.text_trust_tier, set in
+    extract_ground_truth) are different questions -- a page can pass this
+    check and still only warrant OCR-grade trust.
+    """
     if not sheet.source_pdf_path or sheet.source_pdf_page_index is None:
         return False
     try:
@@ -161,6 +202,7 @@ def extract_ground_truth(sheet: RenderedSheet) -> SheetGroundTruth | None:
 
     with fitz.open(sheet.source_pdf_path) as doc:
         page = doc[sheet.source_pdf_page_index]
+        gt.text_trust_tier = "ocr_layer_over_scan" if _has_full_page_scan_image(page) else "cad_native"
 
         for x0, y0, x1, y1, text, *_ in page.get_text("words"):
             px0, py0 = _pdf_to_px(x0, y0, zoom)

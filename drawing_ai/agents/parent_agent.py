@@ -41,6 +41,7 @@ from ..schemas import (
     SpecResult,
     SpecRoom,
     SymbolReading,
+    Tile,
     VerticalSynthesisNote,
 )
 from ..vlm_client import VLMCallError, extract_json, get_client
@@ -87,20 +88,78 @@ def _dedupe_symbols(items: list[SymbolReading], tile_sheet: dict[str, str]) -> l
     return list(best.values())
 
 
-def _dedupe_elements(items: list[ElementReading]) -> list[ElementReading]:
-    best: dict[tuple[str, str, str], ElementReading] = {}
+def _tiles_adjacent(a: Tile, b: Tile) -> bool:
+    """Two tiles are "adjacent" (same or neighboring grid cell, including
+    diagonals) if the overlap ingestion.py builds between neighboring
+    tiles could plausibly have shown the same physical content twice."""
+    return a.sheet_id == b.sheet_id and abs(a.row - b.row) <= 1 and abs(a.col - b.col) <= 1
+
+
+def _dedupe_elements(
+    items: list[ElementReading], tiles_by_id: dict[str, Tile] | None = None
+) -> list[ElementReading]:
+    """Collapse re-reads of the *same* physical element (seen again in an
+    overlapping neighboring tile) without collapsing genuinely distinct
+    elements that merely share a type and label.
+
+    Grouping by (sheet_id, element_type, label) alone -- the original
+    approach -- conflated these two cases: three separate downlights on
+    one sheet, all labeled "ダウンライト", collapsed into a single
+    ElementReading, silently undercounting the fixture. This is a real
+    counting bug found by comparing pipeline output against an actual
+    project's cost breakdown, not a hypothetical.
+
+    ``tiles_by_id`` lets this additionally require that at least one pair
+    of the two elements' source tiles are spatially adjacent (see
+    ``_tiles_adjacent``) before merging them; elements from non-adjacent
+    tiles are treated as distinct instances. When ``tiles_by_id`` is
+    omitted (or a tile_id isn't in it), no adjacency information is
+    available for that element, so it is never merged with anything --
+    erring toward overcounting (a human re-checks a visible duplicate)
+    rather than silently undercounting (a missing item is invisible).
+    """
+    tiles_by_id = tiles_by_id or {}
+    groups: dict[tuple[str, str, str], list[ElementReading]] = {}
     for e in items:
         key = (e.sheet_id, e.element_type, e.label_ja.strip())
-        current = best.get(key)
-        if current is None:
-            best[key] = e
-        elif _rank(e.confidence, e.verified_by_vector) > _rank(current.confidence, current.verified_by_vector):
-            merged = e.model_copy()
-            merged.tile_ids = list(set(current.tile_ids) | set(e.tile_ids))
-            best[key] = merged
-        else:
-            current.tile_ids = list(set(current.tile_ids) | set(e.tile_ids))
-    return list(best.values())
+        if not key[2]:
+            continue
+        groups.setdefault(key, []).append(e)
+
+    out: list[ElementReading] = []
+    for group in groups.values():
+        tiles_per_item = [[tiles_by_id[tid] for tid in e.tile_ids if tid in tiles_by_id] for e in group]
+
+        parent = list(range(len(group)))
+
+        def find(i: int) -> int:
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        def union(i: int, j: int) -> None:
+            ri, rj = find(i), find(j)
+            if ri != rj:
+                parent[ri] = rj
+
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                if any(_tiles_adjacent(a, b) for a in tiles_per_item[i] for b in tiles_per_item[j]):
+                    union(i, j)
+
+        clusters: dict[int, list[int]] = {}
+        for idx in range(len(group)):
+            clusters.setdefault(find(idx), []).append(idx)
+
+        for indices in clusters.values():
+            cluster_items = [group[i] for i in indices]
+            best = max(cluster_items, key=lambda e: _rank(e.confidence, e.verified_by_vector))
+            merged = best.model_copy()
+            merged.tile_ids = list({tid for e in cluster_items for tid in e.tile_ids})
+            out.append(merged)
+
+    return out
 
 
 LOW_CONFIDENCE_THRESHOLD = 0.5
@@ -114,10 +173,11 @@ async def aggregate_phase3(
     tile_sheet: dict[str, str],
     *,
     use_llm_reconciliation: bool = True,
+    tiles_by_id: dict[str, Tile] | None = None,
 ) -> Phase3Result:
     dimensions = _dedupe_dimensions(all_dimensions, tile_sheet)
     symbols = _dedupe_symbols(all_symbols, tile_sheet)
-    elements = _dedupe_elements(all_elements)
+    elements = _dedupe_elements(all_elements, tiles_by_id)
 
     low_confidence_flags = [
         f"寸法「{d.raw_text}」の確信度が低いため要確認 (tile={d.tile_id}, confidence={d.confidence:.2f})"

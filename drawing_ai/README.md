@@ -203,6 +203,42 @@ KDX802号室のブラインド推論(原価内訳書を見ずに図面+質疑書
 すべて実際のKDX802号室のデータ(質疑書の文言、機器型番、図面のベクター確定寸法)を
 使ったテストで検証済み(`tests/test_error_analysis_fixes.py`)。
 
+### 3.9 読み取り工程の5段階分解と、そこで見つかったさらに根本的な2つの欠陥
+
+3.8節の修正を振り返る中で、「文字認識」「意味理解」「計測・数量化」「深掘り推論」
+「誤り検知」という5段階に分解して見直したところ、**段階1(文字認識)そのものに
+見過ごせない欠陥**が見つかった。
+
+- **OCR文字レイヤーをCADネイティブ文字と誤って同格に扱っていた**: `is_vector_native()`
+  は「PDFに文字が1つでも取れればtrue」としか判定しておらず、KDX802号室の現地実測
+  図面(ページ面積の78%を1枚のスキャン画像が占め、その上にOCRの文字レイヤーが
+  乗っているだけの構成)を、CADが直接書き出した正確な文字列と同じ信頼度
+  (`verified_by_vector=True`、confidence補正+0.3/-0.5)で扱ってしまっていた。
+  実際にこの文字レイヤーには「ワ子」「江け」のようなOCR読み取り崩れが混じって
+  おり、精度の面で明らかにCADネイティブと同格ではなかった。
+
+  `vector_extractor._has_full_page_scan_image()`(埋め込み画像がページ面積の
+  70%以上を占めるかで判定)を追加し、`SheetGroundTruth.text_trust_tier`
+  (`"cad_native"` / `"ocr_layer_over_scan"`)として区別、`Tile.ground_truth_trust_tier`
+  経由で`grounding.py`まで伝播させた。`grounding.is_cad_native(tile)`が
+  falseの場合は、たとえ`has_vector_ground_truth=True`であっても通常のOCRと
+  同じ弱い信頼度(+0.1/-0.2、verified_by_vector=False)にとどめる。壁ポリゴン
+  抽出(`wall_segments_mm`)は実際のベクター図形(`get_drawings()`)を読むため
+  スキャン画像の影響を受けず、この区別が不要な点も確認済み。
+
+- **段階3(計測・数量化)の数え落としバグ**: `parent_agent._dedupe_elements()`が
+  `(sheet_id, element_type, label_ja)`だけで同一物と判定していたため、同じ
+  シート上に離れた位置で存在する同種の設備(例: ダウンライト3箇所)が、
+  位置を見ずに1個へ潰されていた。タイル重複(`ingestion.py`の`tile_overlap_px`)
+  による同一現物の重複読み取りと、単に同じラベルを持つ別々の現物とを、
+  ラベルだけでは区別できていなかったのが原因。
+
+  タイルの行・列が隣接する場合のみ「同一現物の可能性」として統合する
+  Union-Find方式に変更(`_tiles_adjacent`)。位置情報が無い場合は統合しない
+  (数え落としより数え過ぎの方が、人間が見て気付きやすく安全という判断)。
+
+いずれも実データ・単体テストの両方で検証済み(`tests/test_error_analysis_fixes.py`)。
+
 ## 4. ディレクトリ構成
 
 ```

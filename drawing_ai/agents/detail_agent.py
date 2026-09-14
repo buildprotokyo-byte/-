@@ -120,10 +120,15 @@ def _estimate_area_from_width_depth(item: dict, tile: Tile) -> tuple[float | Non
 
     Because this leans on the model's own judgment rather than exact
     positions, both numbers are required to be grounding-verified against
-    the tile's own ground-truth text before being trusted -- mirroring
-    vector_extractor's documented refusal to publish an unreliable
-    geometric check rather than a flaky one. When the tile has no vector
-    ground truth at all, verification isn't possible, so the reading is
+    the tile's own CAD-native ground-truth text before being trusted --
+    mirroring vector_extractor's documented refusal to publish an
+    unreliable geometric check rather than a flaky one. When the tile has
+    no CAD-native ground truth (either no vector text at all, or only an
+    OCR text layer over a scanned image -- see
+    grounding.is_cad_native/Tile.ground_truth_trust_tier -- which is
+    exact-match-unreliable enough that requiring it to match would just
+    as often wrongly reject a correct reading as catch a hallucinated
+    one), verification isn't possible either way, so the reading is
     accepted at face value (same treatment as any other ungrounded
     reading elsewhere in this pipeline).
     """
@@ -140,7 +145,7 @@ def _estimate_area_from_width_depth(item: dict, tile: Tile) -> tuple[float | Non
     if not width_mm or not depth_mm:
         return None, "none"
 
-    if tile.has_vector_ground_truth:
+    if grounding.is_cad_native(tile):
         _, width_verified = grounding.numeric_adjustment(width_text, tile)
         _, depth_verified = grounding.numeric_adjustment(depth_text, tile)
         if not (width_verified and depth_verified):

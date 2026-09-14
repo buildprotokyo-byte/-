@@ -52,6 +52,13 @@ class Tile(BaseModel):
     # OCR or a VLM's own reading.
     ground_truth_text: str = ""
     has_vector_ground_truth: bool = False
+    # "cad_native" | "ocr_layer_over_scan" -- see
+    # vector_extractor.SheetGroundTruth.text_trust_tier. A PDF's own text
+    # layer is not automatically CAD-exact; a scanned drawing run through
+    # OCR-to-searchable-PDF software also has a real text layer, but it
+    # deserves OCR-grade trust, not CAD-native-grade. grounding.py uses
+    # this to decide which confidence adjustment tier applies.
+    ground_truth_trust_tier: str = "cad_native"
     # Ground-truth words inside this tile's bbox, already grouped into
     # visual table rows (see vector_extractor.extract_table_rows). Empty
     # when the tile has no vector ground truth, or the region isn't

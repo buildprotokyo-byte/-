@@ -7,9 +7,18 @@ have actually caught the original mistake.
 """
 from __future__ import annotations
 
-from drawing_ai import hvac_parsing, reference_resolution
+from drawing_ai import grounding, hvac_parsing, reference_resolution
 from drawing_ai.agents import parent_agent
-from drawing_ai.schemas import DimensionReading, Phase3Result, QAItem, SpecItem, SpecResult, SpecRoom
+from drawing_ai.schemas import (
+    DimensionReading,
+    ElementReading,
+    Phase3Result,
+    QAItem,
+    SpecItem,
+    SpecResult,
+    SpecRoom,
+    Tile,
+)
 
 
 # --- 誤り1: 洗面化粧台(質疑No.6参照の解決漏れ) --------------------------
@@ -134,3 +143,96 @@ def test_check_spec_dimensions_checks_room_spec_notes_too():
     flags = parent_agent.check_spec_dimensions_against_drawing(spec, phase3)
     assert len(flags) == 1
     assert "W900×H2000" in flags[0]
+
+
+# --- 段階1(文字認識)の欠陥: OCR文字レイヤーをCADネイティブと誤って信頼 -----
+
+
+def _gt_tile(tier: str, text: str = "") -> Tile:
+    return Tile(
+        tile_id="t1", sheet_id="s1", sheet_index=0, row=0, col=0,
+        x0=0, y0=0, x1=100, y1=100, image_path="unused.png",
+        ground_truth_text=text, has_vector_ground_truth=True,
+        ground_truth_trust_tier=tier,
+    )
+
+
+def test_is_cad_native_true_only_for_cad_native_tier():
+    assert grounding.is_cad_native(_gt_tile("cad_native")) is True
+    assert grounding.is_cad_native(_gt_tile("ocr_layer_over_scan")) is False
+
+
+def test_numeric_adjustment_never_verifies_ocr_layer_tier():
+    # KDX802の実際の食い違い方: OCR文字レイヤーには数字自体は正しく含まれて
+    # いても、CADネイティブと同じ信頼(verified_by_vector=True)を与えては
+    # ならない。
+    tile = _gt_tile("ocr_layer_over_scan", text="3548 2035")
+    delta, verified = grounding.numeric_adjustment("3548", tile)
+    assert verified is False
+    assert delta == 0.1  # OCR相当の弱い加点のみ
+
+
+def test_numeric_adjustment_verifies_cad_native_tier():
+    tile = _gt_tile("cad_native", text="3548 2035")
+    delta, verified = grounding.numeric_adjustment("3548", tile)
+    assert verified is True
+    assert delta == 0.3
+
+
+def test_text_adjustment_lower_bonus_for_ocr_layer_tier():
+    ocr_tile = _gt_tile("ocr_layer_over_scan", text="洋室-B")
+    cad_tile = _gt_tile("cad_native", text="洋室-B")
+    ocr_delta, ocr_verified = grounding.text_adjustment("洋室-B", ocr_tile)
+    cad_delta, cad_verified = grounding.text_adjustment("洋室-B", cad_tile)
+    assert ocr_verified is False and ocr_delta == 0.1
+    assert cad_verified is True and cad_delta == 0.25
+
+
+# --- 段階3/5: 同一ラベルの離れた要素を位置無視で1個に潰していた数え落とし ---
+
+
+def _tile_at(tile_id: str, row: int, col: int, sheet_id: str = "s1") -> Tile:
+    return Tile(
+        tile_id=tile_id, sheet_id=sheet_id, sheet_index=0, row=row, col=col,
+        x0=0, y0=0, x1=100, y1=100, image_path="unused.png",
+    )
+
+
+def _room_element(tile_id: str, label: str = "ダウンライト", confidence: float = 0.7) -> ElementReading:
+    return ElementReading(
+        element_id=f"e-{tile_id}", element_type="fixture", label_ja=label,
+        sheet_id="s1", tile_ids=[tile_id], confidence=confidence,
+    )
+
+
+def test_dedupe_elements_merges_only_adjacent_tiles():
+    # 3箇所のダウンライト(矢野様邸・KDX802双方の実例と同種)が、互いに離れた
+    # タイル(r0c0, r5c5, r9c9)でそれぞれ検知されたケース。位置を見なければ
+    # 「ダウンライト」という同一ラベルだけで1個に潰れてしまう。
+    tiles_by_id = {
+        "t1": _tile_at("t1", 0, 0),
+        "t2": _tile_at("t2", 5, 5),
+        "t3": _tile_at("t3", 9, 9),
+    }
+    elements = [_room_element("t1"), _room_element("t2"), _room_element("t3")]
+    out = parent_agent._dedupe_elements(elements, tiles_by_id)
+    assert len(out) == 3  # 3箇所とも別個体として残る(数え落としが直った)
+
+
+def test_dedupe_elements_merges_same_instance_seen_in_overlapping_tiles():
+    # タイル重複(r0c0とr0c1)で同じ現物を2回読んだケースは、従来通り1個に
+    # 統合されなければならない(過剰カウントを防ぐ)。
+    tiles_by_id = {"t1": _tile_at("t1", 0, 0), "t2": _tile_at("t2", 0, 1)}
+    elements = [_room_element("t1", confidence=0.6), _room_element("t2", confidence=0.8)]
+    out = parent_agent._dedupe_elements(elements, tiles_by_id)
+    assert len(out) == 1
+    assert out[0].confidence == 0.8
+    assert set(out[0].tile_ids) == {"t1", "t2"}
+
+
+def test_dedupe_elements_without_position_info_never_merges():
+    # tiles_by_idが無い(位置が分からない)場合は、数え落としより数え過ぎの
+    # 方が安全(人間が見て重複に気付ける)という方針を取る。
+    elements = [_room_element("t1"), _room_element("t2")]
+    out = parent_agent._dedupe_elements(elements, tiles_by_id=None)
+    assert len(out) == 2

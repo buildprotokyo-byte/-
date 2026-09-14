@@ -29,11 +29,24 @@ def normalize_number(text: str) -> str:
     return _DIGITS_RE.sub(lambda m: m.group(0).replace(",", ""), text)
 
 
+def is_cad_native(tile: Tile) -> bool:
+    """True only for a tile's ground truth that is genuinely CAD-exact
+    text, not a searchable-PDF OCR layer sitting on a scanned image (see
+    Tile.ground_truth_trust_tier). Confirmed on a real project (KDX802):
+    a field-survey drawing was 78% one scanned image with an OCR text
+    layer on top, and that layer was being treated as CAD-native-grade
+    (verified_by_vector=True) despite containing visible OCR garbling --
+    a false-confidence bug, not a rare edge case."""
+    return tile.has_vector_ground_truth and tile.ground_truth_trust_tier == "cad_native"
+
+
 def grounding_context(tile: Tile) -> str:
     """The best available text-grounding context for this tile, labeled by
     reliability so the model itself can weigh it appropriately."""
-    if tile.has_vector_ground_truth:
+    if is_cad_native(tile):
         return f"[CAD原本から抽出した正確な文字列(信頼度高)] {tile.ground_truth_text}"
+    if tile.has_vector_ground_truth:
+        return f"[スキャン画像上のOCR文字レイヤー(OCRと同程度の信頼度)] {tile.ground_truth_text}"
     return tile.ocr_text
 
 
@@ -43,11 +56,20 @@ def numeric_adjustment(raw_text: str, tile: Tile) -> tuple[float, bool]:
     if not needle:
         return 0.0, False
 
-    if tile.has_vector_ground_truth:
+    if is_cad_native(tile):
         haystack = normalize_number(tile.ground_truth_text)
         if needle in haystack:
             return 0.3, True
         return -0.5, False
+
+    if tile.has_vector_ground_truth:
+        # OCR-layer-over-scan: same trust tier as plain OCR, and never
+        # marked verified_by_vector -- downstream logic (e.g. parent_agent
+        # holding verified readings out of LLM reconciliation, or width/
+        # depth area estimation requiring verification) must not treat
+        # this as ground truth.
+        haystack = normalize_number(tile.ground_truth_text)
+        return (0.1, False) if needle in haystack else (-0.2, False)
 
     haystack = normalize_number(tile.ocr_text)
     return (0.1, False) if needle in haystack else (-0.2, False)
@@ -62,4 +84,6 @@ def text_adjustment(label: str, tile: Tile) -> tuple[float, bool]:
     label = label.strip()
     if not label or not tile.has_vector_ground_truth:
         return 0.0, False
-    return (0.25, True) if label in tile.ground_truth_text else (0.0, False)
+    if label not in tile.ground_truth_text:
+        return 0.0, False
+    return (0.25, True) if is_cad_native(tile) else (0.1, False)

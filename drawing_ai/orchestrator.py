@@ -172,6 +172,7 @@ async def run_pipeline(
                 t.ground_truth_text = ve.words_in_bbox(gt, t.x0, t.y0, t.x1, t.y1)
                 t.ground_truth_table_rows = ve.extract_table_rows(gt, t.x0, t.y0, t.x1, t.y1)
                 t.has_vector_ground_truth = True
+                t.ground_truth_trust_tier = gt.text_trust_tier
         all_tiles.extend(tiles)
 
     async def _ocr(tile: Tile) -> None:
@@ -262,6 +263,7 @@ async def run_pipeline(
         sheet_overviews, all_elements, section_dimensions
     )
 
+    tiles_by_id = {t.tile_id: t for t in all_tiles}
     phase3 = await parent_agent.aggregate_phase3(
         all_dimensions,
         all_symbols,
@@ -269,6 +271,7 @@ async def run_pipeline(
         vertical_notes,
         tile_sheet_map,
         use_llm_reconciliation=run_llm_reconciliation,
+        tiles_by_id=tiles_by_id,
     )
 
     # --- Deterministic geometry layer (no model calls) ----------------------
@@ -279,7 +282,6 @@ async def run_pipeline(
     for gt in ground_truths.values():
         phase3.dimension_chain_flags.extend(ve.check_dimension_chains(gt))
 
-    tiles_by_id = {t.tile_id: t for t in all_tiles}
     phase3.solid_model = solid_model_agent.build_solid_model(ground_truths, phase3.elements, tiles_by_id)
 
     # --- Spec vs. drawing dimension cross-check (closes COAI-01's
