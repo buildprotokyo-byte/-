@@ -12509,7 +12509,7 @@ window.__BUILD_PRO_PC_FULL_V13724__={version:VERSION,fullPcFunctionsPreserved:tr
 <style id="bp-v13733-css">
 /* 1-6 primary navigation is always the top-most PC navigation */
 #bp33TopNav{position:sticky;top:var(--bp22-topbar-h,60px);z-index:2147482100;background:#0b1726;color:#fff;border-bottom:3px solid #7b304a;box-shadow:0 6px 18px rgba(15,23,42,.18)}
-#bp33TopNav .bp33-inner{max-width:1280px;margin:0 auto;padding:5px 10px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+#bp33TopNav .bp33-inner{max-width:1280px;margin:0 auto;padding:5px 10px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
 #bp33TopNav button{min-width:0;height:38px;border:1px solid #334155;border-radius:8px;background:#172235;color:#dbe4ee;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 7px;white-space:nowrap;cursor:pointer}
 #bp33TopNav button .n{display:inline-flex;width:20px;height:20px;border-radius:6px;background:#334155;color:#fff;align-items:center;justify-content:center;font-size:10px;flex:0 0 auto}
 #bp33TopNav button.active{background:#4338ca;border-color:#6366f1;color:#fff;box-shadow:inset 0 -2px 0 #fbbf24}
@@ -12556,16 +12556,28 @@ const UKEY='BP_STEP2_USERS_V2',TKEY='BP_STEP2_TRUSTED_DEVICE_V1365',SESSION_KEY=
 const $=id=>document.getElementById(id);
 const read=(k,f=null)=>{try{return JSON.parse(localStorage.getItem(k)||'null')??f}catch(_){return f}};
 const hash=async s=>{try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){let h=2166136261;for(const c of s)h=(h^c.charCodeAt(0))*16777619;return 'f'+(h>>>0).toString(16)}};
-function currentTab(){for(const id of ['tab-results','tab-site-control','tab-construction','tab-action','tab-scenarios','tab-input']){const e=$(id);if(e&&!e.classList.contains('hidden')&&getComputedStyle(e).display!=='none')return id}return 'tab-input'}
+function currentTab(){for(const id of ['tab-results','tab-site-control','tab-estimate','tab-construction','tab-action','tab-scenarios','tab-input']){const e=$(id);if(e&&!e.classList.contains('hidden')&&getComputedStyle(e).display!=='none')return id}return 'tab-input'}
 function syncTop(id=currentTab()){document.querySelectorAll('#bp33TopNav button[data-tab]').forEach(b=>b.classList.toggle('active',b.dataset.tab===id))}
 function go(id){const y=window.scrollY;let done=false;if(id==='tab-site-control'&&typeof window.bpV1375OpenSite==='function'){window.bpV1375OpenSite();done=true}else if(id==='tab-results'&&typeof window.bpV1375OpenReflection==='function'){window.bpV1375OpenReflection();done=true}else if(typeof window.switchTab==='function'){const legacy=[...document.querySelectorAll('.bp-step-btn')].find(b=>{const o=b.getAttribute('onclick')||'';return o.includes(id)||(id==='tab-site-control'&&/OpenSite/.test(o))||(id==='tab-results'&&/OpenReflection|OpenResults/.test(o))});window.switchTab(id,legacy);if(id==='tab-construction')setTimeout(()=>window.renderConstructionPlan?.(),0);done=true}if(done){setTimeout(()=>syncTop(id),20);setTimeout(()=>syncTop(id),220);if(id==='tab-site-control'||id==='tab-results')setTimeout(()=>window.scrollTo({top:y,behavior:'auto'}),30)}}
-function installTop(){if($('bp33TopNav'))return;const n=document.createElement('nav');n.id='bp33TopNav';n.innerHTML=`<div class="bp33-inner">
+function estimateHtml(){return `<div id="tab-estimate" class="tab-content hidden">
+<div style="margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw); width:100vw; padding:0 12px;">
+  <div style="max-width:1600px;margin:0 auto;">
+    <div style="background:#0f172a;border-radius:16px;overflow:hidden;box-shadow:0 8px 28px rgba(15,23,42,.18);height:min(84vh,900px);min-height:560px;">
+      <iframe id="bpV1381EstimateFrame" src="ESTIMATE_TAB.html" title="見積作成" loading="lazy" style="width:100%;height:100%;border:0;display:block;background:#10151c;"></iframe>
+    </div>
+    <p style="font-size:11px;color:#94a3b8;margin:8px 2px 0;">図面のアップロード・文字/数字の読み取り確認・(準備中)数量拾いは、この枠内の専用画面で行います。接続先APIの設定はこの枠内の下部から変更できます。</p>
+  </div>
+</div>
+</div>`}
+function installEstimateTab(){if($('tab-estimate'))return;$('tab-site-control')?.insertAdjacentHTML('beforebegin',estimateHtml())||document.querySelector('main')?.insertAdjacentHTML('beforeend',estimateHtml())}
+function installTop(){installEstimateTab();if($('bp33TopNav'))return;const n=document.createElement('nav');n.id='bp33TopNav';n.innerHTML=`<div class="bp33-inner">
 <button data-tab="tab-input" onclick="bp33Go('tab-input')"><span class="n">1</span>案件カルテ</button>
 <button data-tab="tab-scenarios" onclick="bp33Go('tab-scenarios')"><span class="n">2</span>未来ストーリー</button>
 <button data-tab="tab-action" onclick="bp33Go('tab-action')"><span class="n">3</span>次のアクション</button>
 <button data-tab="tab-construction" onclick="bp33Go('tab-construction')"><span class="n">4</span>施工管理</button>
-<button data-tab="tab-site-control" onclick="bp33Go('tab-site-control')"><span class="n">5</span>現場管理</button>
-<button data-tab="tab-results" onclick="bp33Go('tab-results')"><span class="n">6</span>振り返り</button>
+<button data-tab="tab-estimate" onclick="bp33Go('tab-estimate')"><span class="n">5</span>見積作成</button>
+<button data-tab="tab-site-control" onclick="bp33Go('tab-site-control')"><span class="n">6</span>現場管理</button>
+<button data-tab="tab-results" onclick="bp33Go('tab-results')"><span class="n">7</span>振り返り</button>
 </div>`;document.body.insertBefore(n,document.body.firstChild);syncTop()}
 window.bp33Go=go;
 function status(msg,bad=false,ok=false){const e=$('bp33LoginStatus');if(!e)return;e.textContent=msg;e.className=bad?'bad':ok?'ok':'';e.style.display='block'}
@@ -12576,7 +12588,7 @@ const help=document.createElement('div');help.id='bp33LoginHelp';help.innerHTML=
 const details=document.createElement('details');details.id='bp33LegacyLogin';details.innerHTML='<summary>旧PC内IDでログインする（通常は使いません）</summary><div id="bp33LegacyHost"></div>';const host=details.querySelector('#bp33LegacyHost');legacy.forEach(x=>host.appendChild(x));body.appendChild(official);body.appendChild(help);body.appendChild(details);const head=$('bpLoginTitle'),desc=$('bpLoginDesc');if(head)head.textContent='BUILD PRO ログイン';if(desc)desc.innerHTML='<b>登録済みの方は「正式ログイン」</b>を使ってください。初めての方だけ利用開始ガイドへ進みます。';const em=$('bp33CompanyEmail');if(em)em.value=localStorage.getItem(EMAIL_KEY)||'';return true}
 function upgradeToolbar(){const b=$('bpV13732StartBtn');if(b){b.textContent='初めての方・利用ガイド';b.title='利用開始・アカウント発行・正式ログインの手順'}const t=$('bpV13732TrainingBtn');if(t){t.textContent='練習モード';t.title='本番案件を触らず一連の操作を練習'}}
 function patchGuideVersion(){document.querySelectorAll('#bpV13732StartModal .bp32-head div,#bpV13732TrainingModal .bp32-head div').forEach(e=>{if(e.textContent?.includes('V13.7.32'))e.textContent=e.textContent.replace('V13.7.32','V13.7.33')})}
-function observeTabs(){const mo=new MutationObserver(()=>syncTop());['tab-input','tab-scenarios','tab-action','tab-construction','tab-site-control','tab-results'].forEach(id=>{const e=$(id);if(e)mo.observe(e,{attributes:true,attributeFilter:['class','style']})})}
+function observeTabs(){const mo=new MutationObserver(()=>syncTop());['tab-input','tab-scenarios','tab-action','tab-construction','tab-estimate','tab-site-control','tab-results'].forEach(id=>{const e=$(id);if(e)mo.observe(e,{attributes:true,attributeFilter:['class','style']})})}
 function boot(){installTop();upgradeLogin();upgradeToolbar();patchGuideVersion();observeTabs();document.documentElement.dataset.buildproVersion=VERSION;document.title='BUILD PRO PC全機能版 V'+VERSION;const v=$('bpV1376VersionBadge');if(v)v.textContent='V'+VERSION;const b=$('bpV13718PcBadge');if(b)b.textContent='PC全機能版 V'+VERSION;syncTop()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,80));else setTimeout(boot,80);window.addEventListener('load',()=>setTimeout(()=>{installTop();upgradeLogin();upgradeToolbar();patchGuideVersion();syncTop()},650));
 })();
