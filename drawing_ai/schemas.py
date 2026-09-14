@@ -305,10 +305,31 @@ class SpecRoom(BaseModel):
     source_sheet_ids: list[str] = Field(default_factory=list)
 
 
+class QAItem(BaseModel):
+    """質疑書(RFI)形式の資料の1行(質問No./工種/質疑事項/回答)。
+
+    ブラインドテスト(KDX802号室)で、ある行の回答が別の行を指す
+    クロスリファレンス(例: "質疑No.6参照")を正しく追えず誤読した
+    実例が見つかったため、resolved_answer/resolved_from_item_noで
+    解決結果を明示的に保持する(reference_resolution.py参照)。
+    """
+
+    item_no: Optional[int] = None
+    category: str = ""  # 工種(建築/設備/電気/共通 等)
+    question: str = ""
+    answer: str = ""
+    # answerに "質疑No.X参照" が含まれていた場合、解決後の全文がここに入る。
+    # 参照が無い、または解決できた場合はanswerと同じ。
+    resolved_answer: str = ""
+    resolved_from_item_no: Optional[int] = None
+    unresolved_chained_reference: Optional[int] = None
+
+
 class SpecResult(BaseModel):
     """仕様書読解AI(COAI-01)の最終出力。"""
 
     rooms: list[SpecRoom] = Field(default_factory=list)
+    qa_items: list[QAItem] = Field(default_factory=list)
     # 「工事範囲を絞り込む言葉」(例: 2階居室のみ, 外壁のみ) -- 既存のPhase1/2の
     # どちらにも対応物が無い、仕様書読解AI固有の出力。
     scope_target_terms: list[str] = Field(default_factory=list)

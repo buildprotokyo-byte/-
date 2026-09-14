@@ -23,10 +23,12 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from .. import grounding
 from ..config import settings
 from ..prompts import PARENT_AGGREGATE_SYSTEM_PROMPT, PARENT_AGGREGATE_USER_TEMPLATE
+from ..reference_resolution import resolve_references
 from ..schemas import (
     DimensionReading,
     ElementReading,
@@ -34,6 +36,7 @@ from ..schemas import (
     Phase1Result,
     Phase2Result,
     Phase3Result,
+    QAItem,
     SiteFact,
     SpecResult,
     SpecRoom,
@@ -337,7 +340,88 @@ def aggregate_phase1(all_facts: list[SiteFact]) -> Phase1Result:
     return Phase1Result(facts=facts, completeness_score=completeness, unresolved_questions=unresolved)
 
 
-def aggregate_spec(all_rooms: list[SpecRoom], scope_target_terms: list[str] | None = None) -> SpecResult:
+def _merge_and_resolve_qa_items(all_qa_items: list[QAItem]) -> list[QAItem]:
+    """Dedupe 質疑書 rows by item_no across every tile/sheet they were read
+    from, then resolve "質疑No.X参照"-style cross-references once over the
+    complete merged set -- a reference can point to a row read from a
+    different tile than the one containing it, so this can only happen
+    after every tile's rows are merged (see reference_resolution.py for
+    why this specific failure mode matters: a real blind test produced a
+    wrong answer from exactly an unresolved reference)."""
+    best: dict[int | None, QAItem] = {}
+    for item in all_qa_items:
+        current = best.get(item.item_no)
+        if current is None or len(item.answer) > len(current.answer):
+            best[item.item_no] = item
+
+    raw = [
+        {"item_no": item.item_no, "category": item.category, "question": item.question, "answer": item.answer}
+        for item in best.values()
+    ]
+    resolved = resolve_references(raw, number_key="item_no", answer_key="answer")
+
+    out = []
+    for original, r in zip(best.values(), resolved):
+        out.append(
+            QAItem(
+                item_no=original.item_no,
+                category=original.category,
+                question=original.question,
+                answer=original.answer,
+                resolved_answer=str(r["answer"]),
+                resolved_from_item_no=r.get("resolved_from_reference"),
+                unresolved_chained_reference=r.get("unresolved_chained_reference"),
+            )
+        )
+    return out
+
+
+_WH_DIMENSION_PATTERN = re.compile(r"W\s*(\d{3,5})\s*[×xX]\s*H\s*(\d{3,5})")
+
+
+def check_spec_dimensions_against_drawing(spec: SpecResult, phase3: Phase3Result) -> list[str]:
+    """Flag a W×H dimension stated in a spec/QA document that doesn't
+    match any vector-verified dimension actually printed on the drawing.
+
+    This resolves COAI-01's previously-open design question ("図面との
+    矛盾時の扱い"): a blind test against a real project trusted a
+    質疑書-stated sliding-wall size (W3640×H2400) over the drawing's own
+    vector-confirmed dimension for the same opening (W3548×H2035) with no
+    check at all, and the drawing turned out to be the one that matched
+    the final specification. The policy this implements: the drawing's
+    own vector-verified text is treated as more authoritative for
+    physical dimensions specifically (a spec document can describe a
+    since-changed or preliminary figure), while both readings are always
+    kept and surfaced -- never silently dropped -- since a spec figure
+    can also be the one that's right (e.g. before a drawing is updated).
+    """
+    verified_numbers = {
+        grounding.normalize_number(d.raw_text) for d in phase3.dimensions if d.verified_by_vector
+    }
+    if not verified_numbers:
+        return []
+
+    texts = [item.resolved_answer for item in spec.qa_items]
+    texts += [spec_item.notes for room in spec.rooms for spec_item in room.specs]
+
+    flags: list[str] = []
+    for text in texts:
+        for m in _WH_DIMENSION_PATTERN.finditer(text or ""):
+            width, height = m.group(1), m.group(2)
+            if width not in verified_numbers and height not in verified_numbers:
+                flags.append(
+                    f"仕様書等に記載の寸法「W{width}×H{height}」は、図面のベクター確定寸法の"
+                    f"どれとも一致しません。図面の実測値(ベクター確定)を優先してください。"
+                    f"仕様書記載時点からの仕様変更の可能性もあるため、要確認として両方を記録します。"
+                )
+    return flags
+
+
+def aggregate_spec(
+    all_rooms: list[SpecRoom],
+    scope_target_terms: list[str] | None = None,
+    all_qa_items: list[QAItem] | None = None,
+) -> SpecResult:
     """Merge per-tile SpecRoom lists (COAI-01, one call per spec-sheet tile)
     into one result, combining spec items for the same room found across
     multiple/overlapping tiles.
@@ -385,6 +469,7 @@ def aggregate_spec(all_rooms: list[SpecRoom], scope_target_terms: list[str] | No
 
     return SpecResult(
         rooms=list(rooms.values()),
+        qa_items=_merge_and_resolve_qa_items(all_qa_items or []),
         scope_target_terms=deduped_terms,
         ambiguous_flags=ambiguous_flags,
         completeness_note=f"{len(rooms)}部屋・{total_items}項目を読み取りました。要確認{review_count}件。",

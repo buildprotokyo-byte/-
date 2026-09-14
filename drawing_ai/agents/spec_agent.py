@@ -44,7 +44,8 @@ from dataclasses import dataclass, field
 from .. import grounding
 from ..config import settings
 from ..prompts import SPEC_SYSTEM_PROMPT, SPEC_USER_TEMPLATE
-from ..schemas import IntentStatement, SiteFact, SpecItem, SpecProduct, SpecRoom, Tile
+from ..reference_resolution import resolve_references
+from ..schemas import IntentStatement, QAItem, SiteFact, SpecItem, SpecProduct, SpecRoom, Tile
 from ..terminology import normalize_term
 from ..vlm_client import VLMCallError, extract_json, get_client
 from .site_agent import reconcile_site_facts
@@ -60,6 +61,7 @@ class SpecTileResult:
     basic_facts: list[SiteFact] = field(default_factory=list)
     scope_target_terms: list[str] = field(default_factory=list)
     intent_statements: list[IntentStatement] = field(default_factory=list)
+    qa_items: list[QAItem] = field(default_factory=list)
 
 
 def _table_structure_context(tile: Tile) -> str:
@@ -174,6 +176,38 @@ def _collect_intent_statements(passes: list[list[dict]], tile: Tile) -> list[Int
     return statements
 
 
+def _collect_qa_items(passes: list[list[dict]], tile: Tile) -> list[QAItem]:
+    """Dedupe raw質疑書 rows by item_no across ensemble passes, preferring
+    the longer answer text (a truncated read losing a "質疑No.X参照" tail
+    would otherwise silently become unresolvable downstream).
+
+    Cross-reference resolution itself is deliberately *not* done here --
+    a reference can point to a row read by a different tile, so it can
+    only be resolved once every tile's rows are merged (see
+    parent_agent.aggregate_spec).
+    """
+    best: dict[int | None, dict] = {}
+    for pass_items in passes:
+        for raw in pass_items:
+            item_no = raw.get("item_no")
+            answer = str(raw.get("answer", ""))
+            current = best.get(item_no)
+            if current is None or len(answer) > len(str(current.get("answer", ""))):
+                best[item_no] = raw
+
+    return [
+        QAItem(
+            item_no=raw.get("item_no"),
+            category=str(raw.get("category", "")),
+            question=str(raw.get("question", "")),
+            answer=str(raw.get("answer", "")),
+            resolved_answer=str(raw.get("answer", "")),
+        )
+        for raw in best.values()
+        if str(raw.get("question", "")).strip() or str(raw.get("answer", "")).strip()
+    ]
+
+
 async def extract_spec(tile: Tile) -> SpecTileResult:
     ensemble_size = max(1, settings.spec_ensemble_size)
     results = await asyncio.gather(*(_one_pass(tile) for _ in range(ensemble_size)), return_exceptions=True)
@@ -191,6 +225,7 @@ async def extract_spec(tile: Tile) -> SpecTileResult:
     room_passes = [p.get("rooms", []) or [] for p in passes]
     basic_fact_passes = [p.get("basic_info_facts", []) or [] for p in passes]
     intent_passes = [p.get("desired_change_statements", []) or [] for p in passes]
+    qa_passes = [p.get("qa_items", []) or [] for p in passes]
 
     scope_terms: list[str] = []
     for p in passes:
@@ -204,4 +239,5 @@ async def extract_spec(tile: Tile) -> SpecTileResult:
         basic_facts=reconcile_site_facts(basic_fact_passes, tile) if any(basic_fact_passes) else [],
         scope_target_terms=scope_terms,
         intent_statements=_collect_intent_statements(intent_passes, tile),
+        qa_items=_collect_qa_items(qa_passes, tile),
     )

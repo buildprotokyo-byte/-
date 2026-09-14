@@ -231,7 +231,10 @@ async def run_pipeline(
     # --- Spec aggregation (COAI-01 detailed room/spec output) ---------------
     all_spec_rooms: list[SpecRoom] = [room for r in spec_tile_results for room in r.rooms]
     all_scope_terms = [term for r in spec_tile_results for term in r.scope_target_terms]
-    spec = parent_agent.aggregate_spec(all_spec_rooms, scope_target_terms=all_scope_terms)
+    all_qa_items = [item for r in spec_tile_results for item in r.qa_items]
+    spec = parent_agent.aggregate_spec(
+        all_spec_rooms, scope_target_terms=all_scope_terms, all_qa_items=all_qa_items
+    )
     logger.info(
         "[%s] spec: %d room(s), %d ambiguous flag(s) -- %s",
         run_id, len(spec.rooms), len(spec.ambiguous_flags), spec.completeness_note,
@@ -278,6 +281,37 @@ async def run_pipeline(
 
     tiles_by_id = {t.tile_id: t for t in all_tiles}
     phase3.solid_model = solid_model_agent.build_solid_model(ground_truths, phase3.elements, tiles_by_id)
+
+    # --- Spec vs. drawing dimension cross-check (closes COAI-01's
+    # previously-open "図面との矛盾時の扱い" question) -------------------
+    # Runs only now that Phase 3's vector-verified dimensions exist.
+    spec.ambiguous_flags.extend(parent_agent.check_spec_dimensions_against_drawing(spec, phase3))
+
+    # --- Room-area cross-check: fold the sum of individually-read room
+    # areas (Phase 3, area_sqm from area_parsing.py's fallback tiers) back
+    # into Phase 1's gross_footprint_sqm pool as another independent
+    # source, alongside vector_extractor.estimate_gross_footprint's whole-
+    # sheet dimension-chain estimate -- a blind test against a real
+    # project showed the whole-sheet estimate alone tends to undershoot,
+    # and this gives aggregate_phase1's existing cross-source agreement/
+    # disagreement logic a second, independently-derived number to check
+    # it against rather than relying on a single method.
+    room_areas = [e for e in phase3.elements if e.element_type == "room" and e.area_sqm]
+    if room_areas:
+        summed_area = sum(e.area_sqm for e in room_areas)
+        all_site_facts.append(
+            SiteFact(
+                key="gross_footprint_sqm",
+                label_ja="延床面積(概算・部屋別面積の合計)",
+                value=f"{summed_area:.1f}",
+                unit="m2",
+                confidence=0.6 if any(e.verified_by_vector for e in room_areas) else 0.45,
+                source_sheet_ids=list({e.sheet_id for e in room_areas}),
+                raw_evidence_text=f"{len(room_areas)}室の面積合計",
+                needs_human_review=True,
+            )
+        )
+        phase1 = parent_agent.aggregate_phase1(all_site_facts)
 
     logger.info(
         "[%s] phase3: %d dimension(s), %d symbol(s), %d element(s), accuracy_estimate=%.2f, "
