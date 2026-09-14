@@ -1,3 +1,13 @@
+# Recommended production setup (see drawing_ai/README.md 3.16 for the full
+# rationale): point the existing OpenAI-compatible VLM client at Anthropic's
+# documented OpenAI SDK compatibility layer (https://api.anthropic.com/v1/,
+# confirmed via platform.claude.com/docs/en/cli-sdks-libraries/libraries/openai-sdk)
+# instead of a self-hosted Ollama server. This needs ZERO code changes --
+# vlm_client.py was already built for "any OpenAI-compatible endpoint" -- only
+# the two *_API_KEY values below (entered once in the Render dashboard, never
+# committed to git) and picking a model name. child_vlm reads tile images
+# (needs vision); parent_llm only reasons over already-extracted text (no
+# vision needed), so a lighter/cheaper model is enough there.
 services:
   - type: web
     name: buildpro-drawing-ai
@@ -7,12 +17,26 @@ services:
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DRAWING_AI_CHILD_BASE_URL
-        sync: false
+        value: https://api.anthropic.com/v1/
       - key: DRAWING_AI_CHILD_MODEL
+        value: claude-sonnet-5
+      - key: DRAWING_AI_CHILD_API_KEY
         sync: false
       - key: DRAWING_AI_PARENT_BASE_URL
-        sync: false
+        value: https://api.anthropic.com/v1/
       - key: DRAWING_AI_PARENT_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: DRAWING_AI_PARENT_API_KEY
         sync: false
       - key: DRAWING_AI_OCR_ENGINE
         value: tesseract
+        # Render's default Python runtime doesn't have the `tesseract-ocr`
+        # system binary installed (only the pytesseract Python wrapper would
+        # be). ocr_engine.py already degrades gracefully (logs a warning,
+        # falls back to no OCR-grounding signal) rather than failing the
+        # whole pipeline -- see drawing_ai/README.md 3.16. Fixing this
+        # properly needs a Dockerfile-based Render deploy instead of the
+        # plain Python buildCommand above; not done here since the VLM
+        # (Claude) path above is the primary recognition engine now, and OCR
+        # was always meant as a secondary cross-check on top of it, not the
+        # sole source of truth.

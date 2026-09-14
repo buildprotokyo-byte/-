@@ -656,3 +656,51 @@ python3 -m pytest drawing_ai/tests -q
 2. フェーズ1(敷地情報)から着手し、100%精度に達するまでプロンプト・タイリング・OCR設定を調整する(ユーザーの指定通り、フェーズが進むほど前段の精度が重要になるため)。
 3. 他社・他CADベンダーの図面で `vector_extractor._WALL_FILL_COLOR` 等のキャリブレーション値を再検証する。
 4. フェーズ1〜3が安定してから、既存 `system/app.html` の資料台帳(`bpRegisterAttachments`)からこのAPIを呼び出す連携コードを追加する。
+
+### 3.16 本番運用の推奨構成(ホスティング・認識エンジン・データ保存)
+
+見積作成タブを実際に使うために必要な3つの意思決定について、ユーザーから
+「詳しくないので推奨を決めて指示してほしい」との依頼があったため、以下の
+通り決定し、`render.yaml`へ反映した。
+
+**認識エンジン: Claude API(Anthropic)をVLMとして使用。** 3.13/3.14節で
+実施した通り、このセッションのサンドボックス環境ではローカルVLMサーバーが
+無くPaddleOCRもネットワーク制限で使えず、Tesseract単体では小さい寸法数字・
+密集した細字の精度が実用に届かなかった(README 3.13/3.14)。一方
+`vlm_client.py`は元々「OpenAI互換のchat/visionエンドポイントなら何でも
+繋げる」設計だったため、Anthropicが公式に提供している「OpenAI SDK互換
+レイヤー」(`https://api.anthropic.com/v1/`、
+[platform.claude.com/docs](https://platform.claude.com/docs/en/cli-sdks-libraries/libraries/openai-sdk)
+で確認済み)を指すよう`render.yaml`の環境変数を設定するだけで、コード変更
+ゼロのままPhase0〜3のフルパイプライン(child/parent エージェント、
+アンサンブル、エスカレーション)が実際のClaudeモデルで動く。画像入力
+(`image_url`+base64データURL)は「Fully supported」と公式ドキュメントに
+明記されており、`vlm_client.py`が既に送っている形式とそのまま一致する。
+
+- child_vlm(タイル画像を読む、visionが必要): `claude-sonnet-5`
+- parent_llm(既に抽出済みのテキストを集約するだけ、visionは不要): `claude-haiku-4-5-20251001`(軽量・低コスト)
+
+**正直な限界:** このOpenAI互換レイヤーはAnthropic公式ドキュメントで
+「本番の長期利用は非推奨、モデル比較・検証用」と明記されている。まず
+これで実際の精度を検証し、良好であれば将来的にAnthropic純正SDK
+(Messages API)へ移行するのが望ましい(移行にはvlm_client.pyの書き換えが
+必要になる)。またAPIキーは未設定(`sync: false`)のため、Render側の
+環境変数画面で貼り付けが必要 -- ユーザーへの指示として案内済み。
+
+**ホスティング: Render(`render.yaml`が既にこのリポジトリに存在)。**
+Renderアカウントの作成・GitHub連携・環境変数の入力はこちらから代行できない
+操作のため、ユーザーへ手順を案内した。バックエンド(`app.py`・
+`drawing_ai/`・`render.yaml`)はブランチ`claude/sharp-einstein-pfjqlo`に
+あり、PC本体アプリ側(`pc/ESTIMATE_TAB.html`)は別ブランチ
+`claude/startbuild-pro-launch-bug-i6tltu`にあるため、Renderのサービス作成時に
+正しいブランチ(`claude/sharp-einstein-pfjqlo`)を選ぶ必要がある。
+
+**データ保存: 当面はディスク保存のまま(Supabase移行は見送り)。**
+現在`phase1_service`のrun成果物・人間確認結果はサーバーの一時ディレクトリに
+JSONで保存している。Supabase(他のBUILD PRO OSタブと同じDB)への統合も
+検討したが、それには本番用のSupabase資格情報(service role key等の共有)を
+ユーザーから受け取る必要があり、機能自体の精度検証がまだ済んでいない段階で
+それを求めるのは時期尚早と判断した。**既知の制約:** Renderの標準プランは
+ディスクが一時的(再デプロイ・アイドル復帰等で消える)なため、確認作業を
+1回のセッション内で完結させる運用が前提になる。実運用で機能の価値が
+確認できた時点で、Supabase移行を改めて提案する。
