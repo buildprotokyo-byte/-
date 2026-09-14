@@ -487,6 +487,46 @@ huggingface.co/modelscope.cn/aistudio.baidu.com/bosのいずれかからダウ�
 3. ローカルVLMサーバー(Ollama等)を実際に起動し、`DRAWING_AI_CHILD_BASE_URL`
    等を向ける -- これが本来このプロジェクトが設計されたフル精度の経路。
 
+### 3.15 見積作成アプリ(`phase1_service.py` + `ESTIMATE_TAB.html`) -- BUILD PRO OS本体への統合
+
+3.13/3.14節のPhase1(文字・数字・記号)検証を、使い捨てのスクラッチスクリプト
+ではなく、実際にBUILD PRO OS本体(PC版)から使える機能として恒久化した。
+
+**`drawing_ai/phase1_service.py`(新規)**: `run_real_ocr.py`スクラッチ
+スクリプトで検証済みだったロジック(ingestion.load_drawing_set→tile_sheet→
+ocr_tile→merge_tile_words→character_review.classify_word、stop_after_flagged
+による処理停止)を、`run_phase1(file_paths, work_dir, *, stop_after_flagged=10,
+max_pages=None) -> Phase1Result`という再利用可能な関数に整理した。VLMサーバー
+不要、Tesseract(またはPaddleOCRが使える環境ではそちら)だけで動く。
+テスト(`tests/test_phase1_service.py`)はOCRエンジン自体をスタブ化して
+オーケストレーションロジック(タイル分割・重複除去・stop_after_flagged境界)
+だけを検証する(このリポジトリの既存のVLMスタブ方針と同じ考え方)。
+
+**`app.py`(拡張)**: `POST /phase1/analyze`(multipart、VLMサーバー不要で
+Phase1のみ実行)、`GET /phase1/runs/{run_id}/pages/{page_key}.png`(読み込んだ
+ページ画像を配信)、`GET`/`POST /phase1/runs/{run_id}/review`(人間確認結果の
+取得・保存、runごとにディスク上のJSONへ永続化)を追加。実データ(千倉相川邸PDF)
+で全エンドポイントを実際に起動して検証済み。
+
+**`pc/ESTIMATE_TAB.html`(新規、BUILD PRO OS本体とは別リポジトリのブランチ
+`claude/startbuild-pro-launch-bug-i6tltu`側)**: 図面アップロード→Phase1確認
+(大画面の図面ビューア+color-codedマーカー+右パネルでの個別確認・修正・確定)
+の単体アプリ。接続先APIはlocalStorageで設定可能(`?api=`クエリでも上書き可)。
+本体アプリの巨大単一HTMLファイル(15000行超、80回近い継ぎ足し)へこれ以上
+重い機能を直接書き足すリスクを避けるため、iframeで読み込む別ファイルとした。
+
+**本体アプリへの統合**: 当初、本体の`.bp-step-nav`(旧ナビゲーション、
+`rewriteNav()`)を編集していたが、実際には`.bp-step-nav-wrap{display:none
+!important}`により本体側で恒久的に非表示化された死んだレガシーコードだと
+判明した(V13.7.33のコメント: 「Legacy large 1-6 nav remains in source for
+preservation, but the compact top nav is the official PC switcher」)。実際に
+表示されている現行ナビゲーションは`#bp33TopNav`(`installTop()`、一度だけ
+構築される安定したコード)で、こちらを編集して「見積作成」を5番目のタブとして
+追加し(現場管理→6、振り返り→7に繰り下げ)、`tab-estimate`のコンテンツdiv
+(iframe)を`installEstimateTab()`で生成するようにした。Playwrightで実際に
+ブラウザ起動→トライアルログイン→「見積作成」タブクリック→iframe内で実PDFの
+アップロード・解析・人間確認・サーバー保存まで動作確認済み。
+
 ## 4. ディレクトリ構成
 
 ```
