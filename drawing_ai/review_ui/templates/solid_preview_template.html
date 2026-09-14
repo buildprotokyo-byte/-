@@ -1,0 +1,284 @@
+<title>立体復元プレビュー</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root{
+    --ink-900:#10151c; --navy-800:#172335; --navy-700:#1e2c42; --navy-600:#2b3c58; --line:#3a4a66;
+    --accent:#d97b3f; --accent-soft:#f0b98a;
+    --ok:#3fa66b; --ok-bg:rgba(63,166,107,.16);
+    --warn:#9fb0c7; --warn-bg:rgba(159,176,199,.14);
+    --text-hi:#eef1f6; --text-lo:#9fb0c7;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{background:var(--ink-900); color:var(--text-hi); font-family:'Noto Sans JP',sans-serif; margin:0; overflow:hidden;}
+  .mono{font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums;}
+
+  .app{display:flex; flex-direction:column; height:100vh; height:100dvh;}
+  .topbar{
+    background:var(--navy-800); border-bottom:1px solid var(--line); padding:14px 20px;
+    display:flex; flex-wrap:wrap; gap:18px; align-items:center;
+  }
+  .brand{display:flex; align-items:baseline; gap:10px; margin-right:auto;}
+  .brand .mark{width:30px;height:30px;border-radius:7px;background:linear-gradient(145deg,var(--accent),#a8552a);
+    display:flex;align-items:center;justify-content:center;font-weight:900;font-family:'Zen Kaku Gothic New';color:#1a0e06;font-size:15px;flex:none;}
+  .brand h1{font-size:17px;margin:0;font-weight:700;}
+  .brand .sub{font-size:11.5px;color:var(--text-lo);}
+  .stat{display:flex; flex-direction:column; gap:1px; align-items:flex-end;}
+  .stat .n{font-family:'JetBrains Mono'; font-size:17px; font-weight:700;}
+  .stat .l{font-size:10.5px; color:var(--text-lo);}
+  .stat.ok .n{color:var(--ok);}
+
+  .main{display:flex; flex:1; min-height:0;}
+  .pane{flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; position:relative;}
+  .pane + .pane{border-left:1px solid var(--line);}
+  .pane-head{display:flex; align-items:center; gap:10px; padding:9px 16px; background:var(--navy-700); border-bottom:1px solid var(--line); flex-wrap:wrap;}
+  .pane-head h2{font-size:12.5px; margin:0; font-weight:700; letter-spacing:.02em;}
+  .pane-head .hint{font-size:11px; color:var(--text-lo); margin-left:auto;}
+  .legend{display:flex; gap:12px; flex-wrap:wrap;}
+  .legend-item{display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text-lo);}
+  .swatch{width:10px;height:10px;border-radius:2px;flex:none;}
+  .sw-ok{background:var(--ok);}
+  .sw-warn{background:var(--warn);}
+
+  .viewer2d{flex:1; min-height:0; position:relative; overflow:hidden; cursor:grab;
+    background:repeating-linear-gradient(45deg,#12161d 0 10px,#14181f 10px 20px);}
+  .viewer2d.dragging{cursor:grabbing;}
+  .world2d{position:absolute; top:0; left:0; transform-origin:0 0;}
+  .world2d img{display:block; max-width:none; -webkit-user-drag:none; user-select:none;}
+  .wallSvg{position:absolute; top:0; left:0; pointer-events:none;}
+  .zoom-hint{position:absolute; bottom:10px; left:12px; font-size:11px; color:var(--text-lo);
+    background:rgba(10,13,18,.7); padding:5px 9px; border-radius:6px;}
+
+  .scene-wrap{flex:1; min-height:0; position:relative; overflow:hidden; background:radial-gradient(ellipse at 50% 15%, #1c2536, #0d1119 78%);}
+  .scene3d{position:absolute; inset:0; perspective:1800px; display:flex; align-items:center; justify-content:center; cursor:grab;}
+  .scene3d.dragging{cursor:grabbing;}
+  .world3d{position:relative; transform-style:preserve-3d; width:1px; height:1px;}
+  .panel3d{position:absolute; transform-style:preserve-3d; box-sizing:border-box;}
+  .panel3d.matched{background:rgba(63,166,107,.30); border:1px solid var(--ok);}
+  .panel3d.unmatched{background:rgba(159,176,199,.16); border:1px dashed var(--warn);}
+  .floor3d{position:absolute; background:
+    linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px) 0 0/40px 40px,
+    linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px) 0 0/40px 40px,
+    rgba(255,255,255,.02); border:1px solid var(--line);}
+  .label3d{position:absolute; font-size:9.5px; color:var(--text-lo); font-family:'JetBrains Mono'; white-space:nowrap;
+    background:rgba(10,13,18,.55); padding:2px 5px; border-radius:4px; pointer-events:none; transform-style:preserve-3d;}
+  .scene-controls{position:absolute; top:12px; left:12px; display:flex; gap:6px; z-index:5;}
+  .scene-controls button{background:var(--navy-600); border:1px solid var(--line); color:var(--text-hi);
+    padding:6px 10px; border-radius:6px; font-size:11.5px; cursor:pointer; font-family:inherit;}
+  .scene-controls button:hover{border-color:var(--accent-soft);}
+
+  .caption{
+    padding:12px 18px; background:var(--navy-800); border-top:1px solid var(--line);
+    font-size:12px; color:var(--text-lo); line-height:1.7;
+  }
+  .caption b{color:var(--text-hi);}
+  .caption .gap{color:#f0cd8a;}
+
+  @media (max-width:860px){ .main{flex-direction:column;} .pane + .pane{border-left:none; border-top:1px solid var(--line);} }
+</style>
+
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">立</div>
+      <div>
+        <h1>立体復元プレビュー</h1>
+        <div class="sub mono">__PROJECT_LABEL__ ・ 縮尺 <span id="scaleText"></span></div>
+      </div>
+    </div>
+    <div class="stat"><div class="n mono" id="statWalls">–</div><div class="l">壁ポリゴン(実データ)</div></div>
+    <div class="stat ok"><div class="n mono" id="statMatched">–</div><div class="l">天井高が一致</div></div>
+    <div class="stat"><div class="n mono" id="statScale">–</div><div class="l">mm / px</div></div>
+  </div>
+
+  <div class="main">
+    <div class="pane">
+      <div class="pane-head">
+        <h2>① 2D図面(実データ)+ 抽出した壁の輪郭</h2>
+        <div class="legend">
+          <div class="legend-item"><span class="swatch sw-ok"></span>天井高マッチ済み</div>
+          <div class="legend-item"><span class="swatch sw-warn"></span>高さ未マッチ</div>
+        </div>
+        <div class="hint">ホイールでズーム / ドラッグでパン</div>
+      </div>
+      <div class="viewer2d" id="viewer2d">
+        <div class="world2d" id="world2d">
+          <img id="planImg" src="__PLAN_IMAGE_SRC__">
+          <svg class="wallSvg" id="wallSvg"></svg>
+        </div>
+        <div class="zoom-hint mono" id="zoomHint2d"></div>
+      </div>
+    </div>
+
+    <div class="pane">
+      <div class="pane-head">
+        <h2>② 3D復元(同じ実データから自動生成)</h2>
+        <div class="hint">ドラッグで回転 / ホイールでズーム</div>
+      </div>
+      <div class="scene-wrap">
+        <div class="scene3d" id="scene3d"><div class="world3d" id="world3d"></div></div>
+        <div class="scene-controls">
+          <button id="v-iso">斜め上から</button>
+          <button id="v-plan">真上から</button>
+          <button id="v-front">正面から</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption">
+    <b>この3Dの作り方:</b> ①の図面から抽出した壁の塗りつぶしポリゴン(CADベクター形状そのもの、AIの読み取りではなく図形データを直接使用)を、同じシート内の「CH=2850」等の天井高テキストと位置的に最も近いもの同士で対応づけ、実寸(縮尺1/50)で立ち上げたものです。①と②は同じ壁データを2D/3Dで表示しているだけなので、両者が一致しない箇所があれば、それはこのツール自体の再構成ロジックの誤りです。
+    <br><br>
+    <span class="gap">現時点で3Dに含まれていないもの:</span> 窓・ドア等の開口部(位置は図面上に記載がありますが、まだ3D形状として配置していません)、廊下という概念的な区分、部屋ごとの床ポリゴン。天井高が近くに見つからなかった壁(グレー点線、この図面では36件中13件)は高さ不明のまま表示しています。
+  </div>
+</div>
+
+<script>
+const DATA = __DATA_JSON__;
+const IMG_W = __IMG_W__, IMG_H = __IMG_H__;
+const DISPLAY_SCALE = 1/28; // mm -> 3D display units
+
+document.getElementById('scaleText').textContent = DATA.scale_text || '不明';
+document.getElementById('statWalls').textContent = DATA.walls.length;
+document.getElementById('statMatched').textContent = DATA.walls.filter(w=>w.height_mm).length;
+document.getElementById('statScale').textContent = DATA.mm_per_px.toFixed(2);
+
+/* ---------------- 2D pane: real drawing + overlaid wall outlines ---------------- */
+const view2d = {x:60, y:40, scale:0.3};
+function applyView2d(){
+  document.getElementById('world2d').style.transform = `translate(${view2d.x}px,${view2d.y}px) scale(${view2d.scale})`;
+  document.getElementById('zoomHint2d').textContent = `表示倍率 ${(view2d.scale*100).toFixed(0)}%`;
+}
+function fit2d(){
+  const el = document.getElementById('viewer2d');
+  const r = el.getBoundingClientRect();
+  if(r.width < 10){ requestAnimationFrame(fit2d); return; }
+  const s = Math.min(r.width/IMG_W, r.height/IMG_H) * 0.94;
+  view2d.scale = s;
+  view2d.x = (r.width - IMG_W*s)/2;
+  view2d.y = (r.height - IMG_H*s)/2;
+  applyView2d();
+}
+(function buildWallSvg(){
+  const svg = document.getElementById('wallSvg');
+  svg.setAttribute('width', IMG_W); svg.setAttribute('height', IMG_H);
+  svg.setAttribute('viewBox', `0 0 ${IMG_W} ${IMG_H}`);
+  const pxPerMm = 1/DATA.mm_per_px;
+  DATA.walls.forEach(w=>{
+    const pts = w.polygon_mm.map(p => (p[0]*pxPerMm)+','+(p[1]*pxPerMm)).join(' ');
+    const el = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    el.setAttribute('points', pts);
+    el.setAttribute('fill', w.height_mm ? 'rgba(63,166,107,.28)' : 'rgba(159,176,199,.20)');
+    el.setAttribute('stroke', w.height_mm ? '#3fa66b' : '#9fb0c7');
+    el.setAttribute('stroke-width', '2.4');
+    if(!w.height_mm) el.setAttribute('stroke-dasharray','6,5');
+    svg.appendChild(el);
+  });
+})();
+(function setup2dDrag(){
+  const el = document.getElementById('viewer2d');
+  let drag = null;
+  el.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const r = el.getBoundingClientRect(); const mx=e.clientX-r.left, my=e.clientY-r.top;
+    const f = e.deltaY<0 ? 1.15 : 1/1.15;
+    const ns = Math.min(6, Math.max(0.05, view2d.scale*f));
+    const k = ns/view2d.scale;
+    view2d.x = mx-(mx-view2d.x)*k; view2d.y = my-(my-view2d.y)*k; view2d.scale = ns;
+    applyView2d();
+  }, {passive:false});
+  el.addEventListener('pointerdown', e=>{ drag={sx:e.clientX,sy:e.clientY,ox:view2d.x,oy:view2d.y}; el.classList.add('dragging'); el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e=>{ if(!drag) return; view2d.x=drag.ox+(e.clientX-drag.sx); view2d.y=drag.oy+(e.clientY-drag.sy); applyView2d(); });
+  ['pointerup','pointercancel'].forEach(ev=>el.addEventListener(ev, ()=>{drag=null; el.classList.remove('dragging');}));
+})();
+document.getElementById('planImg').addEventListener('load', fit2d);
+fit2d();
+
+/* ---------------- 3D pane: real wall polygons extruded to real heights ---------------- */
+const rot3d = {rx:-24, ry:-35, scale:1};
+let drag3d = null;
+
+function buildScene3d(){
+  const world = document.getElementById('world3d');
+  world.innerHTML = '';
+
+  // normalize around the wall data's own centroid so the scene is centered
+  let sx=0, sy=0, n=0;
+  DATA.walls.forEach(w=> w.polygon_mm.forEach(p=>{ sx+=p[0]; sy+=p[1]; n++; }));
+  const ox = sx/n, oy = sy/n;
+
+  const defaultH = 2500; // display-only fallback for walls with no matched CH label
+  DATA.walls.forEach(w=>{
+    const h = (w.height_mm || defaultH) * DISPLAY_SCALE;
+    const pts = w.polygon_mm.map(p => [(p[0]-ox)*DISPLAY_SCALE, (p[1]-oy)*DISPLAY_SCALE]);
+    for(let i=0;i<pts.length;i++){
+      const [x1,y1] = pts[i];
+      const [x2,y2] = pts[(i+1)%pts.length];
+      const dx=x2-x1, dy=y2-y1;
+      const len = Math.hypot(dx,dy);
+      if(len < 0.5) continue;
+      const angle = Math.atan2(dy,dx) * 180/Math.PI;
+      const mx=(x1+x2)/2, my=(y1+y2)/2;
+      const panel = document.createElement('div');
+      panel.className = 'panel3d ' + (w.height_mm ? 'matched' : 'unmatched');
+      panel.style.width = len+'px';
+      panel.style.height = h+'px';
+      panel.style.left = (-len/2)+'px';
+      panel.style.top = (-h/2)+'px';
+      panel.style.transform = `translate3d(${mx}px, 0px, ${my}px) rotateY(${-angle}deg)`;
+      world.appendChild(panel);
+    }
+  });
+
+  // floor grid sized to the wall data's own bounding box
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  DATA.walls.forEach(w=> w.polygon_mm.forEach(p=>{
+    const x=(p[0]-ox)*DISPLAY_SCALE, y=(p[1]-oy)*DISPLAY_SCALE;
+    minX=Math.min(minX,x); maxX=Math.max(maxX,x); minY=Math.min(minY,y); maxY=Math.max(maxY,y);
+  }));
+  const fw = maxX-minX+80, fd = maxY-minY+80;
+  const floor = document.createElement('div');
+  floor.className = 'floor3d';
+  floor.style.width = fw+'px'; floor.style.height = fd+'px';
+  floor.style.left = (-fw/2)+'px';
+  floor.style.top = (-fd/2)+'px';
+  floor.style.transform = `translate3d(${(minX+maxX)/2}px, 2px, ${(minY+maxY)/2}px) rotateX(90deg)`;
+  world.appendChild(floor);
+
+  // a few room labels, floated at floor level for orientation
+  const seen = new Set();
+  DATA.labels.slice(0, 26).forEach(lb=>{
+    if(seen.has(lb.text)) return; seen.add(lb.text);
+    const pxPerMm = 1/DATA.mm_per_px;
+    const lx = (lb.x0/pxPerMm - ox)*DISPLAY_SCALE;
+    const ly = (lb.y0/pxPerMm - oy)*DISPLAY_SCALE;
+    const el = document.createElement('div');
+    el.className = 'label3d';
+    el.style.transform = `translate3d(${lx}px, -6px, ${ly}px) rotateX(90deg)`;
+    el.textContent = lb.text;
+    world.appendChild(el);
+  });
+}
+buildScene3d();
+
+function apply3d(){
+  document.getElementById('world3d').style.transform = `scale(${rot3d.scale}) rotateX(${rot3d.rx}deg) rotateY(${rot3d.ry}deg)`;
+}
+(function setup3dDrag(){
+  const el = document.getElementById('scene3d');
+  el.addEventListener('pointerdown', e=>{ drag3d={sx:e.clientX,sy:e.clientY,rx:rot3d.rx,ry:rot3d.ry}; el.classList.add('dragging'); el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove', e=>{
+    if(!drag3d) return;
+    rot3d.ry = drag3d.ry + (e.clientX-drag3d.sx)*0.4;
+    rot3d.rx = Math.max(-85, Math.min(10, drag3d.rx - (e.clientY-drag3d.sy)*0.4));
+    apply3d();
+  });
+  ['pointerup','pointercancel'].forEach(ev=>el.addEventListener(ev, ()=>{drag3d=null; el.classList.remove('dragging');}));
+  el.addEventListener('wheel', e=>{ e.preventDefault(); rot3d.scale=Math.min(3,Math.max(0.3,rot3d.scale*(e.deltaY<0?1.1:1/1.1))); apply3d(); }, {passive:false});
+})();
+document.getElementById('v-iso').onclick = ()=>{ rot3d.rx=-24; rot3d.ry=-35; apply3d(); };
+document.getElementById('v-plan').onclick = ()=>{ rot3d.rx=-85; rot3d.ry=-35; apply3d(); };
+document.getElementById('v-front').onclick = ()=>{ rot3d.rx=-6; rot3d.ry=0; apply3d(); };
+apply3d();
+</script>
