@@ -96,6 +96,14 @@ class GroundTruthWord:
     y0: float
     x1: float
     y1: float
+    # Set only when this word came from an OCR engine (not a PDF's own vector
+    # text layer, which has no notion of "confidence" -- it's exact). See
+    # review_ui/character_review.classify_word: a real OCR engine's own
+    # per-word confidence turned out (tested against the 千倉相川邸 project's
+    # actual scanned/flattened PDF, which has zero vector text) to be a far
+    # better tiering signal than the pattern whitelist alone for free-text
+    # prose, which the whitelist was never designed to cover.
+    confidence: float | None = None
 
     @property
     def cx(self) -> float:

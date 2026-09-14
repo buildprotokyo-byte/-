@@ -69,6 +69,44 @@ def test_classify_word_unrecognized_garble_is_red():
     assert tier == "red"
 
 
+def test_classify_word_no_confidence_defaults_to_red_for_unknown_text():
+    # unchanged behavior for vector-extracted CAD text (no OCR confidence
+    # concept -- it's exact, so an unrecognized pattern still means "doesn't
+    # match any known drawing-vocabulary pattern", not "low OCR confidence")
+    tier, _ = character_review.classify_word("何かの自由文")
+    assert tier == "red"
+
+
+def test_classify_word_high_ocr_confidence_rescues_unrecognized_prose():
+    # regression test for the real false-positive found against 千倉相川邸's
+    # tesseract output (README): free-text Japanese prose the pattern
+    # whitelist doesn't recognize should not be red-flagged when the OCR
+    # engine itself was highly confident about the read.
+    tier, reason = character_review.classify_word("変更項目", ocr_confidence=0.96)
+    assert tier == "green"
+    assert "96" in reason
+
+
+def test_classify_word_low_ocr_confidence_is_red_even_for_plausible_text():
+    # the real misread found in that same data ("辿" where the source says
+    # "畳") had OCR confidence 0.00 -- must stay red regardless of text shape.
+    tier, _ = character_review.classify_word("辿", ocr_confidence=0.0)
+    assert tier == "red"
+
+
+def test_classify_word_mid_ocr_confidence_is_amber():
+    tier, _ = character_review.classify_word("不明瞭", ocr_confidence=0.65)
+    assert tier == "amber"
+
+
+def test_classify_word_pattern_match_wins_over_low_ocr_confidence():
+    # a plain dimension number is still "green" on its pattern alone, even
+    # if the OCR engine itself reported low confidence for some other reason
+    # (e.g. faint print) -- the pattern match is the stronger evidence here.
+    tier, _ = character_review.classify_word("2730", ocr_confidence=0.2)
+    assert tier == "green"
+
+
 def test_build_character_review_data_splits_text_and_numeric_channels(synthetic_sheet):
     gt = ve.extract_ground_truth(synthetic_sheet)
     data = character_review.build_character_review_data(gt, page_key="p0")
