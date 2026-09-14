@@ -69,6 +69,95 @@ def test_reconcile_elements_leaves_area_unset_when_no_area_text():
     assert out[0].area_source == "none"
 
 
+def test_reconcile_elements_estimates_area_from_grounded_width_depth():
+    # Ungrounded tile (no vector ground truth) -- width/depth accepted at
+    # face value, same as any other ungrounded VLM reading elsewhere.
+    tile = _tile()
+    passes = [
+        [
+            {
+                "element_type": "room",
+                "label_ja": "洋室-B",
+                "attributes": {},
+                "width_text": "3600",
+                "depth_text": "2700",
+                "confidence": 0.6,
+            }
+        ]
+    ]
+    out = detail_agent._reconcile_elements(passes, tile)
+    assert out[0].area_sqm == pytest.approx(9.72)
+    assert out[0].area_source == "width_depth_estimate"
+
+
+def test_reconcile_elements_rejects_ungrounded_width_depth_pair_when_vector_gt_available():
+    tile = Tile(
+        tile_id="t1", sheet_id="s1", sheet_index=0, row=0, col=0,
+        x0=0, y0=0, x1=100, y1=100, image_path="unused.png",
+        ground_truth_text="洋室-B 3600 は書かれているが奥行の数字は無い",
+        has_vector_ground_truth=True,
+    )
+    passes = [
+        [
+            {
+                "element_type": "room",
+                "label_ja": "洋室-B",
+                "attributes": {},
+                "width_text": "3600",
+                "depth_text": "9999",  # not present in ground truth -- unverifiable
+                "confidence": 0.6,
+            }
+        ]
+    ]
+    out = detail_agent._reconcile_elements(passes, tile)
+    assert out[0].area_sqm is None
+    assert out[0].area_source == "none"
+
+
+def test_reconcile_elements_accepts_grounded_width_depth_pair_when_vector_gt_available():
+    tile = Tile(
+        tile_id="t1", sheet_id="s1", sheet_index=0, row=0, col=0,
+        x0=0, y0=0, x1=100, y1=100, image_path="unused.png",
+        ground_truth_text="洋室-B 3600 2700 という実測値",
+        has_vector_ground_truth=True,
+    )
+    passes = [
+        [
+            {
+                "element_type": "room",
+                "label_ja": "洋室-B",
+                "attributes": {},
+                "width_text": "3600",
+                "depth_text": "2700",
+                "confidence": 0.6,
+            }
+        ]
+    ]
+    out = detail_agent._reconcile_elements(passes, tile)
+    assert out[0].area_sqm == pytest.approx(9.72)
+    assert out[0].area_source == "width_depth_estimate"
+
+
+def test_area_text_takes_priority_over_width_depth_estimate():
+    tile = _tile()
+    passes = [
+        [
+            {
+                "element_type": "room",
+                "label_ja": "洋室-B",
+                "attributes": {},
+                "area_text": "12.0m2",
+                "width_text": "3600",
+                "depth_text": "2700",
+                "confidence": 0.6,
+            }
+        ]
+    ]
+    out = detail_agent._reconcile_elements(passes, tile)
+    assert out[0].area_sqm == 12.0
+    assert out[0].area_source == "printed_sqm"
+
+
 def test_aggregate_phase1_flags_numeric_disagreement_across_sources():
     facts = [
         SiteFact(

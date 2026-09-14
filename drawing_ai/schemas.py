@@ -164,7 +164,13 @@ class ElementReading(BaseModel):
     # 算出(SolidModel)が使えない図面でも、印字された面積を直接使えるように
     # するためのフォールバック経路(未算出ならNone)。
     area_sqm: Optional[float] = None
-    area_source: str = "none"  # "printed_sqm" | "tatami_conversion" | "none"
+    # "printed_sqm" | "tatami_conversion" | "width_depth_estimate" | "none"
+    # width_depth_estimate: 印字された面積が無い場合、子AIが画像上でその部屋の
+    # 境界だと判断した幅・奥行の数字(CADの整列した寸法チェーンでなくても、
+    # 現地実測でバラバラに書き込まれた数字でもよい)から算出。ベクター根拠が
+    # ある場合は両方の数字が原文と一致することを条件とする(未検証のペアは
+    # 採用しない)。
+    area_source: str = "none"
 
 
 class VerticalSynthesisNote(BaseModel):

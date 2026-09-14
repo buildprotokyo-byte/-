@@ -106,6 +106,49 @@ def _reconcile_symbols(passes: list[list[dict]], tile: Tile) -> list[SymbolReadi
     return out
 
 
+def _estimate_area_from_width_depth(item: dict, tile: Tile) -> tuple[float | None, str]:
+    """Area from a VLM-read width/depth pair -- the fallback tier used only
+    when no printed area label exists (see area_text/parse_area_text
+    above). This is deliberately a *visual* judgment call (the model
+    decides which two numbers on the page belong to this room's two
+    axes), not a text-position heuristic -- vector_extractor's
+    dimension-chain clustering only finds CAD-generated, collinear
+    dimension rows, and a real sample project (a field-measurement
+    annotation overlay, each number written individually next to its own
+    wall segment with no shared baseline) showed that assumption fails
+    outright on scattered, hand-placed annotations.
+
+    Because this leans on the model's own judgment rather than exact
+    positions, both numbers are required to be grounding-verified against
+    the tile's own ground-truth text before being trusted -- mirroring
+    vector_extractor's documented refusal to publish an unreliable
+    geometric check rather than a flaky one. When the tile has no vector
+    ground truth at all, verification isn't possible, so the reading is
+    accepted at face value (same treatment as any other ungrounded
+    reading elsewhere in this pipeline).
+    """
+    width_text = str(item.get("width_text", "")).strip()
+    depth_text = str(item.get("depth_text", "")).strip()
+    if not width_text or not depth_text:
+        return None, "none"
+
+    try:
+        width_mm = float(_normalize_number(width_text))
+        depth_mm = float(_normalize_number(depth_text))
+    except ValueError:
+        return None, "none"
+    if not width_mm or not depth_mm:
+        return None, "none"
+
+    if tile.has_vector_ground_truth:
+        _, width_verified = grounding.numeric_adjustment(width_text, tile)
+        _, depth_verified = grounding.numeric_adjustment(depth_text, tile)
+        if not (width_verified and depth_verified):
+            return None, "none"
+
+    return round((width_mm / 1000.0) * (depth_mm / 1000.0), 2), "width_depth_estimate"
+
+
 def _reconcile_elements(passes: list[list[dict]], tile: Tile) -> list[ElementReading]:
     seen: dict[tuple[str, str], list[dict]] = {}
     for pass_items in passes:
@@ -127,6 +170,8 @@ def _reconcile_elements(passes: list[list[dict]], tile: Tile) -> list[ElementRea
         parsed = parse_area_text(str(best.get("area_text", "")))
         if parsed is not None:
             area_sqm, area_source = parsed
+        else:
+            area_sqm, area_source = _estimate_area_from_width_depth(best, tile)
 
         out.append(
             ElementReading(
