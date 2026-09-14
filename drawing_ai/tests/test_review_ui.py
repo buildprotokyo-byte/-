@@ -88,6 +88,21 @@ def test_build_dimension_review_data_flags_real_mismatch(synthetic_sheet):
     assert not any(f["total_raw_text"] == "600" for f in flags)
 
 
+def test_build_dimension_review_data_projection_targets(synthetic_sheet):
+    gt = ve.extract_ground_truth(synthetic_sheet)
+    # the "50","60","70" horizontal chain sits at y=200 in the synthetic PDF;
+    # "60"'s label is at x=130 -- a target range straddling it should match.
+    targets = [
+        {"label": "matches-60", "axis": "horizontal", "lo_px": 125 * settings.render_dpi / 72, "hi_px": 135 * settings.render_dpi / 72},
+        {"label": "matches-nothing", "axis": "horizontal", "lo_px": 5000, "hi_px": 5010},
+    ]
+    data = dimension_review.build_dimension_review_data(gt, projection_targets=targets)
+    results = {p["label"]: p for p in data["projection_tests"]}
+    assert results["matches-60"]["matched"] is True
+    assert results["matches-60"]["total_mm"] == 60.0
+    assert results["matches-nothing"]["matched"] is False
+
+
 def test_build_solid_preview_data_includes_matched_wall_height(synthetic_sheet):
     gt = ve.extract_ground_truth(synthetic_sheet)
     model = solid_model_agent.build_solid_model({"sheet-test": gt}, elements=[], tiles_by_id={})

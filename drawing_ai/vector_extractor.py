@@ -360,6 +360,33 @@ def check_dimension_chains(gt: SheetGroundTruth) -> list[DimensionChainFlag]:
     return flags
 
 
+def find_dimension_chains(gt: SheetGroundTruth) -> list[dict]:
+    """Public accessor for the collinear numeric chains ``check_dimension_chains``
+    clusters internally, exposed for measurement.py's "project a span from the
+    exterior dimension chain" reading (see measurement.py module docstring for
+    the drawing-convention rationale: a real floor plan very often dimensions
+    only its outer perimeter, and an interior wall's size is read by finding
+    where it falls along that outer chain -- not from its own label, which
+    frequently doesn't exist).
+
+    Each entry: ``{"axis": "horizontal"|"vertical", "words": [GroundTruthWord, ...]}``,
+    words ordered along the chain's primary axis (the axis the numbers are
+    laid out along, i.e. ``perp_key`` in ``_band_cluster``'s terms).
+    """
+    numeric = [w for w in gt.words if _NUMERIC_PATTERN.match(w.text.replace(",", ""))]
+    if len(numeric) < _CHAIN_MIN_MEMBERS:
+        return []
+
+    out = []
+    for axis, key, perp_key in (
+        ("horizontal", lambda w: w.cy, lambda w: w.cx),
+        ("vertical", lambda w: w.cx, lambda w: w.cy),
+    ):
+        for band in _band_cluster(numeric, key, perp_key):
+            out.append({"axis": axis, "words": sorted(band, key=perp_key)})
+    return out
+
+
 def _band_cluster(words: list[GroundTruthWord], key, perp_key) -> list[list[GroundTruthWord]]:
     """Group words into collinear runs.
 

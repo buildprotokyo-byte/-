@@ -28,12 +28,36 @@ vector_extractor.py:
 """
 from __future__ import annotations
 
+from .. import measurement as ms
 from .. import vector_extractor as ve
 
 
-def build_dimension_review_data(gt: ve.SheetGroundTruth, sheet_label: str = "sheet") -> dict:
+def build_dimension_review_data(
+    gt: ve.SheetGroundTruth,
+    sheet_label: str = "sheet",
+    *,
+    projection_targets: list[dict] | None = None,
+) -> dict:
+    """``projection_targets`` (optional): elements to test
+    ``measurement.project_span_mm`` against, e.g. wall/column bounding
+    boxes a human might expect to read off the exterior chain -- each
+    ``{"label": str, "axis": "horizontal"|"vertical", "lo_px": float, "hi_px": float, "perp_px": float}``.
+    ``perp_px`` is the target's own position on the axis perpendicular to
+    ``axis`` (its cy for a horizontal target, cx for a vertical one) --
+    required to reject a chain that merely happens to overlap in one axis
+    while sitting far away in the other (see measurement.project_span_mm's
+    docstring: this was a real false-positive found against page-4 data,
+    not a hypothetical).
+
+    Included so the review page can show, honestly, which targets the
+    projection technique actually resolves and which it doesn't (see
+    measurement.project_span_mm's docstring for why this is often "doesn't
+    resolve" on a real drawing) -- this is not a demo of a feature that
+    always works.
+    """
     flags = ve.check_dimension_chains(gt)
     footprint = ve.estimate_gross_footprint(gt)
+    chains = ve.find_dimension_chains(gt)
 
     flags_out = [
         {
@@ -61,10 +85,46 @@ def build_dimension_review_data(gt: ve.SheetGroundTruth, sheet_label: str = "she
             "sheet_has_unrelated_chain_mismatches": len(flags_out) > 0,
         }
 
+    chains_out = [
+        {
+            "axis": c["axis"],
+            "words": [{"text": w.text, "cx": w.cx, "cy": w.cy, "x0": w.x0, "y0": w.y0, "x1": w.x1, "y1": w.y1} for w in c["words"]],
+            "sum_mm": sum(float(w.text.replace(",", "")) for w in c["words"]),
+        }
+        for c in chains
+    ]
+
+    projections_out = []
+    for target in projection_targets or []:
+        best = None
+        for c in chains:
+            if c["axis"] != target["axis"]:
+                continue
+            result = ms.project_span_mm(
+                c["words"], target["lo_px"], target["hi_px"], perp_px=target.get("perp_px")
+            )
+            if result is not None:
+                best = result
+                break
+        projections_out.append(
+            {
+                "label": target["label"],
+                "axis": target["axis"],
+                "lo_px": target["lo_px"],
+                "hi_px": target["hi_px"],
+                "matched": best is not None,
+                "total_mm": best.total_mm if best else None,
+                "matched_texts": best.matched_texts if best else [],
+                "coverage_note": best.coverage_note if best else "この範囲に収まる寸法チェーンのラベルが見つからなかった(投影不可)",
+            }
+        )
+
     return {
         "sheet_label": sheet_label,
         "scale_text": gt.scale_text,
         "mm_per_px": gt.mm_per_px,
+        "dimension_chains": chains_out,
         "dimension_chain_flags": flags_out,
         "gross_footprint": footprint_out,
+        "projection_tests": projections_out,
     }
