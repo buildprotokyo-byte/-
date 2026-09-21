@@ -26,7 +26,8 @@
 ├── killer_question/    # Layer 7: キラークエスチョンエンジン
 │                      #   依存関係グラフの表現、影響度スコアの算出、質問選定ループ(ステップ4)
 ├── benchmarks/         # 効果測定のハーネス(本番の推論パスではない)
-│                      #   synthetic_plans.py(劣化レベル付きの合成図面)、run_vtracer_eval.py、run_ifc_eval.py
+│                      #   synthetic_plans.py、run_vtracer_eval.py、run_ifc_eval.py、
+│                      #   run_consistency_eval.py、run_grounding_dino_eval.py
 ├── tests/               # トライアル7・8・9等の再現テスト(ステップ5)。設計変更が過去の検証結果を
 │                      #   壊していないかを自動確認する回帰テストとして機能させる
 ├── docs/                # 設計書・引き継ぎ資料(このリポジトリでの参照用コピー)
@@ -37,7 +38,7 @@
 ```
 
 補足:
-- `arbitration/`・`killer_question/` は現時点では空パッケージ(`__init__.py` のみ)です。中身はステップ2以降で実装します
+- `arbitration/` には段階BのZ3整合性ソルバーを実装済みです。`killer_question/` は現時点では空パッケージです
 - `axes/` には段階A(オープンリソースの機能化)で作った画像軸・絶対ルール軸のモジュールが入っています。軸の共通インターフェース(`axes/base.py`)は未実装です
 - 過去実績軸は設計上「恒久的に補助専用」(他の軸の判定を排除する権限を持たない)ため、`arbitration/` 側でその制約を明示的に扱う想定です
 - 依存関係グラフ(`killer_question/`)は、まず辞書ベースの単純な表現(要素ID → 影響を与える下流要素IDのリスト、および値ごとの制約関数)から始め、必要に応じて拡張する方針です
@@ -54,7 +55,15 @@ pytest
 ```bash
 python -m benchmarks.run_vtracer_eval   # VTracer のパラメータ探索と読み取り精度
 python -m benchmarks.run_ifc_eval       # 読み取り → IFC 空間階層 → 矛盾検出
+python -m benchmarks.run_consistency_eval # 合成図面 → Z3整合性軸
 ```
 
-`axes/image_axis/grounding_dino_adapter.py` の実モデルを動かすには `torch` と `transformers` に加えて、
-huggingface.co への到達が必要です(検証時の環境では遮断されていました。詳細は段階A報告書を参照)。
+Grounding DINO本体の評価は重い任意依存を追加して実行します。
+
+```bash
+pip install torch transformers
+python -m benchmarks.run_grounding_dino_eval
+```
+
+`HF_HOME` の書き込み権限とhuggingface.coへの到達が必要です。現行の未調整モデルは合成図面の
+個別記号を局所化できず、IoU 0.5での検出精度は0%でした。詳細は段階A報告書を参照してください。

@@ -41,6 +41,7 @@ Grounding DINO は huggingface.co への到達が遮断されているため、�
 from __future__ import annotations
 
 import time
+import statistics
 from dataclasses import dataclass
 
 import cv2
@@ -169,7 +170,7 @@ def run_case(
     probes = _symbol_probes()
     mask = binarize_classical(plan.image, classical_ksize) > 0
 
-    start = time.monotonic()
+    start = time.perf_counter()
 
     door_reading = _grounding_dino_reading("door", plan, probes, mask)
     window_reading = _grounding_dino_reading("window", plan, probes, mask)
@@ -219,7 +220,7 @@ def run_case(
         solver.add_advisory_reading("symbol_total_count", vtracer_reading, axis="vtracer")
 
     result = solver.solve()
-    build_seconds = time.monotonic() - start
+    build_seconds = time.perf_counter() - start
 
     return CaseResult(
         name=name,
@@ -306,7 +307,48 @@ def main() -> list[CaseResult]:
         print(f"単純な比率チェック: {'異常なし' if not naive else '; '.join(naive)}")
         print()
 
+    timings = benchmark_solver()
+    print("=== ステップ4: solve() 200回の処理時間 ===\n")
+    print(f"中央値: {timings['median_ms']:.3f} ms")
+    print(f"平均: {timings['mean_ms']:.3f} ms")
+    print(f"95パーセンタイル: {timings['p95_ms']:.3f} ms")
+    print(f"最大: {timings['max_ms']:.3f} ms\n")
+
     return cases
+
+
+def benchmark_solver(iterations: int = 200) -> dict[str, float]:
+    """通常ケース相当のソルバーを組み直し、solve()全体の時間を反復測定する。"""
+    if iterations < 1:
+        raise ValueError("iterations は1以上で指定してください")
+    elapsed_ms: list[float] = []
+    for _ in range(iterations):
+        solver = ConsistencySolver()
+        solver.add_variable("room_count", 4, 4, axis="absolute_rule_axis")
+        solver.add_variable("door_count", 4, 4, axis="image_axis")
+        solver.add_variable("window_count", 4, 4, axis="image_axis")
+        solver.add_variable("symbol_total_count", 0, 10_000, axis="derived")
+        solver.add_relation("door_ge_room", "door_count", ">=", "room_count")
+        solver.add_relation("window_ge_room", "window_count", ">=", "room_count")
+        solver.add_relation(
+            "symbol_total_is_door_plus_window",
+            "symbol_total_count",
+            "==",
+            lambda variables: variables["door_count"] + variables["window_count"],
+        )
+        result = solver.solve()
+        if not result.is_consistent:
+            raise AssertionError("通常ケースがunsatになりました")
+        elapsed_ms.append(result.solve_seconds * 1000)
+
+    ordered = sorted(elapsed_ms)
+    p95_index = max(0, int(len(ordered) * 0.95) - 1)
+    return {
+        "median_ms": statistics.median(elapsed_ms),
+        "mean_ms": statistics.mean(elapsed_ms),
+        "p95_ms": ordered[p95_index],
+        "max_ms": max(elapsed_ms),
+    }
 
 
 if __name__ == "__main__":

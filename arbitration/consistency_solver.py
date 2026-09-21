@@ -173,7 +173,12 @@ class SolveResult:
 
 
 class ConsistencySolver:
-    """v8 設計の整合性軸を、Z3 による制約充足問題として実装するもの。"""
+    """v8 設計の整合性軸を実装する内部・低レベルAPI。
+
+    実運用入力から直接呼び出してはならない。実運用は必ず
+    ``InferenceOrchestrator`` を入口にし、軸品質ファイアウォール通過後の
+    証拠だけをこの層へ渡す。既存テスト・ベンチマーク互換のため公開名は維持する。
+    """
 
     def __init__(self) -> None:
         self._variables: dict[str, Variable] = {}
@@ -217,6 +222,11 @@ class ConsistencySolver:
         """
         if reading.status == "abstained":
             self._abstained.append(AbstainedReading(name, axis))
+            return
+        # 呼び出し側が誤って弱い軸や low_confidence をこのAPIへ渡しても、
+        # ハード制約へ昇格させない。既存の confident/strong 呼び出しは不変。
+        if strength == "weak" or reading.status != "confident":
+            self.add_advisory_reading(name, reading, axis=axis)
             return
         lower, upper = reading.count_range
         self.add_variable(
@@ -314,7 +324,9 @@ class ConsistencySolver:
     # -- 求解 ----------------------------------------------------------------
     def solve(self) -> SolveResult:
         """強い軸の変数・制約だけでハードに解き、弱い軸は参考情報として突き合わせる。"""
-        start = time.monotonic()
+        # 短いZ3呼び出しはWindowsのmonotonic時計では0 msに丸められることがある。
+        # 効果測定に使える高分解能時計で計測する。
+        start = time.perf_counter()
 
         strong_vars = {n: v for n, v in self._variables.items() if v.strength == "strong"}
         z3vars = {name: z3.Int(name) for name in strong_vars}
@@ -332,9 +344,8 @@ class ConsistencySolver:
             core_solver.assert_and_track(expr, name)
         status = core_solver.check()
 
-        elapsed = time.monotonic() - start
-
         if status == z3.unsat:
+            elapsed = time.perf_counter() - start
             conflicting = tuple(str(c) for c in core_solver.unsat_core())
             variables = {
                 name: VariableSolution(name, var.axis, (var.lower, var.upper), (var.lower, var.upper))
@@ -358,6 +369,7 @@ class ConsistencySolver:
             for name, var in strong_vars.items()
         }
         advisories = tuple(self._build_advisories(variables))
+        elapsed = time.perf_counter() - start
         return SolveResult(
             status="sat",
             variables=variables,
