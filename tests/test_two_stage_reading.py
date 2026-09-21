@@ -441,3 +441,94 @@ def test_難易度4の補足資料の番号は数字を使わない() -> None:
             if page.startswith("【補足資料"):
                 head = page.split("】")[0]
                 assert not any(ch.isdigit() for ch in head), head
+
+
+# ---------------------------------------------------------------------
+# 難易度4の実測結果の固定(10章23項)
+#
+# 数値そのものを守りたいわけではない。守りたいのは
+# **「報告書とv8に書いた数字が、採点をやり直しても同じになる」**ことである。
+# 過去に、走らせていない件数を報告書に書いてしまった事故があった。
+# ---------------------------------------------------------------------
+
+LEVEL4_RUNS = Path(__file__).resolve().parents[1] / "docs" / "trial15_level4_runs.json"
+LEVEL4_RESULT = Path(__file__).resolve().parents[1] / "docs" / "trial15_level4_result.json"
+
+
+def _level4_summary() -> dict:
+    """コミット済みの回答を採点し直した要約を返す。"""
+    runs = json.loads(LEVEL4_RUNS.read_text(encoding="utf-8"))
+    return score(runs)["summary"]
+
+
+def test_難易度4を採点し直すと同じ要約になる() -> None:
+    committed = json.loads(LEVEL4_RESULT.read_text(encoding="utf-8"))["summary"]
+    assert _level4_summary() == committed, (
+        "コミット済みの採点結果が、いまの採点器で再現しない。"
+        "報告書・v8に書いた数字が実測と食い違っている疑いがある"
+    )
+
+
+def test_難易度4でも方式Aの天井は壊れていない() -> None:
+    """**これは失敗の記録である。** 難易度4は方式Aを落とすために作ったが、
+    落ちなかった。この事実を固定しておかないと、あとから
+    「天井は壊した」と読み違えられる。"""
+    assert _level4_summary()["by_arm"]["L4-A"]["accuracy"] == 1.0
+
+
+def test_難易度4で方式A2が方式Aを下回った() -> None:
+    """13章で段階0.5を方式A2の形で採用した根拠が弱くなったことの固定。
+
+    難易度1・3では A2 = 54/54 で「害が無い」ことが採用根拠だった。
+    難易度4では下回る。10章24項の判断待ち。
+    """
+    summary = _level4_summary()["by_arm"]
+    assert summary["L4-A2"]["correct"] < summary["L4-A"]["correct"]
+
+
+def test_難易度4でも方式Bは方式Aを上回っていない() -> None:
+    summary = _level4_summary()["by_arm"]
+    assert summary["L4-B"]["correct"] < summary["L4-A"]["correct"]
+
+
+def test_方式Bの損失は数え方の決まりに集中している() -> None:
+    """損失の在り処が「順序」ではなく「受け渡し様式」であることの固定。
+
+    範囲・現況の設問はほぼ通るのに、3要素のどれでもない
+    「数え方の決まり」だけが落ちる。難易度1と同じ形。
+    """
+    by_trap = _level4_summary()["by_arm_trap"]["L4-B"]
+    assert by_trap["extra_rule"]["correct"] < by_trap["scope"]["correct"]
+    assert by_trap["extra_rule"]["correct"] < by_trap["condition"]["correct"]
+
+
+def test_方式Aは3つの罠すべてを取りこぼしていない() -> None:
+    """対照。同じ資料・同じ設問なので、罠そのものが解けないわけではない。"""
+    for trap, agg in _level4_summary()["by_arm_trap"]["L4-A"].items():
+        assert agg["correct"] == agg["n"], trap
+
+
+def test_段階1は損失を自己申告できていない() -> None:
+    """**検査が働いていないことの固定。** 段階1は18本すべてが
+    「確定できなかった要素は無い」と申告しているのに、段階2は落としている。
+    自己申告を信頼の根拠に使えないことを、ここで明示しておく。
+    """
+    stage1 = json.loads(
+        (Path(__file__).resolve().parents[1] / "docs" / "trial15_level4_stage1.json")
+        .read_text(encoding="utf-8")
+    )
+    assert len(stage1) == 18
+    assert all(v.get("確定できなかった要素") == [] for v in stage1.values())
+    assert _level4_summary()["by_arm"]["L4-B"]["accuracy"] < 1.0
+
+
+def test_難易度4の回答に正解値が資料から漏れていない() -> None:
+    """難易度4の資料に正解値が文字列として現れないこと(補足資料の通し番号を
+    算用数字にしていたとき、S2Q3 の正解 28 が「補足資料 28」として漏れていた)。"""
+    key = load_key()
+    for case in ALL_SETS:
+        material = "\n".join(hard_pages(case))
+        for q in case.questions:
+            assert not _contains_number(material, key[q.qid]), (
+                f"{q.qid} の正解が難易度4の資料に現れている"
+            )
