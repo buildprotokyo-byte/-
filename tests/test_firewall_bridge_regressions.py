@@ -45,6 +45,7 @@ TARGET = "door_count"
 
 def _strong(count_range: tuple[int, int], *, source: str = "drawing-A") -> AxisEvidence:
     return AxisEvidence(
+        derivation="read",
         unit="count",
         target=TARGET, count_range=count_range, source_id=source,
         axis_id="image", method_id=f"detector_{source}", calibrated=True,
@@ -53,6 +54,7 @@ def _strong(count_range: tuple[int, int], *, source: str = "drawing-A") -> AxisE
 
 def _weak(count_range: tuple[int, int], *, source: str, axis: str = "history") -> AxisEvidence:
     return AxisEvidence(
+        derivation="read",
         unit="count",
         target=TARGET, count_range=count_range, source_id=source,
         axis_id=axis, method_id=f"prior_{source}", strength="weak", calibrated=True,
@@ -62,6 +64,7 @@ def _weak(count_range: tuple[int, int], *, source: str, axis: str = "history") -
 def _abstained(source: str = "mlit") -> AxisEvidence:
     """棄権した証拠。``count_range`` は番兵値で、意味を持たない。"""
     return AxisEvidence(
+        derivation="read",
         unit="count",
         target=TARGET, count_range=(0, 0), source_id=source,
         axis_id="history", method_id="industry_statistics",

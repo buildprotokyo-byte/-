@@ -29,7 +29,7 @@ _DRAWING = dict(
 
 
 def _pipe(method: str, rng: tuple[int, int]) -> AxisEvidence:
-    return AxisEvidence(target="pipe_total", count_range=rng, method_id=method,
+    return AxisEvidence(derivation="read", target="pipe_total", count_range=rng, method_id=method,
                         unit="mm", **_DRAWING)
 
 
@@ -103,11 +103,11 @@ def test_overlapping_vtracer_floor_area_error_now_escalates() -> None:
     今はファイアウォール側でも止まる。規律は二重の守りとして残す。
     """
     decision = AxisQualityFirewall().assess([
-        AxisEvidence(target="floor_area", count_range=(1_000_000, 1_625_000),
+        AxisEvidence(derivation="read", target="floor_area", count_range=(1_000_000, 1_625_000),
                      source_id="drawing-trial12", axis_id="image",
                      method_id="vtracer_floor_area", unit="cm2",
                      source_fingerprint="sha256:drawing"),
-        AxisEvidence(target="floor_area", count_range=(995_000, 1_005_000),
+        AxisEvidence(derivation="read", target="floor_area", count_range=(995_000, 1_005_000),
                      source_id="spec-sheet-trial12", axis_id="text",
                      method_id="spec_area", unit="cm2",
                      source_fingerprint="sha256:spec"),
@@ -128,11 +128,11 @@ def test_vtracer_floor_area_as_advisory_does_not_auto_confirm() -> None:
     レンジが確定値を動かすことはなく、文章軸1つでは階層1にも届かない。
     """
     decision = AxisQualityFirewall().assess([
-        AxisEvidence(target="floor_area", count_range=(1_000_000, 1_625_000),
+        AxisEvidence(derivation="read", target="floor_area", count_range=(1_000_000, 1_625_000),
                      source_id="drawing-trial12", axis_id="image",
                      method_id="vtracer_floor_area", unit="cm2",
                      source_fingerprint="sha256:drawing", strength="weak"),
-        AxisEvidence(target="floor_area", count_range=(995_000, 1_005_000),
+        AxisEvidence(derivation="read", target="floor_area", count_range=(995_000, 1_005_000),
                      source_id="spec-sheet-trial12", axis_id="text",
                      method_id="spec_area", unit="cm2",
                      source_fingerprint="sha256:spec"),

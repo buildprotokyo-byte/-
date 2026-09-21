@@ -277,7 +277,7 @@ def evidence(value_range, source="drawing", method="vision", axis="image"):
         "target": "door_count", "count_range": list(value_range),
         "source_id": source, "source_fingerprint": f"sha256:{source}",
         "axis_id": axis, "method_id": method, "strength": "strong",
-        "status": "confident", "calibrated": True,
+        "status": "confident", "calibrated": True, "derivation": "read",
         "model_confidence": 0.9, "unit": "count",
     }
 

@@ -37,13 +37,13 @@ ASSUMED_ERROR_RATES = (0.02, 0.05, 0.10, 0.20)
 def _tier2_evidence(target: str) -> list[AxisEvidence]:
     """階層2(強い軸1つ+独立した弱い軸2つ)になる証拠の組。"""
     return [
-        AxisEvidence(target=target, count_range=(5, 5), source_id="drawing-A",
+        AxisEvidence(derivation="read", target=target, count_range=(5, 5), source_id="drawing-A",
                      axis_id="image", method_id="room_detector", unit="count",
                      calibrated=True),
-        AxisEvidence(target=target, count_range=(4, 6), source_id="自社実績DB",
+        AxisEvidence(derivation="read", target=target, count_range=(4, 6), source_id="自社実績DB",
                      axis_id="history", method_id="past_projects", unit="count",
                      strength="weak", calibrated=True),
-        AxisEvidence(target=target, count_range=(4, 6), source_id="rule-A",
+        AxisEvidence(derivation="read", target=target, count_range=(4, 6), source_id="rule-A",
                      axis_id="rules", method_id="rule_ratio", unit="count",
                      strength="weak", calibrated=True),
     ]

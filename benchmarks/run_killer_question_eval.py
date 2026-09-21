@@ -115,24 +115,24 @@ def firewall_integration_scenario(
 ) -> tuple[ConsistencySolver, dict[str, int]]:
     evidences_by_target = {
         "room_count": [
-            AxisEvidence(unit="count", target="room_count", count_range=(4, 4), source_id="drawing-A",
+            AxisEvidence(derivation="read", unit="count", target="room_count", count_range=(4, 4), source_id="drawing-A",
                          axis_id="image", method_id="room_detector", calibrated=True),
-            AxisEvidence(unit="count", target="room_count", count_range=(4, 4), source_id="ifc-A",
+            AxisEvidence(derivation="read", unit="count", target="room_count", count_range=(4, 4), source_id="ifc-A",
                          axis_id="rules", method_id="ifc_space_count", calibrated=True),
         ],
         "symbol_total": [
-            AxisEvidence(unit="count", target="symbol_total", count_range=(7, 9), source_id="ifc-A",
+            AxisEvidence(derivation="read", unit="count", target="symbol_total", count_range=(7, 9), source_id="ifc-A",
                          axis_id="rules", method_id="opening_count_from_wall_geometry", calibrated=True),
-            AxisEvidence(unit="count", target="symbol_total", count_range=(7, 9), source_id="spec-A",
+            AxisEvidence(derivation="read", unit="count", target="symbol_total", count_range=(7, 9), source_id="spec-A",
                          axis_id="text", method_id="spec_sheet_estimate", calibrated=True),
         ],
         "door_count": [
-            AxisEvidence(unit="count", target="door_count", count_range=(2, 6), source_id="drawing-A",
+            AxisEvidence(derivation="read", unit="count", target="door_count", count_range=(2, 6), source_id="drawing-A",
                          axis_id="image", method_id="grounding_dino", calibrated=False,
                          model_confidence=0.95),
         ],
         "window_count": [
-            AxisEvidence(unit="count", target="window_count", count_range=(2, 6), source_id="drawing-A",
+            AxisEvidence(derivation="read", unit="count", target="window_count", count_range=(2, 6), source_id="drawing-A",
                          axis_id="image", method_id="grounding_dino", calibrated=False,
                          model_confidence=0.90),
         ],

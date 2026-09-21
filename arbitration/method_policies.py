@@ -84,4 +84,8 @@ def clamp_to_defaults(method_id: str, policy: MethodPolicy) -> MethodPolicy:
             if policy.max_strength == "strong" and ceiling.max_strength == "strong"
             else "weak"
         ),
+        # 由来もきつくする方向にだけ効かせる。登録簿が「この手法は常に
+        # 一般則による補完」と言っているなら、呼び出し側が何と名乗っても
+        # その上限が勝つ。
+        always_assumed=policy.always_assumed or ceiling.always_assumed,
     )

@@ -22,6 +22,26 @@ Unit = str
 #: "job"=工事1件。粒度が違うレンジも重ね合わせてはならない。
 Granularity = Literal["element", "job"]
 
+#: その値がどこから来たか (v8 3-3節。2026-09-21 に追加)。
+#:
+#: - ``"read"``     … 資料にその数値が明記されており、それをそのまま読んだ。
+#: - ``"derived"``  … 資料に明記された値だけから等式で導いた
+#:                    (例: 面積 = 読み取った内法 18,000mm x 12,000mm)。
+#: - ``"assumed"``  … **情報が欠けていたため、一般則を当てはめて算出した。**
+#:
+#: ``"assumed"`` は ``model_confidence`` の高さに関係なく弱い証拠として扱い、
+#: 階層1(自動確定)の根拠には使わせない。
+#:
+#: 根拠: トライアル15(`docs/trial15_two_stage_reading_report.md` 3節・6節)。
+#: 受け渡しで数え方の決まりを落とした読み取りは、**棄権せずに**
+#: 「開口は全部控除する」「見切り材は全部の境界に回す」といった
+#: もっともらしい一般則で穴を埋め、自信を持って違う値を出した
+#: (94.532 / 正解 100.332、21.00 / 正解 18.00)。
+#: 3段階確信度階層は「軸が黙ったこと」(``status="abstained"``)は拾えるが、
+#: **「軸が自信を持って違う値を出したこと」は拾えない。** その値が
+#: 読んだ事実なのか一般則で埋めたものなのかを、軸の側が申告するほかない。
+Derivation = Literal["read", "derived", "assumed"]
+
 
 @dataclass(frozen=True)
 class CenterTolerance:
@@ -87,6 +107,15 @@ class AxisEvidence:
     #: 必須。既定値を与えると、単位を意識せずに書かれた呼び出しが黙って
     #: 通ってしまい、迂回経路が残るため。
     unit: Unit
+    #: 必須。理由は `unit` と同じで、既定値を置くと由来を意識しない呼び出しが
+    #: 黙って階層1に届いてしまう。安全側の既定("assumed")にしても、
+    #: 「書き忘れたのか、本当に一般則なのか」が区別できなくなる。
+    derivation: Derivation
+    #: ``derivation="derived"`` のとき、計算の根拠にした値それぞれの由来。
+    #: **1つでも "assumed" があれば、この値自体も "assumed" に落ちる**
+    #: (`effective_derivation`)。一般則で埋めた値を等式に1回通すだけで
+    #: 「読んだ事実」に化ける経路を塞ぐため。
+    derivation_basis: tuple[Derivation, ...] = ()
     granularity: Granularity = "element"
     source_fingerprint: str | None = None
     strength: Strength = "strong"
@@ -105,6 +134,23 @@ class AxisEvidence:
             raise ValueError("unit は空にできません(レンジが何を数えているかを必ず宣言する)")
         if self.granularity not in ("element", "job"):
             raise ValueError(f"granularity は element / job のいずれか: {self.granularity}")
+        if self.derivation not in ("read", "derived", "assumed"):
+            raise ValueError(
+                f"derivation は read / derived / assumed のいずれか: {self.derivation}"
+            )
+        for item in self.derivation_basis:
+            if item not in ("read", "derived", "assumed"):
+                raise ValueError(f"derivation_basis に不明な由来: {item}")
+        if self.derivation == "derived" and not self.derivation_basis:
+            # 根拠を書かない "derived" を許すと、一般則で埋めた値を
+            # 「計算で出した」と名乗るだけで階層1へ通せてしまう。
+            raise ValueError(
+                "derivation='derived' には derivation_basis(根拠にした値の由来)が必要です"
+            )
+        if self.derivation != "derived" and self.derivation_basis:
+            raise ValueError(
+                "derivation_basis は derivation='derived' のときだけ指定できます"
+            )
 
     @property
     def evidence_id(self) -> str:
@@ -116,12 +162,30 @@ class AxisEvidence:
         return self.source_fingerprint or self.source_id
 
     @property
+    def effective_derivation(self) -> Derivation:
+        """根拠まで遡った実際の由来。
+
+        ``"derived"`` は、根拠にした値が1つでも ``"assumed"`` なら
+        ``"assumed"`` に落ちる。等式を1回通しただけで
+        「一般則で埋めた値」が「読んだ事実」に化けないようにするため。
+        """
+        if self.derivation == "derived" and "assumed" in self.derivation_basis:
+            return "assumed"
+        return self.derivation
+
+    @property
     def is_hard_eligible(self) -> bool:
-        """内部confidenceではなく、強度・状態・実測校正の全条件で判定する。"""
+        """内部confidenceではなく、強度・状態・実測校正・由来の全条件で判定する。
+
+        ``effective_derivation == "assumed"``(情報が欠けていたため一般則を
+        当てはめて算出した値)は、``model_confidence`` がいくら高くても
+        ハード制約に入れない。v8 3-3節、トライアル15。
+        """
         return (
             self.strength == "strong"
             and self.status == "confident"
             and self.calibrated
+            and self.effective_derivation != "assumed"
         )
 
 
@@ -262,7 +326,20 @@ class AxisQualityFirewall:
         ]
 
         for item in advisory:
-            if not item.calibrated:
+            if item.effective_derivation == "assumed":
+                # 由来の判定を校正・強度より先に出す。人が読むとき、
+                # 「一般則で埋めた値だった」が最も行動を変える理由だから。
+                if item.derivation == "derived":
+                    reasons.append(
+                        f"{item.method_id} は一般則で埋めた値を根拠に計算しているため、"
+                        "内部confidenceに関係なく参考情報(v8 3-3節)"
+                    )
+                else:
+                    reasons.append(
+                        f"{item.method_id} は資料に無い情報を一般則で埋めているため、"
+                        "内部confidenceに関係なく参考情報(v8 3-3節)"
+                    )
+            elif not item.calibrated:
                 reasons.append(
                     f"{item.method_id} は実測校正を通過していないため、内部confidenceに関係なく参考情報"
                 )

@@ -26,6 +26,7 @@ def reading(value: int, source: str, method: str, axis: str) -> dict:
         "strength": "strong",
         "status": "confident",
         "calibrated": True,
+        "derivation": "read",
         "model_confidence": 0.9,
         "unit": "count",
     }

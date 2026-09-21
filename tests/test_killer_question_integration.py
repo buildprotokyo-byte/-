@@ -36,11 +36,13 @@ def _evidence_scenario() -> dict[str, list[AxisEvidence]]:
     return {
         "room_count": [
             AxisEvidence(
+        derivation="read",
         unit="count",
                 target="room_count", count_range=(4, 4), source_id="drawing-A",
                 axis_id="image", method_id="room_detector", calibrated=True,
             ),
             AxisEvidence(
+        derivation="read",
         unit="count",
                 target="room_count", count_range=(4, 4), source_id="ifc-A",
                 axis_id="rules", method_id="ifc_space_count", calibrated=True,
@@ -48,11 +50,13 @@ def _evidence_scenario() -> dict[str, list[AxisEvidence]]:
         ],
         "symbol_total": [
             AxisEvidence(
+        derivation="read",
         unit="count",
                 target="symbol_total", count_range=(7, 9), source_id="ifc-A",
                 axis_id="rules", method_id="opening_count_from_wall_geometry", calibrated=True,
             ),
             AxisEvidence(
+        derivation="read",
         unit="count",
                 target="symbol_total", count_range=(7, 9), source_id="spec-A",
                 axis_id="text", method_id="spec_sheet_estimate", calibrated=True,
@@ -60,6 +64,7 @@ def _evidence_scenario() -> dict[str, list[AxisEvidence]]:
         ],
         "door_count": [
             AxisEvidence(
+        derivation="read",
         unit="count",
                 target="door_count", count_range=(2, 6), source_id="drawing-A",
                 axis_id="image", method_id="grounding_dino",
@@ -69,6 +74,7 @@ def _evidence_scenario() -> dict[str, list[AxisEvidence]]:
         ],
         "window_count": [
             AxisEvidence(
+        derivation="read",
         unit="count",
                 target="window_count", count_range=(2, 6), source_id="drawing-A",
                 axis_id="image", method_id="grounding_dino",

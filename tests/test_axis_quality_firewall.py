@@ -27,6 +27,7 @@ def _evidence(
 ) -> AxisEvidence:
     count_range = value if isinstance(value, tuple) else (value, value)
     return AxisEvidence(
+        derivation="read",
         unit="count",
         target=TARGET,
         count_range=count_range,

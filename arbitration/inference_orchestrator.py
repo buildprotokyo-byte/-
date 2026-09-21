@@ -38,6 +38,9 @@ from arbitration.escalation_router import (
 ALLOWED_AXES = frozenset({"image", "geometry", "text", "rules", "history"})
 ALLOWED_STATUSES = frozenset({"confident", "low_confidence", "abstained"})
 ALLOWED_STRENGTHS = frozenset({"strong", "weak"})
+#: 値の由来 (v8 3-3節)。"assumed"(情報が欠けていたため一般則を当てはめた)は
+#: 確信度に関わらず弱い証拠として扱い、階層1の確定には使わせない。
+ALLOWED_DERIVATIONS = frozenset({"read", "derived", "assumed"})
 
 #: 単位の別名表と正規形ごとの上限は `arbitration/units.py` に移した。
 #: 2026-09-21 まではここに `UNIT_ALIASES = {"count": ...}` と
@@ -53,6 +56,10 @@ class MethodPolicy:
 
     calibrated: bool
     max_strength: str
+    #: True なら、この手法が出す値は常に「一般則による補完」として扱う。
+    #: 呼び出し側が ``derivation="read"`` と名乗っても ``"assumed"`` に落とす。
+    #: 手法そのものが既定値の当てはめで動く場合(将来の文章軸の補完など)に使う。
+    always_assumed: bool = False
 
     def __post_init__(self) -> None:
         if self.max_strength not in ALLOWED_STRENGTHS:
@@ -388,13 +395,36 @@ class InferenceOrchestrator:
             errors.append(f"{prefix}:calibration_must_be_explicit_boolean")
             calibrated = False
 
+        # 由来は `calibrated` と同じく明示を強制する。既定値を置くと、
+        # 由来を意識せずに書かれた呼び出しが黙って階層1へ届いてしまう。
+        derivation = raw.get("derivation")
+        if derivation not in ALLOWED_DERIVATIONS:
+            errors.append(f"{prefix}:invalid_derivation")
+        basis_raw = raw.get("derivation_basis", ())
+        basis: tuple[str, ...] = ()
+        if not isinstance(basis_raw, (list, tuple)) or any(
+            item not in ALLOWED_DERIVATIONS for item in basis_raw
+        ):
+            errors.append(f"{prefix}:invalid_derivation_basis")
+        else:
+            basis = tuple(basis_raw)
+        if derivation == "derived" and not basis:
+            errors.append(f"{prefix}:derived_requires_basis")
+        if derivation in ("read", "assumed") and basis:
+            errors.append(f"{prefix}:derivation_basis_not_allowed")
+
         method_id = required["method_id"]
         policy = self._method_policies.get(method_id) if method_id else None
+        effective_derivation = derivation
         if policy is None:
             notes.append(f"unregistered_method_downgraded:{method_id or 'unknown'}")
             effective_calibrated = False
             effective_strength = "weak"
         else:
+            if policy.always_assumed and derivation != "assumed":
+                # 登録簿はきつくする方向にだけ効く(method_policies.py)。
+                notes.append(f"derivation_downgraded_by_policy:{method_id}")
+                effective_derivation = "assumed"
             effective_calibrated = bool(calibrated and policy.calibrated)
             effective_strength = (
                 "strong"
@@ -458,8 +488,15 @@ class InferenceOrchestrator:
                 strength=effective_strength,
                 status=status,
                 calibrated=effective_calibrated,
+                # 「資料に明記された事実をそのまま読んだ値」か
+                # 「情報が欠けていたため一般則を当てはめた値」かを、
+                # ファイアウォールが読める形で載せる(v8 3-3節)。
+                derivation=effective_derivation,
+                derivation_basis=(
+                    tuple(basis) if effective_derivation == "derived" else ()
+                ),
                 model_confidence=float(confidence) if confidence is not None else None,
-                evidence={"unit": unit},
+                evidence={"unit": unit, "derivation_declared": derivation},
             ),
             notes,
             errors,

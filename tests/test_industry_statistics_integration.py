@@ -35,6 +35,7 @@ def shipped() -> StatisticsSnapshot:
 
 def _history_axis_evidence(count_range: tuple[int, int]) -> AxisEvidence:
     return AxisEvidence(
+        derivation="read",
         unit="count",
         target=TARGET, count_range=count_range, source_id="自社実績DB",
         axis_id="history", method_id="past_projects", strength="weak", calibrated=True,
@@ -43,6 +44,7 @@ def _history_axis_evidence(count_range: tuple[int, int]) -> AxisEvidence:
 
 def _strong_axis_evidence(count_range: tuple[int, int]) -> AxisEvidence:
     return AxisEvidence(
+        derivation="read",
         unit="count",
         target=TARGET, count_range=count_range, source_id="drawing-A",
         axis_id="image", method_id="room_detector", calibrated=True,
@@ -88,6 +90,7 @@ def test_the_exit_check_can_only_lower_the_tier_decided_by_the_firewall(
     decision = firewall.assess([
         _strong_axis_evidence((4, 4)),
         AxisEvidence(
+        derivation="read",
         unit="count",
             target=TARGET, count_range=(4, 4), source_id="spec-sheet",
             axis_id="text", method_id="spec_parser", calibrated=True,

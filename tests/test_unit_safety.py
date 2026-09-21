@@ -35,6 +35,7 @@ def _evidence(
     calibrated: bool = True,
 ) -> AxisEvidence:
     return AxisEvidence(
+        derivation="read",
         target=TARGET,
         count_range=count_range,
         source_id=source,
@@ -57,7 +58,7 @@ def test_unit_is_required() -> None:
     検査の迂回経路が残る。
     """
     with pytest.raises(TypeError):
-        AxisEvidence(  # type: ignore[call-arg]
+        AxisEvidence(derivation="read",   # type: ignore[call-arg]
             target=TARGET, count_range=(4, 4), source_id="s",
             axis_id="image", method_id="m",
         )
@@ -215,6 +216,7 @@ def test_the_orchestrator_puts_the_validated_unit_on_the_evidence() -> None:
             "source_id": "drawing-A", "source_fingerprint": "sha256:drawing-A",
             "axis_id": "image", "method_id": "det",
             "strength": "strong", "status": "confident", "calibrated": True,
+            "derivation": "read",
         }],
         "relations": [],
     })

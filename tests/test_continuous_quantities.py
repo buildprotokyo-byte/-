@@ -163,6 +163,7 @@ def _evidence(unit: str, rng: list[object], *, source: str, axis: str, method: s
         "source_id": source, "source_fingerprint": f"sha256:{source}",
         "axis_id": axis, "method_id": method,
         "strength": "strong", "status": "confident", "calibrated": True,
+        "derivation": "read",
     }
 
 

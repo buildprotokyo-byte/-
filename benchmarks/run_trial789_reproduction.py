@@ -191,6 +191,7 @@ def make_evidence(
                 value, erroneous=rng.random() < rate, model=model, rng=rng
             )
             items.append(AxisEvidence(
+                derivation="read",
                 target=name, count_range=(low, high), source_id=source,
                 axis_id=axis, method_id=f"method_{source}", unit="count",
                 calibrated=True,
@@ -202,6 +203,7 @@ def make_evidence(
                     model=model, rng=rng,
                 )
                 items.append(AxisEvidence(
+                    derivation="read",
                     target=name, count_range=(low, high), source_id=source,
                     axis_id=axis, method_id=f"method_{source}", unit="count",
                     strength="weak", calibrated=True,

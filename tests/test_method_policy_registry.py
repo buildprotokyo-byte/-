@@ -84,6 +84,7 @@ def _area_evidence(source: str, axis: str, method: str, rng: list[int]) -> dict:
         "source_id": source, "source_fingerprint": f"sha256:{source}",
         "axis_id": axis, "method_id": method,
         "strength": "strong", "status": "confident", "calibrated": True,
+        "derivation": "read",
     }
 
 

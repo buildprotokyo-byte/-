@@ -272,6 +272,7 @@ def test_an_empty_population_is_not_a_perfect_score() -> None:
 def _evidence(target: str, rng: tuple[int, int], source: str, axis: str,
               strength: str = "strong") -> AxisEvidence:
     return AxisEvidence(
+        derivation="read",
         target=target, count_range=rng, source_id=source, axis_id=axis,
         method_id=f"method_{source}", unit="count",
         strength=strength, calibrated=True,  # type: ignore[arg-type]

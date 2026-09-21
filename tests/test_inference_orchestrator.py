@@ -59,6 +59,7 @@ def item(
     strength="strong",
     status="confident",
     calibrated=True,
+    derivation="read",
     confidence=0.9,
     unit="count",
     target="door_count",
@@ -75,6 +76,7 @@ def item(
         "strength": strength,
         "status": status,
         "calibrated": calibrated,
+        "derivation": derivation,
         "model_confidence": confidence,
         "unit": unit,
     }
