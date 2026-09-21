@@ -73,6 +73,18 @@ _RELATION_OPS: dict[str, Callable[[z3.ArithRef, z3.ArithRef], z3.BoolRef]] = {
 Operand = Union[str, int, Callable[[dict], z3.ArithRef]]
 
 
+class _AccessRecordingVariables(dict):
+    """``referenced_variables()`` 用: ``__getitem__`` されたキーを記録する辞書。"""
+
+    def __init__(self, data: dict[str, z3.ArithRef]) -> None:
+        super().__init__(data)
+        self.accessed: set[str] = set()
+
+    def __getitem__(self, key: str) -> z3.ArithRef:
+        self.accessed.add(key)
+        return super().__getitem__(key)
+
+
 @dataclass(frozen=True)
 class Variable:
     """ハードな制約に使う変数 1 つ(強い軸から登録されたもの)。"""
@@ -270,6 +282,61 @@ class ConsistencySolver:
         """変数が登録済みか(棄権により未登録の可能性があるため、呼び出し側の
         ガード用に公開している)。"""
         return name in self._variables
+
+    def variable_names(self) -> frozenset[str]:
+        """登録済みの(強い軸の)変数名の集合。
+
+        ``killer_question`` パッケージが依存関係グラフを組み立てる際に使う。
+        依存関係という"事実"はここ(整合性軸)に既に存在しているため、
+        killer_question 側で制約を再宣言しない設計にするための公開 API。
+        """
+        return frozenset(self._variables)
+
+    def variable_axis(self, name: str) -> str:
+        """変数が属する軸の名前(登録時の ``axis`` 引数)。"""
+        return self._variables[name].axis
+
+    def constraint_names(self) -> tuple[str, ...]:
+        """登録済みの制約名の一覧(``add_relation`` / ``add_constraint`` で
+        宣言したもの。``solve()`` が内部生成する範囲制約は含まない)。"""
+        return tuple(c.name for c in self._constraints)
+
+    def referenced_variables(self, constraint_name: str) -> frozenset[str]:
+        """指定した制約が参照している変数名の集合を調べる。
+
+        ``Constraint.build`` は任意の Python 関数なので、静的解析はしない。
+        代わりに、変数辞書のアクセスを記録するダミー辞書を渡して実際に
+        ``build`` を1回実行し、``__getitem__`` されたキーを記録する
+        (式そのものは使い捨てる)。``add_relation`` の文字列オペランドも、
+        素の ``add_constraint`` に渡した関数も、辞書アクセス(``v["name"]``)
+        でしか変数を参照できないため、この方法で網羅できる。
+        """
+        constraint = self._constraint_by_name(constraint_name)
+        recorder = _AccessRecordingVariables(
+            {name: z3.Int(name) for name in self._variables}
+        )
+        constraint.build(recorder)
+        return frozenset(recorder.accessed)
+
+    def _constraint_by_name(self, name: str) -> Constraint:
+        for constraint in self._constraints:
+            if constraint.name == name:
+                return constraint
+        raise KeyError(f"制約 '{name}' は登録されていません")
+
+    def clone(self) -> "ConsistencySolver":
+        """変数・制約の登録内容をコピーした、独立した新しいインスタンスを返す。
+
+        ``killer_question`` エンジンが「この値を仮に確定したら」という
+        仮説を試すために使う。``Variable`` / ``Constraint`` 等はいずれも
+        frozen dataclass なので、コンテナ(dict/list)だけを複製すれば安全。
+        """
+        clone = ConsistencySolver()
+        clone._variables = dict(self._variables)
+        clone._constraints = list(self._constraints)
+        clone._advisories = list(self._advisories)
+        clone._abstained = list(self._abstained)
+        return clone
 
     # -- 制約の宣言 ----------------------------------------------------------
     def add_constraint(
