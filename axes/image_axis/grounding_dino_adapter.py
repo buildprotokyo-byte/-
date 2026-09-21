@@ -73,6 +73,22 @@ DEFAULT_TEXT_THRESHOLD = 0.25
 DEFAULT_CONFIDENT_MARGIN = 0.15
 """受理しきい値に上乗せする余裕幅。これを超えたものだけを confident と呼ぶ。"""
 
+GROUNDING_DINO_CONFIDENCE_IS_CALIBRATED_FOR_SYMBOL_DETECTION = False
+"""図面記号(戸・窓)検出において、Grounding DINO の生スコアを実測校正済みとして
+扱ってよいか。
+
+``docs/stage_a_report.md`` 9章・``docs/sahi_tiling_report.md`` の実測で、確信度
+スコアと正しさが逆相関することが確認されている(全体画像・SAHI方式でのタイル分割
+のいずれでも、検証した全16条件で「重ならない検出」の方が「重なる検出」より高スコア)。
+``docs/design_v8.md`` 11章の決定により、この値は常に ``False``。
+
+``arbitration/axis_quality_firewall.py`` の ``AxisEvidence.calibrated`` へこの
+バックエンドの読み取りを登録する際は、内部の ``model_confidence`` の値に関わらず
+この定数を使うこと。値を ``True`` に変える場合は、11-3 のスコア方向検査(正解と
+重なる/重ならない出力のスコア分布比較)を再実施し、逆相関が解消したことを確認した
+上で、その根拠を ``docs/design_v8.md`` 11章に追記すること。
+"""
+
 
 @dataclass(frozen=True)
 class RawDetection:
@@ -174,6 +190,19 @@ class HuggingFaceGroundingDinoBackend:
 
     ``box_threshold`` / ``text_threshold`` はここでは掛けず、プロセッサ側の
     しきい値を十分低く設定して生スコアを取り出し、判定はアダプタに委ねます。
+
+    .. warning::
+        実測(``docs/stage_a_report.md`` 9章、``docs/sahi_tiling_report.md``)で、
+        図面記号の検出において**確信度スコアと正しさが逆相関する**ことが確認されて
+        います(全体画像・SAHI方式でのタイル分割のいずれでも、検証した全16条件で
+        「正解と重なる検出」より「重ならない検出」の方が高スコアでした)。
+        ``docs/design_v8.md`` 11章の決定により、このバックエンドを実運用の画像軸
+        として使う場合は ``arbitration/axis_quality_firewall.py`` の
+        ``AxisEvidence.calibrated`` を常に ``False`` として登録してください
+        (内部の ``model_confidence`` が高くても、実測校正済みの強い軸としては
+        扱えません)。図面データで微調整したモデル等に置き換える際は、11-3の
+        スコア方向検査(正解と重なる/重ならない出力のスコア分布比較)を再度行い、
+        逆相関が無いことを確認してから ``calibrated=True`` を検討してください。
     """
 
     def __init__(

@@ -201,3 +201,19 @@ def test_huggingface_backend_reports_instead_of_silently_returning_nothing() -> 
     backend = HuggingFaceGroundingDinoBackend(model_id="does-not-exist/none-at-all")
     with pytest.raises(RuntimeError):
         backend._ensure_loaded()
+
+
+def test_grounding_dino_confidence_is_not_calibrated_for_symbol_detection() -> None:
+    """docs/design_v8.md 11章の決定を固定するトリップワイヤー。
+
+    docs/stage_a_report.md 9章・docs/sahi_tiling_report.md の実測で、図面記号
+    検出における確信度スコアと正しさの逆相関が確認されている(全体画像・SAHI方式の
+    タイル分割いずれでも全16条件で再現)。この値をTrueに変える場合は、11-3の
+    スコア方向検査を再実施し、根拠をdocs/design_v8.md 11章に追記した上で、
+    このテストを更新すること。
+    """
+    from axes.image_axis.grounding_dino_adapter import (
+        GROUNDING_DINO_CONFIDENCE_IS_CALIBRATED_FOR_SYMBOL_DETECTION,
+    )
+
+    assert GROUNDING_DINO_CONFIDENCE_IS_CALIBRATED_FOR_SYMBOL_DETECTION is False
