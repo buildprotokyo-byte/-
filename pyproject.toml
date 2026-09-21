@@ -10,7 +10,14 @@ requires-python = ">=3.11"
 readme = "README.md"
 
 [tool.setuptools]
-packages = ["axes", "arbitration", "killer_question"]
+packages = [
+    "axes",
+    "axes.image_axis",
+    "axes.absolute_rule_axis",
+    "arbitration",
+    "killer_question",
+    "benchmarks",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

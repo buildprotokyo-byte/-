@@ -1,4 +1,14 @@
+# 画像軸・絶対ルール軸の共通依存
 numpy
 pillow
 opencv-python-headless
 pytest
+
+# 段階A(OSSリソースの機能化)で追加
+vtracer            # ラスター → ベクター変換(画像軸の前処理)
+cairosvg           # VTracer が出す SVG の描画(計測に使う)
+ifcopenshell       # IFC の空間階層・containment API(絶対ルール軸)
+
+# Grounding DINO を動かす場合に追加で必要(huggingface.co への到達が前提)
+# torch
+# transformers
