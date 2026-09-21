@@ -31,12 +31,16 @@ def make_orchestrator():
         "prior": MethodPolicy(calibrated=True, max_strength="weak"),
         "distribution": MethodPolicy(calibrated=True, max_strength="weak"),
         "stats": MethodPolicy(calibrated=True, max_strength="weak"),
+        # 2つ目の独立した弱い軸。以前は業界一般統計軸("statistical")を使って
+        # いたが、その軸は軸間照合から外れたため(docs/design_v8.md 5-2節)、
+        # 整合性軸の比率を弱い軸として使うケースに置き換えている。
+        "rule_ratio": MethodPolicy(calibrated=True, max_strength="weak"),
         "m1": MethodPolicy(calibrated=True, max_strength="strong"),
         "m2": MethodPolicy(calibrated=True, max_strength="strong"),
     })
     sources = {
         name: f"sha256:{name}"
-        for name in ("drawing-A", "spec-A", "history-A", "stats-A", "a", "b")
+        for name in ("drawing-A", "spec-A", "history-A", "stats-A", "rule-A", "a", "b")
     }
     sources.update({f"source-{index}": f"sha256:source-{index}" for index in range(4)})
     sources.update({
@@ -109,7 +113,7 @@ def test_case_02_one_strong_and_two_independent_weak_sources_is_tier2():
         request([
             item(source="spec-A", axis="text", method="table"),
             item(source="history-A", axis="history", method="prior", strength="weak"),
-            item(source="stats-A", axis="statistical", method="distribution", strength="weak"),
+            item(source="rule-A", axis="rules", method="rule_ratio", strength="weak"),
         ])
     )
     assert result.decision.tier == 2
@@ -185,7 +189,7 @@ def test_case_09_all_weak_routes_insufficient_evidence():
     result = make_orchestrator().process(
         request([
             item(source="history-A", axis="history", method="prior", strength="weak"),
-            item(source="stats-A", axis="statistical", method="stats", strength="weak"),
+            item(source="rule-A", axis="rules", method="rule_ratio", strength="weak"),
         ])
     )
     assert result.decision.tier == 3

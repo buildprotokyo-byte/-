@@ -1,8 +1,11 @@
-# 【案】業界一般統計軸の位置づけ修正 — 「部材数量の妥当性チェック」から「見積もり合計金額の妥当性チェック」へ
+# 業界一般統計軸の位置づけ修正 — 「部材数量の妥当性チェック」から「見積もり合計金額の出口検査」へ(承認・実装済み)
 
 作成日: 2026年9月21日
-状態: **提案。おーちゃんの確認前であり、`docs/design_v8.md` にはまだ反映していない。**
-関連: `docs/industry_statistics_axis_report.md`、`docs/design_v8.md` 2節・3-2節・5節・8節
+状態: **承認済み・実装済み(2026-09-21)。** おーちゃんの承認を受けて、2節の位置づけ
+修正・3節の閾値・4-2節のコード変更・4-3節のv8反映をすべて実施しました。
+5節の確認事項に対する回答は本文末尾の「6. 承認された内容と実施結果」を参照。
+関連: `docs/industry_statistics_axis_report.md`、`docs/design_v8.md` 2節・3-2節・5-2節・8節、
+`docs/top_priority_unit_safety_defect.md`(最優先課題として切り出した単位安全性の欠陥)
 
 ---
 
@@ -400,3 +403,42 @@ v8 5節は補助専用軸について「**他の軸の答えを直接排除す�
 
 確認をいただくまで、`docs/design_v8.md` と
 `docs/industry_statistics_axis_report.md` は変更していません。
+
+---
+
+## 6. 承認された内容と実施結果(2026-09-21)
+
+おーちゃんから5節の3点すべてについて「提案通り進めてください」との承認を受け、
+追加の依頼3件と合わせて実施しました。
+
+| # | 内容 | 結果 |
+|---|---|---|
+| 1 | 出口検査へ位置づけ直し、階層を下げる権限のみ持たせる | **実施。** `arbitration/total_amount_sanity_check.py` を新規作成。`TotalAmountVerdict` に階層を上げる結論が型として存在しない |
+| 2 | 下振れ検出は実装せず正式に棄権 | **実施。** 0.5万円でも `within_distribution` を返す(`test_the_low_side_is_never_flagged` で固定) |
+| 3 | `AxisEvidence` への単位フィールド追加を別タスクに切り出し、優先度を最上位へ | **実施。** `docs/top_priority_unit_safety_defect.md`、v8 10章の項目7 |
+| 4 | 報告書4節の正式な撤回・訂正 | **実施。** 報告書4節の冒頭に撤回告知、2節・3節・5節・6節も訂正 |
+| 5 | 段階B以降に同種の単位取り違えが他にないか点検 | **実施。5件検出。** うち2件は本提案の指摘より重い。`docs/top_priority_unit_safety_defect.md` 3節・4節 |
+| 6 | テスト件数の記載間違いの訂正 | **実施。** 報告書5節1項。241件→実測270件(修正後277件) |
+
+### 実施に伴うコードの変更
+
+| 変更 | 内容 |
+|---|---|
+| 削除 | `axes/industry_statistics_axis/reading.py`(金額を `count_range` に入れていた経路) |
+| 新規 | `arbitration/total_amount_sanity_check.py`(出口検査) |
+| 新規 | `axes/industry_statistics_axis/metric_names.py`(用途→項目名の引き当てのみ) |
+| 変更 | `arbitration/inference_orchestrator.py`: `ALLOWED_AXES` から `"statistical"` を除外 |
+| 変更 | `axes/industry_statistics_axis/snapshot.py`: `IndustryMetric` に閾値3項目を追加 |
+| 変更 | `axes/industry_statistics_axis/fetch.py`: 閾値を原本の階級分布から計算 |
+| 書き換え | `tests/test_industry_statistics_axis.py`(22件)、`tests/test_industry_statistics_integration.py`(5件) |
+| 修正 | `tests/test_inference_orchestrator.py`、`tests/test_killer_question_precision_modes.py`: 2つ目の弱い軸を `"statistical"` から `"rules"` に置き換え |
+
+回帰テストは **277件全パス(失敗0・スキップ0)**。
+
+### 3-3節の判断について(実施後の補足)
+
+下振れを検出しないという判断は、`0.5万円` の見積もりでも警告が出ないことを
+意味します。実装ではこれをテストで固定し、`evidence` に
+「最下位階級が全体の78.8%を占め、その内側の分布が統計に無いため、下振れは
+判定していない」という文を必ず入れるようにしました。**検出していないことが
+黙って隠れないように**するためです。

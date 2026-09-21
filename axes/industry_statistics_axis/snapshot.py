@@ -25,7 +25,13 @@ DEFAULT_SNAPSHOT_DIR = Path(__file__).parent / "snapshots"
 
 @dataclass(frozen=True)
 class IndustryMetric:
-    """業界統計の項目1つ分(あり得る値の範囲)。"""
+    """業界統計の項目1つ分(あり得る値の範囲)。
+
+    ``high_outlier_threshold`` 以下の3つは、合計金額サニティチェック
+    (`arbitration/total_amount_sanity_check.py`)が使う閾値。どれも
+    ``fetch.py`` が原本の階級分布から計算するもので、手で置いた値ではない。
+    古いスナップショットJSONを読めるように既定値は ``None`` にしている。
+    """
 
     name: str
     unit: str
@@ -33,6 +39,19 @@ class IndustryMetric:
     high: float
     typical: float | None = None
     sample_description: str = ""
+
+    #: 上振れを「桁違い」と判定する閾値(第99パーセンタイル)。
+    #: 中央値の10倍ではなく実測の分位点を使う理由は
+    #: `docs/proposal_industry_statistics_repositioning.md` 3-1節。
+    high_outlier_threshold: float | None = None
+
+    #: 上限の無い最上位階級の下限。これを超えた金額について、統計は
+    #: 「これ以上」としか言えない。
+    beyond_statistics_threshold: float | None = None
+
+    #: 最下位階級が全体に占める割合(0〜1)。これが大きいほど ``low`` は
+    #: 階級内一様分布の仮定に依存し、下振れの判定には使えない。
+    bottom_band_share: float | None = None
 
     def __post_init__(self) -> None:
         if self.low > self.high:

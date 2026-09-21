@@ -29,7 +29,12 @@ from arbitration.escalation_router import (
     RouteDecision,
 )
 
-ALLOWED_AXES = frozenset({"image", "geometry", "text", "rules", "history", "statistical"})
+#: 軸間照合に参加できる軸。"statistical"(業界一般統計軸)は 2026-09-21 に外した。
+#: 統計が持つのは個別工事の受注額(万円/件)の分布だけで、対象要素の数量には
+#: 答えられないため、軸ではなく出口検査
+#: (arbitration/total_amount_sanity_check.py)に位置づけ直した。
+#: 登録されていること自体が、金額を数量として通す事故の入口になる。
+ALLOWED_AXES = frozenset({"image", "geometry", "text", "rules", "history"})
 ALLOWED_STATUSES = frozenset({"confident", "low_confidence", "abstained"})
 ALLOWED_STRENGTHS = frozenset({"strong", "weak"})
 UNIT_ALIASES = {"count": "count", "件": "count", "個": "count", "数量": "count"}

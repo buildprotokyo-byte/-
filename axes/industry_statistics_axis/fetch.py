@@ -81,6 +81,11 @@ _LOW_PERCENTILE = 0.05
 _TYPICAL_PERCENTILE = 0.50
 _HIGH_PERCENTILE = 0.95
 
+#: 合計金額サニティチェックが上振れを「桁違い」と判定する分位点。
+#: 「中央値の10倍」は閾値にならない(中央値の10倍を超える工事が実在で
+#: 2.7〜11.9% ある)。根拠は `docs/proposal_industry_statistics_repositioning.md` 3-1節。
+_OUTLIER_PERCENTILE = 0.99
+
 _UNIT = "万円/件"
 
 #: 階級の合計と表の「計」のずれをどこまで許すか(四捨五入・推計誤差の分)。
@@ -322,12 +327,23 @@ def build_metrics(
                     "(上限を捏造しない)"
                 )
                 continue
+            # 合計金額サニティチェック用の閾値。上振れの判定にしか使わない。
+            # 上限の無い最上位階級に落ちる用途では outlier は None になり、
+            # その場合は beyond_statistics_threshold 側だけで判定する。
+            outlier = percentile(bands, use, _OUTLIER_PERCENTILE)
+            open_ended = [band for band in bands if band.high is None]
+            beyond = open_ended[0].low if open_ended else None
+            bottom_share = bands[0].counts.get(use, 0.0) / total
+
             metrics[name] = IndustryMetric(
                 name=name,
                 unit=_UNIT,
                 low=round(low, 1),
                 high=round(high, 1),
                 typical=round(typical, 1) if typical is not None else None,
+                high_outlier_threshold=round(outlier, 1) if outlier is not None else None,
+                beyond_statistics_threshold=beyond,
+                bottom_band_share=round(bottom_share, 4),
                 sample_description=(
                     f"{table_number} 個別工事の受注額、用途別 受注件数。"
                     f"用途「{use}」の推計受注件数 {total:,.0f} 件、金額階級 {len(bands)} 区分。"

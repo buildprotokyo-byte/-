@@ -104,7 +104,7 @@ def test_precise_mode_treats_tier2_firewall_decisions_as_needing_confirmation() 
         AxisEvidence(target="x", count_range=(4, 6), source_id="weak-src-1",
                      axis_id="history", method_id="prior1", calibrated=True, strength="weak"),
         AxisEvidence(target="x", count_range=(4, 6), source_id="weak-src-2",
-                     axis_id="statistical", method_id="prior2", calibrated=True, strength="weak"),
+                     axis_id="rules", method_id="prior2", calibrated=True, strength="weak"),
     ]
     decision = AxisQualityFirewall().assess(evidences)
     assert decision.tier == 2
