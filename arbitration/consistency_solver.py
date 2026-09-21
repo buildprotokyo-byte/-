@@ -256,6 +256,11 @@ class ConsistencySolver:
             )
         )
 
+    def has_variable(self, name: str) -> bool:
+        """変数が登録済みか(棄権により未登録の可能性があるため、呼び出し側の
+        ガード用に公開している)。"""
+        return name in self._variables
+
     # -- 制約の宣言 ----------------------------------------------------------
     def add_constraint(
         self,
