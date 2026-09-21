@@ -331,7 +331,10 @@ class KillerQuestionEngine:
         """同点を、誤り率の低い軸→変数名の昇順で決定的に崩す(4-3節)。"""
 
         def error_rate(candidate: CandidateScore) -> float:
-            axis = self._solver.variable_axis(candidate.variable)
+            # 確信度階層のラベル(firewall_*)ではなく、値の**出どころ**の軸で
+            # 引く。``variable_axis()`` を使うと、firewall_bridge を通した
+            # 変数では誤り率表に一致せず、このルールが発火しない。
+            axis = self._solver.variable_error_rate_axis(candidate.variable)
             return self._axis_error_rates.get(axis, _UNKNOWN_AXIS_ERROR_RATE)
 
         return sorted(tied, key=lambda c: (error_rate(c), c.variable))[0]

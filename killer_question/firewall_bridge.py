@@ -201,11 +201,23 @@ def add_target_to_joint_solver(
         else:
             lower, upper = decision.confirmed_range
 
+    # 値の出どころの軸を、確信度階層のラベルとは別に渡す。
+    # ``axis`` には firewall_* のラベルが入るため、これが無いと
+    # v8 4-3節ルール2(同じスコアなら誤り率の低いデータ源を優先する)が
+    # **実運用の経路では一度も発火しない**
+    # (2026-09-21 実測。`docs/trial789_reproduction_report.md` 4節)。
+    #
+    # **留保: 証拠が複数の軸から来ている場合、先頭の軸を採っている。** 上の
+    # 精密モードの分岐が既に ``speaking[0].axis_id`` を使っているのと同じ規約に
+    # 合わせた。誤り率がいちばん低い軸を選ぶほうが 4-3節ルール2の意図には近いが、
+    # bridge は誤り率表を持っていないため、ここでは決められない。
+    speaking_axes = [e.axis_id for e in evidences if e.status != "abstained"]
     solver.add_variable(
         target,
         lower,
         upper,
         axis=axis,
+        source_axis=speaking_axes[0] if speaking_axes else "",
         requires_confirmation=requires_confirmation,
         evidence={
             "firewall_tier": decision.tier,

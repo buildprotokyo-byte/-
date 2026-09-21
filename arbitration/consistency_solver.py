@@ -107,6 +107,22 @@ class Variable:
     #: `docs/top_priority_unit_safety_defect.md` 3-4節)。
     requires_confirmation: bool = False
 
+    #: この値の**出どころの軸**("image" / "text" / "history" 等)。
+    #:
+    #: ``axis`` とは役割が違う。``killer_question/firewall_bridge.py`` を通すと
+    #: ``axis`` には確信度階層のラベル(``firewall_provisional`` 等)が入るため、
+    #: **元の軸が分からなくなる。** その結果、v8 4-3節ルール2の
+    #: 「同じスコアなら誤り率の低いデータ源を優先する」(トライアル9)が
+    #: **実運用の経路では一度も発火しない**という状態になっていた
+    #: (2026-09-21 実測。`docs/trial789_reproduction_report.md` 4節)。
+    #: 空文字のときは ``axis`` を出どころとして扱う。
+    source_axis: str = ""
+
+    @property
+    def error_rate_axis(self) -> str:
+        """データ源別誤り率を引くときに使う軸名。"""
+        return self.source_axis or self.axis
+
 
 @dataclass(frozen=True)
 class AbstainedReading:
@@ -222,11 +238,16 @@ class ConsistencySolver:
         evidence: dict[str, object] | None = None,
         requires_confirmation: bool = False,
         unit: str = "",
+        source_axis: str = "",
     ) -> None:
         """下限・上限を直接指定して、ハードな制約に使う変数を登録する。
 
         ``requires_confirmation=True`` は「レンジ幅が 0 でも、まだ人の確認を
         得ていない」ことを表す(v8 3-3節の階層3)。
+
+        ``source_axis`` は値の出どころの軸。``axis`` に確信度階層のラベルを
+        入れる呼び出し(``firewall_bridge``)でも、データ源別誤り率を引けるように
+        するためのもの。省略すると ``axis`` を出どころとして扱う。
         """
         if name in self._variables:
             raise ValueError(f"変数 '{name}' は既に登録されています")
@@ -235,6 +256,7 @@ class ConsistencySolver:
         self._variables[name] = Variable(
             name, lower, upper, axis, strength, dict(evidence or {}),
             unit=unit, requires_confirmation=requires_confirmation,
+            source_axis=source_axis,
         )
 
     def add_variable_from_reading(
@@ -317,6 +339,14 @@ class ConsistencySolver:
         """変数が属する軸の名前(登録時の ``axis`` 引数)。"""
         return self._variables[name].axis
 
+    def variable_error_rate_axis(self, name: str) -> str:
+        """データ源別誤り率を引くときに使う軸名(``source_axis`` 優先)。
+
+        ``firewall_bridge`` を通すと ``axis`` は確信度階層のラベルになるので、
+        誤り率の参照にはこちらを使う(v8 4-3節ルール2)。
+        """
+        return self._variables[name].error_rate_axis
+
     def requires_confirmation(self, name: str) -> bool:
         """その変数が、レンジ幅に関わらず人の確認を要するか(階層3かどうか)。"""
         variable = self._variables.get(name)
@@ -341,6 +371,7 @@ class ConsistencySolver:
             variable.name, variable.lower, variable.upper, variable.axis,
             variable.strength, dict(variable.evidence),
             unit=variable.unit, requires_confirmation=False,
+            source_axis=variable.source_axis,
         )
 
     def constraint_names(self) -> tuple[str, ...]:
