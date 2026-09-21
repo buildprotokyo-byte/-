@@ -1,9 +1,0 @@
-{
-  "source_name": "国土交通省 建築物リフォーム・リニューアル調査",
-  "source_url": "https://www.e-stat.go.jp/",
-  "fetched_at": "2026-09-21",
-  "period_covered": "未取得(ネットワーク許可リスト設定待ち)",
-  "metrics": {},
-  "is_placeholder": true,
-  "notes": "このクラウド実行環境から e-stat.go.jp への到達が組織ポリシーにより遮断されているため(2026-09-21確認、docs/industry_statistics_axis_report.md 1節参照)、実データは未取得。metricsは意図的に空にしてある(架空の数値は入れていない)。許可リスト設定後、実データで新しいスナップショットを保存すること。"
-}

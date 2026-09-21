@@ -84,14 +84,41 @@ def test_load_latest_snapshot_returns_none_for_empty_directory(tmp_path) -> None
     assert load_latest_snapshot(tmp_path) is None
 
 
-def test_shipped_placeholder_snapshot_loads_and_is_marked_as_placeholder() -> None:
-    """リポジトリに同梱している既定スナップショットが、正直にプレースホルダーで
-    あることを示している(架空の数値を含んでいない)ことを確認する。
+def test_shipped_snapshot_is_real_data_not_a_placeholder() -> None:
+    """リポジトリに同梱している既定スナップショットが、e-Statから取得した
+    実データであり、プレースホルダーではないことを確認する。
     """
     snapshot = load_latest_snapshot(DEFAULT_SNAPSHOT_DIR)
     assert snapshot is not None
-    assert snapshot.is_placeholder is True
-    assert snapshot.metrics == {}
+    assert snapshot.is_placeholder is False
+    assert snapshot.metrics != {}
+    assert "e-stat.go.jp" in snapshot.source_url
+    assert "建築物リフォーム・リニューアル調査" in snapshot.source_name
+
+
+def test_shipped_snapshot_metrics_are_well_formed() -> None:
+    """同梱スナップショットの全項目が、単位付きで low <= typical <= high に
+    なっていることを確認する(取り込み時に順序が壊れていないこと)。
+    """
+    snapshot = load_latest_snapshot(DEFAULT_SNAPSHOT_DIR)
+    assert snapshot is not None
+    for name, metric in snapshot.metrics.items():
+        assert metric.unit, name
+        assert metric.low <= metric.high, name
+        assert metric.typical is not None, name
+        assert metric.low <= metric.typical <= metric.high, name
+        assert metric.sample_description, name
+
+
+def test_load_latest_snapshot_prefers_real_data_over_a_same_day_placeholder(tmp_path) -> None:
+    """同じ取得日に実データとプレースホルダーが並んでいたら、実データを返す。"""
+    save_snapshot(_sample_snapshot(is_placeholder=True, fetched_at=date(2026, 5, 1)), tmp_path)
+    save_snapshot(_sample_snapshot(fetched_at=date(2026, 5, 1)), tmp_path)
+
+    latest = load_latest_snapshot(tmp_path)
+
+    assert latest is not None
+    assert latest.is_placeholder is False
 
 
 # ---------------------------------------------------------------------------
@@ -110,8 +137,8 @@ def test_reading_for_existing_metric_uses_the_metric_range() -> None:
 
 
 def test_reading_for_missing_metric_abstains_without_fabricating_numbers() -> None:
-    """プレースホルダー(metricsが空)に対して読み取りを試みると、
-    架空の数値を作らず棄権する。"""
+    """スナップショットに無い項目の読み取りを試みると、架空の数値を作らず棄権する
+    (実データを入れた後も、建具の個数のような未収録の項目は棄権のままになる)。"""
     snapshot = load_latest_snapshot(DEFAULT_SNAPSHOT_DIR)
     reading = reading_for_metric(snapshot, "door_count")
 
@@ -142,11 +169,25 @@ def test_axis_evidence_is_always_weak_and_uncalibrated() -> None:
     assert evidence.is_hard_eligible is False
 
 
-def test_axis_evidence_from_placeholder_is_abstained_and_still_not_hard_eligible() -> None:
+def test_axis_evidence_for_unknown_metric_is_abstained_and_not_hard_eligible() -> None:
     snapshot = load_latest_snapshot(DEFAULT_SNAPSHOT_DIR)
     evidence = axis_evidence_for_metric(snapshot, "door_count", target="door_count")
 
     assert evidence.status == "abstained"
+    assert evidence.is_hard_eligible is False
+
+
+def test_axis_evidence_from_real_shipped_metric_is_still_only_advisory() -> None:
+    """実データが入っても、この軸は弱いまま(強い軸に昇格しない)ことを確認する。"""
+    snapshot = load_latest_snapshot(DEFAULT_SNAPSHOT_DIR)
+    assert snapshot is not None
+    name = next(iter(snapshot.metrics))
+
+    evidence = axis_evidence_for_metric(snapshot, name, target="x")
+
+    assert evidence.status == "low_confidence"
+    assert evidence.strength == "weak"
+    assert evidence.calibrated is False
     assert evidence.is_hard_eligible is False
 
 

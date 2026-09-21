@@ -6,13 +6,11 @@
 記録した上でローカルに保存し、更新は別途明示的なタイミングで行う設計にする
 (指示書ステップ1)。
 
-現状(2026年9月21日時点)、この実行環境から e-stat.go.jp への到達は
-組織ポリシーにより遮断されている(段階Aの huggingface.co と同じ性質の
-制約。`docs/industry_statistics_axis_report.md` 1節で詳述)。そのため、
-同梱している既定のスナップショット(``snapshots/2026-09-21_placeholder.json``)
-は ``is_placeholder=True`` で、**具体的な統計値を一切含まない**。許可リストの
-設定後、``fetch_and_save_snapshot()`` 相当の取得スクリプト(未実装。2節参照)
-で実データを取得し、新しいスナップショットとして保存する運用を想定する。
+2026年9月21日に e-stat.go.jp への通信が許可され、実データを取得済み。
+同梱している既定のスナップショット(``snapshots/2026-09-21.json``)は
+``is_placeholder=False`` で、令和7年度計(2026-06-12公開)の実データから
+作った15項目を持つ。取得・再生成は ``axes/industry_statistics_axis/fetch.py``
+(``python -m axes.industry_statistics_axis.fetch``)で行う。
 """
 
 from __future__ import annotations
@@ -98,8 +96,12 @@ def load_latest_snapshot(directory: Path = DEFAULT_SNAPSHOT_DIR) -> StatisticsSn
 
     1つも無ければ ``None``。ファイル名ではなく ``fetched_at`` の値そのもので
     比較する(ファイル名の命名規則に依存しないため)。
+
+    同じ取得日のものが複数あるときは、``is_placeholder=False`` の方を優先する。
+    実データを入れた当日にプレースホルダーが残っていても、中身の無い方を
+    掴まないようにするため。
     """
     snapshots = [load_snapshot(path) for path in sorted(directory.glob("*.json"))]
     if not snapshots:
         return None
-    return max(snapshots, key=lambda s: s.fetched_at)
+    return max(snapshots, key=lambda s: (s.fetched_at, not s.is_placeholder))
