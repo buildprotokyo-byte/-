@@ -7,14 +7,15 @@
 1. 同一図面に複数手法を並べても、それだけでは階層1(自動確定)にならない
    (相関した誤りを独立軸として重複加算しない)
 2. 手法同士が食い違えば、そのデータ源ごとハード制約から降格する
-3. **ただし誤りが正解レンジと"重なる"場合、2の安全弁は働かない。**
-   v8 10章19項の未解決問題が、床面積という具体的な数量で現れる経路。
-   **この経路はコードでは止まらない**ので、12-2節(2)の「VTracer を床面積の
-   強い軸として登録しない」という登録側の規律が必要になる。
-   3が「守られている」ことではなく「破れている」ことを固定するテストである。
+3. 誤りが正解レンジと"重なる"場合、2の安全弁(積集合が空になること)は
+   働かない。**この経路は当初コードでは止まらなかったが、2026-09-21 に
+   中心値の一致を確定条件に加えて塞いだ**(v8 10章19項)。
+   12-2節(2)の「VTracer を床面積の強い軸として登録しない」という登録側の
+   規律は、二重の守りとして引き続き有効である。
 
 1か2が壊れると、12-2節(1)の「複数手法を並行して走らせる」がそのまま
-自動確定の水増しになる。3が(修理されて)変われば、12-2節(2)の根拠が変わる。
+自動確定の水増しになる。3は「破れている」ことを固定するテストだったが、
+修理されたので「塞がれている」ことを固定するテストに書き換えた。
 """
 
 from __future__ import annotations
@@ -81,16 +82,25 @@ def test_one_broken_method_demotes_the_whole_source() -> None:
     assert any("降格" in r for r in decision.reasons)
 
 
-def test_overlapping_vtracer_floor_area_error_auto_confirms_unnoticed() -> None:
-    """性質3【未解決】: 重なる誤りは止まらない。v8 10章19項・12-4節 実測3。
+def test_overlapping_vtracer_floor_area_error_now_escalates() -> None:
+    """性質3【2026-09-21 解消】: 重なる誤りが階層1で素通りしなくなった。
+
+    **このテストは当初、直っていないことを固定するために書かれていた。**
+    元の名前は `..._auto_confirms_unnoticed` で、「ここが直った(階層3に
+    なる等)ときにこのテストが落ちることで、12-2節(2)の規律の根拠が
+    変わったと気づける」という趣旨だった。**実際にそのとおりになったので
+    書き換えた。**
 
     文章軸(別データ源)が正解 995000〜1005000 cm² を出しているところへ、
     62.49% 上振れした VTracer の床面積を強い軸として並べる。積集合は空に
-    ならないので矛盾として検出されず、**確定値が正解レンジの上端へ
-    引きずられたまま階層1で自動確定する。**
+    ならないので矛盾としては検出されないが、**中心値が 100.0 ㎡ 対
+    131.25 ㎡ と離れている**ので、階層1の確定条件(v8 10章19項の対応)で
+    止まるようになった。
 
-    これは望ましい挙動ではない。ここが直った(階層3になる等)ときに
-    このテストが落ちることで、12-2節(2)の規律の根拠が変わったと気づける。
+    **12-2節(2)「VTracer 由来の床面積を階層1に使わない」という呼び出し側の
+    規律は、引き続き有効である。** ただしその根拠は変わった。以前は
+    ファイアウォールがこの誤りを止められないことが理由の一部だったが、
+    今はファイアウォール側でも止まる。規律は二重の守りとして残す。
     """
     decision = AxisQualityFirewall().assess([
         AxisEvidence(target="floor_area", count_range=(1_000_000, 1_625_000),
@@ -103,10 +113,12 @@ def test_overlapping_vtracer_floor_area_error_auto_confirms_unnoticed() -> None:
                      source_fingerprint="sha256:spec"),
     ])
 
-    assert decision.tier == 1
-    assert decision.action == "auto_confirm"
-    # 正解の中心(1000000)ではなく、上端に寄った値で確定してしまう。
-    assert decision.confirmed_range == (1_000_000, 1_005_000)
+    assert decision.tier == 3
+    assert decision.action == "requires_review"
+    assert decision.confirmed_range is None
+    assert decision.escalation is not None
+    assert decision.escalation.failure_type == "center_disagreement"
+    assert any("中心値" in r for r in decision.reasons)
 
 
 def test_vtracer_floor_area_as_advisory_does_not_auto_confirm() -> None:
