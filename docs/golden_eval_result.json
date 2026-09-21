@@ -1,0 +1,204 @@
+{
+  "extraction": {
+    "pages_total": 34,
+    "pages_with_text": 30,
+    "total_text_spans": 4774,
+    "scale": {
+      "denominator": 50.0,
+      "source_text": "1/50"
+    },
+    "mm_per_pixel_at_200dpi": 6.35,
+    "door_arc_count": 7,
+    "door_arc_widths_mm": [
+      615.9,
+      615.8,
+      691.8,
+      615.9,
+      615.8,
+      698.2,
+      605.2
+    ],
+    "areas_sqm": {
+      "専有延床面積": 95.54,
+      "施工床面積": 90.61
+    }
+  },
+  "scoring": {
+    "benchmark_id": "renovation-golden-001",
+    "item_count": 99,
+    "evidence_coverage": 1.0,
+    "evidence_coverage_strict": 0.697,
+    "evidence_coverage_specific": 0.596,
+    "evidenced": 99,
+    "fully_evidenced": 69,
+    "specifically_evidenced": 59,
+    "threshold_evidence_coverage": 0.9,
+    "by_expected_source_type": {
+      "standard_rule": {
+        "total": 8,
+        "evidenced": 8,
+        "rate": 1.0
+      },
+      "geometry_derived": {
+        "total": 40,
+        "evidenced": 40,
+        "rate": 1.0
+      },
+      "explicit_text": {
+        "total": 24,
+        "evidenced": 24,
+        "rate": 1.0
+      },
+      "symbol_count": {
+        "total": 26,
+        "evidenced": 26,
+        "rate": 1.0
+      },
+      "operator_input": {
+        "total": 1,
+        "evidenced": 1,
+        "rate": 1.0
+      }
+    },
+    "by_major_category": {
+      "仮設工事": {
+        "total": 8,
+        "evidenced": 8,
+        "rate": 1.0
+      },
+      "解体・撤去工事": {
+        "total": 15,
+        "evidenced": 15,
+        "rate": 1.0
+      },
+      "木工・大工工事": {
+        "total": 31,
+        "evidenced": 31,
+        "rate": 1.0
+      },
+      "建具工事": {
+        "total": 5,
+        "evidenced": 5,
+        "rate": 1.0
+      },
+      "内装仕上工事": {
+        "total": 9,
+        "evidenced": 9,
+        "rate": 1.0
+      },
+      "断熱・吸音工事": {
+        "total": 1,
+        "evidenced": 1,
+        "rate": 1.0
+      },
+      "電気設備工事": {
+        "total": 24,
+        "evidenced": 24,
+        "rate": 1.0
+      },
+      "給排水衛生設備工事": {
+        "total": 5,
+        "evidenced": 5,
+        "rate": 1.0
+      },
+      "現場管理・諸経費": {
+        "total": 1,
+        "evidenced": 1,
+        "rate": 1.0
+      }
+    },
+    "unit_distribution": {
+      "式": 28,
+      "㎡": 25,
+      "箇所": 33,
+      "m": 5,
+      "枚": 3,
+      "組": 2,
+      "一式": 2,
+      "台": 1
+    },
+    "unevidenced_items": []
+  },
+  "shuffled_control": {
+    "note": "各項目のtrigger_termsを別項目の推奨ページで探した場合",
+    "coverage": 0.98,
+    "hits": 97,
+    "total": 99
+  },
+  "area_check": {
+    "専有延床面積": {
+      "図面から読めた値": 95.54,
+      "ベンチマークの値": 95.54,
+      "一致": true
+    },
+    "施工床面積": {
+      "図面から読めた値": 90.61,
+      "ベンチマークの値": 90.61,
+      "一致": true
+    }
+  },
+  "quantity_attempt": {
+    "㎡ の項目数": 25,
+    "試みた項目数": 3,
+    "試みなかった項目数": 22,
+    "試みなかった理由": "室の輪郭を取る実装が無く、室ごとの床・壁・天井の面積が出せない",
+    "候補ごとの結果": {
+      "専有延床面積": {
+        "予測に使った値": 95.54,
+        "一致": 3,
+        "項目": [
+          {
+            "code": "G005",
+            "work_item": "内部養生費（工）",
+            "予測": 95.54,
+            "正解": 95.54,
+            "一致": true
+          },
+          {
+            "code": "G007",
+            "work_item": "墨出しS≧30",
+            "予測": 95.54,
+            "正解": 95.54,
+            "一致": true
+          },
+          {
+            "code": "G008",
+            "work_item": "竣工時清掃　",
+            "予測": 95.54,
+            "正解": 95.54,
+            "一致": true
+          }
+        ]
+      },
+      "施工床面積": {
+        "予測に使った値": 90.61,
+        "一致": 0,
+        "項目": [
+          {
+            "code": "G005",
+            "work_item": "内部養生費（工）",
+            "予測": 90.61,
+            "正解": 95.54,
+            "一致": false
+          },
+          {
+            "code": "G007",
+            "work_item": "墨出しS≧30",
+            "予測": 90.61,
+            "正解": 95.54,
+            "一致": false
+          },
+          {
+            "code": "G008",
+            "work_item": "竣工時清掃　",
+            "予測": 90.61,
+            "正解": 95.54,
+            "一致": false
+          }
+        ]
+      }
+    },
+    "図面はどちらを使うか書いているか": false,
+    "許容誤差": 0.05
+  }
+}
