@@ -30,6 +30,7 @@ def _strong(target: str, low: int, high: int, *, source: str, axis: str,
     return AxisEvidence(
         target=target, count_range=(low, high), source_id=source, axis_id=axis,
         method_id=f"method_{source}", unit=unit, calibrated=True,
+        derivation="read",
     )
 
 
@@ -38,6 +39,7 @@ def _weak(target: str, low: int, high: int, *, source: str, axis: str,
     return AxisEvidence(
         target=target, count_range=(low, high), source_id=source, axis_id=axis,
         method_id=f"method_{source}", unit=unit, strength="weak", calibrated=True,
+        derivation="read",
     )
 
 

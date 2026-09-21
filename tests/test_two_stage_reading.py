@@ -34,6 +34,15 @@ from benchmarks.two_stage_reading_fixtures import (
     ground_truth,
     question_traps,
 )
+from benchmarks.two_stage_reading_hard import (
+    SUPERSEDED_RULE,
+    SUPERSEDED_SCOPE,
+    hard_detail_pages,
+    hard_overview_pages,
+    hard_pages,
+    superseded_overview_page,
+    unlabelled_total_page,
+)
 from benchmarks.two_stage_reading_padding import (
     TARGET_PAGE_COUNT,
     padded_detail_pages,
@@ -46,7 +55,7 @@ from benchmarks.two_stage_reading_prose import (
 )
 
 DOCS = Path(__file__).resolve().parents[1] / "docs"
-LEVELS = (1, 2, 3)
+LEVELS = (1, 2, 3, 4)
 
 
 def _numbers(text: str) -> set[str]:
@@ -206,7 +215,7 @@ def test_方式Aと方式A2は同じページを見る(level: int) -> None:
 
 def test_知らない難易度は拒否される() -> None:
     with pytest.raises(ValueError):
-        _pages(ALL_SETS[0], 4)
+        _pages(ALL_SETS[0], 9)
 
 
 # --- 4. 難易度のかさ増しと散文化 ---------------------------------------------
@@ -364,3 +373,71 @@ def test_方式Aは天井に張り付いており上振れの余地がほとん�
     by_arm = score(runs)["summary"]["by_arm"]
     for level in (1, 3):
         assert by_arm[f"L{level}-A"]["accuracy"] >= 0.98
+
+
+# --- 7. 難易度4(方式Aの天井を壊すための条件。v8 10章23項) --------------------
+
+
+def test_難易度4は40ページで重複が無い() -> None:
+    for case in ALL_SETS:
+        pages = hard_pages(case)
+        assert len(pages) == 40
+        assert len(set(pages)) == len(pages), f"{case.set_id}: 同じページが2回出る"
+        for page in case.detail_pages:
+            assert page in pages
+
+
+def test_難易度4の概要は旧版と現行版の両方を含む() -> None:
+    """旧版を概要から外すと、方式Bだけが版の判断を免除されて不公平になる。"""
+    for case in ALL_SETS:
+        overview = hard_overview_pages(case)
+        assert len(overview) == 2
+        assert overview[0] == superseded_overview_page(case)
+        assert "第一版" in overview[0]
+        assert "第二版" in overview[1]
+        assert set(hard_detail_pages(case)) == set(hard_pages(case)) - set(overview)
+
+
+def test_旧版は現行版と食い違っている() -> None:
+    """食い違っていなければ、版を見分ける必要が無く難易度が上がらない。"""
+    for case in ALL_SETS:
+        old = superseded_overview_page(case)
+        assert SUPERSEDED_SCOPE[case.set_id] in old
+        assert SUPERSEDED_RULE[case.set_id] in old
+        current = "\n".join(case.overview_pages)
+        assert SUPERSEDED_SCOPE[case.set_id] not in current
+        assert SUPERSEDED_RULE[case.set_id] not in current
+
+
+def test_現行版が最新であることは資料から判定できる() -> None:
+    """理不尽な罠にしない。版を読めば決着がつくこと。"""
+    for case in ALL_SETS:
+        assert "本書が最新版であり" in hard_overview_pages(case)[1]
+
+
+def test_難易度4のおとりには但し書きが付いていない() -> None:
+    """難易度1〜3のおとりはラベルで無効化されていた(報告書。10章23項)。"""
+    for case in ALL_SETS:
+        page = unlabelled_total_page(case)
+        for label in ("参考", "別紙", "本工事の数量ではない", "過去"):
+            assert label not in page, f"{case.set_id} のおとりに但し書き {label} が残っている"
+        for value in case.decoys.values():
+            assert _contains_number(page, value)
+
+
+def test_難易度4でも正解値は変わっていない() -> None:
+    """難しくしたのは資料の書き方だけで、答えは凍結したまま。"""
+    frozen = json.loads(KEY_PATH.read_text(encoding="utf-8"))
+    assert frozen == {k: pytest.approx(v) for k, v in ground_truth().items()}
+
+
+def test_難易度4の補足資料の番号は数字を使わない() -> None:
+    """数字にすると、たまたま正解と同じ値になって資料に正解が現れる。
+
+    実際に「補足資料 28」が S2Q3 の正解 28 と衝突した。
+    """
+    for case in ALL_SETS:
+        for page in hard_pages(case):
+            if page.startswith("【補足資料"):
+                head = page.split("】")[0]
+                assert not any(ch.isdigit() for ch in head), head

@@ -29,6 +29,7 @@ from benchmarks.two_stage_reading_fixtures import (
     question_traps,
 )
 from benchmarks.two_stage_reading_padding import padded_detail_pages, padded_pages
+from benchmarks.two_stage_reading_hard import hard_detail_pages, hard_pages
 from benchmarks.two_stage_reading_prose import (
     prose_detail_pages,
     prose_overview_pages,
@@ -52,7 +53,9 @@ def _pages(case: CaseSet, level: int) -> tuple[tuple[str, ...], tuple[str, ...]]
     レベル1は概要1〜2 + 詳細3〜5ページの短い資料。
     レベル2は同じ内容を詰め物ページで24ページまで薄めた資料。
     レベル3はレベル2の概要ページを、同じ中身のまま散文に書き換えたもの。
-    概要ページの位置はどのレベルでも先頭で、変えているのは分量と書き方だけ。
+    レベル4は、おとりから但し書きを外し、食い違う旧版の概要書を足して
+    40ページにしたもの(10章23項。`two_stage_reading_hard.py`)。
+    概要ページの位置はどのレベルでも先頭である。
     """
     if level == 1:
         return case.overview_pages + case.detail_pages, case.detail_pages
@@ -60,6 +63,8 @@ def _pages(case: CaseSet, level: int) -> tuple[tuple[str, ...], tuple[str, ...]]
         return padded_pages(case), padded_detail_pages(case)
     if level == 3:
         return prose_pages(case), prose_detail_pages(case)
+    if level == 4:
+        return hard_pages(case), hard_detail_pages(case)
     raise ValueError(f"unknown level: {level}")
 
 
@@ -316,14 +321,14 @@ def main() -> None:
 
     p = sub.add_parser("prompts")
     p.add_argument("--out", required=True)
-    p.add_argument("--level", type=int, default=1, choices=(1, 2, 3))
+    p.add_argument("--level", type=int, default=1, choices=(1, 2, 3, 4))
     p.set_defaults(func=cmd_prompts)
 
     p = sub.add_parser("stage2")
     p.add_argument("--set-id", required=True)
     p.add_argument("--fixed", required=True)
     p.add_argument("--out", required=True)
-    p.add_argument("--level", type=int, default=1, choices=(1, 2, 3))
+    p.add_argument("--level", type=int, default=1, choices=(1, 2, 3, 4))
     p.set_defaults(func=cmd_stage2)
 
     p = sub.add_parser("freeze")
