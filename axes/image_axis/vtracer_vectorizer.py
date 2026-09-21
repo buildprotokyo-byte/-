@@ -35,6 +35,35 @@ MM_PER_PIXEL = 10.0
 """benchmarks/synthetic_plans.py と同じスケール。"""
 
 
+# ---------------------------------------------------------------------------
+# 手法ID(v8 12章・12-4節)
+# ---------------------------------------------------------------------------
+# VTracer の成績は、同じ「線の幾何」でも**そこから何の数量を出すか**で
+# まったく違う(トライアル12)。壁など太い線の総延長では条件付き採用だが、
+# 床面積は劣化が重なる現実的な条件で誤差 62.49% まで悪化した。
+#
+# `arbitration/inference_orchestrator.py` の `MethodPolicy` は **method_id だけ**
+# をキーにしているので、1つの ID のままでは「壁の総延長では強く、床面積では弱い」
+# を表現できない。**数量の種類ごとに ID を分ける**ことが、既存の仕組みで
+# この区別を入れられる唯一の形である。
+#
+# 強度そのものは `arbitration/method_policies.py` が持つ(この層は
+# arbitration を import しない。依存の向きは arbitration → axes)。
+
+METHOD_WALL_LINEWORK = "vtracer_wall_linework"
+"""壁など太い線の**総延長**。大津の二値化を先にかける前提で条件付き採用(段階A)。"""
+
+METHOD_FLOOR_AREA = "vtracer_floor_area"
+"""**床面積**。劣化が重なる条件で信頼できない。強い軸として登録してはならない。
+
+線が少し欠けても総延長の誤差は線形にしか効かないが、面積は境界が1か所
+途切れただけで領域が外へ漏れる。同じ前処理でも壊れ方の大きさが違う。
+"""
+
+METHOD_IDS = (METHOD_WALL_LINEWORK, METHOD_FLOOR_AREA)
+"""このモジュールが名乗ってよい手法IDの全て。"""
+
+
 #: CLI の ``--preset bw`` 相当。白黒の線画図面向け。
 BW_PRESET: dict[str, Any] = {
     "colormode": "binary",

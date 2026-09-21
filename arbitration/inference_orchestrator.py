@@ -111,7 +111,21 @@ class InferenceOrchestrator:
         self._constraint_search = ConstraintExhaustiveSearch()
         self._trace_cache: dict[str, OrchestrationResult] = {}
         # 未登録手法は安全側に倒し、校正済みstrongとして扱わない。
-        self._method_policies = dict(method_policies or {})
+        #
+        # 加えて、`arbitration/method_policies.py` の登録簿を**上限**として
+        # 適用する(v8 12-4節)。呼び出し側が `vtracer_floor_area` を
+        # うっかり strong / calibrated で渡しても、登録簿の上限まで引き下がる。
+        # 引き上げは行わない(登録簿に strong と書いてあっても、呼び出し側が
+        # 渡さなければ強い軸にはならない)。
+        #
+        # import を関数内に置いているのは、`method_policies` が `MethodPolicy`
+        # をこのモジュールから import しており、モジュール先頭では循環するため。
+        from arbitration.method_policies import clamp_to_defaults
+
+        self._method_policies = {
+            method_id: clamp_to_defaults(method_id, policy)
+            for method_id, policy in dict(method_policies or {}).items()
+        }
         # source_idと元データ指紋の対応は信頼された設定からのみ受け取る。
         self._source_registry = dict(source_registry or {})
 
