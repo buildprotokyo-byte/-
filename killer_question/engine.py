@@ -59,6 +59,21 @@ _UNKNOWN_AXIS_ERROR_RATE = 1.0
 #: 単価が未登録の要素に割り当てるインパクトスコア(重み付けなしと等価)。
 _DEFAULT_IMPACT = 1.0
 
+#: 1つの要素について列挙してよい候補値の上限。
+#:
+#: スコア計算は候補値1つごとに ``solver.clone().solve()`` を1回呼ぶため、
+#: 候補数にそのまま比例して時間がかかる。離散カウントでは候補が数個〜数十個
+#: なので問題にならないが、**固定小数点で表した連続量では容易に数千〜数万に
+#: なる**(実測: 配管延長 12.0〜13.0m = 1001候補で4.8秒。床面積 100㎡ を
+#: cm² で ±1% 見ると 20001候補)。
+#:
+#: 上限を超えた要素は「キラークエスチョンでは扱わない」として扱う。
+#: **未確定のまま残す**(``remaining_unresolved`` に入れる)のが要点で、
+#: 列挙できないことを理由に確定済みへ回してはならない。これは v8 9.5節
+#: 「設計への反映2」の「独立した合算にキラークエスチョンを無理に適用しない」
+#: と同じ結論である。
+_MAX_CANDIDATE_ENUMERATION = 256
+
 #: 反復選定ループの安全上限。1回の反復で必ず1つの変数が解決するか、ループが
 #: 終了するため理論上は不要だが、想定外のバグで無限ループになることを防ぐ
 #: 最終防波堤として置いている。
@@ -80,6 +95,18 @@ class CandidateScore:
     impact: float
     candidate_values: tuple[int, ...]
     downstream: frozenset[str]
+    #: 候補値が多すぎて列挙を諦めた場合 True。``candidate_values`` は空になる。
+    #: このとき質問は作れないが、要素は未確定のまま残る。
+    too_many_candidates: bool = False
+
+    @property
+    def is_askable(self) -> bool:
+        """この要素を人への質問にできるか。
+
+        候補値が無い要素を質問にすると、``run()`` の「回答は候補に含まれて
+        いなければならない」という検査を必ず落ちるため、選定の対象から外す。
+        """
+        return bool(self.candidate_values)
 
 
 @dataclass(frozen=True)
@@ -111,7 +138,8 @@ class SessionResult:
     remaining_unresolved: tuple[str, ...]
     final_solver: ConsistencySolver
     final_result: SolveResult
-    stopped_reason: str  # "all_resolved" | "no_further_reduction" | "unsat" | "coverage_reached"
+    stopped_reason: str  # "all_resolved" | "no_further_reduction" | "unsat"
+    #                      | "coverage_reached" | "candidates_not_enumerable"
     mode: PrecisionMode = PrecisionMode.STANDARD
     final_coverage: float | None = None
 
@@ -230,8 +258,16 @@ class KillerQuestionEngine:
     ) -> CandidateScore:
         """1つの未確定要素について、v8 4-2節の手順でスコアを計算する。"""
         lower, upper = base_result.variables[variable].solved_range
-        candidates = tuple(range(lower, upper + 1))
+        width = upper - lower + 1
         downstream = graph.connected_component(variable)
+        if width > _MAX_CANDIDATE_ENUMERATION:
+            # 列挙を諦める。スコア0・候補空で返すので、この要素は質問に
+            # 選ばれず、未確定のまま ``remaining_unresolved`` に残る。
+            return CandidateScore(
+                variable, 0.0, 0.0, self._impact(variable, base_result),
+                (), downstream, too_many_candidates=True,
+            )
+        candidates = tuple(range(lower, upper + 1))
         base_widths = {
             name: base_result.variables[name].solved_range[1]
             - base_result.variables[name].solved_range[0]
@@ -353,7 +389,13 @@ class KillerQuestionEngine:
                 return None
 
         graph = build_dependency_graph(self._solver)
-        scores = [self.score_candidate(result, graph, name) for name in unresolved]
+        all_scores = [self.score_candidate(result, graph, name) for name in unresolved]
+        # 候補値を列挙できなかった要素は質問にできない(``is_askable`` を参照)。
+        # 未確定のままにするのが正しい扱いなので、ここで選定対象から外すだけで、
+        # ``_unresolved_names`` からは落とさない。
+        scores = [s for s in all_scores if s.is_askable]
+        if not scores:
+            return None
         best, tie_broken = self._pick_best_by_score(scores)
 
         if best.score > 0:
@@ -412,6 +454,14 @@ class KillerQuestionEngine:
             "反復選定ループが安全上限に達しました(想定外です。バグの可能性があります)"
         )
 
+    def _has_only_unaskable_left(
+        self, result: SolveResult, unresolved: list[str]
+    ) -> bool:
+        """未解決の要素が、すべて候補列挙不能かどうか。"""
+        graph = build_dependency_graph(self._solver)
+        scored = [self.score_candidate(result, graph, name) for name in unresolved]
+        return bool(scored) and all(s.too_many_candidates for s in scored)
+
     def _finish(self) -> SessionResult:
         result = self._solver.solve()
         if not result.is_consistent:
@@ -436,6 +486,11 @@ class KillerQuestionEngine:
             and coverage >= self._target_coverage
         ):
             reason = "coverage_reached"
+        elif self._has_only_unaskable_left(result, unresolved):
+            # 残っているのが「候補値が多すぎて列挙できない要素」だけの状態。
+            # `no_further_reduction`(これ以上聞いても減らない)とは原因が
+            # 違うので、別の理由として区別する。
+            reason = "candidates_not_enumerable"
         else:
             reason = "no_further_reduction"
         return SessionResult(

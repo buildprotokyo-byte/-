@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Mapping, Sequence
 
+from arbitration import units as unit_registry
 from arbitration.axis_quality_firewall import AxisEvidence, AxisQualityFirewall, FirewallDecision
 from arbitration.constraint_exhaustive_search import (
     ConstraintExhaustiveSearch,
@@ -37,8 +38,13 @@ from arbitration.escalation_router import (
 ALLOWED_AXES = frozenset({"image", "geometry", "text", "rules", "history"})
 ALLOWED_STATUSES = frozenset({"confident", "low_confidence", "abstained"})
 ALLOWED_STRENGTHS = frozenset({"strong", "weak"})
-UNIT_ALIASES = {"count": "count", "件": "count", "個": "count", "数量": "count"}
-MAX_COUNT = 1_000_000
+
+#: 単位の別名表と正規形ごとの上限は `arbitration/units.py` に移した。
+#: 2026-09-21 まではここに `UNIT_ALIASES = {"count": ...}` と
+#: `MAX_COUNT = 1_000_000` を直接持っており、正規形が `count` 1種類しか
+#: 無かったため、v8 9.5節の連続量(長さ・面積・金額)を1件も受け付けられなかった。
+#: 固定小数点の整数として扱う方針(`docs/decision_continuous_quantity_gap.md`
+#: 選択肢B)に伴い、単位ごとの刻みと上限を持つ専用モジュールへ分離した。
 
 
 @dataclass(frozen=True)
@@ -394,30 +400,31 @@ class InferenceOrchestrator:
                 errors.append(f"{prefix}:invalid_model_confidence")
 
         unit_raw = self._required_text(raw.get("unit"))
-        unit = UNIT_ALIASES.get(unit_raw) if unit_raw else None
+        unit: str | None = None
         if unit_raw is None:
             errors.append(f"{prefix}:missing_unit")
-        elif unit is None:
-            errors.append(f"{prefix}:unknown_unit")
-        elif unit_raw != unit:
-            notes.append(f"unit_normalized:{unit_raw}->{unit}")
+        else:
+            try:
+                unit = unit_registry.canonical_unit(unit_raw)
+            except unit_registry.UnitError as error:
+                errors.append(f"{prefix}:{error.code}")
+            else:
+                if unit_raw != unit:
+                    notes.append(f"unit_normalized:{unit_raw}->{unit}")
 
+        # `count_range` は、宣言された単位の**刻み単位の整数**に正規化する
+        # (`12.5` + `unit="m"` → `12500`(mm))。名前は互換のため `count_range`
+        # のままだが、個数専用ではない。詳細は `arbitration/units.py`。
         count_range = raw.get("count_range")
         parsed_range: tuple[int, int] | None = None
         if not isinstance(count_range, (list, tuple)) or len(count_range) != 2:
             errors.append(f"{prefix}:invalid_count_range")
-        else:
+        elif unit_raw is not None and unit is not None:
             lower, upper = count_range
-            if any(isinstance(value, bool) or not isinstance(value, int) for value in (lower, upper)):
-                errors.append(f"{prefix}:count_must_be_integer")
-            elif lower < 0 or upper < 0:
-                errors.append(f"{prefix}:negative_count")
-            elif lower > upper:
-                errors.append(f"{prefix}:reversed_range")
-            elif upper > MAX_COUNT:
-                errors.append(f"{prefix}:count_too_large")
-            else:
-                parsed_range = (lower, upper)
+            try:
+                _, parsed_range = unit_registry.normalise_range(unit_raw, lower, upper)
+            except unit_registry.UnitError as error:
+                errors.append(f"{prefix}:{error.code}")
 
         if errors:
             return None, notes, errors, unit
