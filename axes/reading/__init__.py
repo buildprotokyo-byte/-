@@ -15,6 +15,7 @@ from axes.reading.protocol import (
     ReadingResponseError,
     answer_schema,
     build_reading_prompt,
+    orchestrator_requests,
     parse_reading_response,
     to_orchestrator_evidence,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "ReadingResponseError",
     "answer_schema",
     "build_reading_prompt",
+    "orchestrator_requests",
     "parse_reading_response",
     "to_orchestrator_evidence",
 ]

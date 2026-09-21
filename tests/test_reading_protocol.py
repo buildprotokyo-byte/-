@@ -411,3 +411,65 @@ def test_ベンチマークの方式A2と同じ形をしている() -> None:
         for name in FOUNDATION_ELEMENTS:
             assert name in prompt
         assert prompt.index("まず") < prompt.index("設問:")
+
+
+def test_対象ごとに1件ずつの要求に分かれる() -> None:
+    """入口は1要素ずつしか扱えない。まとめて渡すと例外で落ちる。
+
+    `AxisQualityFirewall.assess()` は複数 target を渡されると
+    **検証エラーではなく例外**を投げるので、呼び出し側任せにすると踏みやすい。
+    """
+    from axes.reading import orchestrator_requests
+
+    parsed = parse_reading_response(_answer(), _request())
+    requests = orchestrator_requests(
+        parsed, trace_prefix="t1", source_id="drawing-A",
+        source_fingerprint="fp-A", axis_id="image", method_id="reading_a2",
+    )
+    assert len(requests) == 3
+    for one in requests:
+        targets = {e["target"] for e in one["evidence"]}
+        assert len(targets) == 1
+        assert one["element_id"] in targets
+        result = _orchestrator().process(one)
+        assert not result.is_invalid, [e.reason_codes for e in result.events]
+
+
+def test_まとめて渡すと入口が壊れることを前提として固定する() -> None:
+    """分ける必要が本当にあることの確認。無くなったらこのテストが教える。
+
+    壊れ方は単位によって2通りある。
+
+    * 単位が揃っていると `AxisQualityFirewall.assess()` が
+      **検証エラーではなく例外**を投げる。
+    * 単位が混ざっていると入口が入力ごと無効にする。例外は出ないが、
+      **別々に渡せば通ったはずの数量まで全部落ちる。**
+
+    どちらも呼び出し側任せにすると踏む。だから分けてから渡す。
+    """
+    from axes.reading import orchestrator_requests
+
+    parsed = parse_reading_response(_answer(), _request())
+    per_target = orchestrator_requests(
+        parsed, trace_prefix="t2", source_id="drawing-A",
+        source_fingerprint="fp-A", axis_id="image", method_id="reading_a2",
+    )
+    merged = [e for one in per_target for e in one["evidence"]]  # type: ignore[union-attr]
+
+    # 単位が混ざった形: 例外にはならないが、入口が入力ごと無効にする。
+    result = _orchestrator().process(
+        {"trace_id": "merged-mixed", "element_id": "mixed",
+         "evidence": merged, "relations": []}
+    )
+    assert result.is_invalid
+    assert result.decision is None, "判定まで届かず、数量が全部落ちる"
+
+    # 単位が揃った形: 例外で落ちる。
+    same_unit = [e for e in merged if e["unit"] == "cm2"]
+    same_unit.append({**same_unit[0], "target": "別の対象", "source_id": "spec-A",
+                      "source_fingerprint": "fp-B", "axis_id": "text"})
+    with pytest.raises(ValueError):
+        _orchestrator().process(
+            {"trace_id": "merged-same", "element_id": "mixed2",
+             "evidence": same_unit, "relations": []}
+        )

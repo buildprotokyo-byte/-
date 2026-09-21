@@ -395,6 +395,47 @@ def to_orchestrator_evidence(
     return evidence
 
 
+def orchestrator_requests(
+    parsed: ParsedReading,
+    *,
+    trace_prefix: str,
+    source_id: str,
+    source_fingerprint: str,
+    axis_id: str,
+    method_id: str,
+    **evidence_options: Any,
+) -> list[dict[str, Any]]:
+    """対象ごとに1件ずつ、`InferenceOrchestrator.process()` に渡す要求を作る。
+
+    **1回の読み取りは複数の数量を返すが、入口は1要素ずつしか扱えない。**
+    `to_orchestrator_evidence()` の結果をまとめて1つの要求に入れると、
+    `AxisQualityFirewall.assess()` が
+    「1回の判定では同一targetの証拠だけを渡してください」で例外を投げる。
+    検証エラーとしてではなく例外として落ちるので、呼び出し側が自分で
+    分けるのに任せると踏みやすい。ここで分けておく。
+    """
+    evidence = to_orchestrator_evidence(
+        parsed,
+        source_id=source_id,
+        source_fingerprint=source_fingerprint,
+        axis_id=axis_id,
+        method_id=method_id,
+        **evidence_options,
+    )
+    by_target: dict[str, list[dict[str, Any]]] = {}
+    for entry in evidence:
+        by_target.setdefault(str(entry["target"]), []).append(entry)
+    return [
+        {
+            "trace_id": f"{trace_prefix}::{target}",
+            "element_id": target,
+            "evidence": entries,
+            "relations": [],
+        }
+        for target, entries in by_target.items()
+    ]
+
+
 def foundation_summary(parsed: ParsedReading) -> str:
     """確定した3要素を人が読む形に整える(報告・引き継ぎ用)。"""
     return "\n".join(
