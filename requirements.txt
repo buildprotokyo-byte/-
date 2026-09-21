@@ -1,1 +1,4 @@
-
+numpy
+pillow
+opencv-python-headless
+pytest
