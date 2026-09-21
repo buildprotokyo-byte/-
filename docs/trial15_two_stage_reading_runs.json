@@ -1,0 +1,1190 @@
+[
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S1",
+  "rep": 1,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S1",
+  "rep": 2,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S1",
+  "rep": 3,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S2",
+  "rep": 1,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S2",
+  "rep": 2,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S2",
+  "rep": 3,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S3",
+  "rep": 1,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S3",
+  "rep": 2,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S3",
+  "rep": 3,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S4",
+  "rep": 1,
+  "answers": {
+   "S4Q1": 216,
+   "S4Q2": 0,
+   "S4Q3": 18
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S4",
+  "rep": 2,
+  "answers": {
+   "S4Q1": 216,
+   "S4Q2": 0,
+   "S4Q3": 18
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S4",
+  "rep": 3,
+  "answers": {
+   "S4Q1": 216,
+   "S4Q2": 0,
+   "S4Q3": 18
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S5",
+  "rep": 1,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S5",
+  "rep": 2,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S5",
+  "rep": 3,
+  "answers": {
+   "S5Q1": null,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S6",
+  "rep": 1,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S6",
+  "rep": 2,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A",
+  "level": 1,
+  "set_id": "S6",
+  "rep": 3,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S1",
+  "rep": 1,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S1",
+  "rep": 2,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S1",
+  "rep": 3,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S1",
+  "rep": 1,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": null
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S1",
+  "rep": 2,
+  "answers": {
+   "S1Q1": 16.572,
+   "S1Q2": 16.572,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S1",
+  "rep": 3,
+  "answers": {
+   "S1Q1": 16.574,
+   "S1Q2": 16.574,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S1",
+  "rep": 1,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S1",
+  "rep": 2,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S1",
+  "rep": 3,
+  "answers": {
+   "S1Q1": 16.56,
+   "S1Q2": 16.56,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S1",
+  "rep": 1,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S1",
+  "rep": 2,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S1",
+  "rep": 3,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S1",
+  "rep": 1,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S1",
+  "rep": 2,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S1",
+  "rep": 3,
+  "answers": {
+   "S1Q1": 16.562,
+   "S1Q2": 16.562,
+   "S1Q3": 20.06
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S2",
+  "rep": 1,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S2",
+  "rep": 2,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S2",
+  "rep": 3,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S2",
+  "rep": 1,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": null
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S2",
+  "rep": 2,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": null
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S2",
+  "rep": 3,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": null
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S2",
+  "rep": 1,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S2",
+  "rep": 2,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S2",
+  "rep": 3,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S2",
+  "rep": 1,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S2",
+  "rep": 2,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S2",
+  "rep": 3,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S2",
+  "rep": 1,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S2",
+  "rep": 2,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S2",
+  "rep": 3,
+  "answers": {
+   "S2Q1": 272.16,
+   "S2Q2": 0,
+   "S2Q3": 28
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S3",
+  "rep": 1,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S3",
+  "rep": 2,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S3",
+  "rep": 3,
+  "answers": {
+   "S3Q1": 104.83,
+   "S3Q2": 58.24,
+   "S3Q3": 100.33
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S3",
+  "rep": 1,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 94.532
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S3",
+  "rep": 2,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 94.532
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S3",
+  "rep": 3,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 94.532
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S3",
+  "rep": 1,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S3",
+  "rep": 2,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S3",
+  "rep": 3,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S3",
+  "rep": 1,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S3",
+  "rep": 2,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S3",
+  "rep": 3,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S3",
+  "rep": 1,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S3",
+  "rep": 2,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": 100.332
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S3",
+  "rep": 3,
+  "answers": {
+   "S3Q1": 104.832,
+   "S3Q2": 58.24,
+   "S3Q3": null
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S4",
+  "rep": 1,
+  "answers": {
+   "S4Q1": 216,
+   "S4Q2": 0,
+   "S4Q3": 18
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S4",
+  "rep": 2,
+  "answers": {
+   "S4Q1": 216,
+   "S4Q2": 0,
+   "S4Q3": 18
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S4",
+  "rep": 3,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 18
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S4",
+  "rep": 1,
+  "answers": {
+   "S4Q1": 216,
+   "S4Q2": 0,
+   "S4Q3": null
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S4",
+  "rep": 2,
+  "answers": {
+   "S4Q1": 216,
+   "S4Q2": 0,
+   "S4Q3": 21
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S4",
+  "rep": 3,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 21.0
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S4",
+  "rep": 1,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 18.0
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S4",
+  "rep": 2,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 18.0
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S4",
+  "rep": 3,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 18.0
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S4",
+  "rep": 1,
+  "answers": {
+   "S4Q1": 216,
+   "S4Q2": 0,
+   "S4Q3": 18
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S4",
+  "rep": 2,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 18.0
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S4",
+  "rep": 3,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 18.0
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S4",
+  "rep": 1,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 18.0
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S4",
+  "rep": 2,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 18.0
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S4",
+  "rep": 3,
+  "answers": {
+   "S4Q1": 216.0,
+   "S4Q2": 0,
+   "S4Q3": 18.0
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S5",
+  "rep": 1,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S5",
+  "rep": 2,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S5",
+  "rep": 3,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S5",
+  "rep": 1,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": null
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S5",
+  "rep": 2,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": null
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S5",
+  "rep": 3,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": null
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S5",
+  "rep": 1,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S5",
+  "rep": 2,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S5",
+  "rep": 3,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S5",
+  "rep": 1,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S5",
+  "rep": 2,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S5",
+  "rep": 3,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S5",
+  "rep": 1,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S5",
+  "rep": 2,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S5",
+  "rep": 3,
+  "answers": {
+   "S5Q1": 153.6,
+   "S5Q2": 0,
+   "S5Q3": 30.72
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S6",
+  "rep": 1,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S6",
+  "rep": 2,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 1,
+  "set_id": "S6",
+  "rep": 3,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S6",
+  "rep": 1,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S6",
+  "rep": 2,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "B",
+  "level": 1,
+  "set_id": "S6",
+  "rep": 3,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S6",
+  "rep": 1,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S6",
+  "rep": 2,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A2",
+  "level": 3,
+  "set_id": "S6",
+  "rep": 3,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S6",
+  "rep": 1,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S6",
+  "rep": 2,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "A",
+  "level": 3,
+  "set_id": "S6",
+  "rep": 3,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S6",
+  "rep": 1,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S6",
+  "rep": 2,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ },
+ {
+  "arm": "B",
+  "level": 3,
+  "set_id": "S6",
+  "rep": 3,
+  "answers": {
+   "S6Q1": 73.8,
+   "S6Q2": 0,
+   "S6Q3": 65.14
+  }
+ }
+]

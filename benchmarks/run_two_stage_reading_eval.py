@@ -28,6 +28,12 @@ from benchmarks.two_stage_reading_fixtures import (
     ground_truth,
     question_traps,
 )
+from benchmarks.two_stage_reading_padding import padded_detail_pages, padded_pages
+from benchmarks.two_stage_reading_prose import (
+    prose_detail_pages,
+    prose_overview_pages,
+    prose_pages,
+)
 
 KEY_PATH = Path(__file__).with_name("two_stage_reading_key.json")
 
@@ -40,15 +46,33 @@ _JSON_TAIL = """
 """
 
 
+def _pages(case: CaseSet, level: int) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(全ページ, 方式Bの段階2に渡すページ) をレベルごとに返す。
+
+    レベル1は概要1〜2 + 詳細3〜5ページの短い資料。
+    レベル2は同じ内容を詰め物ページで24ページまで薄めた資料。
+    レベル3はレベル2の概要ページを、同じ中身のまま散文に書き換えたもの。
+    概要ページの位置はどのレベルでも先頭で、変えているのは分量と書き方だけ。
+    """
+    if level == 1:
+        return case.overview_pages + case.detail_pages, case.detail_pages
+    if level == 2:
+        return padded_pages(case), padded_detail_pages(case)
+    if level == 3:
+        return prose_pages(case), prose_detail_pages(case)
+    raise ValueError(f"unknown level: {level}")
+
+
 def _answer_shape(case: CaseSet) -> str:
     inner = ", ".join(f'"{q.qid}": <数値>' for q in case.questions)
     return "{" + inner + "}"
 
 
-def prompt_arm_a(case: CaseSet) -> str:
-    pages = "\n".join(case.overview_pages + case.detail_pages)
+def prompt_arm_a(case: CaseSet, level: int = 1) -> str:
+    all_pages, _ = _pages(case, level)
+    pages = "\n".join(all_pages)
     return f"""あなたは建築改修工事の積算担当です。
-次の資料一式(全{len(case.overview_pages) + len(case.detail_pages)}ページ)を、並び順どおりに読んでください。
+次の資料一式(全{len(all_pages)}ページ)を、並び順どおりに読んでください。
 
 ===== 資料ここから =====
 {pages}
@@ -59,15 +83,16 @@ def prompt_arm_a(case: CaseSet) -> str:
 {_JSON_TAIL.format(json_shape=_answer_shape(case))}"""
 
 
-def prompt_arm_a2(case: CaseSet) -> str:
-    pages = "\n".join(case.overview_pages + case.detail_pages)
+def prompt_arm_a2(case: CaseSet, level: int = 1) -> str:
+    all_pages, _ = _pages(case, level)
+    pages = "\n".join(all_pages)
     shape = (
         '{"基準寸法": "<文章>", "工事対象範囲": "<文章>", "現況": "<文章>", '
         + ", ".join(f'"{q.qid}": <数値>' for q in case.questions)
         + "}"
     )
     return f"""あなたは建築改修工事の積算担当です。
-次の資料一式(全{len(case.overview_pages) + len(case.detail_pages)}ページ)を、並び順どおりに読んでください。
+次の資料一式(全{len(all_pages)}ページ)を、並び順どおりに読んでください。
 
 ===== 資料ここから =====
 {pages}
@@ -81,8 +106,9 @@ def prompt_arm_a2(case: CaseSet) -> str:
 {_JSON_TAIL.format(json_shape=shape)}"""
 
 
-def prompt_arm_b_stage1(case: CaseSet) -> str:
-    pages = "\n".join(case.overview_pages)
+def prompt_arm_b_stage1(case: CaseSet, level: int = 1) -> str:
+    overview = prose_overview_pages(case) if level == 3 else case.overview_pages
+    pages = "\n".join(overview)
     return f"""次に示すのは、ある改修工事の資料一式のうち「概要」にあたるページだけです。
 詳細ページはあなたには渡されていません。
 
@@ -107,8 +133,9 @@ def prompt_arm_b_stage1(case: CaseSet) -> str:
 """
 
 
-def prompt_arm_b_stage2(case: CaseSet, fixed: dict[str, Any]) -> str:
-    pages = "\n".join(case.detail_pages)
+def prompt_arm_b_stage2(case: CaseSet, fixed: dict[str, Any], level: int = 1) -> str:
+    _, stage2_pages = _pages(case, level)
+    pages = "\n".join(stage2_pages)
 
     def _v(key: str) -> str:
         value = fixed.get(key)
@@ -174,7 +201,7 @@ def load_key() -> dict[str, float]:
 def score(runs: list[dict[str, Any]]) -> dict[str, Any]:
     """読み手の回答一覧を採点する。
 
-    各 run は {"arm": "A", "set_id": "S1", "rep": 1, "answers": {...}} の形。
+    各 run は {"arm": "A", "level": 1, "set_id": "S1", "rep": 1, "answers": {...}} の形。
     """
     key = load_key()
     units = {q.qid: q.unit for case in ALL_SETS for q in case.questions}
@@ -189,6 +216,7 @@ def score(runs: list[dict[str, Any]]) -> dict[str, Any]:
             items.append(
                 {
                     "arm": run["arm"],
+                    "level": run.get("level", 1),
                     "set_id": run["set_id"],
                     "rep": run["rep"],
                     "qid": qid,
@@ -202,19 +230,23 @@ def score(runs: list[dict[str, Any]]) -> dict[str, Any]:
             )
 
     summary: dict[str, Any] = {"by_arm": {}, "by_arm_trap": {}, "by_arm_set": {}}
-    for arm in ARMS:
-        arm_items = [i for i in items if i["arm"] == arm]
-        if not arm_items:
-            continue
-        summary["by_arm"][arm] = _aggregate(arm_items)
-        for trap in sorted({i["trap"] for i in arm_items}):
-            summary["by_arm_trap"].setdefault(arm, {})[trap] = _aggregate(
-                [i for i in arm_items if i["trap"] == trap]
-            )
-        for set_id in sorted({i["set_id"] for i in arm_items}):
-            summary["by_arm_set"].setdefault(arm, {})[set_id] = _aggregate(
-                [i for i in arm_items if i["set_id"] == set_id]
-            )
+    for level in sorted({i["level"] for i in items}):
+        for arm in ARMS:
+            arm_items = [
+                i for i in items if i["arm"] == arm and i["level"] == level
+            ]
+            if not arm_items:
+                continue
+            tag = f"L{level}-{arm}"
+            summary["by_arm"][tag] = _aggregate(arm_items)
+            for trap in sorted({i["trap"] for i in arm_items}):
+                summary["by_arm_trap"].setdefault(tag, {})[trap] = _aggregate(
+                    [i for i in arm_items if i["trap"] == trap]
+                )
+            for set_id in sorted({i["set_id"] for i in arm_items}):
+                summary["by_arm_set"].setdefault(tag, {})[set_id] = _aggregate(
+                    [i for i in arm_items if i["set_id"] == set_id]
+                )
     return {"items": items, "summary": summary}
 
 
@@ -236,15 +268,17 @@ def _aggregate(items: list[dict[str, Any]]) -> dict[str, Any]:
 def cmd_prompts(args: argparse.Namespace) -> None:
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
+    level = args.level
     written = 0
     for case in ALL_SETS:
-        (out / f"{case.set_id}_A.txt").write_text(prompt_arm_a(case), encoding="utf-8")
-        (out / f"{case.set_id}_A2.txt").write_text(prompt_arm_a2(case), encoding="utf-8")
-        (out / f"{case.set_id}_B1.txt").write_text(
-            prompt_arm_b_stage1(case), encoding="utf-8"
+        stem = f"{case.set_id}_L{level}"
+        (out / f"{stem}_A.txt").write_text(prompt_arm_a(case, level), encoding="utf-8")
+        (out / f"{stem}_A2.txt").write_text(prompt_arm_a2(case, level), encoding="utf-8")
+        (out / f"{stem}_B1.txt").write_text(
+            prompt_arm_b_stage1(case, level), encoding="utf-8"
         )
         written += 3
-    print(f"wrote {written} prompt files to {out}")
+    print(f"wrote {written} prompt files (level {level}) to {out}")
 
 
 def cmd_stage2(args: argparse.Namespace) -> None:
@@ -253,7 +287,9 @@ def cmd_stage2(args: argparse.Namespace) -> None:
 
     fixed = json.loads(Path(args.fixed).read_text(encoding="utf-8"))
     case = get_set(args.set_id)
-    Path(args.out).write_text(prompt_arm_b_stage2(case, fixed), encoding="utf-8")
+    Path(args.out).write_text(
+        prompt_arm_b_stage2(case, fixed, args.level), encoding="utf-8"
+    )
     print(args.out)
 
 
@@ -280,12 +316,14 @@ def main() -> None:
 
     p = sub.add_parser("prompts")
     p.add_argument("--out", required=True)
+    p.add_argument("--level", type=int, default=1, choices=(1, 2, 3))
     p.set_defaults(func=cmd_prompts)
 
     p = sub.add_parser("stage2")
     p.add_argument("--set-id", required=True)
     p.add_argument("--fixed", required=True)
     p.add_argument("--out", required=True)
+    p.add_argument("--level", type=int, default=1, choices=(1, 2, 3))
     p.set_defaults(func=cmd_stage2)
 
     p = sub.add_parser("freeze")
