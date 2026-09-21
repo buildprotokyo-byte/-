@@ -474,7 +474,23 @@ class ConsistencySolver:
         start = time.perf_counter()
 
         strong_vars = {n: v for n, v in self._variables.items() if v.strength == "strong"}
-        z3vars = {name: z3.Int(name) for name in strong_vars}
+
+        # **毎回まっさらな Z3 コンテキストで解く。**
+        #
+        # z3.Int()/z3.Solver() を引数なしで呼ぶと、プロセス全体で共有される
+        # グローバルコンテキストを使う。共有コンテキストは呼び出しをまたいで
+        # 内部状態を持ち越すため、**まったく同じ制約集合を解いても
+        # unsat_core() が呼ぶたびに変わる**。矛盾の核が変われば、
+        # 「人に確認してもらう要素」が変わり、監査の母集団も費用も変わる。
+        # つまり効果測定の数値が再現しなくなる(2026-09-21 発見。実測では
+        # 同一入力15回で核が5種類に割れ、コンテキストを毎回新しくすると
+        # 15回とも同一になった)。
+        #
+        # どの核も「矛盾の説明」としては正しいので、これは正しさのバグでは
+        # なく**再現性のバグ**である。だが本リポジトリは測った数値を根拠に
+        # 設計を決めているので、再現しない測定は使えない。
+        ctx = z3.Context()
+        z3vars = {name: z3.Int(name, ctx) for name in strong_vars}
 
         items: list[tuple[str, z3.BoolRef]] = []
         for name, var in strong_vars.items():
@@ -484,7 +500,7 @@ class ConsistencySolver:
         for constraint in self._constraints:
             items.append((constraint.name, constraint.build(z3vars)))
 
-        core_solver = z3.Solver()
+        core_solver = z3.Solver(ctx=ctx)
         for name, expr in items:
             core_solver.assert_and_track(expr, name)
         status = core_solver.check()
@@ -540,7 +556,8 @@ class ConsistencySolver:
 
     @staticmethod
     def _optimize(items: Sequence[tuple[str, z3.BoolRef]], var: z3.ArithRef, *, minimize: bool) -> int:
-        opt = z3.Optimize()
+        # solve() が作ったコンテキストをそのまま使う(式はそれに属している)。
+        opt = z3.Optimize(ctx=var.ctx)
         for _, expr in items:
             opt.add(expr)
         (opt.minimize if minimize else opt.maximize)(var)
