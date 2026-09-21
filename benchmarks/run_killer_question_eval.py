@@ -177,7 +177,89 @@ def main() -> list[ScenarioResult]:
         )
     )
 
+    print("\n=== 精度モード比較: 3モードを同じシナリオで比較 ===\n")
+    run_precision_mode_comparison()
+
+    print("\n=== 概算モード: 目標カバレッジ70/85/95%の比較 ===\n")
+    run_target_coverage_comparison()
+
     return results
+
+
+# ---------------------------------------------------------------------------
+# 精度モード(精密/標準/概算)の比較
+# ---------------------------------------------------------------------------
+
+
+def mixed_priced_scenario() -> tuple[ConsistencySolver, dict[str, int]]:
+    """依存関係を持つクラスタ(単価なし)+ 依存関係を持たない高額・低額の要素。"""
+    solver = ConsistencySolver()
+    solver.add_variable("hub_a", 3, 5, axis="a")
+    solver.add_variable("leaf_a1", 0, 10, axis="a")
+    solver.add_variable("leaf_a2", 0, 10, axis="a")
+    solver.add_relation("leaf_a1_eq_hub_a", "leaf_a1", "==", "hub_a")
+    solver.add_relation("leaf_a2_eq_hub_a", "leaf_a2", "==", "hub_a")
+    solver.add_variable("isolated_expensive", 8, 12, axis="x")
+    solver.add_variable("isolated_cheap", 1, 3, axis="y")
+    ground_truth = {
+        "hub_a": 4, "leaf_a1": 4, "leaf_a2": 4,
+        "isolated_expensive": 10, "isolated_cheap": 2,
+    }
+    return solver, ground_truth
+
+
+_MIXED_PRICES = {"isolated_expensive": 1_000_000, "isolated_cheap": 1}
+
+
+def run_precision_mode_comparison() -> None:
+    from killer_question.precision_mode import PrecisionMode
+
+    for mode in (PrecisionMode.STANDARD, PrecisionMode.PRECISE, PrecisionMode.ROUGH):
+        solver, ground_truth = mixed_priced_scenario()
+        kwargs: dict = {"unit_prices": _MIXED_PRICES, "mode": mode}
+        if mode is PrecisionMode.ROUGH:
+            kwargs["target_coverage"] = 0.85
+        engine = KillerQuestionEngine(solver, **kwargs)
+        session = engine.run(lambda q: ground_truth[q.variable])
+        coverage_str = f"{session.final_coverage:.4f}" if session.final_coverage is not None else "N/A"
+        print(
+            f"{mode.value:10s} 質問数={session.question_count} "
+            f"順序={tuple(a.variable for a in session.answered)} "
+            f"カバレッジ={coverage_str} 終了理由={session.stopped_reason} "
+            f"未解決={session.remaining_unresolved}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 概算モード: 目標カバレッジの感度分析
+# ---------------------------------------------------------------------------
+
+
+def priced_items_scenario() -> tuple[ConsistencySolver, dict[str, int], dict[str, float]]:
+    solver = ConsistencySolver()
+    solver.add_variable("item_A", 9, 11, axis="a")
+    solver.add_variable("item_B", 9, 11, axis="b")
+    solver.add_variable("item_C", 9, 11, axis="c")
+    solver.add_variable("item_D", 9, 11, axis="d")
+    prices = {"item_A": 100, "item_B": 50, "item_C": 30, "item_D": 20}
+    ground_truth = {"item_A": 10, "item_B": 10, "item_C": 10, "item_D": 10}
+    return solver, ground_truth, prices
+
+
+def run_target_coverage_comparison() -> None:
+    from killer_question.precision_mode import PrecisionMode
+
+    for target in (0.70, 0.85, 0.95):
+        solver, ground_truth, prices = priced_items_scenario()
+        engine = KillerQuestionEngine(
+            solver, unit_prices=prices, mode=PrecisionMode.ROUGH, target_coverage=target
+        )
+        session = engine.run(lambda q: ground_truth[q.variable])
+        print(
+            f"target_coverage={target:.2f} 質問数={session.question_count} "
+            f"順序={tuple(a.variable for a in session.answered)} "
+            f"最終カバレッジ={session.final_coverage:.4f} 終了理由={session.stopped_reason}"
+        )
 
 
 if __name__ == "__main__":
