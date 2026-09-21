@@ -10,5 +10,9 @@ cairosvg           # VTracer が出す SVG の描画(計測に使う)
 ifcopenshell       # IFC の空間階層・containment API(絶対ルール軸)
 
 # Grounding DINO を動かす場合に追加で必要(huggingface.co への到達が前提)
+# 注意: `--index-url https://download.pytorch.org/whl/cpu` は使わないこと。
+# このクラウド環境では download.pytorch.org が 403 で遮断されている。
+# 素の PyPI 経由(下の 3 行をそのまま)なら通る。
 # torch
 # transformers
+# timm
