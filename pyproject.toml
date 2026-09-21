@@ -14,6 +14,7 @@ packages = [
     "axes",
     "axes.image_axis",
     "axes.absolute_rule_axis",
+    "axes.reading",
     "arbitration",
     "killer_question",
     "benchmarks",

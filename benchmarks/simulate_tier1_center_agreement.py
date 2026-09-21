@@ -25,15 +25,22 @@ B. **等式でクラスタ全体に伝播する値は階層1を経由させな�
 from __future__ import annotations
 
 import dataclasses
+import json
 import statistics
 import sys
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from arbitration.axis_quality_firewall import AxisEvidence, AxisQualityFirewall
+from arbitration.axis_quality_firewall import (
+    CENTER_TOLERANCES,
+    AxisEvidence,
+    AxisQualityFirewall,
+    CenterTolerance,
+)
 from arbitration.consistency_solver import ConsistencySolver
 from arbitration.provisional_audit import (
     collect_tier2_population,
@@ -56,6 +63,40 @@ from killer_question.firewall_bridge import add_target_to_joint_solver
 MismatchTarget = Literal["tier2", "tier3"]
 
 
+#: 本体の中心値検査を実質的に無効化する許容差表。
+#:
+#: **なぜこれが要るのか。** 本スクリプトの各方針は「中心値の検査が
+#: まだ無かった頃のファイアウォール」に提案を**後ろから**当てて効果を測る
+#: ものである。ところが 2026-09-21 に検査を本体
+#: (`arbitration/axis_quality_firewall.py`)へ実装したため、何も指定しないと
+#: 本体の検査と後ろからの書き換えが**二重に効き**、「現行」の列が現行を
+#: 表さなくなった。実際、実装後にこのスクリプトを走らせると8方針すべてが
+#: 同一の数値になり、実装前の劣化(下回り 10/30・25/30)が再現できない。
+#:
+#: 無効化は本体に迂回用のスイッチを足すのではなく、既にある入口
+#: (`AxisQualityFirewall(center_tolerances=...)`)へ極端に大きい相対許容差を
+#: 渡して行う。**表に無い単位は既定の許容差に落ちるので完全な無効化では
+#: ない。** 本シナリオが使う単位は `count` だけで、それは表に入っている
+#: (`_assert_units_are_covered` で確認する)。
+CHECK_DISABLED: dict[str, CenterTolerance] = {
+    unit: CenterTolerance(relative=Fraction(10 ** 9)) for unit in CENTER_TOLERANCES
+}
+
+
+def _assert_units_are_covered(evidence: dict[str, list[AxisEvidence]]) -> None:
+    """無効化の表が、このシナリオの使う単位を全部覆っているか。
+
+    覆えていない単位があると、そこだけ本体の検査が生き残り、「検査なし」の
+    列が静かに「検査あり」になる。黙って進めない。
+    """
+    used = {item.unit for items in evidence.values() for item in items}
+    missing = used - set(CHECK_DISABLED)
+    if missing:
+        raise AssertionError(
+            f"中心値の検査を無効化できない単位がある(既定の許容差に落ちる): {sorted(missing)}"
+        )
+
+
 @dataclass(frozen=True)
 class TierPolicy:
     """階層1の確定条件。``現行`` は両方とも無効にしたもの。"""
@@ -72,6 +113,12 @@ class TierPolicy:
     #: (下記 `_all_source_centers` のコメント)、提案Aの意図を届かせるには
     #: ここが必要になる。階層1だけに入れても、このシナリオでは何も変わらない。
     apply_to_tier2: bool = False
+    #: **本体(`AxisQualityFirewall`)の中心値検査を使うか。**
+    #: False のとき `CHECK_DISABLED` を渡して本体の検査を実質的に止め、
+    #: 「検査がまだ無かった頃」を再現する。提案を後ろから当てる方針
+    #: (A1/A2/B/A')は、二重に効かせないため必ず False にする。
+    #: True にして後ろからの書き換えを一切しない方針が「本実装」である。
+    use_builtin_check: bool = False
 
 
 def _source_ranges(evidences: list[AxisEvidence]) -> list[tuple[int, int]]:
@@ -186,7 +233,9 @@ class SimOutcome:
 
 
 def _build(scenario: Scenario, evidence, confirmed, policy: TierPolicy):
-    firewall = AxisQualityFirewall()
+    firewall = AxisQualityFirewall(
+        center_tolerances=None if policy.use_builtin_check else CHECK_DISABLED
+    )
     solver = ConsistencySolver()
     assessments: dict[str, tuple[object, list[AxisEvidence]]] = {}
     tier3: list[str] = []
@@ -312,10 +361,26 @@ POLICIES: tuple[TierPolicy, ...] = (
     TierPolicy("A' 階層2にも中心±0", center_tolerance=0.0, apply_to_tier2=True),
     TierPolicy("A'+B 中心±1", center_tolerance=1.0,
                apply_to_tier2=True, cluster_to_tier2=True),
+    #: **本実装。** 後ろからの書き換えを一切せず、
+    #: `arbitration/axis_quality_firewall.py` に入った検査をそのまま使う。
+    #: 予測(A' 階層2にも中心±1)と一致するかを、この列で突き合わせる。
+    TierPolicy("本実装(本体の中心値検査)", use_builtin_check=True),
 )
 
 
-def compare(model: str, trials: int, *, with_weak_axes: bool) -> None:
+#: 計測結果の保存先。回帰テストはこのファイルの数値を固定値として突き合わせる。
+RESULT_PATH = (
+    Path(__file__).resolve().parent.parent / "docs" / "center_agreement_effect_result.json"
+)
+
+
+def condition_key(model: str, with_weak_axes: bool) -> str:
+    """条件の識別子。報告書の表の行と1対1で対応させる。"""
+    shape = "weak" if with_weak_axes else "strong2"
+    return f"{shape}/{model}"
+
+
+def compare(model: str, trials: int, *, with_weak_axes: bool) -> dict[str, object]:
     scenario = build_scenario()
     shape = ("強い軸1つ+弱い軸2つ(階層2ができる形)" if with_weak_axes
              else "強い軸2つ(階層1ができる形)")
@@ -333,13 +398,20 @@ def compare(model: str, trials: int, *, with_weak_axes: bool) -> None:
     worse_before: dict[str, int] = {p.name: 0 for p in POLICIES}
     worse_after: dict[str, int] = {p.name: 0 for p in POLICIES}
 
+    #: 試行ごとの生の値。要約だけを凍結すると、数が合っていても中身が
+    #: 入れ替わっている場合に気づけない。
+    per_seed: dict[str, list[dict[str, float]]] = {p.name: [] for p in POLICIES}
+    baseline_per_seed: list[float] = []
+
     for seed in range(trials):
         evidence = make_evidence(
             scenario, seed, model,
             with_weak_axes=with_weak_axes, mixed_primary_axes=True,
         )
+        _assert_units_are_covered(evidence)
         plain = run_without_tiers(scenario, evidence)
         baseline.append(plain.accuracy)
+        baseline_per_seed.append(plain.accuracy)
         for policy in POLICIES:
             out = run_with_policy(
                 scenario, evidence, policy=policy, audit_seed=seed
@@ -355,6 +427,13 @@ def compare(model: str, trials: int, *, with_weak_axes: bool) -> None:
                 worse_before[policy.name] += 1
             if out.accuracy_after_audit < plain.accuracy:
                 worse_after[policy.name] += 1
+            per_seed[policy.name].append({
+                "seed": seed,
+                "baseline": plain.accuracy,
+                "before": out.accuracy_before_audit,
+                "after": out.accuracy_after_audit,
+                "cost": out.cost,
+            })
 
     print(f"階層なしの平均精度: {statistics.mean(baseline):.1%}")
     print()
@@ -377,16 +456,53 @@ def compare(model: str, trials: int, *, with_weak_axes: bool) -> None:
     print("  下回り前/後 = 階層なしより精度が低かった試行数(監査の訂正 前/後)")
     print()
 
+    return {
+        "condition": condition_key(model, with_weak_axes),
+        "shape": shape,
+        "model": model,
+        "trials": trials,
+        "baseline_accuracy": statistics.mean(baseline),
+        "baseline_per_seed": baseline_per_seed,
+        "policies": {
+            policy.name: {
+                "accuracy_before_audit": statistics.mean(rows[policy.name]["before"]),
+                "accuracy_after_audit": statistics.mean(rows[policy.name]["after"]),
+                "cost": statistics.mean(rows[policy.name]["cost"]),
+                "worse_than_no_tiers_before": worse_before[policy.name],
+                "worse_than_no_tiers_after": worse_after[policy.name],
+                "per_seed": per_seed[policy.name],
+            }
+            for policy in POLICIES
+        },
+    }
+
 
 def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trials", type=int, default=30)
+    parser.add_argument(
+        "--json", type=Path, default=None,
+        help=f"計測結果の保存先(省略時は書き出さない。既定の置き場は {RESULT_PATH})",
+    )
     args = parser.parse_args()
+    conditions: list[dict[str, object]] = []
     for with_weak in (True, False):
         for model in ("overlapping", "disjoint"):
-            compare(model, args.trials, with_weak_axes=with_weak)
+            conditions.append(
+                compare(model, args.trials, with_weak_axes=with_weak)
+            )
+    if args.json is not None:
+        payload = {
+            "trials": args.trials,
+            "policies": [p.name for p in POLICIES],
+            "conditions": conditions,
+        }
+        args.json.write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"計測結果を書き出しました: {args.json}")
 
 
 if __name__ == "__main__":
