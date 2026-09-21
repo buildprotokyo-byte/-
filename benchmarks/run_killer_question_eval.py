@@ -115,24 +115,24 @@ def firewall_integration_scenario(
 ) -> tuple[ConsistencySolver, dict[str, int]]:
     evidences_by_target = {
         "room_count": [
-            AxisEvidence(target="room_count", count_range=(4, 4), source_id="drawing-A",
+            AxisEvidence(unit="count", target="room_count", count_range=(4, 4), source_id="drawing-A",
                          axis_id="image", method_id="room_detector", calibrated=True),
-            AxisEvidence(target="room_count", count_range=(4, 4), source_id="ifc-A",
+            AxisEvidence(unit="count", target="room_count", count_range=(4, 4), source_id="ifc-A",
                          axis_id="rules", method_id="ifc_space_count", calibrated=True),
         ],
         "symbol_total": [
-            AxisEvidence(target="symbol_total", count_range=(7, 9), source_id="ifc-A",
+            AxisEvidence(unit="count", target="symbol_total", count_range=(7, 9), source_id="ifc-A",
                          axis_id="rules", method_id="opening_count_from_wall_geometry", calibrated=True),
-            AxisEvidence(target="symbol_total", count_range=(7, 9), source_id="spec-A",
+            AxisEvidence(unit="count", target="symbol_total", count_range=(7, 9), source_id="spec-A",
                          axis_id="text", method_id="spec_sheet_estimate", calibrated=True),
         ],
         "door_count": [
-            AxisEvidence(target="door_count", count_range=(2, 6), source_id="drawing-A",
+            AxisEvidence(unit="count", target="door_count", count_range=(2, 6), source_id="drawing-A",
                          axis_id="image", method_id="grounding_dino", calibrated=False,
                          model_confidence=0.95),
         ],
         "window_count": [
-            AxisEvidence(target="window_count", count_range=(2, 6), source_id="drawing-A",
+            AxisEvidence(unit="count", target="window_count", count_range=(2, 6), source_id="drawing-A",
                          axis_id="image", method_id="grounding_dino", calibrated=False,
                          model_confidence=0.90),
         ],
@@ -141,7 +141,14 @@ def firewall_integration_scenario(
     decisions = {target: firewall.assess(evs) for target, evs in evidences_by_target.items()}
     solver = ConsistencySolver()
     for target, evs in evidences_by_target.items():
-        add_target_to_joint_solver(solver, target, decisions[target], evs)
+        # allow_provisional_domain=True は 2026-09-21 以降必須。既定では、強い軸が
+        # 1つも無い階層3の要素(door_count / window_count)は結合solverに登録されず、
+        # そのまま人の確認へ回る(killer_question/firewall_bridge.py のバグ①の修正)。
+        # このベンチマークは docs/killer_question_report.md 3節の絞り込みを再現する
+        # ものなので、暫定候補の定義域を明示的に許可する。
+        add_target_to_joint_solver(
+            solver, target, decisions[target], evs, allow_provisional_domain=True
+        )
     solver.add_relation("door_ge_room", "door_count", ">=", "room_count")
     solver.add_relation("window_ge_room", "window_count", ">=", "room_count")
     solver.add_relation(

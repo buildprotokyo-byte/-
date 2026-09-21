@@ -10,6 +10,17 @@ from arbitration.consistency_solver import ConsistencySolver, IntRange, SolveRes
 EvidenceStatus = Literal["confident", "low_confidence", "abstained"]
 Strength = Literal["strong", "weak"]
 
+#: レンジが何を数えているか。異なる単位のレンジを重ね合わせてはならない
+#: (v8 3-2節)。"count"=個数、"m"=長さ、"m2"=面積、"yen"=金額。
+#: 2026-09-21 に追加。それまでは単位の情報がどこにも無く、金額のレンジ
+#: (3〜246万円)が個数(建具4本)を「支持」して階層2へ昇格する経路が実在した
+#: (`docs/top_priority_unit_safety_defect.md`)。
+Unit = str
+
+#: レンジが何を1単位として数えているか。"element"=対象要素1つ、
+#: "job"=工事1件。粒度が違うレンジも重ね合わせてはならない。
+Granularity = Literal["element", "job"]
+
 
 @dataclass(frozen=True)
 class AxisEvidence:
@@ -20,6 +31,10 @@ class AxisEvidence:
     source_id: str
     axis_id: str
     method_id: str
+    #: 必須。既定値を与えると、単位を意識せずに書かれた呼び出しが黙って
+    #: 通ってしまい、迂回経路が残るため。
+    unit: Unit
+    granularity: Granularity = "element"
     source_fingerprint: str | None = None
     strength: Strength = "strong"
     status: EvidenceStatus = "confident"
@@ -33,6 +48,10 @@ class AxisEvidence:
             raise ValueError(f"count_range の下限({lower})が上限({upper})を超えています")
         if not self.source_id or not self.axis_id or not self.method_id:
             raise ValueError("source_id / axis_id / method_id は空にできません")
+        if not self.unit:
+            raise ValueError("unit は空にできません(レンジが何を数えているかを必ず宣言する)")
+        if self.granularity not in ("element", "job"):
+            raise ValueError(f"granularity は element / job のいずれか: {self.granularity}")
 
     @property
     def evidence_id(self) -> str:
@@ -88,6 +107,13 @@ class AxisQualityFirewall:
             raise ValueError("1回の判定では同一targetの証拠だけを渡してください")
         target = evidences[0].target
         reasons: list[str] = []
+
+        # v8 3-2節: 単位・粒度が一致していない証拠は重ね合わせてはならない。
+        # レンジが数値として重なることは、支持の証拠にならない。黙って落とさず
+        # エスカレーションする(取り違えは人が直すべき入力の誤りなので)。
+        mismatch = self._unit_mismatch(evidences)
+        if mismatch is not None:
+            return self._unit_mismatch_decision(evidences, mismatch)
 
         abstained = [item for item in evidences if item.status == "abstained"]
         hard_candidates = [item for item in evidences if item.is_hard_eligible]
@@ -225,6 +251,42 @@ class AxisQualityFirewall:
             hard_evidence_ids=hard_ids,
             advisory_evidence_ids=advisory_ids,
             abstained_evidence_ids=abstained_ids,
+        )
+
+    @staticmethod
+    def _unit_mismatch(evidences: Sequence[AxisEvidence]) -> str | None:
+        """単位・粒度が揃っていなければ、その理由を返す(揃っていれば None)。"""
+        units = sorted({item.unit for item in evidences})
+        if len(units) > 1:
+            return f"単位が混在しています: {units}"
+        granularities = sorted({item.granularity for item in evidences})
+        if len(granularities) > 1:
+            return f"粒度が混在しています: {granularities}"
+        return None
+
+    def _unit_mismatch_decision(
+        self, evidences: Sequence[AxisEvidence], reason: str
+    ) -> FirewallDecision:
+        solve_result = ConsistencySolver().solve()
+        return FirewallDecision(
+            tier=3,
+            action="requires_review",
+            confirmed_range=None,
+            independent_strong_source_count=0,
+            independent_advisory_source_count=0,
+            method_count=len(evidences),
+            reasons=(
+                f"{reason}。単位・粒度の違うレンジは重ね合わせない(v8 3-2節)",
+            ),
+            solve_result=solve_result,
+            hard_evidence_ids=(),
+            advisory_evidence_ids=(),
+            abstained_evidence_ids=tuple(item.evidence_id for item in evidences),
+            escalation=EscalationRequest(
+                failure_type="unit_mismatch",
+                conflicting_constraints=(),
+                reason=reason,
+            ),
         )
 
     @staticmethod

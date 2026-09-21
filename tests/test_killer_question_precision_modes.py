@@ -99,11 +99,11 @@ def test_precise_mode_treats_tier2_firewall_decisions_as_needing_confirmation() 
     標本監査だけで済ませず、生の読み取りレンジ(まだ確定していない)を使う。
     """
     evidences = [
-        AxisEvidence(target="x", count_range=(5, 5), source_id="strong-src",
+        AxisEvidence(unit="count", target="x", count_range=(5, 5), source_id="strong-src",
                      axis_id="rules", method_id="strong_method", calibrated=True),
-        AxisEvidence(target="x", count_range=(4, 6), source_id="weak-src-1",
+        AxisEvidence(unit="count", target="x", count_range=(4, 6), source_id="weak-src-1",
                      axis_id="history", method_id="prior1", calibrated=True, strength="weak"),
-        AxisEvidence(target="x", count_range=(4, 6), source_id="weak-src-2",
+        AxisEvidence(unit="count", target="x", count_range=(4, 6), source_id="weak-src-2",
                      axis_id="rules", method_id="prior2", calibrated=True, strength="weak"),
     ]
     decision = AxisQualityFirewall().assess(evidences)

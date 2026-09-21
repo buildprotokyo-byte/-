@@ -2,7 +2,9 @@
 
 作成日: 2026年9月21日
 優先度: **最上位**(おーちゃんの指示、2026-09-21)
-状態: **未修理。** この文書は点検結果と修理案であり、コードはまだ直していない
+状態: **修理済み(2026-09-21)。** おーちゃんの承認を受けて 5-1〜5-3 を実装した。
+残っているのは 5-4(連続量の単位)と 5-5(迂回防止)で、5-4 は
+`docs/decision_continuous_quantity_gap.md` で判断待ち。実施結果は本文末尾の7節
 関連: `docs/design_v8.md` 3-2節・8章・10章、`docs/proposal_industry_statistics_repositioning.md`
 
 ---
@@ -277,7 +279,7 @@ class AxisEvidence:
 
 ---
 
-## 6. この課題の扱い
+## 6. 当初の見立て(記録として残す)
 
 - **3-3 と 3-4 は、まだ直していない。** 挙動が変わる修正であり、既存テスト
   (`test_killer_question_integration.py`、`test_killer_question_precision_modes.py`)
@@ -300,3 +302,117 @@ class AxisEvidence:
   生成箇所が実運用コードでは入口1箇所に集まっており、残りはテストと
   ベンチマークである。**つまり修理の影響範囲は思ったより狭い。**
   既存277件のテストの一部が一度落ちる状態を経由する
+
+---
+
+## 7. 実施結果(2026-09-21)
+
+おーちゃんの指示で、3-3・3-4 のバグを単位フィールド追加と同じ最優先タスクとして
+まとめて修正した。**回帰テストは 300件全パス(失敗0・スキップ0)。**
+
+### 7-1. バグ①(3-3): 棄権軸・単位違いの軸がハード変数の範囲を書き換える
+
+**指示された方針:** 強い軸が1つも存在しない場合、和集合による代替のハード変数は
+作らず、必ず階層3(要確認)にフォールバックする。
+
+**実施した内容:**
+
+- `killer_question/firewall_bridge.py` の既定の挙動を、指示どおり
+  「和集合を作らず、変数として登録しない」に変更した。戻り値を
+  `BridgeResult` にして、呼び出し側が「登録されなかった」ことを判別できるようにした
+- 精密モードで階層2を開き直す経路にも同根の欠陥があったため、こちらは
+  **棄権した証拠を除外する**修正を入れた(和集合そのものは残す。階層2には
+  強い軸が存在するので、指示の対象外と判断した)
+
+**副作用を1つ見つけた(判断をお願いしたい)。** `docs/killer_question_report.md`
+3節が実証した「Grounding DINO の読み取り単体(`calibrated=False`、階層3)を
+結合solverに入れ、関係式で `(2,6)` から `(4,5)` まで絞り込み、1問で解決する」
+という挙動は、**この和集合の上に成り立っていた。** 既定の挙動では door_count /
+window_count は solver に入らないため、この絞り込みは起きない(安全側だが
+自動化率は下がる)。
+
+そのため `allow_provisional_domain=True` という明示的なオプトインを用意し、
+従来の挙動が必要な場所(`tests/test_killer_question_integration.py`、
+`benchmarks/run_killer_question_eval.py`)だけがそれを渡すようにした。
+**オプトインした場合も棄権した証拠は除外し、`requires_confirmation=True` が
+立つため、確定済み金額に計上されることも質問対象から外れることもない。**
+どちらを既定にすべきかはおーちゃんの判断を仰ぐ。
+
+### 7-2. バグ②(3-4): 階層3の要素が確定済みとして扱われる
+
+**指示された方針:** 階層3の要素は、いかなる場合もキラークエスチョンの対象から
+除外せず、確定済み金額にも計上しない。
+
+**実施した内容:**
+
+- `ConsistencySolver.Variable` に `requires_confirmation` フラグを追加し、
+  **レンジ幅が0でも「まだ人の確認を得ていない」ことを表現できる**ようにした
+  (幅0を確定済みと同一視していたのが、このバグの根だった)
+- `firewall_bridge` の分岐条件を `confirmed_range is None` から
+  **`decision.action`** に変更した(自身のdocstringが元々意図していた挙動)
+- 階層3の要素に専用の軸名 `FIREWALL_UNCONFIRMED_AXIS` を付け、階層2と
+  区別できるようにした
+- `KillerQuestionEngine._unresolved_names()` が `requires_confirmation` の
+  立った変数を未解決として扱うようにした(質問対象から外れない)
+- `KillerQuestionEngine.confirmed_amount()` が `requires_confirmation` の
+  立った変数を計上しないようにした
+- `answer()` が回答時にフラグを降ろすようにした(降ろさないと永久に未解決になり、
+  質問ループが終わらない)
+
+**既存テストの期待値が2件変わった。** door_count を答えた後、window_count は
+関係式で `(4,4)` に定まるが、**その値を独立に確認したわけではなく、元の読み取りは
+`calibrated=False` の階層3**なので、`requires_confirmation` が残り未確定として
+報告される。停止理由が `all_resolved` から `no_further_reduction` に変わった。
+質問数と質問順序(トライアルの実測値そのもの)は変わっていない。
+これは v8 3-3節「キラークエスチョンで確定させた値も階層に従って扱う
+(無条件の自動確定はしない)」に沿った挙動である。
+
+### 7-3. 単位・粒度フィールドの追加(5-1・5-2)
+
+- `AxisEvidence` に **`unit`(必須)** と `granularity`(既定 `"element"`)を
+  追加した。`unit` に既定値を与えていないのは、既定値があると単位を意識せずに
+  書かれた呼び出しが黙って通り、迂回経路が残るため
+- `AxisQualityFirewall.assess()` の冒頭で、単位・粒度の一致を検査するように
+  した。揃っていなければ **黙って落とさず**
+  `EscalationRequest(failure_type="unit_mismatch")` でエスカレーションする
+- `ConsistencySolver` の `Variable` / `AdvisoryReading` に `unit` を持たせ、
+  `_build_advisories()` が単位の違う参考情報を **「整合」と報告しない**ように
+  した(`agrees=None` と「単位が違うため比較不可」)
+- `InferenceOrchestrator` が、入口で検証・正規化した単位を
+  `AxisEvidence.unit` に載せるようにした(以前は `evidence` 辞書に入るだけで、
+  照合する側は読んでいなかった)
+- `AxisEvidence` の生成箇所20箇所すべてに単位を明示した
+
+### 7-4. 追加した回帰テスト
+
+**おーちゃんの指摘どおり、修正前の277件はこのどちらのバグも検出できていなかった。**
+検出できる回帰テストを2ファイル23件追加した。
+
+| ファイル | 件数 | 内容 |
+|---|---:|---|
+| `tests/test_firewall_bridge_regressions.py` | 12 | バグ①・②の回帰。修正前のコードで落ちることを実測確認済み |
+| `tests/test_unit_safety.py` | 11 | 単位・粒度の不一致がエスカレーションされること。「万円のレンジが個数を支持して階層2へ」の再現防止 |
+
+修正前のコード(commit e0bef62)を別 worktree に取り出して実測し、
+新テストが対象とする欠陥が実在することを確認した。
+
+```
+【バグ①】lower=0 upper=246 strength=strong
+         (棄権軸が下限を0に、単位違いの弱い軸が上限を246にした)
+【バグ②】軸名 = firewall_provisional   (階層3なのに階層2の名前)
+         confirmed_amount = 40000.0    (期待は 0.0)
+         coverage = 1.0                (期待は 0.0)
+         next_question = None          (期待は質問が返ること)
+```
+
+なお `test_bug1_an_abstaining_axis_never_widens_a_hard_range` は**修正前でも
+通る**(強い軸があるので確定範囲が使われた)。バグの検出ではなく将来の退行を
+防ぐガードであることを、テストのdocstringに明記した。
+
+### 7-5. まだ残っていること
+
+| 項目 | 状態 |
+|---|---|
+| 5-4 `UNIT_ALIASES` を複数単位へ広げる | **判断待ち。** `docs/decision_continuous_quantity_gap.md` |
+| 5-5 迂回できないようにする(検証済みファクトリ) | 未着手。`unit` を必須にしたことで、単位を書かない呼び出しは `TypeError` になるようになった(部分的に前進) |
+| 7-1 の `allow_provisional_domain` の既定値 | **判断待ち** |

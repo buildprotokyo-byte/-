@@ -36,26 +36,31 @@ def _evidence_scenario() -> dict[str, list[AxisEvidence]]:
     return {
         "room_count": [
             AxisEvidence(
+        unit="count",
                 target="room_count", count_range=(4, 4), source_id="drawing-A",
                 axis_id="image", method_id="room_detector", calibrated=True,
             ),
             AxisEvidence(
+        unit="count",
                 target="room_count", count_range=(4, 4), source_id="ifc-A",
                 axis_id="rules", method_id="ifc_space_count", calibrated=True,
             ),
         ],
         "symbol_total": [
             AxisEvidence(
+        unit="count",
                 target="symbol_total", count_range=(7, 9), source_id="ifc-A",
                 axis_id="rules", method_id="opening_count_from_wall_geometry", calibrated=True,
             ),
             AxisEvidence(
+        unit="count",
                 target="symbol_total", count_range=(7, 9), source_id="spec-A",
                 axis_id="text", method_id="spec_sheet_estimate", calibrated=True,
             ),
         ],
         "door_count": [
             AxisEvidence(
+        unit="count",
                 target="door_count", count_range=(2, 6), source_id="drawing-A",
                 axis_id="image", method_id="grounding_dino",
                 calibrated=False,  # docs/design_v8.md 11章の決定
@@ -64,6 +69,7 @@ def _evidence_scenario() -> dict[str, list[AxisEvidence]]:
         ],
         "window_count": [
             AxisEvidence(
+        unit="count",
                 target="window_count", count_range=(2, 6), source_id="drawing-A",
                 axis_id="image", method_id="grounding_dino",
                 calibrated=False,
@@ -84,7 +90,17 @@ def _build_joint_solver(
 ) -> ConsistencySolver:
     solver = ConsistencySolver()
     for target, evidences in evidences_by_target.items():
-        add_target_to_joint_solver(solver, target, decisions[target], evidences)
+        # allow_provisional_domain=True は 2026-09-21 に必要になった。既定では、
+        # 強い軸が1つも無い階層3の要素(ここでは door_count / window_count)は
+        # 結合solverに登録されず、そのまま人の確認へ回る
+        # (killer_question/firewall_bridge.py のバグ①の修正)。
+        # このシナリオは docs/killer_question_report.md 3節の「校正されていない
+        # 読み取りを関係式で絞り込む」挙動を検証するものなので、明示的に
+        # 暫定候補の定義域を許可している。どちらを既定にすべきかは判断待ち。
+        add_target_to_joint_solver(
+            solver, target, decisions[target], evidences,
+            allow_provisional_domain=True,
+        )
     solver.add_relation(
         "door_ge_room", "door_count", ">=", "room_count",
         description="IfcOpenShell space_without_door 相当",
@@ -172,7 +188,16 @@ def test_killer_question_resolves_everything_in_one_question_when_lucky() -> Non
 
     assert session.question_count == 1
     assert session.answered[0].variable == "door_count"
-    assert session.stopped_reason == "all_resolved"
+    # 2026-09-21 変更: 質問数と順序(トライアルの実測値)は変わらないが、
+    # 停止理由が "all_resolved" から "no_further_reduction" になった。
+    # window_count は関係式で (4,4) まで pinされるものの、**その値を独立に
+    # 確認したわけではなく、元の読み取りは calibrated=False の階層3**なので、
+    # requires_confirmation が残り、未確定として報告される。
+    # v8 3-3節「キラークエスチョンで確定させた値も階層に従って扱う
+    # (無条件の自動確定はしない)」に沿った挙動。以前は幅0になった時点で黙って
+    # 確定済み扱いにしていた(バグ②)。
+    assert session.stopped_reason == "no_further_reduction"
+    assert session.remaining_unresolved == ("window_count",)
     assert session.final_result.variables["window_count"].solved_range == (4, 4)
     assert session.final_result.variables["symbol_total"].solved_range == (9, 9)
 
@@ -193,5 +218,7 @@ def test_killer_question_asks_a_second_question_when_the_first_answer_is_ambiguo
 
     assert session.question_count == 2
     assert session.answered[0].variable == "door_count"
-    assert session.stopped_reason == "all_resolved"
+    # 2026-09-21 変更: 理由は上のテストと同じ。2問必要という分岐そのものは変わらない。
+    assert session.stopped_reason == "no_further_reduction"
+    assert session.remaining_unresolved == ("window_count",)
     assert session.final_result.variables["window_count"].solved_range == (4, 4)

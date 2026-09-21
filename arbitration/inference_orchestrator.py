@@ -429,6 +429,10 @@ class InferenceOrchestrator:
                 source_id=source_id,
                 axis_id=axis_id,
                 method_id=required["method_id"],
+                # 入口で検証・正規化した単位を、そのまま AxisEvidence に載せる。
+                # 以前はここで検証した単位が evidence 辞書に入るだけで、
+                # ファイアウォールもソルバーも読んでいなかった。
+                unit=unit or "",
                 source_fingerprint=registered_fingerprint,
                 strength=effective_strength,
                 status=status,

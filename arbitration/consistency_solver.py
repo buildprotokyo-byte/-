@@ -96,6 +96,17 @@ class Variable:
     strength: Strength
     evidence: dict[str, object] = field(default_factory=dict)
 
+    #: レンジが何を数えているか("count" / "m" / "m2" / "yen" 等)。
+    #: 空文字は「宣言されていない」。単位の違うレンジは比較しない(v8 3-2節)。
+    unit: str = ""
+
+    #: レンジ幅が 0 でも「まだ人の確認を得ていない」ことを表すフラグ。
+    #: v8 3-3節の階層3(要確認)の要素に立てる。**幅0を「確定済み」と同一視
+    #: すると、階層3の要素がキラークエスチョンの対象から外れ、確定済み金額に
+    #: 計上されてしまう**(2026-09-21 に実測したバグ。
+    #: `docs/top_priority_unit_safety_defect.md` 3-4節)。
+    requires_confirmation: bool = False
+
 
 @dataclass(frozen=True)
 class AbstainedReading:
@@ -114,6 +125,7 @@ class AdvisoryReading:
     lower: int
     upper: int
     evidence: dict[str, object] = field(default_factory=dict)
+    unit: str = ""
 
 
 @dataclass(frozen=True)
@@ -208,14 +220,21 @@ class ConsistencySolver:
         strength: Strength = "strong",
         axis: str = "",
         evidence: dict[str, object] | None = None,
+        requires_confirmation: bool = False,
+        unit: str = "",
     ) -> None:
-        """下限・上限を直接指定して、ハードな制約に使う変数を登録する。"""
+        """下限・上限を直接指定して、ハードな制約に使う変数を登録する。
+
+        ``requires_confirmation=True`` は「レンジ幅が 0 でも、まだ人の確認を
+        得ていない」ことを表す(v8 3-3節の階層3)。
+        """
         if name in self._variables:
             raise ValueError(f"変数 '{name}' は既に登録されています")
         if lower > upper:
             raise ValueError(f"'{name}': lower({lower}) > upper({upper})")
         self._variables[name] = Variable(
-            name, lower, upper, axis, strength, dict(evidence or {})
+            name, lower, upper, axis, strength, dict(evidence or {}),
+            unit=unit, requires_confirmation=requires_confirmation,
         )
 
     def add_variable_from_reading(
@@ -256,6 +275,7 @@ class ConsistencySolver:
         reading: "SymbolCountReading",  # noqa: F821
         *,
         axis: str,
+        unit: str = "",
     ) -> None:
         """弱い軸の読み取りを、参考情報として登録する。
 
@@ -275,6 +295,7 @@ class ConsistencySolver:
                 lower,
                 upper,
                 evidence={"status": reading.status, "category": reading.category, **reading.evidence},
+                unit=unit,
             )
         )
 
@@ -295,6 +316,32 @@ class ConsistencySolver:
     def variable_axis(self, name: str) -> str:
         """変数が属する軸の名前(登録時の ``axis`` 引数)。"""
         return self._variables[name].axis
+
+    def requires_confirmation(self, name: str) -> bool:
+        """その変数が、レンジ幅に関わらず人の確認を要するか(階層3かどうか)。"""
+        variable = self._variables.get(name)
+        return bool(variable and variable.requires_confirmation)
+
+    def names_requiring_confirmation(self) -> frozenset[str]:
+        """人の確認を要する変数の集合。"""
+        return frozenset(
+            name for name, v in self._variables.items() if v.requires_confirmation
+        )
+
+    def mark_confirmed(self, name: str) -> None:
+        """人の確認を得た変数のフラグを降ろす。
+
+        ``killer_question`` エンジンが回答を反映したときに呼ぶ。これを忘れると
+        その変数が永久に未確定のままになり、質問ループが終わらない。
+        """
+        variable = self._variables.get(name)
+        if variable is None or not variable.requires_confirmation:
+            return
+        self._variables[name] = Variable(
+            variable.name, variable.lower, variable.upper, variable.axis,
+            variable.strength, dict(variable.evidence),
+            unit=variable.unit, requires_confirmation=False,
+        )
 
     def constraint_names(self) -> tuple[str, ...]:
         """登録済みの制約名の一覧(``add_relation`` / ``add_constraint`` で
@@ -475,6 +522,8 @@ class ConsistencySolver:
         for advisory in self._advisories:
             match = variables.get(advisory.target)
             advisory_range = (advisory.lower, advisory.upper)
+            declared = self._variables.get(advisory.target)
+            match_unit = declared.unit if declared else ""
             if match is None:
                 notes.append(
                     AdvisoryNote(
@@ -491,6 +540,28 @@ class ConsistencySolver:
                 )
                 continue
             lo, hi = match.solved_range
+
+            # v8 3-2節: 単位が違うレンジは比較しない。数値が重なることは
+            # 支持の証拠にならない。以前はここで単位を見ずに「整合」と
+            # 人に報告していた(`docs/top_priority_unit_safety_defect.md` 3-2節)。
+            if advisory.unit and match_unit and advisory.unit != match_unit:
+                notes.append(
+                    AdvisoryNote(
+                        target=advisory.target,
+                        axis=advisory.axis,
+                        advisory_range=advisory_range,
+                        solved_range=match.solved_range,
+                        agrees=None,
+                        message=(
+                            f"{advisory.axis} の参考情報: '{advisory.target}' は "
+                            f"{advisory_range}[{advisory.unit}] だが、強い軸の解は "
+                            f"{match.solved_range}[{match_unit}] で"
+                            "**単位が違うため比較不可**(数値が重なっても支持にはならない)"
+                        ),
+                    )
+                )
+                continue
+
             overlaps = not (hi < advisory.lower or lo > advisory.upper)
             if overlaps:
                 message = (

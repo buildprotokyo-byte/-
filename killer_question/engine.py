@@ -191,11 +191,19 @@ class KillerQuestionEngine:
         return total
 
     def confirmed_amount(self, result: SolveResult) -> float:
-        """単価が登録されている要素のうち、既に確定した(レンジ幅0の)ものだけの金額合計。"""
+        """既に確定した要素だけの金額合計(単価が登録されているものに限る)。
+
+        「確定した」の条件は **レンジ幅0かつ ``requires_confirmation`` が
+        立っていないこと**。階層3(要確認)の要素は、値が1つに絞れていても
+        人の確認を得ていないため計上しない(2026-09-21 修正。以前は
+        人の確認が必要な金額が確定済みとして計上されていた)。
+        """
         total = 0.0
         for name, price in self._unit_prices.items():
             solution = result.variables.get(name)
             if solution is None:
+                continue
+            if self._solver.requires_confirmation(name):
                 continue
             lower, upper = solution.solved_range
             if lower == upper:
@@ -267,10 +275,18 @@ class KillerQuestionEngine:
         )
 
     def _unresolved_names(self, result: SolveResult) -> list[str]:
+        """まだ解決していない変数の名前。
+
+        **レンジ幅が0でも、``requires_confirmation`` が立っていれば未解決と
+        して扱う。** 幅0を無条件に「確定済み」と見なしていたため、階層3
+        (要確認)の要素が質問対象から外れていた(2026-09-21 修正。
+        `docs/top_priority_unit_safety_defect.md` 3-4節)。
+        """
         return [
             name
             for name, solution in result.variables.items()
             if solution.solved_range[0] < solution.solved_range[1]
+            or self._solver.requires_confirmation(name)
         ]
 
     def _tie_break(
@@ -360,10 +376,16 @@ class KillerQuestionEngine:
         )
 
     def answer(self, variable: str, value: int) -> None:
-        """質問への回答を、絶対的な前提として solver に反映する。"""
+        """質問への回答を、絶対的な前提として solver に反映する。
+
+        あわせて ``requires_confirmation`` を降ろす。人が答えた時点でその要素は
+        確認済みになるため。降ろさないと永久に未解決のままになり、質問の
+        選定ループが終わらない。
+        """
         self._solver.add_relation(
             f"{_ANSWER_PREFIX}{variable}__{len(self._answered)}", variable, "==", value
         )
+        self._solver.mark_confirmed(variable)
 
     def run(
         self, answer_fn: Callable[[Question], int]
