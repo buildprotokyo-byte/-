@@ -13,7 +13,7 @@
 `intake/start_kit.py`(`PageDeclaration` / `PagePairing` / `StartKit`)、
 `estimating/` 全5ファイル(`quantities.py` / `basis.py` / `mapping.py` / `rules.py` / `from_intake.py`)、
 `tests/test_drawing_intake_schedules.py`、`tests/test_intake_start_kit.py`。
-並行して進んでいる `estimating/case_premises.py`(ブランチ `claude/principles-case-premises`)も読んだ。
+`estimating/case_premises.py`(PR #30、main `55f3475` でマージ済み)も読んだ。
 
 読んでいないもの: `arbitration/` の中身、`benchmarks/`、`killer_question/`、`mobile/`。
 **下の記述は、この読んだ範囲の中でのものである。**
@@ -595,11 +595,11 @@ assert "開き戸::現況::ページ1" in [item.target for item in result.findin
 
 **参照しているだけで、変更していないもの:**
 
-- `estimating/case_premises.py`(ブランチ `claude/principles-case-premises`、未マージ)…
+- `estimating/case_premises.py`(PR #30 で main にマージ済み)…
   5-1節・5-4節がこの `CasePremise` の `source` / `resolved_by` / `alternatives` / `scope` に乗る。
   **`PremiseScope` がまだページ単位の範囲を持てない**(その docstring に理由が書かれている)ので、
   2-2節の `where` の代役(pairing_id)は `target_kinds` / `targets` の側で表すことになる。
-  この層が入ったら、噛み合うかを実装時に確かめる。
+  実装時に、この形で噛み合うかを確かめる。
 - `intake/start_kit.py` … 現況の把握の申告を別スレッドが足している最中。5-1節の3つの約束で噛み合わせる。
 - `estimating/quantities.py` / `mapping.py` / `basis.py`(PR #29、main) … **変えない。**
   差分の層はこれらの上に乗る。
