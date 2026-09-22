@@ -373,6 +373,9 @@ class IntakeResult:
         """
         if self.audit_plan is None:
             return "抜き取り検査: 行っていない"
+        # **引き継ぎの約束**: 母集団が 0 でなくなり、最初の 1 件を検査したら
+        # その結果を報告する(`arbitration/provisional_audit.
+        # FIRST_AUDIT_MUST_BE_REPORTED`)。
         parts = []
         for tier in self.audit_plan.audited_tiers:
             plan = self.audit_plan.plans[tier]
