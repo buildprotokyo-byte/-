@@ -79,7 +79,7 @@ import pymupdf
 from axes.image_axis.pdf_tables import find_tables
 from axes.reading.meaning import (
     PURPOSE_RECEIVED_UNLINKED,
-    PURPOSE_UNLINKED,
+    PURPOSE_UNESTABLISHED,
     Meaning,
 )
 
@@ -809,7 +809,7 @@ def read_dimensions(
                     purpose_link=(
                         PURPOSE_RECEIVED_UNLINKED
                         if purpose_received
-                        else PURPOSE_UNLINKED
+                        else PURPOSE_UNESTABLISHED
                     ),
                 ),
             )

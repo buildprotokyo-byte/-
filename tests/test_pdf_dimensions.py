@@ -34,7 +34,7 @@ from axes.image_axis.pdf_dimensions import (
     page_scale_from_dimensions,
     read_dimensions,
 )
-from axes.reading.meaning import PURPOSE_UNLINKED
+from axes.reading.meaning import PURPOSE_UNESTABLISHED
 from tests.test_pdf_tables import draw_table
 
 #: 実寸 1mm が 1/50 の図面で何ポイントになるか。
@@ -312,7 +312,7 @@ def test_every_reading_carries_the_four_meaning_fields(tmp_path: Path) -> None:
     assert meaning.what
     assert "ページ1" in meaning.where
     assert meaning.phase == "不明"
-    assert meaning.purpose_link == PURPOSE_UNLINKED
+    assert meaning.purpose_link == PURPOSE_UNESTABLISHED
     # 4欄が揃っていないことを、値の側に残しておく。
     assert meaning.is_complete is False
 

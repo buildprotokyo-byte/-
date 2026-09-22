@@ -23,7 +23,10 @@ import pymupdf
 import pytest
 
 from axes.image_axis.pdf_dimensions import METHOD_DIMENSION_SCALE, METHOD_DIMENSION_TEXT
-from axes.reading.meaning import PURPOSE_RECEIVED_UNLINKED, PURPOSE_UNLINKED
+from axes.reading.meaning import (
+    PURPOSE_RECEIVED_UNLINKED,
+    PURPOSE_UNESTABLISHED,
+)
 from intake.drawing_intake import (
     KIND_HUMAN_VS_DIMENSION,
     ORIGIN_DIMENSION_TEXT,
@@ -133,7 +136,7 @@ def test_the_dimension_numbers_become_findings_with_meaning(tmp_path: Path) -> N
         assert finding.meaning.what == "図面に記入された寸法"
         assert "ページ1" in finding.meaning.where
         assert finding.meaning.phase == "不明"
-        assert finding.meaning.purpose_link == PURPOSE_UNLINKED
+        assert finding.meaning.purpose_link == PURPOSE_UNESTABLISHED
         assert finding.meaning.is_complete is False
         assert finding.provenance["page_number"] == 1
         assert finding.provenance["source_text"]
