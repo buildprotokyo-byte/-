@@ -35,7 +35,11 @@ from __future__ import annotations
 
 from typing import Mapping
 
-from axes.image_axis.pdf_vector_symbols import METHOD_DOOR_ARC, METHOD_TEXT_AREA
+from axes.image_axis.pdf_vector_symbols import (
+    METHOD_DOOR_ARC,
+    METHOD_TEXT_AREA,
+    METHOD_TEXT_SCALE,
+)
 from axes.image_axis.schedule_tables import (
     METHOD_DOOR_SCHEDULE,
     METHOD_FINISH_SCHEDULE,
@@ -43,6 +47,11 @@ from axes.image_axis.schedule_tables import (
 from axes.image_axis.vtracer_vectorizer import METHOD_FLOOR_AREA, METHOD_WALL_LINEWORK
 
 from arbitration.inference_orchestrator import MethodPolicy
+
+#: 人が入れた基準点の手法ID。実体は `intake/start_kit.py` にあるが、
+#: `intake` は `arbitration` を import するので、ここに文字列として置く
+#: (逆向きに import すると循環する)。
+METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 
 #: 手法IDごとの、このリポジトリで認められた上限。
 #:
@@ -56,6 +65,15 @@ from arbitration.inference_orchestrator import MethodPolicy
 #:   **「単独でハードな確定に使わない」**と決定。
 #:   `max_strength="weak"` にしてあるので、ハード制約(階層1の根拠)には
 #:   絶対に昇格しない。参考情報としては使える。
+#: - ``pdf_text_scale`` … 表題欄に印字された縮尺から長さを計算する
+#:   (`axes/image_axis/pdf_vector_symbols.extract_scale`)。未校正。
+#:   印字は**用紙の拡大縮小を保証しない**(A3 の図面を A0 で出しても印字は
+#:   1/50 のまま)ので、人が入れた基準点と突き合わせる相手として使う。
+#: - ``human_reference_point`` … 人が図面上の2点と実際の長さを入れたもの
+#:   (`intake/start_kit.py`)。手法の実体は intake 側にあるが、**人の入力も
+#:   それだけを根拠に自動確定させない**というおーちゃんの指示(2026-09-22)を
+#:   コードで担保するため、ここで未校正として登録する。`calibrated=False` の
+#:   あいだは `is_hard_eligible` が False になり、ハード制約に入らない。
 #: - ``pdf_text_area`` … 図面に**文字として書かれている**面積の記載をそのまま
 #:   読む(`axes/image_axis/pdf_vector_symbols.find_area_labels`)。
 #:   上限は ``strong`` にしてあるが **``calibrated=False``** なので、
@@ -91,6 +109,8 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_TEXT_AREA: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_DOOR_ARC: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_HUMAN_REFERENCE_POINT: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_DOOR_SCHEDULE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
 }

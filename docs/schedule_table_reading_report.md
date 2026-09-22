@@ -179,6 +179,28 @@ P011 の新設建具は全部引戸か折戸で、だから図形からの検出
 - 変更: `intake/drawing_intake.py`(表の読み取りを足しただけ。既存の縮尺・面積・
   開き戸の経路と判定のしかたは変えていない)、`arbitration/method_policies.py`
   (登録簿に 2 行足しただけ)、`docs/design_v8.md`(15 章を追加)。
+**キュー1の追補(スタートキット、PR #14 `f05bf20`)との重なり(実際に衝突した箇所):**
+
+- `intake/drawing_intake.py` … 向こうが `DrawingFinding` に `source_kind` /
+  `axis_id` / `strength` / `derivation` を足し、`to_orchestrator_request()` を
+  「同じ対象の読みの列」を受ける形に変えた。**こちらは向こうの版を採り、
+  建具表の読み取りを上に載せ直した。** 建具表の数量は `source_kind="drawing"`
+  のまま(図面 PDF から読んだ値なので、人の入力とは別のデータ源にしない)。
+  向こうが入れた「人が『建具表』と宣言したページでは開き戸を探さない」は
+  そのまま活きる。表の読み取りは縮尺に依存しないので、縮尺が読めない
+  ページでも読みが食い違ったページでも動く。
+- `arbitration/method_policies.py` … 登録簿に向こうが 2 行
+  (`pdf_text_scale` / `human_reference_point`)、こちらが 2 行を足した。
+  **両方を残した。** 4 つとも `calibrated=False` である。
+- `docs/design_v8.md` … 向こうが 14-2 節、こちらが 15 章を足した。
+  14-2 節を先に置いて 15 章を続けた。
+
+**独立性の前提が変わった点(向こうの追補)。** 人の入力は図面とは別のデータ源
+なので、独立したデータ源は 1 つではなくなった。確定が起きないのは
+`human_reference_point` と `pdf_text_scale` がどちらも未校正だからである。
+**建具表の手法も同じ方針で未校正のまま登録してある**ので、この PR は
+その前提を変えない。
+
 - **`arbitration/` で触ったのは `method_policies.py` の登録簿だけ**で、
   群合計スレッドが触る `group_total.py` / `firewall_bridge.py` /
   `consistency_solver.py` / `axis_quality_firewall.py` とは重なりが無い。
