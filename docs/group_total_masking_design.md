@@ -298,3 +298,23 @@ solver に入る制約の1つでしかなく、sat だったときに「この�
 **「範囲を 0〜246 に広げないこと」**（バグ①の実害）に変えた。
 単位混在から変数を作らないことは
 `test_bug1_mixed_units_still_create_no_hard_variable` を新設して押さえている。
+
+### 7-5. 計測スクリプトの数え方も直した（2026-09-22）
+
+**この修正は、既にある計測スクリプトの数え方を壊す。** `run_with_tiers` /
+`run_with_policy` は「人が1件ずつ確認する要素」を
+**「変数として登録されなかった要素」**として数えていた。これは
+`firewall_bridge` が階層3の一部を登録していなかったことに依存した代理指標で、
+停止した要素も必ず登録するようになった時点で成り立たなくなる。
+
+数えるべきは **`requires_confirmation` が立ったまま残った要素**である
+（質問で解決された要素は `mark_confirmed()` でフラグが降りるので、
+`session.question_count` との二重計上にはならない）。
+`benchmarks/simulate_tier1_center_agreement.py` と
+`benchmarks/run_trial789_reproduction.py` の両方を直した。
+
+これは [[jidou-sekisan-measurement-script-rot]] と同じ落とし穴の2件目である。
+**実装を変えたら、その実装を測っているスクリプトの数え方も一緒に見る。**
+気づいた経緯は、修正後に `docs/center_agreement_effect_result.json` の
+30試行を測り直したら中心値検査の効果が消えて見えたこと。テストはこの JSON を
+読むだけなので、全件パスしても変化を検出できなかった。
