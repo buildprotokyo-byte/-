@@ -75,6 +75,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
+from arbitration import units as unit_registry
 from arbitration.axis_quality_firewall import AxisEvidence, FirewallDecision
 from arbitration.consistency_solver import ConsistencySolver
 from killer_question.precision_mode import PrecisionMode
@@ -134,6 +135,33 @@ def _reading_based_range(evidences: Sequence[AxisEvidence]) -> tuple[int, int] |
         min(item.count_range[0] for item in speaking),
         max(item.count_range[1] for item in speaking),
     )
+
+
+
+def _unconstrained_domain(unit: str, must_contain: tuple[int, int]) -> tuple[int, int]:
+    """他の要素を狭める力を持たない定義域(= その単位の許容域)。
+
+    実測校正を通った強い軸が1つも無い要素に使う。**この要素は自分の値を
+    主張できる立場にないので、他の要素の値を狭めてもいけない。** 定義域を
+    単位の許容域まで開けば、ハード制約としては何も排除しない。
+
+    矛盾検出のほうは ``detection_range`` が受け持つので、群合計制約や
+    クラスタの等式で「読み取り値と合わない」ことは検出できる。**外れたら
+    人に回る方向にだけ効かせ、黙って確定する方向には効かせない。**
+
+    ``must_contain`` は ``detection_range`` として使う範囲。定義域はこれを
+    必ず含まなければならない(``add_variable`` が要求する)。単位が未知なら
+    許容域が引けないので、``must_contain`` をそのまま返す。
+    """
+    if not unit:
+        return must_contain
+    try:
+        spec = unit_registry.spec_for(unit)
+    except Exception:
+        # 単位が未知なら許容域が引けない。狭いままにしておくほうが、
+        # 勝手に決めた広い域を使うより説明がつく。
+        return must_contain
+    return (min(0, must_contain[0]), max(spec.max_value, must_contain[1]))
 
 
 def add_target_to_joint_solver(
@@ -218,16 +246,31 @@ def add_target_to_joint_solver(
             # 安全側の判断だったが、この要素を参照する群合計制約が書けなくなり、
             # **停止した1要素を守るために同じ群の他の要素の矛盾検出が
             # まとめて消えていた**(`docs/group_total_masking_design.md` 2節)。
-            # 変数は作るが、矛盾検出に使うのは読み取り値が支持する狭い範囲で、
-            # ``requires_confirmation=True`` なので確定済みとしては扱われない。
+            #
+            # ここには実測校正を通った強い軸が1つも無い。**その読みには、
+            # 他の要素の値を狭める権限を与えてはならない**(v8 3-2節)。
+            # 2026-09-22 の実測では、読み取り値が支持する狭い範囲を
+            # そのまま定義域にしたところ、**停止した要素の誤った読みが
+            # クラスタの等式を通って伝播し、同じ群の他の要素を誤った値に
+            # 確定させた**(kitchen クラスタで、停止した3要素の (3,3) が
+            # 正解4の kitchen_2 を (3,3) に潰した)。
+            #
+            # そこで方向で分ける。
+            #
+            # - **矛盾を見つける方向**(外れたら人に回る、安全側)には
+            #   読み取り値が支持する狭い範囲を使う
+            # - **他の要素を狭める方向**(黙って確定する、危険側)には
+            #   何も主張させない。定義域はその単位の許容域まで開く
             detection_range = reading_range
             if allow_provisional_domain:
+                # v8 10章14項で「既定にはしない」と決めた挙動。明示的に
+                # 許可されたときだけ、読みの和集合を定義域にする。
                 speaking = [e for e in evidences if e.status != "abstained"]
                 lower = min(e.count_range[0] for e in speaking)
                 upper = max(e.count_range[1] for e in speaking)
                 axis = speaking[0].axis_id
             else:
-                lower, upper = reading_range
+                lower, upper = _unconstrained_domain(evidences[0].unit, reading_range)
     elif decision.action == "auto_confirm":
         if decision.confirmed_range is None:
             raise ValueError(
