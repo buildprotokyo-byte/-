@@ -5,7 +5,9 @@
 1. **段階0.5(v8 13章)。** 資料は全ページを渡したまま、
    「まず基準寸法・工事対象範囲・現況の3点を確定し、それを前提に
    数量を導く」という**考える順序だけ**を指示する
-   (`build_reading_prompt`)。
+   (`build_reading_prompt`)。**2026-09-22 に既定から外した。**
+   `ReadingRequest(stage_half=True)` を明示的に指定したときだけ有効で、
+   既定は方式A(順序を指示しない)である(v8 10章24項)。
 2. **値の由来の申告(v8 3-3節)。** 数量1つごとに、それが
    「資料に明記された事実をそのまま読んだ値」か
    「読んだ値だけから計算した値」か
@@ -116,9 +118,22 @@ class QuantityRequest:
 class ReadingRequest:
     """1回の読み取りで渡す資料と、答えさせる数量の一式。"""
 
-    #: 資料のページ。**並び順のまま、全ページを1回で渡す**(方式A2)。
+    #: 資料のページ。**並び順のまま、全ページを1回で渡す。**
+    #: これは方式A・方式A2に共通で、分けるのは方式Bだけである。
     documents: tuple[str, ...]
     quantities: tuple[QuantityRequest, ...]
+    #: **段階0.5(方式A2)を使うか。既定は False = 方式A。**
+    #:
+    #: 2026-09-22 におーちゃんの判断で既定から外した。難易度4の再測定で
+    #: A2 = 50/54 に対し A = 54/54 となり、採用根拠だった「害が無い」が
+    #: 成り立たなくなったため(v8 10章23項②・24項)。**コードは残し、
+    #: 明示的に指定したときだけ使う。** 反復を3→10に増やした再計測の
+    #: 結果が出るまで、この既定は変えないこと。
+    #:
+    #: **値の由来の申告(3-3-2節)はこの切り替えと無関係で、どちらの方式でも
+    #: 必ず要求する。** 段階0.5と対で運用する仕組みだが(13-4節)、
+    #: 由来の申告だけでも独立して効く。
+    stage_half: bool = False
 
     def __post_init__(self) -> None:
         if not self.documents:
@@ -131,39 +146,55 @@ class ReadingRequest:
 
 
 def answer_schema(request: ReadingRequest) -> str:
-    """読み手に守らせる回答の形(JSON)を組み立てる。"""
-    foundations = ", ".join(f'"{name}": "<文章>"' for name in FOUNDATION_ELEMENTS)
+    """読み手に守らせる回答の形(JSON)を組み立てる。
+
+    3要素の欄が出るのは段階0.5(方式A2)のときだけ。方式Aで欄だけ残すと、
+    「書き出せ」と言っていないのに書く欄があることになり、どちらの方式を
+    測っているのか分からなくなる。
+    """
     quantities = ",\n    ".join(
         '"%s": {"値": <数値>, "下限": <数値>, "上限": <数値>, '
         '"由来": "<%s>", "根拠": [], "根拠となった記述": "<文章>"}'
         % (q.target, " / ".join(DERIVATION_LABELS))
         for q in request.quantities
     )
-    return (
-        "{\n  "
-        + foundations
-        + ',\n  "数量": {\n    '
-        + quantities
-        + "\n  }\n}"
-    )
+    head = "{\n  "
+    if request.stage_half:
+        head += ", ".join(f'"{name}": "<文章>"' for name in FOUNDATION_ELEMENTS)
+        head += ',\n  '
+    return head + '"数量": {\n    ' + quantities + "\n  }\n}"
 
 
 def build_reading_prompt(request: ReadingRequest) -> str:
-    """段階0.5(方式A2)の読み取り指示を組み立てる。
+    """読み取りの指示を組み立てる。
 
-    **資料は1つの塊のまま、全ページを並び順どおりに渡す。** 概要と詳細に
-    分けたり、詳細を読む段で概要を取り上げたりしない(v8 13-2節)。
-    指示するのは考える順序だけである。
+    **資料は1つの塊のまま、全ページを並び順どおりに渡す**(方式A・A2共通)。
+    概要と詳細に分けたり、詳細を読む段で概要を取り上げたりしない(方式Bは
+    採らない。v8 13-2節)。
+
+    ``request.stage_half`` が True のときだけ、段階0.5(方式A2)の
+    「3点を先に書き出してから答える」順序を指示する。既定(方式A)では
+    順序の指示を入れない。**値の由来の申告は、どちらの方式でも必ず要求する。**
     """
     pages = "\n".join(request.documents)
     questions = "\n".join(
         f"{index}. [{q.target}] {q.text}(単位: {q.unit})"
         for index, q in enumerate(request.quantities, start=1)
     )
-    elements = "\n".join(
-        f"{index}. {name}"
-        for index, name in enumerate(FOUNDATION_ELEMENTS, start=1)
-    )
+    if request.stage_half:
+        elements = "\n".join(
+            f"{index}. {name}"
+            for index, name in enumerate(FOUNDATION_ELEMENTS, start=1)
+        )
+        order = f"""まず、次の3点を資料から書き出してください。
+
+{elements}
+
+そのうえで、この3点を前提として設問に答えてください。
+
+設問:"""
+    else:
+        order = "設問:"
     return f"""あなたは建築改修工事の積算担当です。
 次の資料一式(全{len(request.documents)}ページ)を、並び順どおりに読んでください。
 
@@ -171,13 +202,7 @@ def build_reading_prompt(request: ReadingRequest) -> str:
 {pages}
 ===== 資料ここまで =====
 
-まず、次の3点を資料から書き出してください。
-
-{elements}
-
-そのうえで、この3点を前提として設問に答えてください。
-
-設問:
+{order}
 {questions}
 
 各数量について、次のことを必ず守ってください。
@@ -266,19 +291,21 @@ def parse_reading_response(
     data = _require_mapping(data, "response_not_object", type(data).__name__)
 
     foundations: dict[str, str] = {}
-    missing_elements: list[str] = []
-    for name in FOUNDATION_ELEMENTS:
-        value = data.get(name)
-        if isinstance(value, str) and value.strip():
-            foundations[name] = value.strip()
-        else:
-            missing_elements.append(name)
-    if missing_elements:
+    if request.stage_half:
         # 段階0.5の要は「3点を先に確定すること」なので、それが欠けた回答は
         # 数量だけ拾って通してはいけない。指示が守られていない証拠である。
-        raise ReadingResponseError(
-            "foundation_elements_missing", "、".join(missing_elements)
-        )
+        # **方式A(既定)では3点を書かせていないので、欠けていて当然である。**
+        missing_elements: list[str] = []
+        for name in FOUNDATION_ELEMENTS:
+            value = data.get(name)
+            if isinstance(value, str) and value.strip():
+                foundations[name] = value.strip()
+            else:
+                missing_elements.append(name)
+        if missing_elements:
+            raise ReadingResponseError(
+                "foundation_elements_missing", "、".join(missing_elements)
+            )
 
     quantities = _require_mapping(
         data.get("数量", {}), "quantities_not_object", repr(data.get("数量"))
@@ -444,10 +471,17 @@ def foundation_summary(parsed: ParsedReading) -> str:
     )
 
 
-def describe_sequence(quantities: Sequence[QuantityRequest]) -> str:
-    """段階0.5がこの読み取りに何を指示したかの1行説明(記録用)。"""
+def describe_sequence(
+    quantities: Sequence[QuantityRequest], *, stage_half: bool = False
+) -> str:
+    """この読み取りに何を指示したかの1行説明(記録用)。"""
+    if stage_half:
+        return (
+            f"段階0.5(方式A2): 全ページを1回で渡し、"
+            f"{'・'.join(FOUNDATION_ELEMENTS)}の3点を先に確定させたうえで"
+            f"{len(quantities)}件の数量を答えさせ、値ごとに由来を申告させた"
+        )
     return (
-        f"段階0.5(方式A2): 全ページを1回で渡し、"
-        f"{'・'.join(FOUNDATION_ELEMENTS)}の3点を先に確定させたうえで"
-        f"{len(quantities)}件の数量を答えさせ、値ごとに由来を申告させた"
+        f"方式A(既定): 全ページを1回で渡し、{len(quantities)}件の数量を"
+        f"答えさせ、値ごとに由来を申告させた"
     )

@@ -48,8 +48,8 @@ QUANTITIES = (
 )
 
 
-def _request() -> ReadingRequest:
-    return ReadingRequest(documents=PAGES, quantities=QUANTITIES)
+def _request(*, stage_half: bool = False) -> ReadingRequest:
+    return ReadingRequest(documents=PAGES, quantities=QUANTITIES, stage_half=stage_half)
 
 
 def _answer(**overrides: object) -> dict[str, object]:
@@ -117,7 +117,7 @@ def test_ページは資料の並び順のまま渡る() -> None:
 
 
 def test_3要素を先に書き出す指示が数量の設問より前にある() -> None:
-    prompt = build_reading_prompt(_request())
+    prompt = build_reading_prompt(_request(stage_half=True))
     for name in FOUNDATION_ELEMENTS:
         assert name in prompt
     assert prompt.index("まず") < prompt.index("設問:"), (
@@ -131,12 +131,49 @@ def test_根本要素はちょうど3つである() -> None:
     assert FOUNDATION_ELEMENTS == ("基準寸法", "工事対象範囲", "現況")
 
 
+def test_既定は方式Aで順序の指示が入らない() -> None:
+    """**2026-09-22: 既定を方式Aに戻した。** stage_half を指定しない限り
+    「まず3点を書き出せ」の順序指示は入らない(v8 10章24項)。"""
+    prompt = build_reading_prompt(_request())
+    assert "まず" not in prompt
+    assert "前提として" not in prompt
+    for name in FOUNDATION_ELEMENTS:
+        assert f'"{name}"' not in prompt, "方式Aの回答欄に3要素の欄が残っている"
+
+
+def test_方式Aでは3要素を書かなくても回答が通る() -> None:
+    """方式Aは3点を書かせていないので、欠けていて当然。落としてはいけない。"""
+    answer = _answer()
+    for name in FOUNDATION_ELEMENTS:
+        answer.pop(name, None)
+    parsed = parse_reading_response(answer, _request())
+    assert len(parsed.findings) == 3
+    assert parsed.foundations == {}
+
+
+def test_方式Aでも由来の申告は必ず要る() -> None:
+    """**由来の申告は方式の切り替えと無関係。** どちらでも既定値で埋めない。"""
+    answer = _answer()
+    for name in FOUNDATION_ELEMENTS:
+        answer.pop(name, None)
+    del answer["数量"]["light_count"]["由来"]  # type: ignore[index]
+    parsed = parse_reading_response(answer, _request())
+    assert "derivation_not_declared" in dict(parsed.rejected)["light_count"]
+    assert all(f.target != "light_count" for f in parsed.findings)
+
+
+def test_既定は方式Aである() -> None:
+    """フラグを渡さないときの既定が A(False)であることを直接固定する。"""
+    assert _request().stage_half is False
+    assert _request(stage_half=True).stage_half is True
+
+
 def test_3要素を答えない回答は採用しない() -> None:
     """3点の確定が段階0.5の中身なので、欠けた回答は指示が守られていない。"""
     answer = _answer()
     del answer["現況"]
     with pytest.raises(ReadingResponseError) as caught:
-        parse_reading_response(answer, _request())
+        parse_reading_response(answer, _request(stage_half=True))
     assert caught.value.code == "foundation_elements_missing"
     assert "現況" in caught.value.detail
 
@@ -367,7 +404,7 @@ def test_一般則を根拠にした計算値も階層1に届かない() -> None
 
 
 def test_回答の形に3要素と全対象が入っている() -> None:
-    schema = answer_schema(_request())
+    schema = answer_schema(_request(stage_half=True))
     for name in FOUNDATION_ELEMENTS:
         assert f'"{name}"' in schema
     for quantity in QUANTITIES:
@@ -388,10 +425,11 @@ def test_資料が空なら組み立てを拒否する() -> None:
 
 
 def test_人が読む要約が出せる() -> None:
-    parsed = parse_reading_response(_answer(), _request())
+    parsed = parse_reading_response(_answer(), _request(stage_half=True))
     summary = foundation_summary(parsed)
     assert "基準グリッド 910mm" in summary
-    assert describe_sequence(QUANTITIES).startswith("段階0.5(方式A2)")
+    assert describe_sequence(QUANTITIES, stage_half=True).startswith("段階0.5(方式A2)")
+    assert describe_sequence(QUANTITIES).startswith("方式A(既定)")
 
 
 def test_ベンチマークの方式A2と同じ形をしている() -> None:
@@ -405,7 +443,7 @@ def test_ベンチマークの方式A2と同じ形をしている() -> None:
     from benchmarks.two_stage_reading_fixtures import ALL_SETS
 
     benchmark = prompt_arm_a2(ALL_SETS[0], 1)
-    production = build_reading_prompt(_request())
+    production = build_reading_prompt(_request(stage_half=True))
     for prompt in (benchmark, production):
         assert prompt.count("===== 資料ここから =====") == 1
         for name in FOUNDATION_ELEMENTS:
