@@ -115,6 +115,71 @@ def scan_match_claims(text: str) -> list[str]:
                     break
     return hits
 
+# 「どちらの読み方が良いか」を述べている行。
+#
+# **これが一番見つけにくかった。** 2026-09-22、正解の数値も照合結果も消したあとに
+# `memory_recall` の記録を 1 回ごとに突き合わせて、やっと気づいた。
+#
+# - 片側の回にだけ、**一方のやり方の成否と壊れ方**を書いた記憶が渡っていた。
+# - さらに **索引（`MEMORY.md`）の 1 行**に、どちらを既定にしたかが書いてあった。
+#   **索引は全文が毎回どのセッションにも渡る。**個別の記憶ファイルだけを見ていては
+#   気づけない。だから検査は**索引も必ず見る。**
+#
+# 外すのは**判定**（どちらが良いか）だけで、**手順や原則は外さない。**
+# 手順の知識は片方の条件をもう片方に近づける＝**差を小さくする**向きに効くので、
+# それでも差が出たなら本物である。判定は逆に、**差の向きそのものを作ってしまう。**
+#
+# 語を 1 つ並べる方式は採らない。「読み方」も「既定」も無害な文脈で頻出する。
+# **「読み方を指す語」と「優劣を述べる語」が同じ行に同居していること**を漏れ口とみなす。
+_READING_METHOD_WORDS: tuple[str, ...] = (
+    "方式A",
+    "方式B",
+    "2段階読み",
+    "二段階読み",
+    "段階0.5",
+    "平読み",
+    "読み方",
+    "概要を先",
+    "先に概要",
+)
+_VERDICT_WORDS: tuple[str, ...] = (
+    "既定は",
+    "利点は示せ",
+    "利点を示せ",
+    "精度が下が",
+    "精度を下げ",
+    "精度が上が",
+    "精度を上げ",
+    "上回っ",
+    "下回っ",
+    "勝っ",
+    "負け",
+    "優れ",
+    "劣る",
+    "どちらが良",
+    "が良い",
+    "どれだけ良",
+    "良かった",
+)
+
+
+def scan_reading_method_verdicts(text: str) -> list[str]:
+    """「どちらの読み方が良いか」を述べている行を、行ごとに探す。
+
+    **渡すフォルダは検査しない。**図面の中に「読み方」の話は出てこないし、
+    出てきたとしてもそれは図面の中身である。危ないのは記憶と、捨てスレッドの写し。
+    """
+    hits: list[str] = []
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if not any(w in line for w in _READING_METHOD_WORDS):
+            continue
+        for w in _VERDICT_WORDS:
+            if w in line:
+                hits.append(f"{lineno} 行目に読み方の優劣: {w}")
+                break
+    return hits
+
+
 # この実験の存在・狙い・条件を明かす語。
 EXPERIMENT_TERMS: tuple[str, ...] = (
     "ab_reading",
@@ -271,6 +336,8 @@ def scan_memory(memory_dir: pathlib.Path) -> list[Finding]:
                 )
         for hit in scan_match_claims(text):
             findings.append(Finding("記憶", path.name, hit))
+        for hit in scan_reading_method_verdicts(text):
+            findings.append(Finding("記憶", path.name, hit))
     return findings
 
 
@@ -296,6 +363,8 @@ def scan_probe_transcript(transcript: str) -> list[Finding]:
                 Finding("捨てスレッドの写し", "文脈", f"実験の手がかりが届いている: {term}")
             )
     for hit in scan_match_claims(transcript):
+        findings.append(Finding("捨てスレッドの写し", "文脈", f"届いている: {hit}"))
+    for hit in scan_reading_method_verdicts(transcript):
         findings.append(Finding("捨てスレッドの写し", "文脈", f"届いている: {hit}"))
     return findings
 
