@@ -506,3 +506,58 @@ def test_static_production_code_has_no_solver_bypass():
                 if node.func.id == "ConsistencySolver" and path not in allowed_solver_users:
                     violations.append(f"{path}: direct ConsistencySolver construction")
     assert violations == []
+
+
+# ---------------------------------------------------------------------------
+# 根拠(provenance)。2026-09-22 追加。
+# 実図面の入口(`intake/drawing_intake.py`)が、読み取った値と一緒に
+# 「どのページの、どの位置に、どう書いてあったか」を運べるようにするため。
+# ---------------------------------------------------------------------------
+
+
+def test_provenance_is_optional_and_reaches_the_evidence():
+    """任意である。付けたときはそのまま `AxisEvidence.evidence` に載る。"""
+    provenance = {
+        "page_number": 8,
+        "source_text": "専有延床面積\n95.54",
+        "rect_pt": [850.0, 790.0, 900.0, 802.0],
+    }
+    entry = item()
+    entry["provenance"] = provenance
+    result = make_orchestrator().process(request([entry]))
+
+    assert not result.is_invalid
+    assert result.decision is not None
+    # 付けなくても通ること(既存の呼び出しを1文字も変えずに通す)。
+    assert not make_orchestrator().process(request([item()])).is_invalid
+
+
+def test_provenance_that_cannot_be_written_out_is_refused():
+    """JSON にできない根拠は黙って捨てず、入力の誤りとして落とす。
+
+    黙って落とすと、根拠が付いているつもりの呼び出しが、根拠なしのまま
+    通り続ける。
+    """
+    entry = item()
+    entry["provenance"] = {"rect_pt": {1, 2}}  # 集合は JSON にできない
+    result = make_orchestrator().process(request([entry]))
+
+    assert result.is_invalid
+    assert any(
+        "provenance_not_serialisable" in code
+        for event in result.events
+        for code in event.reason_codes
+    )
+
+
+def test_provenance_must_be_an_object_with_text_keys():
+    entry = item()
+    entry["provenance"] = ["page 8"]
+    result = make_orchestrator().process(request([entry]))
+
+    assert result.is_invalid
+    assert any(
+        "invalid_provenance" in code
+        for event in result.events
+        for code in event.reason_codes
+    )
