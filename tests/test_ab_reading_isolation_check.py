@@ -15,7 +15,9 @@ from benchmarks.ab_reading_isolation_check import (
     ANSWER_LOCATION_TERMS,
     EXPERIMENT_TERMS,
     VERIFIED_VALUE_TERMS,
+    check_memory_unchanged,
     format_report,
+    memory_fingerprint,
     run_all,
     scan_memory,
     scan_package,
@@ -299,3 +301,72 @@ def test_every_experiment_term_is_actually_checked(
     memory = _clean_memory(tmp_path)
     (memory / "jidou-sekisan-probe.md").write_text(f"…{term}…\n", encoding="utf-8")
     assert any(term in f.detail for f in scan_memory(memory))
+
+
+# ---------------------------------------------------------------------------
+# 記憶が写しを取ったときから変わっていないか
+# ---------------------------------------------------------------------------
+def test_fingerprint_is_stable_for_the_same_content(tmp_path: pathlib.Path) -> None:
+    memory = _clean_memory(tmp_path)
+    assert memory_fingerprint(memory) == memory_fingerprint(memory)
+
+
+def test_fingerprint_changes_when_a_memory_changes(tmp_path: pathlib.Path) -> None:
+    memory = _clean_memory(tmp_path)
+    before = memory_fingerprint(memory)
+    (memory / "MEMORY.md").write_text("書き換えた索引。\n", encoding="utf-8")
+    assert memory_fingerprint(memory) != before
+
+
+def test_fingerprint_changes_when_a_memory_is_added(tmp_path: pathlib.Path) -> None:
+    """他のスレッドが記憶を1つ足しただけでも、前の写しは根拠にならない。"""
+    memory = _clean_memory(tmp_path)
+    before = memory_fingerprint(memory)
+    (memory / "jidou-sekisan-new.md").write_text("新しい記憶。\n", encoding="utf-8")
+    assert memory_fingerprint(memory) != before
+
+
+def test_unchanged_memory_is_not_a_finding(tmp_path: pathlib.Path) -> None:
+    memory = _clean_memory(tmp_path)
+    assert check_memory_unchanged(memory, memory_fingerprint(memory)) == []
+
+
+def test_changed_memory_asks_for_a_new_probe(tmp_path: pathlib.Path) -> None:
+    memory = _clean_memory(tmp_path)
+    stale = memory_fingerprint(memory)
+    (memory / "jidou-sekisan-new.md").write_text("新しい記憶。\n", encoding="utf-8")
+    findings = check_memory_unchanged(memory, stale)
+    assert len(findings) == 1
+    assert "写しを取り直すこと" in findings[0].detail
+
+
+def test_run_all_flags_stale_probe(tmp_path: pathlib.Path) -> None:
+    shared, package, runs = _clean_shared(tmp_path)
+    memory = _clean_memory(tmp_path)
+    stale = memory_fingerprint(memory)
+    (memory / "jidou-sekisan-new.md").write_text("新しい記憶。\n", encoding="utf-8")
+    findings = run_all(
+        package_dir=package,
+        runs_dir=runs,
+        shared_root=shared,
+        memory_dir=memory,
+        allowed_shared_names=[PACKAGE_NAME, RUNS_NAME],
+        probe_transcript="記憶は入っていません。",
+        expected_memory_fingerprint=stale,
+    )
+    assert [f.channel for f in findings] == ["記憶"]
+
+
+def test_run_all_without_fingerprint_does_not_check_it(tmp_path: pathlib.Path) -> None:
+    shared, package, runs = _clean_shared(tmp_path)
+    memory = _clean_memory(tmp_path)
+    assert (
+        run_all(
+            package_dir=package,
+            runs_dir=runs,
+            shared_root=shared,
+            memory_dir=memory,
+            allowed_shared_names=[PACKAGE_NAME, RUNS_NAME],
+        )
+        == []
+    )

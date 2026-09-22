@@ -36,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import hashlib
 import pathlib
 import re
 import sys
@@ -248,6 +249,46 @@ def scan_probe_transcript(transcript: str) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
+# 記憶が写しを取ったときから変わっていないか
+# ---------------------------------------------------------------------------
+def memory_fingerprint(memory_dir: pathlib.Path) -> str:
+    """記憶のフォルダ全体の指紋。
+
+    捨てスレッドで写しを取るのは 1 本ぶんの手間がかかる。毎回立てるのは重いが、
+    **記憶が変わったのに前の写しを根拠にする**のは危ない。このプロジェクトでは
+    他のスレッドがいつでも記憶を書き換える。
+
+    そこで、写しを取ったときの指紋を残しておき、実行のたびに突き合わせる。
+    **変わっていなければ前の写しがそのまま根拠になる。変わっていたら取り直す。**
+    指紋の計算に手間はかからないので、毎回できる。
+    """
+    digest = hashlib.sha256()
+    for path in _iter_text_files(memory_dir):
+        digest.update(str(path.relative_to(memory_dir)).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def check_memory_unchanged(
+    memory_dir: pathlib.Path, expected_fingerprint: str
+) -> list[Finding]:
+    """記憶が、写しを取ったときから変わっていないか。"""
+    actual = memory_fingerprint(memory_dir)
+    if actual == expected_fingerprint:
+        return []
+    return [
+        Finding(
+            "記憶",
+            str(memory_dir),
+            "写しを取ったときから記憶が変わっている。捨てスレッドで写しを取り直すこと "
+            f"(写しのとき {expected_fingerprint[:12]} / いま {actual[:12]})",
+        )
+    ]
+
+
+# ---------------------------------------------------------------------------
 # まとめ
 # ---------------------------------------------------------------------------
 def run_all(
@@ -257,8 +298,9 @@ def run_all(
     memory_dir: pathlib.Path,
     allowed_shared_names: Sequence[str],
     probe_transcript: str | None = None,
+    expected_memory_fingerprint: str | None = None,
 ) -> list[Finding]:
-    """4 つの経路をまとめて検査する。捨てスレッドの写しがあればそれも。"""
+    """4 つの経路をまとめて検査する。捨てスレッドの写しと指紋があればそれも。"""
     findings: list[Finding] = []
     findings += scan_package(package_dir)
     findings += scan_runs_dir(runs_dir)
@@ -266,6 +308,8 @@ def run_all(
     findings += scan_memory(memory_dir)
     if probe_transcript is not None:
         findings += scan_probe_transcript(probe_transcript)
+    if expected_memory_fingerprint is not None:
+        findings += check_memory_unchanged(memory_dir, expected_memory_fingerprint)
     return findings
 
 
@@ -295,7 +339,21 @@ def main(argv: Sequence[str] | None = None) -> int:  # pragma: no cover - 入口
         default=None,
         help="捨てスレッドが写し出した文脈のファイル",
     )
+    parser.add_argument(
+        "--expect-memory-fingerprint",
+        default=None,
+        help="写しを取ったときの記憶の指紋。変わっていたら写しを取り直す",
+    )
+    parser.add_argument(
+        "--print-memory-fingerprint",
+        action="store_true",
+        help="いまの記憶の指紋を出して終わる（写しを取った直後に使う）",
+    )
     args = parser.parse_args(argv)
+
+    if args.print_memory_fingerprint:
+        print(memory_fingerprint(args.memory_dir))
+        return 0
 
     transcript = None
     if args.probe_transcript is not None:
@@ -308,6 +366,7 @@ def main(argv: Sequence[str] | None = None) -> int:  # pragma: no cover - 入口
         memory_dir=args.memory_dir,
         allowed_shared_names=args.allow,
         probe_transcript=transcript,
+        expected_memory_fingerprint=args.expect_memory_fingerprint,
     )
     print(format_report(findings))
     return 1 if findings else 0
