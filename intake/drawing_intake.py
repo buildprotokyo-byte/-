@@ -61,6 +61,7 @@ import math
 from dataclasses import dataclass, field
 from fractions import Fraction
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal, Mapping, Sequence
 
 from arbitration.axis_quality_firewall import CENTER_TOLERANCES
@@ -68,6 +69,14 @@ from arbitration.inference_orchestrator import InferenceOrchestrator, Orchestrat
 from arbitration.method_policies import (
     DEFAULT_METHOD_POLICIES,
     METHOD_HUMAN_REFERENCE_POINT,
+)
+from arbitration.provisional_audit import (
+    ACTION_TIERS,
+    AUDITABLE_TIERS,
+    AuditCandidate,
+    TierAuditPolicy,
+    TieredAuditPlan,
+    plan_tiered_audit,
 )
 from axes.image_axis.pdf_pages import ContentKind, rasterize
 from axes.image_axis.pdf_vector_symbols import (
@@ -126,6 +135,27 @@ LENGTH_UNIT = "mm"
 #: 同じページに建具表と平面図があっても、数が合うかどうかをここで判定しない。
 TARGET_DOOR_QUANTITY_PREFIX = "建具数量::"
 
+#: 本番で抜き取り検査を走らせる割合。**階層ごとに分けて数える。**
+#:
+#: 階層2の 30%・最小5件は既存の値で、変えていない。
+#:
+#: **階層1の 10%・最小3件には実測の裏づけが無い。** 根拠にしたのは
+#: 「階層1は人が一度も見ないまま通る階層なので、完全に無検査にはしない」の
+#: 1点だけである。階層1は独立した強い軸2つの一致と中心値の検査を通っている
+#: ので誤りの事前確率は階層2より低い**はず**だが、見逃したときの重さは
+#: 階層2より大きい(階層2は抜き取られれば人が見る)。**どちらの効きが
+#: 大きいかは測っていない。** おーちゃんの承認のもと、**後で測って調整する
+#: 前提の初期値**として入れている(v8 10章28項、
+#: `docs/audit_production_integration_design.md` 2-3節・7節)。
+#:
+#: **この既定を部品側(`arbitration/provisional_audit.DEFAULT_TIER_POLICIES`)
+#: に置かないのは意図的である。** 値が決まっていない段階で他の呼び出しにも
+#: 効いてしまうため、本番の入口だけが名乗る。
+PRODUCTION_AUDIT_POLICIES: Mapping[int, TierAuditPolicy] = MappingProxyType({
+    1: TierAuditPolicy(sampling_rate=0.10, minimum_sample=3),
+    2: TierAuditPolicy(sampling_rate=0.30, minimum_sample=5),
+})
+
 #: 縮尺の読みが一致しているとみなす許容差。
 #:
 #: **新しい数値を作らない。** ファイアウォールが長さの中心値に使っている
@@ -165,6 +195,12 @@ class IntakeConfig:
     #: 人が最初に決める前提(`intake/start_kit.py`)。**任意。**
     #: 与えられなければ、今までどおり自動で処理する。
     start_kit: StartKit | None = None
+    #: 抜き取り検査の記録を書き出す JSON のパス(リポジトリの外)。
+    #: **None なら書かない。既定値は持たせない**(案件の情報なので、
+    #: `intake/case_answers.AnswerStore` と同じ約束)。
+    audit_log_path: Path | None = None
+    #: 階層ごとの抜き取り率。既定は `PRODUCTION_AUDIT_POLICIES`。
+    audit_policies: Mapping[int, TierAuditPolicy] | None = None
 
     def __post_init__(self) -> None:
         if not self.case_id:
@@ -288,6 +324,13 @@ class IntakeResult:
     door_schedule_rows: tuple[DoorScheduleRow, ...] = ()
     """建具表から読んだ行。**数量が読めなかった行もここには残る。**"""
 
+    audit_plan: TieredAuditPlan | None = None
+    """抜き取り検査で抜いた対象。**照合はしていないので的中率は無い。**
+
+    正解データの記入者が決まるまで、この一覧は「人が確かめるべき対象」で
+    ある(`docs/audit_production_integration_design.md` 3-3節)。
+    """
+
     finish_schedule_rows: tuple[FinishScheduleRow, ...] = ()
     """内装仕上表から読んだ「室名・部位・仕上」の対応。
 
@@ -321,6 +364,29 @@ class IntakeResult:
         """未対応として記録したページ番号(1 始まり)。"""
         return tuple(page.page_number for page in self.pages if not page.processed)
 
+    def audit_line(self) -> str:
+        """抜き取り検査の 1 行。
+
+        **母集団が0件のときは「監査対象なし」と書く。**「0件監査、全件一致」
+        とは書かない。0件の状態と「監査して全部当たった」状態は、まったく
+        違う(`arbitration/provisional_audit.py` の 2 番目の穴)。
+        """
+        if self.audit_plan is None:
+            return "抜き取り検査: 行っていない"
+        parts = []
+        for tier in self.audit_plan.audited_tiers:
+            plan = self.audit_plan.plans[tier]
+            parts.append(
+                f"階層{tier} 母集団{plan.population_size}件"
+                f"→{plan.sample_size}件抽出"
+            )
+        tail = (
+            "(照合待ち: 正解が無いので的中率は出せない)"
+            if self.audit_plan.has_population
+            else "(監査対象なし)"
+        )
+        return "抜き取り検査: " + " / ".join(parts) + tail
+
     def summary(self) -> str:
         """人が読む要約。報告にそのまま貼れる形にする。"""
         lines = [
@@ -336,6 +402,7 @@ class IntakeResult:
             f"(うち円弧では拾えない種別 {len(self.arc_blind_doors())} 件)",
             f"内装仕上表から読んだ対応: {len(self.finish_schedule_rows)} 件"
             "(**数量ではない**)",
+            self.audit_line(),
         ]
         for decision in self.decisions:
             lines.append(
@@ -452,10 +519,29 @@ def read_drawing(
         "drawing": (source_id, fingerprint),
         "start_kit": (human_source_id, human_fingerprint),
     }
+    groups = _group_by_target(findings)
     decisions = tuple(
         _decide(engine, group, case_id=config.case_id, sources=sources)
-        for group in _group_by_target(findings)
+        for group in groups
     )
+
+    # **抽出だけを行う。正解には触らない。** 照合は `score_audit_plan()` が
+    # 別に行う(`docs/audit_production_integration_design.md` 3-1節)。
+    audit_plan = plan_tiered_audit(
+        _audit_candidates(decisions, groups),
+        policies=(
+            config.audit_policies
+            if config.audit_policies is not None
+            else PRODUCTION_AUDIT_POLICIES
+        ),
+        seed=audit_seed(config.case_id, fingerprint),
+        case_id=config.case_id,
+        source_fingerprint=fingerprint,
+        start_kit_fingerprint=human_fingerprint,
+    )
+    if config.audit_log_path is not None:
+        append_audit_record(config.audit_log_path, audit_plan)
+
     return IntakeResult(
         case_id=config.case_id,
         source_id=source_id,
@@ -468,6 +554,134 @@ def read_drawing(
         page_pairings=tuple(start_kit.page_pairings),
         door_schedule_rows=tuple(door_rows),
         finish_schedule_rows=tuple(finish_rows),
+        audit_plan=audit_plan,
+    )
+
+
+def audit_seed(case_id: str, source_fingerprint: str) -> int:
+    """抜き取りの乱数シードを、案件と図面の中身から決める。
+
+    **時刻も実行回数も混ぜない。** 同じ図面をもう一度読んだときに、人に
+    見せる一覧が入れ替わってはいけない。人が 3 件を確かめている最中に
+    再実行して別の 3 件が出てきたら、確かめた分が捨てられる。
+
+    母集団そのものが変われば抽出は変わる(新しい建具が読めるようになった、
+    など)。これは避けられないので、記録に母集団の件数を残して、変わった
+    ことが分かるようにしている。
+    """
+    digest = hashlib.sha256(f"{case_id}::{source_fingerprint}".encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big")
+
+
+def _audit_candidates(
+    decisions: Sequence[TargetDecision],
+    groups: Sequence[Sequence[DrawingFinding]],
+) -> list[AuditCandidate]:
+    """判定と読みから、抜き取り検査の母集団を組み立てる。
+
+    **階層1(自動確定)と階層2(仮採用)だけを入れる。** 階層3は人が必ず
+    見るので抜き取る意味が無く、混ぜると的中率が薄まる。
+
+    `arbitration.provisional_audit.collect_audit_population()` を使わずに
+    ここで組み立てているのは、あちらが `FirewallDecision` と `AxisEvidence`
+    の形を前提にしているためである。`TargetDecision` と `DrawingFinding` は
+    たまたま同じ属性名を持つが、**たまたま通ることに頼らない。**
+
+    **2026-09-22 時点では、この関数は常に空を返す。** 図面 PDF は 1 つの
+    データ源なので独立した強い軸が 2 つ揃わず、全対象が階層3になる。
+    これは不具合ではなく、母集団0件が正しい出力である。
+    """
+    candidates: list[AuditCandidate] = []
+    for decision, group in zip(decisions, groups):
+        tier = ACTION_TIERS.get(decision.action)
+        if tier is None or tier not in AUDITABLE_TIERS:
+            continue
+        if decision.tier != tier:
+            # 階層番号と action の食い違いを黙って受け入れると、集計が
+            # 実際とは違う階層に入る。
+            raise IntakeError(
+                f"'{decision.target}' は action={decision.action!r}(階層{tier})"
+                f"なのに tier={decision.tier} と申告されています"
+            )
+        if decision.confirmed_range is None:
+            raise IntakeError(
+                f"'{decision.target}' は階層{tier}ですが確定範囲がありません。"
+                "自動採用した範囲が無ければ検査のしようがありません"
+            )
+        first = group[0]
+        provenance = dict(first.provenance)
+        provenance.setdefault("reading_count", len(group))
+        # **どのページを見ればいいのかを、必ず 1 つの欄で答えられるようにする。**
+        # 読みの種類によって根拠の形が違い(面積は `occurrences` の中、開き戸は
+        # 直下)、人に渡す一覧でそこを探させることになるため。
+        provenance["page_numbers"] = _pages_in_provenance(group)
+        candidates.append(AuditCandidate(
+            target=decision.target,
+            adopted_range=decision.confirmed_range,
+            unit=first.unit,
+            # 拡大監査の単位。系統誤差は手法から出るので手法 ID を使う。
+            category=first.method_id or first.axis_id or decision.target,
+            axis_id=first.axis_id,
+            method_id=first.method_id,
+            tier=tier,
+            provenance=provenance,
+        ))
+    return candidates
+
+
+def _pages_in_provenance(
+    findings: Sequence[DrawingFinding],
+) -> list[int]:
+    """読みの根拠に出てくるページ番号を集めて並べる。
+
+    根拠の形は読みの種類ごとに違う(面積は ``occurrences`` の中に、開き戸は
+    直下に ``page_number`` を持つ)。**形の違いを人に探させない。**
+    """
+    pages: set[int] = set()
+
+    def _walk(value: Any) -> None:
+        if isinstance(value, Mapping):
+            number = value.get("page_number")
+            if isinstance(number, int):
+                pages.add(number)
+            for item in value.values():
+                _walk(item)
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                _walk(item)
+
+    for finding in findings:
+        _walk(finding.provenance)
+    return sorted(pages)
+
+
+def append_audit_record(path: Path | str, plan: TieredAuditPlan) -> None:
+    """抜き取り検査の記録を JSON に追記する。
+
+    **案件の情報なのでリポジトリには置かない。** 書き出す先は呼び出し側が
+    渡したパスだけで、既定値を持たない(`intake/case_answers.AnswerStore`
+    と同じ約束)。
+
+    **母集団0件の回も残す。** 残さないと「検査していない」と区別がつかない。
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    records: list[dict[str, Any]] = []
+    if target.exists():
+        try:
+            loaded = json.loads(target.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as error:
+            raise IntakeError(
+                f"抜き取り検査の記録が読めません: {target} ({error})"
+            ) from error
+        if not isinstance(loaded, list):
+            raise IntakeError(
+                f"抜き取り検査の記録は配列である必要があります: {target}"
+            )
+        records = loaded
+    records.append(plan.as_log_dict())
+    target.write_text(
+        json.dumps(records, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
 
 

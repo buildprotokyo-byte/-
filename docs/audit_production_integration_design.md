@@ -1,7 +1,12 @@
 # 抜き取り検査を本番の処理に組み込む設計
 
 2026-09-22。おーちゃんの指示「抜き取り検査を本番の処理に組み込む。ただし、まず設計を書くこと」に対する設計。
-**この文書の時点で実装は入れていない。**
+設計を先に送り、おーちゃんの承認(階層1の初期値 10%・最小3件)を受けて**実装済み**。
+実装との差は本文に反映してある(6節に実際に入れたものを書いた)。
+
+**抜き取り検査は「確定」とした行が本当に正しいかを検査する仕組みである**
+(おーちゃんの定義、2026-09-22)。だから母集団は階層1(自動確定)と階層2(仮採用)だけで、
+階層3(人が必ず見る)は入れない。
 
 読んだコード: `intake/drawing_intake.py`(main `de395e9`)、`arbitration/inference_orchestrator.py`、
 `arbitration/axis_quality_firewall.py`、`arbitration/provisional_audit.py`、`intake/case_answers.py`、
@@ -274,23 +279,35 @@ class GroundTruthSource(Protocol):
 
 ---
 
-## 6. 実装の段取り
+## 6. 実装(2026-09-22 完了)
 
-先に設計を送る約束なので、**この文書を送ってから着手する。**
+段取りどおりに入れた。**各段階とも、再現する失敗テストを先に書いた。**
 
-1. `arbitration/provisional_audit.py` に `plan_tiered_audit()` / `score_audit_plan()` を分けて足す
-   (既存の `run_tiered_audit()` は2つの合成として残す。呼び出し口を壊さない)。
-   → **PR #10 の上に積む。** PR #10 は階層1への拡大そのもので、まだマージしていない
-2. `GroundTruthSource` プロトコルと `NoGroundTruth` 既定実装
-3. `IntakeConfig.audit_log_path` と、記録の書き出し(`AnswerStore` と同じ形)
-4. `read_drawing()` の末尾に抽出を差し込み、`IntakeResult.audit_plan` に載せる
-5. `summary()` に1行
+1. `arbitration/provisional_audit.py` に `plan_tiered_audit()` / `score_audit_plan()` を
+   分けて足した。既存の `run_tiered_audit()` は2つの合成として残っていて、
+   呼び出し口も結果も変わっていない(`tests/test_audit_plan_split.py`)。
+   1階層ぶんは `plan_provisional_audit()` / `score_tier_plan()`
+2. `GroundTruthSource` プロトコルと `NoGroundTruth`(常に `None` を返す既定)
+3. `IntakeConfig.audit_log_path` と `append_audit_record()`(`AnswerStore` と同じ形)
+4. `read_drawing()` の末尾に `_audit_candidates()` → `plan_tiered_audit()` を差し込み、
+   `IntakeResult.audit_plan` に載せた。シードは `audit_seed(case_id, 図面の指紋)`
+5. `IntakeResult.audit_line()` を `summary()` に足した
 
-各段階とも、**再現する失敗テストを先に書く。** とくに次の3つは壊し試験で確かめる。
+**設計に無かったが、実装して分かって足したもの: `provenance["page_numbers"]`。**
+根拠の形は読みの種類ごとに違う(面積は `occurrences` の中に、開き戸は直下に
+`page_number` を持つ)。**形の違いを人に探させない**ために、`_audit_candidates()` が
+どのページを見ればいいのかを1つの欄にまとめて入れる。
 
-- 母集団0件のとき「0件監査、全部一致」と報告しないこと
-- 正解が無いときに `hit_rate` が `None` であること
-- **同じ図面・同じ前提で2回読んだとき、抜き取られる対象が変わらないこと**(4-3節)
+**壊し試験で10通りを確かめた**(いずれもテストが落ちる):
+入口に正解の引き口を渡せるようにする / 母集団0件を「全件一致」と書く /
+階層3も母集団に入れる / シードに実行ごとの値を混ぜる / 母集団0件の回を記録に残さない /
+階層1の抽出率を階層2と同じにする / 根拠を落として対象名だけ渡す /
+抽出の関数に正解を渡せるようにする / 正解が無いのに的中率を出す /
+階層1の既定値を部品側に入れる。
+
+テストは `tests/test_audit_plan_split.py`(14件)と `tests/test_intake_audit.py`(14件)。
+**階層1・階層2が出たときの振る舞いは、仲裁層の代役を差し込んで固定した。**
+いまの本番経路では全対象が階層3になるので(0節)、実物では試せないためである。
 
 ---
 
@@ -321,7 +338,12 @@ class GroundTruthSource(Protocol):
 3. **正解の記入者が決まっていない。** 決まるまで的中率は出ない。出ないことを `None` と
    `awaiting_human` で表す(3-3節)。
 4. **階層1の10%に実測の裏づけが無い**(2-3節)。
-5. **原則5の4区分は実装されない**(5-2節)。監査の出力がどこに入るかを決めるだけ。
+5. **原則5の4区分そのものは、この作業では実装していない**(5-2節)。
+   4区分は別スレッドが `estimating/basis.py`(PR #29)で入れており、
+   `QuantityItem.site_survey_reason` が空でなければ「現地確認が必要」になる形になっている。
+   **抜き取った一覧をその `site_survey_reason` に流し込む配線は、まだ無い。**
+   流すには `estimating/from_intake.py` が `IntakeResult.audit_plan` を読む必要があり、
+   それは PR #29 が触っているファイルなので、**重ならないように別の作業にする。**
 6. **監査は階層を変えない。** 不一致が見つかっても、自動で階層を下げたりはしない(3-4節)。
    これは安全側に倒しているのではなく、**単一の根拠で自動確定させない**という原則5の裏返しである
    (人1人の確認も単一の根拠である)。

@@ -55,7 +55,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from math import comb
 from types import MappingProxyType
-from typing import Callable, Literal, Mapping, Sequence
+from typing import Any, Callable, Literal, Mapping, Protocol, Sequence
 
 IntRange = tuple[int, int]
 
@@ -97,6 +97,11 @@ AuditOutcome = Literal["match", "mismatch", "unverifiable"]
 #: - awaiting_human:     抽出はしたが、正解が無く1件も照合できていない
 AuditStatus = Literal["no_population", "verified", "awaiting_human"]
 
+#: 抽出だけを行った段階の状態。**照合していないので的中率は無い。**
+#: - no_population: その階層の要素が1件も無い(抜き取る対象が無い)
+#: - sampled:       抜き取った
+AuditPlanStatus = Literal["no_population", "sampled"]
+
 
 class AuditConfigurationError(Exception):
     """監査が空回りする設定を、実行前に止めるための例外。"""
@@ -116,6 +121,11 @@ class AuditCandidate:
     category: str
     axis_id: str = ""
     method_id: str = ""
+    #: 人が確かめるための根拠(ページ番号・座標・読んだ元の文字列など)。
+    #: **抜き取った一覧に根拠が付いていないと、人は何を確かめればいいのか
+    #: 分からない。** 入口(`intake/drawing_intake.py`)が
+    #: `DrawingFinding.provenance` をそのまま載せる。
+    provenance: dict[str, Any] = field(default_factory=dict)
     #: この要素がどの階層で採用されたか。1=自動確定、2=仮採用+抜き取り監査。
     #: **階層をまたいで的中率を混ぜないための札である。** 既定を2にしてある
     #: のは、このモジュールが階層2専用として始まったため(既存の呼び出しが
@@ -267,33 +277,129 @@ def plan_sample_size(
     return max(1, min(population_size, max(by_rate, minimum_sample)))
 
 
-def run_provisional_audit(
-    candidates: Sequence[AuditCandidate],
-    ground_truth: Mapping[str, int] | Callable[[str], int | None],
-    *,
-    sampling_rate: float = DEFAULT_SAMPLING_RATE,
-    minimum_sample: int = DEFAULT_MINIMUM_SAMPLE,
-    seed: int = 0,
-    now: datetime | None = None,
-    tier: int | None = None,
-) -> AuditReport:
-    """**1つの階層**の母集団から抽出し、正解と照合して的中率を記録する。
+@dataclass(frozen=True)
+class TierAuditPlan:
+    """**1つの階層**について、誰を抜き取ったか。
 
-    ``ground_truth`` は、正解を引けないときに ``None`` を返してよい
-    (実運用の監査時点では正解は存在せず、人がこれから確認する)。
-    その対象は ``unverifiable`` になり、**的中率の分母にも分子にも入らない。**
-
-    **階層が混ざった母集団は受け付けない。** 受け付けると的中率が1つに
-    混ざり、件数の多い階層が少ない階層の誤りを薄めて隠す。これは
-    ``collect_tier2_population`` が階層2だけを集めていた理由そのものである。
-    複数の階層を監査したいときは :func:`run_tiered_audit` を使う。
+    **正解には触れていない。** 一致・不一致も的中率もここには無い
+    (`score_audit_plan()` が別に付ける)。分けてあるのは、本番の入口
+    (`intake/drawing_intake.read_drawing()`)が「正解データはここでは一切
+    読まない」と約束しているためで、入口が呼ぶのはこの抽出までである。
     """
-    lookup = ground_truth.get if isinstance(ground_truth, Mapping) else ground_truth
 
-    population = list(candidates)
-    population_size = len(population)
+    tier: int
+    status: AuditPlanStatus
+    population_size: int
+    sample_size: int
+    sampling_rate: float
+    minimum_sample: int
+    seed: int
+    planned_at: datetime
+    sampled: tuple[AuditCandidate, ...]
 
-    tiers_present = {c.tier for c in population}
+    def as_log_dict(self) -> dict[str, Any]:
+        """記録に残す形。**抜き取った1件ごとに根拠を添える。**"""
+        return {
+            "population": self.population_size,
+            "sample": self.sample_size,
+            "rate": self.sampling_rate,
+            "minimum": self.minimum_sample,
+            "status": self.status,
+            "sampled": [
+                {
+                    "target": item.target,
+                    "adopted_range": [item.adopted_range[0], item.adopted_range[1]],
+                    "unit": item.unit,
+                    "category": item.category,
+                    "axis_id": item.axis_id,
+                    "method_id": item.method_id,
+                    "tier": item.tier,
+                    "provenance": dict(item.provenance),
+                }
+                for item in self.sampled
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class TieredAuditPlan:
+    """階層ごとの抽出結果と、それがどの図面に対するものか。
+
+    **指紋を持たせてある理由。** 案件をまたいで母集団を積み上げるとき、
+    同じ図面の同じ読みに対する監査を二重に数えていないかを後から判定する
+    必要がある。ファイル名は匿名化で変わるうえ案件名が入ることがあるので、
+    中身の sha256 を使う(`intake/drawing_intake.file_fingerprint()`)。
+    """
+
+    plans: Mapping[int, TierAuditPlan]
+    planned_at: datetime
+    seed: int
+    case_id: str = ""
+    source_fingerprint: str = ""
+    start_kit_fingerprint: str = ""
+
+    def plan_for(self, tier: int) -> TierAuditPlan | None:
+        return self.plans.get(tier)
+
+    @property
+    def audited_tiers(self) -> tuple[int, ...]:
+        return tuple(sorted(self.plans))
+
+    @property
+    def total_sample_size(self) -> int:
+        return sum(plan.sample_size for plan in self.plans.values())
+
+    @property
+    def has_population(self) -> bool:
+        return any(plan.population_size > 0 for plan in self.plans.values())
+
+    def as_log_dict(self) -> dict[str, Any]:
+        """そのまま JSON に書ける記録。
+
+        **案件の情報なのでリポジトリには置かない**(`intake/case_answers.py`
+        の `AnswerStore` と同じ約束)。書き出す先は設定で渡されたパスだけで、
+        既定値を持たせない。
+        """
+        return {
+            "case_id": self.case_id,
+            "recorded_at": self.planned_at.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "source_fingerprint": self.source_fingerprint,
+            "start_kit_fingerprint": self.start_kit_fingerprint,
+            "seed": self.seed,
+            "tiers": {
+                str(tier): plan.as_log_dict()
+                for tier, plan in sorted(self.plans.items())
+            },
+        }
+
+
+class GroundTruthSource(Protocol):
+    """監査の正解を引く口。
+
+    **正解が無ければ ``None`` を返してよい。** 実運用の監査時点では正解は
+    存在しない(だから人が確認する)。``None`` の対象は ``unverifiable``
+    になり、的中率の分母にも分子にも入らない。
+    """
+
+    def lookup(self, case_id: str, target: str) -> int | None: ...
+
+
+@dataclass(frozen=True)
+class NoGroundTruth:
+    """**常に ``None`` を返す既定の引き口。**
+
+    正解データの記入者がまだ決まっていない(2026-09-22)。決まるまでは
+    これを使う。このとき監査の出力は的中率ではなく、**人が確かめるべき
+    対象の一覧**になる(`docs/audit_production_integration_design.md` 3-3節)。
+    """
+
+    def lookup(self, case_id: str, target: str) -> int | None:
+        return None
+
+
+def _single_tier(candidates: Sequence[AuditCandidate], tier: int | None) -> int:
+    """母集団の階層を1つに決める。**混ざっていたら止める。**"""
+    tiers_present = {c.tier for c in candidates}
     if len(tiers_present) > 1:
         raise AuditConfigurationError(
             f"階層が混ざった母集団は監査できません: {sorted(tiers_present)}。"
@@ -301,36 +407,97 @@ def run_provisional_audit(
             "階層ごとに分けて集計する run_tiered_audit を使ってください"
         )
     if tier is None:
-        tier = tiers_present.pop() if tiers_present else 2
-    elif tiers_present and tiers_present != {tier}:
+        return tiers_present.pop() if tiers_present else 2
+    if tiers_present and tiers_present != {tier}:
         raise AuditConfigurationError(
             f"指定された階層 {tier} と母集団の階層 {sorted(tiers_present)} が違います"
         )
+    return tier
+
+
+def plan_provisional_audit(
+    candidates: Sequence[AuditCandidate],
+    *,
+    sampling_rate: float = DEFAULT_SAMPLING_RATE,
+    minimum_sample: int = DEFAULT_MINIMUM_SAMPLE,
+    seed: int = 0,
+    now: datetime | None = None,
+    tier: int | None = None,
+) -> TierAuditPlan:
+    """**1つの階層**の母集団から抜き取る。**正解には触らない。**
+
+    決定的に抽出する(同じシードなら同じ結果)。target 名で並べ替えてから
+    抽出するので、呼び出し側が渡す順序に依存しない。
+    """
+    population = list(candidates)
+    population_size = len(population)
+    resolved_tier = _single_tier(population, tier)
+    planned_at = now or datetime.now(timezone.utc)
     sample_size = plan_sample_size(
         population_size, sampling_rate=sampling_rate, minimum_sample=minimum_sample
     )
-    recorded_at = now or datetime.now(timezone.utc)
 
     if population_size == 0:
-        log = AuditLogEntry(
-            recorded_at=recorded_at, population_size=0, sample_size=0,
-            sampling_rate=sampling_rate, minimum_sample=minimum_sample, seed=seed,
-            sampled_targets=(), status="no_population", tier=tier,
-        )
-        return AuditReport(
-            status="no_population", population_size=0, sample_size=0,
-            sampling_rate=sampling_rate, minimum_sample=minimum_sample, seed=seed,
-            findings=(), log=log, tier=tier,
+        return TierAuditPlan(
+            tier=resolved_tier, status="no_population", population_size=0,
+            sample_size=0, sampling_rate=sampling_rate,
+            minimum_sample=minimum_sample, seed=seed, planned_at=planned_at,
+            sampled=(),
         )
 
-    # 決定的に抽出する(同じシードなら同じ結果。報告の再現に必要)。
-    # target 名で並べ替えてから抽出するので、呼び出し側が渡す順序に依存しない。
     ordered = sorted(population, key=lambda c: c.target)
     sampled = random.Random(seed).sample(ordered, sample_size)
     sampled.sort(key=lambda c: c.target)
+    return TierAuditPlan(
+        tier=resolved_tier, status="sampled", population_size=population_size,
+        sample_size=sample_size, sampling_rate=sampling_rate,
+        minimum_sample=minimum_sample, seed=seed, planned_at=planned_at,
+        sampled=tuple(sampled),
+    )
+
+
+def _resolve_lookup(
+    ground_truth: "Mapping[str, int] | Callable[[str], int | None] | GroundTruthSource",
+    case_id: str,
+) -> Callable[[str], int | None]:
+    """正解の引き口を、対象名1つを取る関数にそろえる。"""
+    if isinstance(ground_truth, Mapping):
+        return ground_truth.get
+    lookup = getattr(ground_truth, "lookup", None)
+    if lookup is not None:
+        return lambda target: lookup(case_id, target)
+    return ground_truth  # type: ignore[return-value]
+
+
+def score_tier_plan(
+    plan: TierAuditPlan,
+    ground_truth: "Mapping[str, int] | Callable[[str], int | None] | GroundTruthSource",
+    *,
+    case_id: str = "",
+) -> AuditReport:
+    """抜き取った1件ずつを正解と照合する。**抽出はやり直さない。**
+
+    ``ground_truth`` は、正解を引けないときに ``None`` を返してよい
+    (実運用の監査時点では正解は存在せず、人がこれから確認する)。
+    その対象は ``unverifiable`` になり、**的中率の分母にも分子にも入らない。**
+    """
+    lookup = _resolve_lookup(ground_truth, case_id)
+    tier = plan.tier
+
+    if plan.status == "no_population":
+        log = AuditLogEntry(
+            recorded_at=plan.planned_at, population_size=0, sample_size=0,
+            sampling_rate=plan.sampling_rate, minimum_sample=plan.minimum_sample,
+            seed=plan.seed, sampled_targets=(), status="no_population", tier=tier,
+        )
+        return AuditReport(
+            status="no_population", population_size=0, sample_size=0,
+            sampling_rate=plan.sampling_rate, minimum_sample=plan.minimum_sample,
+            seed=plan.seed, findings=(), log=log, tier=tier,
+        )
 
     findings: list[AuditFinding] = []
-    for candidate in sampled:
+    for candidate in plan.sampled:
         truth = lookup(candidate.target)
         if truth is None:
             findings.append(AuditFinding(
@@ -364,18 +531,44 @@ def run_provisional_audit(
     expanded = tuple(sorted({f.category for f in findings if f.outcome == "mismatch"}))
 
     log = AuditLogEntry(
-        recorded_at=recorded_at, population_size=population_size,
-        sample_size=sample_size, sampling_rate=sampling_rate,
-        minimum_sample=minimum_sample, seed=seed,
+        recorded_at=plan.planned_at, population_size=plan.population_size,
+        sample_size=plan.sample_size, sampling_rate=plan.sampling_rate,
+        minimum_sample=plan.minimum_sample, seed=plan.seed,
         sampled_targets=tuple(f.target for f in findings), status=status,
         tier=tier,
     )
     return AuditReport(
-        status=status, population_size=population_size, sample_size=sample_size,
-        sampling_rate=sampling_rate, minimum_sample=minimum_sample, seed=seed,
+        status=status, population_size=plan.population_size,
+        sample_size=plan.sample_size, sampling_rate=plan.sampling_rate,
+        minimum_sample=plan.minimum_sample, seed=plan.seed,
         findings=tuple(findings), log=log, expanded_categories=expanded,
         tier=tier,
     )
+
+
+def run_provisional_audit(
+    candidates: Sequence[AuditCandidate],
+    ground_truth: "Mapping[str, int] | Callable[[str], int | None] | GroundTruthSource",
+    *,
+    sampling_rate: float = DEFAULT_SAMPLING_RATE,
+    minimum_sample: int = DEFAULT_MINIMUM_SAMPLE,
+    seed: int = 0,
+    now: datetime | None = None,
+    tier: int | None = None,
+    case_id: str = "",
+) -> AuditReport:
+    """**1つの階層**を抜き取って照合する。抽出と照合の合成。
+
+    **階層が混ざった母集団は受け付けない。** 受け付けると的中率が1つに
+    混ざり、件数の多い階層が少ない階層の誤りを薄めて隠す。これは
+    ``collect_tier2_population`` が階層2だけを集めていた理由そのものである。
+    複数の階層を監査したいときは :func:`run_tiered_audit` を使う。
+    """
+    plan = plan_provisional_audit(
+        candidates, sampling_rate=sampling_rate, minimum_sample=minimum_sample,
+        seed=seed, now=now, tier=tier,
+    )
+    return score_tier_plan(plan, ground_truth, case_id=case_id)
 
 
 def expand_to_categories(
@@ -678,40 +871,19 @@ class TieredAuditReport:
         return tuple(sorted(categories))
 
 
-def run_tiered_audit(
-    candidates: Sequence[AuditCandidate],
-    ground_truth: Mapping[str, int] | Callable[[str], int | None],
-    *,
-    policies: Mapping[int, TierAuditPolicy] = DEFAULT_TIER_POLICIES,
-    seed: int = 0,
-    now: datetime | None = None,
-) -> TieredAuditReport:
-    """階層ごとに母集団を分けて抜き取り、階層ごとに的中率を出す。
-
-    ``policies`` に挙げた階層それぞれについて :func:`run_provisional_audit`
-    を1回ずつ走らせる。**要素が0件の階層も報告を作る**(``no_population``)。
-    「方針はあるのに1件も監査されていない」ことを、あとから確認できるように
-    するためである。
-
-    **母集団に、方針を決めていない階層が混ざっていたら止める。** 黙って
-    捨てると「階層1も監査しているつもり」で1件も監査されず、集計表を見ても
-    気づけない。このモジュールが一貫して塞いでいる空回りと同じ形である。
-
-    乱数シードは階層ごとにずらさない。母集団が階層ごとに別のリストなので、
-    同じシードでも抽出は独立している。**ずらさないことで、階層2だけを渡した
-    ときの抽出結果が従来と1件も変わらない。**
-    """
+def _checked_policies(
+    policies: Mapping[int, TierAuditPolicy],
+    population: Sequence[AuditCandidate],
+) -> Mapping[int, TierAuditPolicy]:
+    """方針と母集団の食い違いを、走らせる前に止める。"""
     if not policies:
         raise AuditConfigurationError("監査する階層の方針を1つ以上指定してください")
-
     unsupported = [t for t in policies if t not in AUDITABLE_TIERS]
     if unsupported:
         raise AuditConfigurationError(
             f"抜き取り監査の対象にできない階層です: {sorted(unsupported)}。"
             f"対象にできるのは {list(AUDITABLE_TIERS)} だけです"
         )
-
-    population = list(candidates)
     unplanned = sorted({c.tier for c in population} - set(policies))
     if unplanned:
         raise AuditConfigurationError(
@@ -720,21 +892,95 @@ def run_tiered_audit(
             "1件も監査されていない状態になります。"
             f"policies に階層 {unplanned} を足すか、母集団から外してください"
         )
+    return policies
 
-    recorded_at = now or datetime.now(timezone.utc)
-    reports = {
-        tier: run_provisional_audit(
+
+def plan_tiered_audit(
+    candidates: Sequence[AuditCandidate],
+    *,
+    policies: Mapping[int, TierAuditPolicy] = DEFAULT_TIER_POLICIES,
+    seed: int = 0,
+    now: datetime | None = None,
+    case_id: str = "",
+    source_fingerprint: str = "",
+    start_kit_fingerprint: str = "",
+) -> TieredAuditPlan:
+    """階層ごとに母集団を分けて抜き取る。**正解には触らない。**
+
+    **この関数は正解を引数に取らない。** 取れるようにすると、本番の入口から
+    正解を渡す経路がそこにできる。入口
+    (`intake/drawing_intake.read_drawing()`)が呼ぶのはここまでで、照合は
+    :func:`score_audit_plan` が別に行う
+    (`docs/audit_production_integration_design.md` 3-1節)。
+
+    ``policies`` に挙げた階層それぞれについて抽出を1回ずつ行う。
+    **要素が0件の階層も結果を作る**(``no_population``)。「方針はあるのに
+    1件も抜き取られていない」ことを、あとから確認できるようにするため。
+
+    **母集団に、方針を決めていない階層が混ざっていたら止める。** 黙って
+    捨てると「階層1も監査しているつもり」で1件も監査されず、集計表を見ても
+    気づけない。
+
+    乱数シードは階層ごとにずらさない。母集団が階層ごとに別のリストなので、
+    同じシードでも抽出は独立している。**ずらさないことで、階層2だけを渡した
+    ときの抽出結果が従来と1件も変わらない。**
+    """
+    population = list(candidates)
+    checked = _checked_policies(policies, population)
+    planned_at = now or datetime.now(timezone.utc)
+    plans = {
+        tier: plan_provisional_audit(
             [c for c in population if c.tier == tier],
-            ground_truth,
             sampling_rate=policy.sampling_rate,
             minimum_sample=policy.minimum_sample,
             seed=seed,
-            now=recorded_at,
+            now=planned_at,
             tier=tier,
         )
-        for tier, policy in sorted(policies.items())
+        for tier, policy in sorted(checked.items())
     }
-    return TieredAuditReport(reports=MappingProxyType(reports))
+    return TieredAuditPlan(
+        plans=MappingProxyType(plans), planned_at=planned_at, seed=seed,
+        case_id=case_id, source_fingerprint=source_fingerprint,
+        start_kit_fingerprint=start_kit_fingerprint,
+    )
+
+
+def score_audit_plan(
+    plan: TieredAuditPlan,
+    ground_truth: "Mapping[str, int] | Callable[[str], int | None] | GroundTruthSource",
+) -> TieredAuditReport:
+    """抜き取った結果を正解と照合する。**抽出はやり直さない。**
+
+    正解が引けない対象は ``unverifiable`` になり、その階層の ``hit_rate`` は
+    ``None``、``status`` は ``awaiting_human`` になる。
+    **そのとき監査の出力は的中率ではなく、人が確かめるべき対象の一覧である。**
+    """
+    return TieredAuditReport(
+        reports=MappingProxyType({
+            tier: score_tier_plan(one, ground_truth, case_id=plan.case_id)
+            for tier, one in sorted(plan.plans.items())
+        })
+    )
+
+
+def run_tiered_audit(
+    candidates: Sequence[AuditCandidate],
+    ground_truth: "Mapping[str, int] | Callable[[str], int | None] | GroundTruthSource",
+    *,
+    policies: Mapping[int, TierAuditPolicy] = DEFAULT_TIER_POLICIES,
+    seed: int = 0,
+    now: datetime | None = None,
+    case_id: str = "",
+) -> TieredAuditReport:
+    """階層ごとに抜き取って照合する。抽出と照合の合成。
+
+    抽出だけが要る呼び出し(本番の入口)は :func:`plan_tiered_audit` を使う。
+    """
+    plan = plan_tiered_audit(
+        candidates, policies=policies, seed=seed, now=now, case_id=case_id
+    )
+    return score_audit_plan(plan, ground_truth)
 
 
 def format_tiered_report(
