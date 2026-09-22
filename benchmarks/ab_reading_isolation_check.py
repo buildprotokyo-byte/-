@@ -67,6 +67,54 @@ VERIFIED_VALUE_TERMS: tuple[str, ...] = (
     "90.61",
 )
 
+# 正解と突き合わせた「結果」を述べている行。
+#
+# **数値を伏せるだけでは足りない。** 2026-09-22、数値を消したあとに捨てスレッドへ
+# 聞いたところ、数値は知らないと答えた一方で「この案件の床面積 2 値は正解と完全一致
+# した」という**照合の結果そのもの**は知っていた。数値が無くても「この数量は当たりだ」
+# という手がかりで、読む側がその数量に重みを置く理由になる。
+#
+# 語を 1 つ並べるだけでは効かない（「一致」は Z3 の再現性や OCR の 2 エンジン一致
+# など、無害な文脈で頻出する）。**「正解を指す語」と「一致したと述べる語」が
+# 同じ行に同居していること**を漏れ口とみなす。
+_GOLDEN_WORDS: tuple[str, ...] = ("正解", "ゴールデン", "golden", "input_profile", "見積")
+_MATCH_WORDS: tuple[str, ...] = (
+    "完全一致",
+    "と一致し",
+    "に一致し",
+    "一致していた",
+    "すべて一致",
+    "全部一致",
+    "的中し",
+    "当たっていた",
+)
+# 正解ファイル（input_profile）の主要キー。この語が正解を指す語と同じ行にある時点で、
+# 一致と書いていなくても「どの数量が正解側にあるか」を明かしている。
+_GOLDEN_KEY_WORDS: tuple[str, ...] = ("専有延床", "施工床")
+
+
+def scan_match_claims(text: str) -> list[str]:
+    """「どの数量が正解と一致したか」を述べている行を、行ごとに探す。
+
+    **渡すフォルダは検査しない。**床面積は図面そのものに印字されているので、
+    入力に出てくるのは当たり前である。危ないのは記憶と、捨てスレッドの写しの側。
+    """
+    hits: list[str] = []
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        has_golden = any(w in line for w in _GOLDEN_WORDS)
+        if not has_golden:
+            continue
+        for w in _MATCH_WORDS:
+            if w in line:
+                hits.append(f"{lineno} 行目に正解との照合結果: {w}")
+                break
+        else:
+            for w in _GOLDEN_KEY_WORDS:
+                if w in line:
+                    hits.append(f"{lineno} 行目に正解側の数量名: {w}")
+                    break
+    return hits
+
 # この実験の存在・狙い・条件を明かす語。
 EXPERIMENT_TERMS: tuple[str, ...] = (
     "ab_reading",
@@ -221,6 +269,8 @@ def scan_memory(memory_dir: pathlib.Path) -> list[Finding]:
                 findings.append(
                     Finding("記憶", path.name, f"実験の手がかり: {term}")
                 )
+        for hit in scan_match_claims(text):
+            findings.append(Finding("記憶", path.name, hit))
     return findings
 
 
@@ -245,6 +295,8 @@ def scan_probe_transcript(transcript: str) -> list[Finding]:
             findings.append(
                 Finding("捨てスレッドの写し", "文脈", f"実験の手がかりが届いている: {term}")
             )
+    for hit in scan_match_claims(transcript):
+        findings.append(Finding("捨てスレッドの写し", "文脈", f"届いている: {hit}"))
     return findings
 
 

@@ -19,6 +19,7 @@ from benchmarks.ab_reading_isolation_check import (
     format_report,
     memory_fingerprint,
     run_all,
+    scan_match_claims,
     scan_memory,
     scan_package,
     scan_probe_transcript,
@@ -370,3 +371,87 @@ def test_run_all_without_fingerprint_does_not_check_it(tmp_path: pathlib.Path) -
         )
         == []
     )
+
+
+# ---------------------------------------------------------------------------
+# 「どの数量が正解と一致したか」— 数値を伏せても残っていた手がかり
+#
+# 2026-09-22、数値を消したあとに捨てスレッドへ聞いたところ、数値は知らないと
+# 答えた一方で、照合の結果そのものは知っていた。そこを検査に足した。
+# **見つけるテストだけでは足りない**ので、無害な「一致」も並べて置く。
+# ---------------------------------------------------------------------------
+REAL_MATCH_CLAIMS = [
+    # 記憶に実際に書かれていた 1 行（数値は伏せてある）
+    "専有延床面積 / 施工床面積 の2値も取得でき、**ゴールデンの input_profile と完全一致**",
+    "図面から読んだ面積は正解と一致していた",
+    "見積の行のうち3件が正解に一致した",
+    "この案件の建具は正解に対して全部的中した",
+]
+
+
+def test_known_blind_spot_match_claim_without_golden_word() -> None:
+    """**見つけられないものを、見つけられないと書いておく。**
+
+    検査は「正解を指す語」と「一致したと述べる語」の同居で探すので、
+    正解を指す語が無い言い方（「全部的中した」「3/3 と 0/3 に分かれた」）は
+    素通りする。語を減らすと、無害な「一致」を毎回拾う壊れた検査になるため、
+    ここは**広げずに、決まりの側（記憶に書かない）で防ぐ**ことにした。
+    この行が落ちたら、検査を広げたということなので、
+    否定対照が全部通っているかを必ず見直すこと。
+    """
+    assert scan_match_claims("この案件の建具は全部的中した") == []
+    assert scan_match_claims("上の3項目は 3/3 と 0/3 に分かれた") == []
+
+
+@pytest.mark.parametrize("line", REAL_MATCH_CLAIMS)
+def test_match_claim_is_found(line: str) -> None:
+    assert scan_match_claims(line), f"照合結果を見逃した: {line}"
+
+
+# 否定対照。**無害な「一致」を漏れ口と呼ばないこと。**
+# ここが落ちると、検査は「常に何か見つける壊れた検査」になる。
+HARMLESS_LINES = [
+    # Z3 の再現性（正解とは無関係）
+    "同じ入力を解いても核が毎回違った。新しい Context を作って同一入力20回で完全一致。",
+    # OCR の 2 エンジン照合（正解とは無関係）
+    "2モデルが一致した語だけを通すと、通った語の誤りは0件。",
+    # 正解が無いときの扱いを述べているだけ
+    "正解の無い対象を「一致」と数えると的中率が常に100%になる。",
+    # リポジトリを指すだけの行（これが漏れ口になっては困る）
+    "（突き合わせの結果はリポジトリの `docs/real_drawing_eval_report.md` 11節。記憶には書かない）",
+    # 図面に何が印字されているかの話（読む側は図面を持っている）
+    "図面には床面積が2つ書いてある（専有延床面積と施工床面積）。",
+]
+
+
+@pytest.mark.parametrize("line", HARMLESS_LINES)
+def test_harmless_line_is_not_flagged(line: str) -> None:
+    assert not scan_match_claims(line), f"無害な行を漏れ口と呼んだ: {line}"
+
+
+def test_match_claim_reaches_memory_scan(tmp_path: pathlib.Path) -> None:
+    memory = tmp_path / "memory"
+    memory.mkdir()
+    (memory / "note.md").write_text(
+        "床面積はゴールデンの input_profile と完全一致した。\n", encoding="utf-8"
+    )
+    findings = scan_memory(memory)
+    assert findings and any("照合結果" in f.detail for f in findings)
+
+
+def test_match_claim_reaches_probe_scan() -> None:
+    findings = scan_probe_transcript("読み取った面積は正解と一致していた。")
+    assert findings and any("届いている" in f.detail for f in findings)
+
+
+def test_clean_memory_has_no_match_claim(tmp_path: pathlib.Path) -> None:
+    """否定対照: 掃除ずみの書き方なら 0 件。"""
+    memory = tmp_path / "memory"
+    memory.mkdir()
+    (memory / "note.md").write_text(
+        "床面積の数値も文字として取得できた。"
+        "（突き合わせの結果はリポジトリの `docs/real_drawing_eval_report.md` 11節。"
+        "記憶には書かない）\n",
+        encoding="utf-8",
+    )
+    assert scan_memory(memory) == []
