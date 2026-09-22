@@ -16,6 +16,10 @@
    付けずに `notes` に残し、規則が当たらない側に倒す。
 3. **内装仕上表の行から数量を作らない。** 室の輪郭を取る実装がこの
    リポジトリに無いので、仕上げから面積は出せない。
+4. **人が入れた前提は、案件の前提(`estimating/case_premises.py`)に直す。**
+   目的も現況の申告も、性質としては案件の前提なので、**別の仕組みを2つ作らない。**
+   変換がこちら側にあるのは今までどおりで、`intake/` は `estimating/` を
+   import しない(向きを逆にすると循環する)。
 """
 
 from __future__ import annotations
@@ -23,6 +27,11 @@ from __future__ import annotations
 from typing import Iterable, Mapping, Sequence
 
 from axes.image_axis.schedule_tables import DoorScheduleRow
+from estimating.case_premises import (
+    SOURCE_HUMAN,
+    SOURCE_HYPOTHESIS,
+    CasePremise,
+)
 from estimating.quantities import QuantityItem, split_target
 
 #: 建具表の行から属性として渡す欄。**印字された文字列のまま渡す。**
@@ -131,3 +140,97 @@ def quantities_from_findings(
     holder.findings = tuple(findings)  # type: ignore[assignment]
     holder.door_schedule_rows = tuple(door_rows)  # type: ignore[assignment]
     return quantities_from_intake(holder)
+
+
+# ---------------------------------------------------------------------------
+# 人が入れた前提 → 案件の前提
+# ---------------------------------------------------------------------------
+
+#: 現況の把握が申告されていないときに使う値。`intake/start_kit.py` と同じ文字列だが、
+#: **`intake` を import しないためにここで持つ**(`DOOR_QUANTITY_KIND` と同じ理由)。
+#: 値がずれたときは `tests/test_start_kit_purpose_condition.py` が気づく。
+AWARENESS_UNKNOWN = "全く分からない、または図面で表現されていない"
+
+PREMISE_PURPOSE = "目的の方向性"
+PREMISE_CONDITION = "現況の把握の状態"
+
+
+def premises_from_intake(result) -> tuple[CasePremise, ...]:
+    """入口の結果から、案件の前提を組み立てる。
+
+    いま作るのは目的と現況の申告の2つだけである。面積の基準や基準点も性質としては
+    案件の前提だが、**それらを前提として立てると判定が変わる**ので、別の変更で扱う。
+
+    2つの約束がある。
+
+    1. **目的は、無いなら無い。** 「目的が不明」という前提をでっち上げない。
+       目的は何を読むか・どの行が対象かの推定に効くだけで、**無くても処理は止まらない。**
+    2. **現況の申告は、無くても前提を作る。** 未申告は「不明」として扱うと決まって
+       いるが、**黙って不明で進めない。** 仮説として記録し、何が分かれば要らなく
+       なるかを書いておく。
+    """
+    out: list[CasePremise] = []
+    entered_by = getattr(result, "start_kit_entered_by", "") or "スタートキット"
+
+    purpose = getattr(result, "purpose", None)
+    if purpose is not None:
+        parts: list[str] = []
+        if purpose.direction.strip():
+            parts.append(f"方向性: {purpose.direction.strip()}")
+        if purpose.source_documents:
+            named = "、".join(
+                document.label
+                + (f"(ページ{document.page_number})" if document.page_number else "")
+                for document in purpose.source_documents
+            )
+            parts.append(f"やりたいことが濃く書かれている資料: {named}")
+        out.append(
+            CasePremise(
+                premise_id="purpose::direction",
+                kind=PREMISE_PURPOSE,
+                statement=(
+                    "。".join(parts)
+                    + "。**弱い手がかりとしてだけ扱う**(図面の中身と食い違ったら、"
+                    "そのこと自体を人に聞き返す)"
+                ),
+                source=SOURCE_HUMAN,
+                entered_by=entered_by,
+            )
+        )
+
+    survey = getattr(result, "condition_survey", None)
+    if survey is not None:
+        statement = f"人の申告: 現況は「{survey.overall}」"
+        if survey.ranges:
+            statement += "。範囲ごと: " + "、".join(
+                f"{item.description} は「{item.awareness}」" for item in survey.ranges
+            )
+        out.append(
+            CasePremise(
+                premise_id="condition::survey",
+                kind=PREMISE_CONDITION,
+                statement=statement,
+                source=SOURCE_HUMAN,
+                entered_by=entered_by,
+            )
+        )
+    else:
+        out.append(
+            CasePremise(
+                premise_id="condition::unstated",
+                kind=PREMISE_CONDITION,
+                statement=(
+                    "現況の把握の状態が申告されていないため、"
+                    f"「{AWARENESS_UNKNOWN}」として扱う"
+                ),
+                source=SOURCE_HYPOTHESIS,
+                resolved_by="人が現況の把握の状態を申告する",
+                alternatives=(
+                    "明確に分かる",
+                    "おおむね分かるが確実ではない",
+                    "部分によって混在する",
+                ),
+            )
+        )
+
+    return tuple(out)
