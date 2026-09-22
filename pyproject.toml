@@ -16,6 +16,7 @@ packages = [
     "axes.absolute_rule_axis",
     "axes.reading",
     "arbitration",
+    "intake",
     "killer_question",
     "benchmarks",
 ]
