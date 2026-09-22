@@ -57,6 +57,13 @@ B-6)。`axes/image_axis/` にあったのは表(`pdf_tables` / `schedule_tables`
   当てにしている。実図面でどれだけ起きるかは Codex 側で測る項目である。
 - 文字が2桁以下の寸法(`90` など)。通り芯の番号や部屋番号と区別できないので、
   桁数で落としている。
+- **表の中の数字。** 建具表の幅・高さ・数量は升目の中にあり、罫線は寸法線では
+  ない。放っておくと**罫線の升目の長さを「その数字が指す長さ」として読んで
+  しまい**、そのページの縮尺を丸ごと誤る(実際に `tests/
+  test_drawing_intake_schedules.py` の通しテストが落ちて見つかった)。
+  表の位置は既にある `axes/image_axis/pdf_tables.find_tables()` に聞き、
+  その中の数字と罫線は寸法の候補から外す。表の数字は
+  `axes/image_axis/schedule_tables.py` が読む。
 """
 
 from __future__ import annotations
@@ -69,7 +76,12 @@ from typing import Any, Iterable, Sequence
 
 import pymupdf
 
-from axes.reading.meaning import PURPOSE_UNLINKED, Meaning
+from axes.image_axis.pdf_tables import find_tables
+from axes.reading.meaning import (
+    PURPOSE_RECEIVED_UNLINKED,
+    PURPOSE_UNLINKED,
+    Meaning,
+)
 
 #: 1 ポイント = 1/72 インチ。
 MM_PER_POINT = 25.4 / 72.0
@@ -150,6 +162,10 @@ REASON_NO_DIMENSION_LINE = "対応する寸法線(両端に目印のある線)�
 REASON_AMBIGUOUS = "寸法線の候補が複数あり、どれを指しているか決まらない"
 REASON_UNIT_UNDECIDED = (
     "単位の表記が無く、mm でも m でも建築図面の縮尺にならないので単位が決まらない"
+)
+REASON_INSIDE_TABLE = (
+    "表の升目の中の数字なので寸法ではない(罫線は寸法線ではない)。"
+    "表の数字は schedule_tables が読む"
 )
 
 #: 単位の出どころの表記。根拠としてそのまま残す。
@@ -310,6 +326,26 @@ class DimensionScale:
 # ---------------------------------------------------------------------------
 
 Segment = tuple[tuple[float, float], tuple[float, float]]
+
+
+def _inside(
+    rect: tuple[float, float, float, float],
+    outer: tuple[float, float, float, float],
+    margin: float = 1.0,
+) -> bool:
+    return (
+        rect[0] >= outer[0] - margin
+        and rect[1] >= outer[1] - margin
+        and rect[2] <= outer[2] + margin
+        and rect[3] <= outer[3] + margin
+    )
+
+
+def _in_any_table(
+    rect: tuple[float, float, float, float],
+    tables: Sequence[tuple[float, float, float, float]],
+) -> bool:
+    return any(_inside(rect, table) for table in tables)
 
 
 def _collect_segments(page: pymupdf.Page) -> list[Segment]:
@@ -663,25 +699,63 @@ def _orientation(segment: Segment) -> str:
 
 
 def read_dimensions(
-    pdf_path: str | Path, page_index: int, *, phase: str = "不明"
+    pdf_path: str | Path,
+    page_index: int,
+    *,
+    phase: str = "不明",
+    purpose_received: bool = False,
 ) -> DimensionPage:
     """1 ページから、記入された寸法を読む。読めなければ空。
 
     `phase` は人がそのページについて宣言した現況/計画/解体である
     (`intake/start_kit.py` の `PageDeclaration.phase`)。**宣言が無ければ
     ``"不明"`` のまま**で、ここで推測はしない。意味の4欄(原則2)に入る。
+
+    `purpose_received` は、人が目的(`intake/start_kit.py` の `Purpose`)を
+    渡しているかである。**渡されていても、その目的と個々の寸法を結び付ける
+    経路はまだ無い**(原則3-2の二段階目が未実装)ので、意味の4欄の
+    `purpose_link` には「受け皿が無い」のか「結び付けが無い」のかを分けて
+    印だけを置く。**方向性の自由記述をここに写さない。**
     """
     with pymupdf.open(pdf_path) as doc:
         if not 0 <= page_index < doc.page_count:
             raise IndexError(f"ページ {page_index} は存在しません")
         page = doc.load_page(page_index)
         segments = _collect_segments(page)
-        spans = _spans(segments)
         numbers = _number_texts(page)
+
+    # 表の位置は、既にある検出器に聞く(自前で罫線を探し直さない)。
+    tables = tuple(region.rect_pt for region in find_tables(pdf_path, page_index))
+    if tables:
+        # 表の罫線を寸法線の候補から外す。**外さないと升目の長さを
+        # 「その数字が指す長さ」として読んでしまう。**
+        segments = [
+            segment
+            for segment in segments
+            if not _in_any_table(
+                (
+                    min(segment[0][0], segment[1][0]),
+                    min(segment[0][1], segment[1][1]),
+                    max(segment[0][0], segment[1][0]),
+                    max(segment[0][1], segment[1][1]),
+                ),
+                tables,
+            )
+        ]
+    spans = _spans(segments)
 
     readings: list[DimensionReading] = []
     skipped: list[SkippedNumber] = []
     for number in numbers:
+        if _in_any_table(number.rect_pt, tables):
+            skipped.append(
+                SkippedNumber(
+                    text=number.text,
+                    rect_pt=number.rect_pt,
+                    reason=REASON_INSIDE_TABLE,
+                )
+            )
+            continue
         matches = _matching_spans(number, spans)
         if not matches:
             skipped.append(
@@ -730,9 +804,13 @@ def read_dimensions(
                         f"({start[0]:.1f},{start[1]:.1f})-({end[0]:.1f},{end[1]:.1f})"
                     ),
                     phase=phase,
-                    # 目的(原則3-2)を受け取る場所がまだ無いので、誰も埋められない。
-                    # 作った文字列で埋めず、未受領の印を置く。
-                    purpose_link=PURPOSE_UNLINKED,
+                    # 目的と個々の寸法を結び付ける経路がまだ無い。作った文字列で
+                    # 埋めず、目的が渡されているかどうかだけを分けて印を置く。
+                    purpose_link=(
+                        PURPOSE_RECEIVED_UNLINKED
+                        if purpose_received
+                        else PURPOSE_UNLINKED
+                    ),
                 ),
             )
         )

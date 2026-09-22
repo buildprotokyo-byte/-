@@ -28,12 +28,14 @@ import pytest
 from axes.image_axis.pdf_dimensions import (
     METHOD_DIMENSION_SCALE,
     METHOD_DIMENSION_TEXT,
+    REASON_INSIDE_TABLE,
     PLAUSIBLE_SCALE_MAX,
     PLAUSIBLE_SCALE_MIN,
     page_scale_from_dimensions,
     read_dimensions,
 )
 from axes.reading.meaning import PURPOSE_UNLINKED
+from tests.test_pdf_tables import draw_table
 
 #: 実寸 1mm が 1/50 の図面で何ポイントになるか。
 PT_PER_MM_AT_50 = (1 / 50) / 25.4 * 72
@@ -235,13 +237,20 @@ def test_one_reading_alone_does_not_give_a_page_scale(tmp_path: Path) -> None:
 
 
 def test_page_scale_needs_agreement_and_reports_outliers(tmp_path: Path) -> None:
-    """一致した読みが2件以上あれば比を出す。外れた読みは除いて記録に残す。"""
+    """一致した読みが2件以上あれば比を出す。外れた読みは除いて記録に残す。
+
+    一致する3件の分母を**わざと少しずつ違う値**にしてある(3件目は紙の上
+    910mm ぶんの線に `900` と記入されている)。全部ぴったり同じにすると、
+    平均を採る作りに変えてもこのテストが気づけない。
+    """
     doc = pymupdf.open()
     page = _new_page(doc)
     _h_dimension(page, 200.0, 200.0 + 3640 * PT_PER_MM_AT_50, 700.0, "3640")
     _h_dimension(page, 200.0, 200.0 + 1820 * PT_PER_MM_AT_50, 740.0, "1820")
-    # 3 本目は、紙の上の長さに対して数字が合っていない(記入の誤りか対応の誤り)。
-    _h_dimension(page, 200.0, 200.0 + 910 * PT_PER_MM_AT_50, 780.0, "1365")
+    # 許容差(±5%)の中でわずかにずれている読み。分母は約 49.45。
+    _h_dimension(page, 200.0, 200.0 + 910 * PT_PER_MM_AT_50, 780.0, "900")
+    # 紙の上の長さに対して数字が合っていない(記入の誤りか対応の誤り)。分母は 75。
+    _h_dimension(page, 200.0, 200.0 + 910 * PT_PER_MM_AT_50, 820.0, "1365")
     path = tmp_path / "agree.pdf"
     doc.save(path)
     doc.close()
@@ -250,9 +259,12 @@ def test_page_scale_needs_agreement_and_reports_outliers(tmp_path: Path) -> None
     scale = page_scale_from_dimensions(result, tolerance=TOLERANCE)
     assert scale is not None
     assert scale.denominator == pytest.approx(50.0, rel=0.01)
-    assert scale.agreeing_count == 2
-    assert scale.total_count == 3
+    assert scale.agreeing_count == 3
+    assert scale.total_count == 4
     assert [round(value) for value in scale.outlier_values_mm] == [1365]
+    # **平均は取らない。** 採った分母は、実在する読みのどれかの値である。
+    assert scale.denominator in [reading.denominator for reading in result.readings]
+    assert scale.source_text in [reading.text for reading in result.readings]
 
 
 def test_two_readings_that_disagree_give_no_page_scale(tmp_path: Path) -> None:
@@ -303,6 +315,62 @@ def test_every_reading_carries_the_four_meaning_fields(tmp_path: Path) -> None:
     assert meaning.purpose_link == PURPOSE_UNLINKED
     # 4欄が揃っていないことを、値の側に残しておく。
     assert meaning.is_complete is False
+
+
+def test_numbers_inside_a_ruled_table_are_not_dimensions(tmp_path: Path) -> None:
+    """表の升目の中の数字は寸法にしない。**罫線は寸法線ではない。**
+
+    これは想像上の心配ではない。建具表のページで、幅・高さ・数量の数字が
+    升目の罫線と対応づけられ、**升目の長さをその数字が指す長さとして読み、
+    そのページの縮尺を丸ごと誤った**(`tests/test_drawing_intake_schedules.py`
+    の通しテストが落ちて見つかった)。表の数字は `schedule_tables` が読む。
+    """
+    doc = pymupdf.open()
+    page = _new_page(doc)
+    draw_table(
+        page,
+        origin=(200.0, 200.0),
+        col_widths=(80.0, 80.0, 80.0, 80.0),
+        row_height=24.0,
+        rows=(
+            ("建具番号", "種別", "幅", "高さ"),
+            ("WD-01", "開き戸", "780", "2000"),
+            ("WD-02", "引戸", "1650", "2000"),
+        ),
+        caption="建具表",
+    )
+    path = tmp_path / "table.pdf"
+    doc.save(path)
+    doc.close()
+
+    result = read_dimensions(path, 0)
+    assert result.readings == (), "表の中の数字が寸法として読まれている"
+    assert any(REASON_INSIDE_TABLE == item.reason for item in result.skipped)
+
+
+def test_a_dimension_outside_a_table_is_still_read(tmp_path: Path) -> None:
+    """表があるページでも、表の外の寸法は読む。**表ごと諦めない。**"""
+    doc = pymupdf.open()
+    page = _new_page(doc)
+    draw_table(
+        page,
+        origin=(200.0, 200.0),
+        col_widths=(80.0, 80.0),
+        row_height=24.0,
+        rows=(("建具番号", "幅"), ("WD-01", "780")),
+        caption="建具表",
+    )
+    _h_dimension(page, 200.0, 200.0 + 3640 * PT_PER_MM_AT_50, 700.0, "3640")
+    _h_dimension(page, 200.0, 200.0 + 1820 * PT_PER_MM_AT_50, 740.0, "1820")
+    path = tmp_path / "table_and_dim.pdf"
+    doc.save(path)
+    doc.close()
+
+    result = read_dimensions(path, 0)
+    assert sorted(reading.value_mm for reading in result.readings) == [1820.0, 3640.0]
+    scale = page_scale_from_dimensions(result, tolerance=TOLERANCE)
+    assert scale is not None
+    assert scale.denominator == pytest.approx(50.0, rel=0.01)
 
 
 def test_the_two_method_ids_are_registered_uncalibrated() -> None:

@@ -14,10 +14,18 @@
 --------------
 1. **4欄すべてを引数で受け取る。既定値を持たせない。** 既定を持たせると、
    付け忘れが「付けた」ことになって黙って下流へ行く。
-2. **埋められないことを、埋めたことにしない。** 目的(原則3-2)を受け取る場所は
-   このリポジトリにまだ無いので、`purpose_link` は誰も本当には埋められない。
-   そこに作った文字列を入れる代わりに、`PURPOSE_UNLINKED` という**明示の印**を
-   置き、`is_complete` を False にする。
+2. **埋められないことを、埋めたことにしない。** 目的(原則3-2)の受け皿は
+   `intake/start_kit.py` の `Purpose` として入ったが、**その目的と個々の値を
+   結び付ける経路はまだ無い**(原則3-2の二段階目が未実装)。方向性の自由記述を
+   `purpose_link` に写すのは、結び付けたことにはならない。そこで**明示の印**を
+   2つ置き、どちらも `is_complete` を False にする。
+
+   - `PURPOSE_UNLINKED` … 目的そのものが渡されていない
+   - `PURPOSE_RECEIVED_UNLINKED` … 目的は渡されているが、この値との
+     結び付けが未実装
+
+   この2つを分けるのは、**受け皿が無いのか、結び付けが無いのか**を後から
+   数えられるようにするためである。
 3. **判定はしない。** この4欄は値の意味を運ぶだけで、階層にも確定にも効かない。
 
 **原則との食い違いを1つ、そのまま残しておく(2026-09-22):** 原則2の2行目は
@@ -34,11 +42,20 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-#: 目的にどう関係するかが、まだ誰も埋められないことの印。
+#: 目的そのものが渡されていないことの印。
 #:
-#: **「関係が無い」ではない。** 目的(原則3-2)を受け取る場所がリポジトリに
-#: 無いので、埋めようがないという意味である。
+#: **「関係が無い」ではない。** 結び付ける相手が無いという意味である。
 PURPOSE_UNLINKED = "目的未受領"
+
+#: 目的は渡されているが、この値との結び付けが未実装であることの印。
+#:
+#: 原則3-2の二段階目(AI が図面を読んだ後に詳細な目的を組み立て、人が確認する)が
+#: 入るまで、個々の値が目的のどこに効くのかは決められない。**方向性の自由記述を
+#: ここに写して「結び付けた」ことにしない。**
+PURPOSE_RECEIVED_UNLINKED = "目的受領済み・結び付けは未実装"
+
+#: 結び付けが済んでいない印の全部。`is_complete` の判定に使う。
+PURPOSE_PLACEHOLDERS: tuple[str, ...] = (PURPOSE_UNLINKED, PURPOSE_RECEIVED_UNLINKED)
 
 #: 現況か計画か。`intake/start_kit.py` の `PageDeclaration.phase` と同じ語を使う。
 #: ``"不明"`` は**人が宣言していない**という意味で、「どちらでもない」ではない。
@@ -66,7 +83,7 @@ class Meaning:
     """現況か計画か解体か。人が宣言していなければ ``"不明"``。"""
 
     purpose_link: str
-    """目的にどう関係するか。埋められないときは `PURPOSE_UNLINKED`。"""
+    """目的にどう関係するか。埋められないときは `PURPOSE_PLACEHOLDERS` のどれか。"""
 
     def __post_init__(self) -> None:
         for name in ("what", "where", "phase", "purpose_link"):
@@ -84,11 +101,11 @@ class Meaning:
     def is_complete(self) -> bool:
         """4欄が本当に埋まっているか。
 
-        `PURPOSE_UNLINKED` と ``phase == "不明"`` は**埋まっていない扱い**にする。
-        原則2の「意味が付けられない値」に当たるのがどれかを、後から数えられる
-        ようにしておくため。
+        `PURPOSE_PLACEHOLDERS` と ``phase == "不明"`` は**埋まっていない扱い**に
+        する。原則2の「意味が付けられない値」に当たるのがどれかを、後から
+        数えられるようにしておくため。
         """
-        return self.purpose_link != PURPOSE_UNLINKED and self.phase != "不明"
+        return self.purpose_link not in PURPOSE_PLACEHOLDERS and self.phase != "不明"
 
     def as_dict(self) -> dict[str, Any]:
         """根拠として `provenance` に載せる形。"""
