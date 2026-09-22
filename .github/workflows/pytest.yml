@@ -22,4 +22,28 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run pytest
-        run: pytest
+        run: pytest --junitxml=pytest-results.xml
+
+      - name: Write test summary
+        if: always()
+        run: |
+          python3 - <<'PYEOF'
+          import os
+          import xml.etree.ElementTree as ET
+
+          tree = ET.parse("pytest-results.xml")
+          root = tree.getroot()
+          suite = root.find("testsuite") if root.tag == "testsuites" else root
+
+          tests = int(suite.get("tests", 0))
+          failures = int(suite.get("failures", 0))
+          errors = int(suite.get("errors", 0))
+          skipped = int(suite.get("skipped", 0))
+          passed = tests - failures - errors - skipped
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("## pytest 結果\n\n")
+              f.write("| passed | failed | error | skipped | total |\n")
+              f.write("|---|---|---|---|---|\n")
+              f.write(f"| {passed} | {failures} | {errors} | {skipped} | {tests} |\n")
+          PYEOF
