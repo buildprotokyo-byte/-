@@ -102,6 +102,8 @@ from intake.start_kit import (
     PagePairing,
     ReferencePoint,
     StartKit,
+    ConditionSurvey,
+    Purpose,
 )
 
 #: この入口が属する軸。図面の図形と印字を読むので画像軸。
@@ -285,6 +287,18 @@ class IntakeResult:
     #: 人が入れた現況と計画の対応。**差分の計算はまだしていない。**
     page_pairings: tuple[PagePairing, ...] = ()
 
+    #: 人が与えた目的(方向性と資料の指定だけ)。与えられなければ None。
+    #:
+    #: **弱い手がかりとしてだけ扱う。** 図面の中身との突き合わせはまだ無い
+    #: (食い違いを人への確認事項として出す経路は未実装)。
+    purpose: Purpose | None = None
+
+    #: 現況の把握の状態の申告。**未申告なら None で、「不明」として扱う。**
+    condition_survey: ConditionSurvey | None = None
+
+    #: 前提を入れた人。前提を案件の前提に直すときに使う。
+    start_kit_entered_by: str = ""
+
     door_schedule_rows: tuple[DoorScheduleRow, ...] = ()
     """建具表から読んだ行。**数量が読めなかった行もここには残る。**"""
 
@@ -394,6 +408,31 @@ def start_kit_fingerprint(start_kit: StartKit) -> str:
                 for item in start_kit.page_pairings
             ],
             "area_basis": start_kit.area_basis,
+            # **新しい前提を足したらここにも足すこと。** ここに載せ忘れると、
+            # 中身の違う前提が同じ指紋になり、「どの前提で出した数量か」が
+            # 辿れなくなる(tests/test_start_kit_purpose_condition.py が見張る)。
+            "purpose": (
+                None
+                if start_kit.purpose is None
+                else {
+                    "direction": start_kit.purpose.direction,
+                    "source_documents": [
+                        {"label": d.label, "page_number": d.page_number}
+                        for d in start_kit.purpose.source_documents
+                    ],
+                }
+            ),
+            "condition_survey": (
+                None
+                if start_kit.condition_survey is None
+                else {
+                    "overall": start_kit.condition_survey.overall,
+                    "ranges": [
+                        {"description": r.description, "awareness": r.awareness}
+                        for r in start_kit.condition_survey.ranges
+                    ],
+                }
+            ),
             "entered_by": start_kit.entered_by,
         },
         ensure_ascii=False,
@@ -466,6 +505,9 @@ def read_drawing(
         pending_questions=tuple(pending_questions),
         pending_decisions=tuple(pending_decisions),
         page_pairings=tuple(start_kit.page_pairings),
+        purpose=start_kit.purpose,
+        condition_survey=start_kit.condition_survey,
+        start_kit_entered_by=start_kit.entered_by,
         door_schedule_rows=tuple(door_rows),
         finish_schedule_rows=tuple(finish_rows),
     )

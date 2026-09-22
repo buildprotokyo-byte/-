@@ -10,10 +10,17 @@
 2. **ページの種類** … 平面図/展開図/建具表/仕上表/設備図など、および
    現況/計画/解体の区別。
 3. **現況と計画の対応** … どのページ同士が同じ範囲を表すか。
+4. **目的** … 方向性の自由記述と、資料の指定だけ(原則3-2)。
+   **詳細は求めない。** 人に詳細を設定させると自動積算の意味を失う。
+   方向性は**弱い手がかりとしてだけ**扱う。
+5. **現況の把握の状態** … 正確な現況ではなく、**どの程度把握しているか**の申告だけ
+   (原則3-3)。混在のときは範囲ごとに申告する。**未申告は「不明」として扱う。**
 
 扱いのルール(依頼のとおり)
 --------------------------
 - **前提は必須にしない。** 与えられなければ今までどおり自動で処理する。
+  目的も現況の申告も同じで、**未入力でも止めない**(2026-09-22 の位置づけの定め直し。
+  最上位の原則は実行時の関門ではない)。
 - 基準点から求めた縮尺は、図面の縮尺表記とは**独立した読み**として扱い、
   突き合わせる。食い違えば判断待ちとして記録する。
 - **人の入力も、それだけを根拠に自動確定させない。** 人が入れた値は
@@ -55,6 +62,21 @@ PAGE_PHASES: tuple[PagePhase, ...] = ("現況", "計画", "解体", "不明")
 #: 開き戸の円弧を探すページの種類。種類が宣言されていないページは
 #: 今までどおり全部探す(前提を必須にしないため)。
 DOOR_ARC_PAGE_KINDS: tuple[PageKind, ...] = ("平面図",)
+
+
+#: 現況をどの程度把握しているかの選択肢(原則3-3の原文のまま)。
+CONDITION_AWARENESS: tuple[str, ...] = (
+    "明確に分かる",
+    "おおむね分かるが確実ではない",
+    "全く分からない、または図面で表現されていない",
+    "部分によって混在する",
+)
+
+#: 未申告のときに使う値。**既定で「分かっている」に倒さない。**
+AWARENESS_UNKNOWN = "全く分からない、または図面で表現されていない"
+
+#: 範囲ごとの申告が要る値。
+AWARENESS_MIXED = "部分によって混在する"
 
 
 class StartKitError(Exception):
@@ -133,6 +155,106 @@ class ReferencePoint:
 
 
 @dataclass(frozen=True)
+class SourceDocument:
+    """やりたいことが最も濃く書かれている資料の指し示し。
+
+    **中身はここに持たない。** 人が指すのは「どれか」だけで、読むのは AI である
+    (原則3-2「やりたいことが最も濃く書かれている資料を選ぶ」)。
+    """
+
+    label: str
+    """資料の呼び名(基本仕様書、イメージパース、要望書など)。"""
+
+    page_number: int | None = None
+    """同じ PDF の中のページなら、その番号(1 始まり)。別の資料なら None。"""
+
+    def __post_init__(self) -> None:
+        if not self.label.strip():
+            raise StartKitError("資料には呼び名を付けてください")
+        if self.page_number is not None and self.page_number < 1:
+            raise StartKitError("ページ番号は 1 以上にしてください(1 始まり)")
+
+
+@dataclass(frozen=True)
+class Purpose:
+    """人が最初に与える目的。**方向性の自由記述と、資料の指定だけ。**
+
+    原則3-2: スタートキットの段階では人も詳細は分からない。**詳細は求めない。**
+    詳細な目的は、AI が図面を読んだ後に組み立て、人が確認する(**二段階目はまだ無い**)。
+    """
+
+    direction: str = ""
+    """方向性の自由記述(例: 戸建ての水回りリフォーム)。"""
+
+    source_documents: tuple[SourceDocument, ...] = ()
+
+    #: この手がかりの強さ。**方向性は弱い手がかりとしてだけ扱う**(原則3-2)。
+    #: 定数として持つのは、読む側が強く扱わないことをコードから確かめられるようにするため。
+    strength: str = "weak"
+
+    def __post_init__(self) -> None:
+        if not self.direction.strip() and not self.source_documents:
+            raise StartKitError(
+                "目的は、方向性の記述か資料の指定のどちらかが要ります"
+                "(与えていないことと、空を与えたことは別なので、"
+                "与えないときは目的そのものを渡さないでください)"
+            )
+        if self.strength != "weak":
+            raise StartKitError(
+                "方向性は弱い手がかりとしてだけ扱う決まりです(原則3-2)"
+            )
+
+
+@dataclass(frozen=True)
+class ConditionRange:
+    """現況の把握の状態が、範囲によって違うときの 1 範囲。"""
+
+    description: str
+    """どこの範囲か。人が書いた言葉のまま(例: 1階の水回り)。"""
+
+    awareness: str
+
+    def __post_init__(self) -> None:
+        if not self.description.strip():
+            raise StartKitError("範囲には、どこのことかを書いてください")
+        if self.awareness not in CONDITION_AWARENESS:
+            raise StartKitError(f"把握の状態が不正です: {self.awareness}")
+        if self.awareness == AWARENESS_MIXED:
+            raise StartKitError(
+                "範囲の中でまた「混在」とは申告できません"
+                "(いつまでも決まらないため、範囲を分けてください)"
+            )
+
+
+@dataclass(frozen=True)
+class ConditionSurvey:
+    """現況をどの程度把握しているかの申告。**正確な現況は求めない。**
+
+    原則3-3: 人に正確な現況を用意させるルールにしてはならない。
+    分からない部分は、AI が図面から推論するか、仮説を置いて進む。
+    """
+
+    overall: str
+    ranges: tuple[ConditionRange, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.overall not in CONDITION_AWARENESS:
+            raise StartKitError(f"把握の状態が不正です: {self.overall}")
+        if self.overall == AWARENESS_MIXED and not self.ranges:
+            raise StartKitError(
+                "「部分によって混在する」と申告したときは、範囲ごとに申告してください"
+            )
+        if self.overall != AWARENESS_MIXED and self.ranges:
+            raise StartKitError(
+                "範囲ごとの申告は「部分によって混在する」のときだけです"
+            )
+
+    @property
+    def awareness_overall(self) -> str:
+        return self.overall
+
+
+@dataclass(frozen=True)
 class PageDeclaration:
     """このページが何の図面で、現況・計画・解体のどれかを人が決めたもの。"""
 
@@ -179,6 +301,10 @@ class StartKit:
     #: 専有延床面積と施工床面積のどちらを使うか。`intake/case_answers.py` の
     #: 質問に人がここで答えられるようにしたもの。
     area_basis: str | None = None
+    #: 目的(方向性の自由記述と資料の指定だけ)。**未入力でも止めない。**
+    purpose: Purpose | None = None
+    #: 現況の把握の状態の申告。**未申告は「不明」として扱う。**
+    condition_survey: ConditionSurvey | None = None
     entered_by: str = ""
 
     def __post_init__(self) -> None:
@@ -214,7 +340,19 @@ class StartKit:
             or self.page_declarations
             or self.page_pairings
             or self.area_basis
+            or self.purpose
+            or self.condition_survey
         )
+
+    def effective_condition_awareness(self) -> str:
+        """現況の把握の状態。**未申告は「不明」として扱う。**
+
+        既定を「明確に分かる」に倒すと、誰も申告していないのに現況が分かって
+        いることになり、差分(工事内容)が黙って作られてしまう。
+        """
+        if self.condition_survey is None:
+            return AWARENESS_UNKNOWN
+        return self.condition_survey.awareness_overall
 
     def reference_points_for(self, page_number: int) -> tuple[ReferencePoint, ...]:
         return tuple(
