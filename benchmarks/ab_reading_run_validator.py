@@ -40,7 +40,6 @@ from typing import Any, Sequence
 REQUIRED_ITEM_FIELDS: tuple[str, ...] = (
     "番号",
     "工事項目",
-    "区分",
     "場所",
     "根拠",
     "確かさ",
@@ -53,7 +52,9 @@ REQUIRED_ITEM_FIELDS: tuple[str, ...] = (
 # **欄としては必ず在るが、中身が `null` でよいもの。**
 # 「単位が書かれていないときは null（勝手に mm や m と決めない）」
 # 「変えていなければ null」が仕様なので、空を欠けと数えてはいけない。
-NULLABLE_ITEM_FIELDS: tuple[str, ...] = ("数量", "単位", "途中で変えた")
+# `区分` は仕様で「分からなければ空にする」と決めてある（`出力の形.md`）。
+# 空であること自体は欠陥ではない。空なら `区分の根拠` が「分からない」であることだけを見る。
+NULLABLE_ITEM_FIELDS: tuple[str, ...] = ("数量", "単位", "途中で変えた", "区分")
 
 REQUIRED_CHECK_FIELDS: tuple[str, ...] = ("番号", "内容", "なぜ", "種類")
 
@@ -112,6 +113,10 @@ def check_items(items: Sequence[dict]) -> list[Finding]:
                 findings.append(Finding("欄の欠け", where, f"{field} の欄が無い"))
         if not _empty(item.get("数量")) and _empty(item.get("根拠")):
             findings.append(Finding("根拠なし", where, "数量があるのに根拠が無い"))
+        if _empty(item.get("区分")) and item.get("区分の根拠") != "分からない":
+            findings.append(
+                Finding("欄の食い違い", where, "区分が空なのに区分の根拠が「分からない」でない")
+            )
     return findings
 
 

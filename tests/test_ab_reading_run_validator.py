@@ -194,3 +194,27 @@ def test_summarize_counts_rows() -> None:
         "数量が空": 1,
         "要確認": 1,
     }
+
+
+def test_区分が空でも根拠が分からないなら欠陥ではない() -> None:
+    """`出力の形.md` は「分からなければ空にする」と決めている。
+
+    ここを欠けと数えたのが、1 回目の手書きの検査が 337 件の偽の欠けを出した理由と
+    同じ間違いである。**空であること自体は仕様どおり。**
+    """
+    for empty in (None, ""):
+        answer = _answer(**{"工事項目": [_item(1, 区分=empty, 区分の根拠="分からない")]})
+        assert validate(answer, total_pages=34) == []
+
+
+def test_区分が空なのに根拠が分からないでなければ欠陥() -> None:
+    """否定対照。仕様は「`区分` が空なら `区分の根拠` は `分からない`」と対で決めている。"""
+    answer = _answer(**{"工事項目": [_item(1, 区分=None, 区分の根拠="要約資料から")]})
+    findings = validate(answer, total_pages=34)
+    assert [f.kind for f in findings] == ["欄の食い違い"]
+
+
+def test_区分が入っていれば根拠は分からないでなくてよい() -> None:
+    """否定対照。埋まっている行に上の検査が誤爆しないこと。"""
+    answer = _answer(**{"工事項目": [_item(1, 区分="解体・撤去工事", 区分の根拠="図面にそう書いてある")]})
+    assert validate(answer, total_pages=34) == []
