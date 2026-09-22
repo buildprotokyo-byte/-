@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from axes.image_axis.pdf_vector_symbols import METHOD_DOOR_ARC, METHOD_TEXT_AREA
 from axes.image_axis.vtracer_vectorizer import METHOD_FLOOR_AREA, METHOD_WALL_LINEWORK
 
 from arbitration.inference_orchestrator import MethodPolicy
@@ -51,9 +52,26 @@ from arbitration.inference_orchestrator import MethodPolicy
 #:   **「単独でハードな確定に使わない」**と決定。
 #:   `max_strength="weak"` にしてあるので、ハード制約(階層1の根拠)には
 #:   絶対に昇格しない。参考情報としては使える。
+#: - ``pdf_text_area`` … 図面に**文字として書かれている**面積の記載をそのまま
+#:   読む(`axes/image_axis/pdf_vector_symbols.find_area_labels`)。
+#:   上限は ``strong`` にしてあるが **``calibrated=False``** なので、
+#:   `AxisEvidence.is_hard_eligible` は False のままで、階層1の根拠にはならない。
+#:   P011 で読めた2値(専有延床 95.54㎡ / 施工床 90.61㎡)はどちらも正解と
+#:   一致したが、**案件1件・値2つは校正ではない。** 誤り率を独立データで
+#:   測ってから `calibrated=True` にすること。上限だけ ``strong`` なのは、
+#:   「印字された数値をそのまま読む」手法が原理的にはハード制約になりうる
+#:   ためで、校正が済めばこの1行だけで昇格できるようにしてある。
+#: - ``pdf_vector_door_arc`` … CAD 由来 PDF のベジェ曲線から円弧の幾何で
+#:   開き戸を拾う(`find_door_arcs`)。**独立データでの校正が無いので
+#:   強い軸として扱わない**(2026-09-22 のおーちゃんの指示5)。
+#:   加えて、引戸・折戸は原理的に拾えず、スキャンページでは常に0件になる。
+#:   つまり「0件」は「建具が無い」ではない。``max_strength="weak"`` は
+#:   この見落としが階層1へ伝わらないための歯止めでもある。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_TEXT_AREA: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_DOOR_ARC: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 

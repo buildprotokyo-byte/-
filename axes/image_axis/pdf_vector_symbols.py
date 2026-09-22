@@ -289,3 +289,72 @@ def find_door_arcs(
     # 呼び出し順に依存しないよう、位置で並べておく。
     out.sort(key=lambda a: (round(a.rect_pt[1], 1), round(a.rect_pt[0], 1)))
     return out
+
+
+#: 手法ID。`arbitration/method_policies.py` の登録簿がこの名前を鍵にする。
+#: 名前を変えると登録簿の上限が効かなくなる(未登録手法として weak に落ちるので
+#: 安全側ではあるが、黙って別物になる)ので、変えるときは登録簿も一緒に直すこと。
+METHOD_TEXT_AREA = "pdf_text_area"
+METHOD_DOOR_ARC = "pdf_vector_door_arc"
+
+#: 面積の記載を拾う正規表現。`専有延床面積 95.54 ㎡` のような並びを想定。
+#: ラベルと数値の間には改行が入ることがある(表題欄が表組みになっている図面)。
+_AREA_RE = re.compile(r"(専有延床面積|施工床面積)\s*\n?\s*([0-9]+(?:\.[0-9]+)?)")
+
+
+@dataclass(frozen=True)
+class AreaLabel:
+    """図面に**文字として書かれている**面積の記載 1 件。"""
+
+    label: str
+    """``専有延床面積`` か ``施工床面積``。"""
+
+    value_sqm: float
+    """読んだ数値(平方メートル)。図面の文字そのままで、計算していない。"""
+
+    source_text: str
+    """実際に一致した文字列。根拠としてそのまま残す。"""
+
+    page_index: int
+    """0 始まりのページ番号。"""
+
+    rect_pt: tuple[float, float, float, float] | None
+    """数値が書かれている位置(ページ座標・ポイント)。見つからなければ None。
+
+    ``page.search_for()`` は表示上の文字列を探すので、改行や字送りの都合で
+    当たらないことがある。**当たらなかったことを 0 や原点で埋めない。**
+    """
+
+
+def find_area_labels(pdf_path: str | Path, page_index: int) -> list[AreaLabel]:
+    """ページの埋め込み文字から、面積の記載を位置つきで拾う。書かれていなければ空。
+
+    **図面に書いてある数値をそのまま読むだけで、面積を計算はしない。**
+    室の輪郭から面積を出す実装はこのリポジトリに無い
+    (`docs/real_drawing_eval_report.md`)。ここで拾えるのは、設計者が
+    図面に書き込んだ面積の記載だけである。
+
+    スキャンしただけのページには文字が入っていないので、何も返さない。
+    """
+    with pymupdf.open(pdf_path) as doc:
+        if not 0 <= page_index < doc.page_count:
+            raise IndexError(f"ページ {page_index} は存在しません")
+        page = doc.load_page(page_index)
+        text = page.get_text("text")
+        out: list[AreaLabel] = []
+        for match in _AREA_RE.finditer(text):
+            label, raw_value = match.group(1), match.group(2)
+            hits = page.search_for(raw_value)
+            rect = (
+                (hits[0].x0, hits[0].y0, hits[0].x1, hits[0].y1) if hits else None
+            )
+            out.append(
+                AreaLabel(
+                    label=label,
+                    value_sqm=float(raw_value),
+                    source_text=match.group(0),
+                    page_index=page_index,
+                    rect_pt=rect,
+                )
+            )
+    return out
