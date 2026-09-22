@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "premise_set_id": "synthetic-example",
+  "case_id": "SYNTHETIC-001",
+  "description": "案件の前提の見本。**すべて合成で、実在の案件の前提ではない。** 実案件の前提はリポジトリに置かず、パスを設定で渡す。",
+  "premises": [
+    {
+      "premise_id": "area-basis",
+      "kind": "面積の基準",
+      "statement": "この案件の数量は施工床面積を基準に拾う。",
+      "source": "human",
+      "entered_by": "見本の入力者"
+    },
+    {
+      "premise_id": "schedule-dimension-unit",
+      "kind": "寸法の単位",
+      "statement": "建具表の寸法に単位が書かれていないため、mm として読む。",
+      "source": "hypothesis",
+      "resolved_by": "基準点から求めた実寸と突き合わせる、または人に1回聞く",
+      "alternatives": ["cm として読む", "m として読む"],
+      "scope": {"target_kinds": ["建具数量"]}
+    },
+    {
+      "premise_id": "ceiling-height",
+      "kind": "天井高",
+      "statement": "天井高の記載が図面に無いため、2400mm と置く。",
+      "source": "hypothesis",
+      "resolved_by": "展開図または矩計図から天井高を読む、あるいは現地で測る",
+      "alternatives": ["2500mm と置く", "現地確認まで面積を出さない"]
+    }
+  ]
+}
