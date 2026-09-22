@@ -358,3 +358,9 @@ def find_area_labels(pdf_path: str | Path, page_index: int) -> list[AreaLabel]:
                 )
             )
     return out
+
+
+#: 表題欄の印字から縮尺を読む手法のID(`extract_scale`)。
+#: 人が入れた基準点から求めた縮尺(`intake/start_kit.py`)とは別の読みなので、
+#: 突き合わせられるように手法を分けて名前を付けてある。
+METHOD_TEXT_SCALE = "pdf_text_scale"

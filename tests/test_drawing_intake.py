@@ -335,7 +335,12 @@ def test_provenance_reaches_the_orchestrator(drawing: Path, tmp_path: Path) -> N
         source_registry={"TEST-001::drawing": fingerprint},
     )
     request = to_orchestrator_request(
-        area, case_id="TEST-001", source_id="TEST-001::drawing", fingerprint=fingerprint
+        [area],
+        case_id="TEST-001",
+        sources={
+            "drawing": ("TEST-001::drawing", fingerprint),
+            "start_kit": ("TEST-001::start_kit", "sha256:empty"),
+        },
     )
     assert engine.process(request).decision is not None
 
