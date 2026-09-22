@@ -35,9 +35,23 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from axes.image_axis.pdf_vector_symbols import (
+    METHOD_DOOR_ARC,
+    METHOD_TEXT_AREA,
+    METHOD_TEXT_SCALE,
+)
+from axes.image_axis.schedule_tables import (
+    METHOD_DOOR_SCHEDULE,
+    METHOD_FINISH_SCHEDULE,
+)
 from axes.image_axis.vtracer_vectorizer import METHOD_FLOOR_AREA, METHOD_WALL_LINEWORK
 
 from arbitration.inference_orchestrator import MethodPolicy
+
+#: 人が入れた基準点の手法ID。実体は `intake/start_kit.py` にあるが、
+#: `intake` は `arbitration` を import するので、ここに文字列として置く
+#: (逆向きに import すると循環する)。
+METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 
 #: 手法IDごとの、このリポジトリで認められた上限。
 #:
@@ -51,9 +65,54 @@ from arbitration.inference_orchestrator import MethodPolicy
 #:   **「単独でハードな確定に使わない」**と決定。
 #:   `max_strength="weak"` にしてあるので、ハード制約(階層1の根拠)には
 #:   絶対に昇格しない。参考情報としては使える。
+#: - ``pdf_text_scale`` … 表題欄に印字された縮尺から長さを計算する
+#:   (`axes/image_axis/pdf_vector_symbols.extract_scale`)。未校正。
+#:   印字は**用紙の拡大縮小を保証しない**(A3 の図面を A0 で出しても印字は
+#:   1/50 のまま)ので、人が入れた基準点と突き合わせる相手として使う。
+#: - ``human_reference_point`` … 人が図面上の2点と実際の長さを入れたもの
+#:   (`intake/start_kit.py`)。手法の実体は intake 側にあるが、**人の入力も
+#:   それだけを根拠に自動確定させない**というおーちゃんの指示(2026-09-22)を
+#:   コードで担保するため、ここで未校正として登録する。`calibrated=False` の
+#:   あいだは `is_hard_eligible` が False になり、ハード制約に入らない。
+#: - ``pdf_text_area`` … 図面に**文字として書かれている**面積の記載をそのまま
+#:   読む(`axes/image_axis/pdf_vector_symbols.find_area_labels`)。
+#:   上限は ``strong`` にしてあるが **``calibrated=False``** なので、
+#:   `AxisEvidence.is_hard_eligible` は False のままで、階層1の根拠にはならない。
+#:   P011 で読めた2値(専有延床 95.54㎡ / 施工床 90.61㎡)はどちらも正解と
+#:   一致したが、**案件1件・値2つは校正ではない。** 誤り率を独立データで
+#:   測ってから `calibrated=True` にすること。上限だけ ``strong`` なのは、
+#:   「印字された数値をそのまま読む」手法が原理的にはハード制約になりうる
+#:   ためで、校正が済めばこの1行だけで昇格できるようにしてある。
+#: - ``pdf_vector_door_arc`` … CAD 由来 PDF のベジェ曲線から円弧の幾何で
+#:   開き戸を拾う(`find_door_arcs`)。**独立データでの校正が無いので
+#:   強い軸として扱わない**(2026-09-22 のおーちゃんの指示5)。
+#:   加えて、引戸・折戸は原理的に拾えず、スキャンページでは常に0件になる。
+#:   つまり「0件」は「建具が無い」ではない。``max_strength="weak"`` は
+#:   この見落としが階層1へ伝わらないための歯止めでもある。
+#: - ``pdf_table_door_schedule`` … 建具表を罫線の升目として読み、
+#:   建具番号ごとの数量を印字されたまま取る
+#:   (`axes/image_axis/schedule_tables.read_door_schedules`)。
+#:   上限を ``strong`` にしてあるのは ``pdf_text_area`` と同じ理由で、
+#:   「印字された数値をそのまま読む」手法は原理的にはハード制約になりうる
+#:   ため。**``calibrated=False`` なので今は階層1の根拠にならない。**
+#:   校正には少なくとも 2 つ要る: ①表の升目を取り違えていないか
+#:   (罫線が途切れている表・セル内改行・続き表)②建具表に載っていない
+#:   建具がどれだけあるか(表は「工事対象の建具」だけを載せることがある)。
+#:   **合成の表でしか確かめていないので、実図面での誤り率は未知である。**
+#: - ``pdf_table_finish_schedule`` … 内装仕上表から「室名・部位・仕上」の
+#:   対応を読む。**この対応そのものは数量ではない**(室の輪郭を取る実装が
+#:   無いので面積が出せない)。数量を出す経路ができるまでは証拠として
+#:   渡されないが、将来つないだときに強い軸へ昇格しないよう
+#:   ``max_strength="weak"`` で登録しておく。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_TEXT_AREA: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_DOOR_ARC: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_HUMAN_REFERENCE_POINT: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_DOOR_SCHEDULE: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 

@@ -436,6 +436,29 @@ class InferenceOrchestrator:
             if strength == "strong" and policy.max_strength != "strong":
                 notes.append(f"strength_downgraded_by_policy:{method_id}")
 
+        # 根拠(どのページの、どの位置に、どう書いてあったか)。**任意**である。
+        # 2026-09-22 追加。実図面の入口(`intake/drawing_intake.py`)が、
+        # 読み取った値と一緒にその出どころを人へ見せられるようにするため。
+        # ここを必須にしていないのは、根拠の形が軸ごとに違い、入口で形を
+        # 決め打ちすると、根拠を持たない軸が値を通せなくなるため。
+        # **中身の意味はここでは解釈しない。** JSON にできることだけを確かめ、
+        # そのまま `AxisEvidence.evidence["provenance"]` に載せる。
+        # 解釈すると、入口が根拠の正しさを保証したかのように読める。
+        provenance_raw = raw.get("provenance")
+        provenance: Mapping[str, Any] | None = None
+        if provenance_raw is not None:
+            if not isinstance(provenance_raw, Mapping) or not all(
+                isinstance(key, str) for key in provenance_raw
+            ):
+                errors.append(f"{prefix}:invalid_provenance")
+            else:
+                try:
+                    json.dumps(provenance_raw, ensure_ascii=False, allow_nan=False)
+                except (TypeError, ValueError):
+                    errors.append(f"{prefix}:provenance_not_serialisable")
+                else:
+                    provenance = provenance_raw
+
         confidence = raw.get("model_confidence")
         if confidence is not None:
             if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
@@ -496,7 +519,15 @@ class InferenceOrchestrator:
                     tuple(basis) if effective_derivation == "derived" else ()
                 ),
                 model_confidence=float(confidence) if confidence is not None else None,
-                evidence={"unit": unit, "derivation_declared": derivation},
+                evidence=(
+                    {"unit": unit, "derivation_declared": derivation}
+                    if provenance is None
+                    else {
+                        "unit": unit,
+                        "derivation_declared": derivation,
+                        "provenance": dict(provenance),
+                    }
+                ),
             ),
             notes,
             errors,
