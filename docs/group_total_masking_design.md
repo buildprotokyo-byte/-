@@ -271,7 +271,10 @@ solver に入る制約の1つでしかなく、sat だったときに「この�
   - 停止した要素が自分の読みの中心から `CENTER_TOLERANCES` を超えて押し出されて
     いれば `absorbing_targets`。このとき群の階層1の要素を
     `targets_requiring_audit` に挙げる（4-1節の (a)）
-- `group_total_is_meaningless()` … 吸収余地が1以上なら「検出力なし」（4-4節 D案）
+- `group_total_absorption_slack()` / `group_total_has_detection_power()` …
+  停止した要素が吸収できる幅の合計を出し、捕まえたい最小の誤差と比べる（4-4節 D案）。
+  **単位ごとの妥当な最小誤差は決まっていない**（許容誤差の本決め、v8 10章12項）ので、
+  既定値は置かず引数を必須にした
 
 **4-1節で書いた残差の区間演算は使わなかった。** 同じ判定を solver の
 `use_detection_ranges=True` の解そのものから読めるので、中心と許容差の

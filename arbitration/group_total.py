@@ -280,17 +280,16 @@ def _solver_without(solver: ConsistencySolver, constraint_name: str) -> Consiste
     return clone
 
 
-def group_total_is_meaningless(
+def group_total_absorption_slack(
     solver: ConsistencySolver, constraint: GroupTotalConstraint
-) -> bool:
-    """その群合計が、そもそも何も否定できない状態かどうか。
+) -> int:
+    """停止した要素が吸収できる幅の合計(この群合計の検出力の裏返し)。
 
-    停止した要素の幅の合計(吸収余地)が、群の中で最も小さい単位の差を
-    上回っていれば、どんな1要素分の誤りも吸収できてしまう。**「検査あり」と
-    数えてよいかの判断に使う**(`arbitration/provisional_audit.py` が
-    照合できない対象を ``hit_rate=None`` にするのと同じ考え方)。
+    群合計が否定できるのは「群の誤差の合計がこの幅を超える」場合だけで、
+    それ以下の誤りは停止した要素が吸収してしまう。これは実装の不具合ではなく
+    論理の帰結なので、**隠すのではなく数字で出す**。
     """
-    slack = sum(
+    return sum(
         upper - lower
         for lower, upper in (
             solver.variable_detection_range(name)
@@ -298,7 +297,29 @@ def group_total_is_meaningless(
             if solver.requires_confirmation(name)
         )
     )
-    return slack >= 1
+
+
+def group_total_has_detection_power(
+    solver: ConsistencySolver,
+    constraint: GroupTotalConstraint,
+    *,
+    smallest_error: int,
+) -> bool:
+    """捕まえたい最小の誤差を、この群合計が否定できるかどうか。
+
+    ``smallest_error`` はその群で見逃したくない誤差の大きさ(単位は
+    ``constraint.unit`` の正規形。個数なら1本、面積なら cm² 単位)。
+    吸収余地がそれ以上なら、**この群合計は何も否定できない**ので
+    「検査あり」と数えてはならない(`arbitration/provisional_audit.py` が
+    照合できない対象を ``hit_rate=None`` にするのと同じ考え方)。
+
+    **単位ごとの妥当な ``smallest_error`` は決まっていない**(許容誤差の
+    本決め、v8 10章12項)。既定値を置くと決まっていないことが見えなくなるので
+    引数を必須にしてある。
+    """
+    if smallest_error <= 0:
+        raise ValueError("smallest_error は1以上にしてください")
+    return group_total_absorption_slack(solver, constraint) < smallest_error
 
 
 def collect_group_members(

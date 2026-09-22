@@ -379,3 +379,67 @@ def test_the_group_total_can_pin_an_element_it_actually_determines() -> None:
     assert check.verified_targets == ("door_0",)
     assert "door_0" not in check.unverified_targets
     assert not check.is_absorbed, "正しい読みなので押し出されていない"
+
+
+def test_a_group_total_cannot_confirm_a_stopped_element_by_itself() -> None:
+    """群合計が停止した要素の値を1つに絞っても、確定済みにはならない。
+
+    おーちゃんの条件2「群合計が sat になっても、それを要素の自動確定の根拠に
+    数えない」の、もう一方の側。群合計は ``door_0`` を 3 に固定するが、
+    ``door_0`` は人の確認待ちのままでなければならない。幅0を確定済みと
+    同一視するのがバグ②で、その修正がここでも効いていることを押さえる。
+    """
+    solver, decisions, _ = _run_firewall(
+        _build_group(
+            stopped_evidence=[_evidence("door_0", (2, 4), "drawing-A", "image")],
+            wrong_targets={},
+        )
+    )
+    assert decisions["door_0"].tier == 3  # type: ignore[attr-defined]
+    constraint = _add_group_total(solver)
+
+    check = check_group_total(solver, constraint)
+    assert check.verified_targets == ("door_0",), "前提: 群合計が値を1つに絞る"
+
+    solved = _detect(solver).variables["door_0"].solved_range
+    assert solved == (3, 3), "前提: 幅0まで絞られる"
+    assert solver.requires_confirmation("door_0") is True, (
+        "群合計で幅0になっただけで確定済みとして扱われている"
+    )
+    assert "door_0" in solver.names_requiring_confirmation()
+
+
+def test_the_detection_power_of_a_group_total_is_reported_as_a_number() -> None:
+    """群合計の吸収余地を数字で出し、捕まえたい誤差と比べられること。
+
+    停止した要素の幅が十分に大きければ、どんな誤りも吸収できてしまうのは
+    論理の帰結である。**隠すのではなく数字で出す**(設計案4-4節)。
+    """
+    from arbitration.group_total import (
+        group_total_absorption_slack,
+        group_total_has_detection_power,
+    )
+
+    solver, _decisions, _ = _run_firewall(
+        _build_group(
+            stopped_evidence=[_evidence("door_0", (0, 6), "drawing-A", "image")],
+            wrong_targets={},
+        )
+    )
+    constraint = _add_group_total(solver)
+
+    assert group_total_absorption_slack(solver, constraint) == 6
+    assert not group_total_has_detection_power(solver, constraint, smallest_error=1)
+    assert group_total_has_detection_power(solver, constraint, smallest_error=7)
+
+    tight, _decisions, _ = _run_firewall(
+        _build_group(
+            stopped_evidence=_agreeing_strong_axes("door_0", TRUTH["door_0"]),
+            wrong_targets={},
+        )
+    )
+    tight_constraint = _add_group_total(tight)
+    assert group_total_absorption_slack(tight, tight_constraint) == 0, (
+        "停止した要素が無ければ吸収余地も無い"
+    )
+    assert group_total_has_detection_power(tight, tight_constraint, smallest_error=1)
