@@ -3,6 +3,7 @@
 対象: `axes/image_axis/pdf_tables.py`、`axes/image_axis/schedule_tables.py`、
 `intake/drawing_intake.py` への接続。
 分岐元: main `c2ad7dc`(キュー1「本番の入口」のマージコミット)。
+その後 main `f05bf20`(キュー1の追補・スタートキット、PR #14)を取り込んでいる(9 節)。
 
 ---
 
@@ -97,8 +98,14 @@ P011 の新設建具は全部引戸か折戸で、だから図形からの検出
 
 階層1(自動確定)は独立した強いデータ源が 2 つ以上要り、独立性は
 `source_fingerprint`(ファイル内容の sha256)で判定される。**1 つの図面 PDF から
-何種類の手法で読んでも独立数は 1 にしかならない。** 加えて新しい 2 手法は
-どちらも未校正なので `is_hard_eligible` が False のままである。
+何種類の手法で読んでも独立数は 1 にしかならない。** 建具表も内装仕上表も
+同じ図面ファイルから読むので、ここは増えない。
+
+**注意: 独立したデータ源そのものは、スタートキット(PR #14)で 2 つになった。**
+人が入れた前提は図面とは別のデータ源だからである。いま確定が起きないのは、
+この経路の手法が**どれも未校正**で `is_hard_eligible` が False のままだから
+であって、データ源が 1 つしか無いからではなくなった。建具表の手法も
+同じ方針で未校正のまま登録してあるので、この作業はその前提を変えない。
 
 `test_nothing_is_auto_confirmed_even_with_the_schedules` がこれを固定している。
 どちらかの手法を `calibrated=True` にしたら、このテストは必ず落ちる。
@@ -179,6 +186,11 @@ P011 の新設建具は全部引戸か折戸で、だから図形からの検出
 - 変更: `intake/drawing_intake.py`(表の読み取りを足しただけ。既存の縮尺・面積・
   開き戸の経路と判定のしかたは変えていない)、`arbitration/method_policies.py`
   (登録簿に 2 行足しただけ)、`docs/design_v8.md`(15 章を追加)。
+- **`arbitration/` で触ったのは `method_policies.py` の登録簿だけ**で、
+  群合計スレッドが触る `group_total.py` / `firewall_bridge.py` /
+  `consistency_solver.py` / `axis_quality_firewall.py` とは重なりが無い。
+  抜き取り監査スレッドが触る `provisional_audit.py` とも重なりが無い。
+
 **キュー1の追補(スタートキット、PR #14 `f05bf20`)との重なり(実際に衝突した箇所):**
 
 - `intake/drawing_intake.py` … 向こうが `DrawingFinding` に `source_kind` /
@@ -200,8 +212,3 @@ P011 の新設建具は全部引戸か折戸で、だから図形からの検出
 `human_reference_point` と `pdf_text_scale` がどちらも未校正だからである。
 **建具表の手法も同じ方針で未校正のまま登録してある**ので、この PR は
 その前提を変えない。
-
-- **`arbitration/` で触ったのは `method_policies.py` の登録簿だけ**で、
-  群合計スレッドが触る `group_total.py` / `firewall_bridge.py` /
-  `consistency_solver.py` / `axis_quality_firewall.py` とは重なりが無い。
-  抜き取り監査スレッドが触る `provisional_audit.py` とも重なりが無い。
