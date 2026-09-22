@@ -99,6 +99,14 @@ from axes.image_axis.ocr_text import (
     recognize_page,
 )
 from axes.image_axis.pdf_pages import ContentKind, rasterize
+from axes.image_axis.pdf_repeated_symbols import (
+    METHOD_REPEATED_SYMBOL,
+    LegendSymbol,
+    SymbolCluster,
+    find_repeated_symbols,
+    name_clusters,
+    read_legend_symbols,
+)
 from axes.image_axis.pdf_vector_symbols import (
     METHOD_DOOR_ARC,
     METHOD_TEXT_AREA,
@@ -128,6 +136,8 @@ from intake.case_answers import (
 from axes.reading.meaning import PHASE_UNKNOWN, PURPOSE_UNESTABLISHED, Meaning
 from intake.start_kit import (
     DOOR_ARC_PAGE_KINDS,
+    LEGEND_PAGE_KINDS,
+    REPEATED_SYMBOL_PAGE_KINDS,
     PageDeclaration,
     PagePairing,
     ReferencePoint,
@@ -844,6 +854,11 @@ def _extract(
     door_quantity_hits: dict[str, list[tuple[float, dict[str, Any]]]] = {}
     door_rows: list[DoorScheduleRow] = []
     finish_rows: list[FinishScheduleRow] = []
+    #: ページごとの「繰り返す図形の群」と、凡例で読めた「名前 ↔ 図形」。
+    #: **名前付けはページを全部読み終えてから行う。** 凡例が平面図より
+    #: 後ろのページにあることがあり、途中で名前を決めると取りこぼすため。
+    symbol_clusters: list[tuple[int, str | None, SymbolCluster]] = []
+    legend_symbols: list[LegendSymbol] = []
     findings: list[DrawingFinding] = []
     pending: list[PendingDecision] = []
     ocr_pages: list[OcrPage] = []
@@ -966,6 +981,17 @@ def _extract(
                     )
                 )
 
+            _collect_symbols(
+                pdf_path,
+                index,
+                page_number=page_number,
+                scale=scale,
+                declaration=declaration,
+                notes=notes,
+                symbol_clusters=symbol_clusters,
+                legend_symbols=legend_symbols,
+            )
+
         outcomes.append(
             PageOutcome(
                 page_number=page_number,
@@ -980,6 +1006,7 @@ def _extract(
 
     findings.extend(_area_findings(area_hits))
     findings.extend(_door_quantity_findings(door_quantity_hits))
+    findings.extend(_repeated_symbol_findings(symbol_clusters, legend_symbols))
     return tuple(outcomes), findings, pending, door_rows, finish_rows, ocr_pages
 
 
@@ -1412,6 +1439,89 @@ def _door_arc_findings(
             },
         )
     ]
+
+
+def _collect_symbols(
+    pdf_path: Path,
+    index: int,
+    *,
+    page_number: int,
+    scale: DrawingScale,
+    declaration: PageDeclaration | None,
+    notes: list[str],
+    symbol_clusters: list[tuple[int, str | None, SymbolCluster]],
+    legend_symbols: list[LegendSymbol],
+) -> None:
+    """そのページから、繰り返す図形の群と、凡例の「名前 ↔ 図形」を集める。
+
+    **名前は「凡例」と宣言されたページからしか取らない。** 平面図の上で
+    室名がたまたま記号の左に並んでいるのを凡例と読み違えると、名前が
+    捏造される。宣言が無ければ名前は付かないまま(件数だけ)になる。
+    """
+    kind = declaration.kind if declaration is not None else None
+    if kind in LEGEND_PAGE_KINDS:
+        found = read_legend_symbols(pdf_path, index, scale)
+        legend_symbols.extend(found)
+        notes.append(f"凡例として読んだ記号は {len(found)} 件")
+        return
+    if kind is not None and kind not in REPEATED_SYMBOL_PAGE_KINDS:
+        notes.append(f"人が「{kind}」と宣言したページなので繰り返す記号は探さない")
+        return
+
+    clusters = find_repeated_symbols(pdf_path, index, scale)
+    if not clusters:
+        notes.append(
+            "繰り返す図形は 0 群"
+            "(1 回しか出てこない記号と大きさの窓の外の記号は拾えない。"
+            "0 群は「記号が無い」ではない)"
+        )
+        return
+    phase = declaration.phase if declaration is not None else None
+    for cluster in clusters:
+        symbol_clusters.append((page_number, phase, cluster))
+
+
+def _repeated_symbol_findings(
+    symbol_clusters: list[tuple[int, str | None, SymbolCluster]],
+    legend_symbols: list[LegendSymbol],
+) -> list[DrawingFinding]:
+    """繰り返す記号の群を、根拠付きの証拠に直す。
+
+    件数は**下限**である(繰り返さない記号と、大きさの窓の外の記号は
+    拾えない)。それを provenance にそのまま残し、下流が「実数」として
+    扱わないようにする。名前は凡例と形が一致したときだけ付く。
+    """
+    if not symbol_clusters:
+        return []
+    named = name_clusters([c for _, _, c in symbol_clusters], legend_symbols)
+    out: list[DrawingFinding] = []
+    for (page_number, phase, cluster), naming in zip(symbol_clusters, named):
+        label = naming.name if naming.name is not None else f"名前不明{cluster.size_mm:.0f}mm"
+        target = (
+            f"記号::{label}::{phase}::ページ{page_number}"
+            if phase is not None and phase != "不明"
+            else f"記号::{label}::ページ{page_number}"
+        )
+        out.append(
+            DrawingFinding(
+                target=target,
+                value_range=(float(cluster.count), float(cluster.count)),
+                unit=COUNT_UNIT,
+                method_id=METHOD_REPEATED_SYMBOL,
+                strength="weak",
+                provenance={
+                    "page_number": page_number,
+                    "phase": phase,
+                    "symbol_name": naming.name,
+                    "naming_basis": naming.basis,
+                    "size_mm": round(cluster.size_mm, 1),
+                    "positions_pt": [list(p) for p in cluster.positions_pt],
+                    "limitation": cluster.limitation,
+                    "count_is_lower_bound": True,
+                },
+            )
+        )
+    return out
 
 
 def _area_findings(

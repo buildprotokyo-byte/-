@@ -44,6 +44,10 @@ from axes.image_axis.ocr_readings import (
     METHOD_OCR_TEXT_AREA,
     METHOD_OCR_TEXT_SCALE,
 )
+from axes.image_axis.pdf_repeated_symbols import (
+    METHOD_LEGEND_SYMBOL,
+    METHOD_REPEATED_SYMBOL,
+)
 from axes.image_axis.schedule_tables import (
     METHOD_DOOR_SCHEDULE,
     METHOD_FINISH_SCHEDULE,
@@ -125,6 +129,18 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   **印字をそのまま読めていない**ので、その理由が当てはまらない。
 #:   校正で外れ率を測っても、上限を上げる前に
 #:   「どの字がどの字に化けたか」の分布が要る。
+#: - ``pdf_vector_repeated_symbol`` … CAD 由来 PDF で**同じ図形が繰り返し
+#:   現れること**だけを手がかりに記号の候補を数える
+#:   (`axes/image_axis/pdf_repeated_symbols.find_repeated_symbols`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 3 つある。
+#:   ①1 回しか出てこない記号と、大きさの窓の外にある記号は原理的に落ちる
+#:   ので、件数は常に**下限**であって実数ではない。②大きさの窓の既定値
+#:   (30〜1500mm)は実図面で校正していない暫定値である。③ハッチングや
+#:   寸法線のように「繰り返すが記号でないもの」も群として出る。
+#: - ``pdf_vector_legend_symbol`` … 凡例のページで読めた「名前 ↔ 図形」の
+#:   対応(`read_legend_symbols`)。名前が付いても**同じ 1 つの PDF の中の
+#:   一致**なので、独立した 2 つ目の軸ではない(原則 3 節)。
+#:   だから上限は ``weak`` のままにしてある。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -136,6 +152,8 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_OCR_TEXT_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_OCR_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_REPEATED_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_LEGEND_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 
