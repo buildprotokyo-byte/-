@@ -1,0 +1,91 @@
+"""手法ごとの校正状態と最大強度の、このリポジトリにおける正式な登録簿。
+
+なぜ登録簿が要るのか
+--------------------
+`InferenceOrchestrator` の `MethodPolicy` は **`method_id` だけ**をキーにする。
+つまり「どの手法をどこまで信じてよいか」は、呼び出し側が渡す辞書に書かれた
+とおりにしかならない。v8 で決まった採否(11-3の汎用ゼロショット検出モデルの
+除外、12-2節の VTracer の数量種別ごとの扱い)は、これまで**設計書と docstring
+にしか無く、コードのどこにも登録されていなかった。**
+
+このモジュールはその決定を1か所に集める。
+
+2つの使い方
+-----------
+1. **既定の方針として渡す**::
+
+       InferenceOrchestrator(DEFAULT_METHOD_POLICIES)
+       InferenceOrchestrator(with_defaults({"my_detector": MethodPolicy(True, "strong")}))
+
+2. **上限(天井)として自動的に効く。** `InferenceOrchestrator` は、
+   呼び出し側が渡した方針に対して、この登録簿を**緩める方向には使わず、
+   きつくする方向にだけ**適用する(`clamp_to_defaults`)。呼び出し側が
+   うっかり ``vtracer_floor_area`` を ``calibrated=True, max_strength="strong"``
+   で渡しても、**ここに登録された上限まで引き下げられる。**
+
+   登録簿に無い手法には何もしない(未登録手法はもともと
+   `InferenceOrchestrator` 側で weak / 非校正に落ちる)。
+
+**この登録簿は緩める方向に働かない。** ここに ``strong`` と書いてあっても、
+呼び出し側が渡さなければ強い軸にはならない。「既定で信用が増える」経路を
+作らないための約束である。
+"""
+
+from __future__ import annotations
+
+from typing import Mapping
+
+from axes.image_axis.vtracer_vectorizer import METHOD_FLOOR_AREA, METHOD_WALL_LINEWORK
+
+from arbitration.inference_orchestrator import MethodPolicy
+
+#: 手法IDごとの、このリポジトリで認められた上限。
+#:
+#: 出どころ(いずれも実測に基づく決定):
+#:
+#: - ``vtracer_wall_linework`` … 段階A実測。重度劣化で偽の図形 2811個→18個、
+#:   壁の総延長誤差 +117.7%→-4.0%(大津の二値化を先にかけた場合)。
+#:   v8 12-3節で「条件付き採用」。
+#: - ``vtracer_floor_area`` … トライアル12。劣化が重なる現実的な条件
+#:   (heavy・realistic)で誤差 62.49%。v8 12-2節(2)で
+#:   **「単独でハードな確定に使わない」**と決定。
+#:   `max_strength="weak"` にしてあるので、ハード制約(階層1の根拠)には
+#:   絶対に昇格しない。参考情報としては使える。
+DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
+    METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
+    METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
+}
+
+
+def with_defaults(policies: Mapping[str, MethodPolicy]) -> dict[str, MethodPolicy]:
+    """呼び出し側の方針を、登録簿の上限まで引き下げた辞書として返す。
+
+    登録簿に無い手法はそのまま通す(`InferenceOrchestrator` 側で
+    未登録手法として weak / 非校正に落ちる)。
+    """
+    merged = dict(DEFAULT_METHOD_POLICIES)
+    for method_id, policy in policies.items():
+        merged[method_id] = clamp_to_defaults(method_id, policy)
+    return merged
+
+
+def clamp_to_defaults(method_id: str, policy: MethodPolicy) -> MethodPolicy:
+    """1件の方針を、登録簿の上限まで引き下げる。
+
+    **引き上げは絶対にしない。** 登録簿に無い手法はそのまま返す。
+    """
+    ceiling = DEFAULT_METHOD_POLICIES.get(method_id)
+    if ceiling is None:
+        return policy
+    return MethodPolicy(
+        calibrated=policy.calibrated and ceiling.calibrated,
+        max_strength=(
+            "strong"
+            if policy.max_strength == "strong" and ceiling.max_strength == "strong"
+            else "weak"
+        ),
+        # 由来もきつくする方向にだけ効かせる。登録簿が「この手法は常に
+        # 一般則による補完」と言っているなら、呼び出し側が何と名乗っても
+        # その上限が勝つ。
+        always_assumed=policy.always_assumed or ceiling.always_assumed,
+    )

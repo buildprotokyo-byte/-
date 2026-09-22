@@ -1,1 +1,26 @@
+# 画像軸・絶対ルール軸の共通依存
+numpy
+pillow
+opencv-python-headless
+pytest
 
+# 段階A(OSSリソースの機能化)で追加
+vtracer            # ラスター → ベクター変換(画像軸の前処理)
+cairosvg           # VTracer が出す SVG の描画(計測に使う)
+ifcopenshell       # IFC の空間階層・containment API(絶対ルール軸)
+
+# 実案件の図面(PDF)を読むために追加(2026-09-21)
+# この案件の図面は全ページが純粋なスキャン画像で、埋め込み文字が1文字も無い。
+# 詳細は docs/real_drawing_eval_report.md 2節。
+pymupdf            # PDF のページのラスター化と、中身(ベクター/スキャン)の判定
+
+# 段階B(整合性軸)で追加
+z3-solver          # 制約充足エンジン(整合性軸)。採否の理由は arbitration/consistency_solver.py 冒頭を参照
+
+# Grounding DINO を動かす場合に追加で必要(huggingface.co への到達が前提)
+# 注意: `--index-url https://download.pytorch.org/whl/cpu` は使わないこと。
+# このクラウド環境では download.pytorch.org が 403 で遮断されている。
+# 素の PyPI 経由(下の 3 行をそのまま)なら通る。
+# torch
+# transformers
+# timm
