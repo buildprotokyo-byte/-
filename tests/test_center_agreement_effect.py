@@ -261,3 +261,53 @@ def test_記録が古い計測スクリプトのものでないこと() -> None:
         condition["policies"][BEFORE]["accuracy_before_audit"]
         != condition["policies"][CURRENT]["accuracy_before_audit"]
     ), "「現行」と「本実装」が同じ数値になっている。無効化が効いていない記録"
+
+
+# ---------------------------------------------------------------------
+# 条件ごとに並列で回しても結果が変わらないこと
+# ---------------------------------------------------------------------
+
+
+def test_条件の一覧が記録と一致する() -> None:
+    """並列に回す単位(`--only`)が、記録の条件と1対1であること。"""
+    from benchmarks.simulate_tier1_center_agreement import ALL_CONDITIONS
+
+    keys = {condition_key(model, weak) for model, weak in ALL_CONDITIONS}
+    assert keys == {item["condition"] for item in _recorded()["conditions"]}
+
+
+def test_証拠の組み立ては回す順序に依存しない() -> None:
+    """条件を別プロセスに分けても同じ証拠から測っていること。
+
+    実測では、並列に回した2条件の結果が直列の結果と**完全に一致**した
+    (試行ごとの値まで)。ここではその前提にあたる「証拠の組み立てが
+    呼び出し順に依存しない」ことを固定する。依存していれば、並列にした
+    瞬間に条件ごとの数値が静かにずれる。
+    """
+    from benchmarks.simulate_tier1_center_agreement import ALL_CONDITIONS
+
+    scenario = build_scenario()
+
+    def evidence_for(model: str, weak: bool, seed: int) -> list[tuple]:
+        return [
+            (name, tuple(sorted(
+                (i.source_id, i.axis_id, i.count_range, i.strength)
+                for i in items
+            )))
+            for name, items in sorted(
+                make_evidence(
+                    scenario, seed, model,
+                    with_weak_axes=weak, mixed_primary_axes=True,
+                ).items()
+            )
+        ]
+
+    forward = {
+        (m, w, s): evidence_for(m, w, s)
+        for m, w in ALL_CONDITIONS for s in (0, 7, 29)
+    }
+    backward = {
+        (m, w, s): evidence_for(m, w, s)
+        for m, w in reversed(ALL_CONDITIONS) for s in (29, 7, 0)
+    }
+    assert forward == backward
