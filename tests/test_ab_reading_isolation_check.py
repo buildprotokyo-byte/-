@@ -20,6 +20,7 @@ from benchmarks.ab_reading_isolation_check import (
     memory_fingerprint,
     run_all,
     scan_match_claims,
+    scan_reading_method_verdicts,
     scan_memory,
     scan_package,
     scan_probe_transcript,
@@ -455,3 +456,82 @@ def test_clean_memory_has_no_match_claim(tmp_path: pathlib.Path) -> None:
         encoding="utf-8",
     )
     assert scan_memory(memory) == []
+
+
+# ---------------------------------------------------------------------------
+# 「どちらの読み方が良いか」— 索引にも書いてあった
+#
+# 2026-09-22、正解の数値も照合結果も消したあとに `memory_recall` の記録を
+# 1 回ごとに突き合わせて、やっと気づいた漏れ口。片側の回にだけ一方のやり方の
+# 成否が渡っており、さらに**索引の 1 行**にどちらを既定にしたかが書いてあった。
+# ---------------------------------------------------------------------------
+REAL_VERDICT_LINES = [
+    # 索引に実際に書かれていた 1 行
+    "段階0.5(方式A2)→ `axes/reading/protocol.py`。既定は方式A。A2は害が無いことは示せたが利点は示せていない",
+    "2段階読みは精度を上げず、下げた。",
+    "方式B は 1 段階読みを一度も上回っていない",
+    "どちらの読み方が良いかは測って決めた",
+]
+
+
+@pytest.mark.parametrize("line", REAL_VERDICT_LINES)
+def test_reading_method_verdict_is_found(line: str) -> None:
+    assert scan_reading_method_verdicts(line), f"優劣の記述を見逃した: {line}"
+
+
+# 否定対照。**手順や原則は外さない。**
+# 手順の知識は片方の条件をもう片方に近づける＝差を小さくする向きに効くので、
+# それでも差が出たなら本物である。ここを拾い始めたら検査は使えなくなる。
+HARMLESS_READING_LINES = [
+    # 手順そのもの（残す側）
+    "要素ごとの推論3段階（区分・目的との照合・波及）の原則",
+    "人の入力は「読み方の軸」を足すものであり、「読む範囲」を狭めるものではない",
+    "人が宣言したページの種類を「読み方を縛るもの」から「弱い手がかり」に変えた",
+    # 掃除ずみの指し方（これを拾っては困る）
+    "採否と、測定の結果はリポジトリの `docs/trial15_two_stage_reading_report.md`(記憶には書かない)",
+    "測定の結果は、ひとつ残らずリポジトリの報告書にある。記憶には書かない",
+    # 読み方と関係ない「良かった」
+    "ベクター経由の記号検出は結果が良かった",
+    # 読み方と関係ない「既定は」
+    "`drawing_mm_per_pixel()` は既定で None",
+]
+
+
+@pytest.mark.parametrize("line", HARMLESS_READING_LINES)
+def test_harmless_reading_line_is_not_flagged(line: str) -> None:
+    assert not scan_reading_method_verdicts(line), f"無害な行を漏れ口と呼んだ: {line}"
+
+
+def test_index_file_is_scanned(tmp_path: pathlib.Path) -> None:
+    """**索引そのものが検査に掛かること。**
+
+    2026-09-22 に見落としたのはここだった。個別の記憶ファイルだけを見ていて、
+    索引（`MEMORY.md`）に 1 行書いてあるのに気づかなかった。
+    索引は全文が毎回どのセッションにも渡るので、**一番危ない 1 ファイル**である。
+    """
+    memory = tmp_path / "memory" / "team" / "silo"
+    memory.mkdir(parents=True)
+    (memory / "MEMORY.md").write_text(
+        "2. 段階0.5(方式A2)。既定は方式A。\n", encoding="utf-8"
+    )
+    findings = scan_memory(tmp_path / "memory")
+    assert findings, "索引が検査されていない"
+    assert any(f.where == "MEMORY.md" for f in findings)
+
+
+def test_reading_method_verdict_reaches_probe_scan() -> None:
+    findings = scan_probe_transcript("2段階読みは精度を下げた。")
+    assert findings and any("届いている" in f.detail for f in findings)
+
+
+def test_clean_index_line_is_not_flagged(tmp_path: pathlib.Path) -> None:
+    """否定対照: 掃除ずみの索引なら 0 件。"""
+    memory = tmp_path / "memory" / "team" / "silo"
+    memory.mkdir(parents=True)
+    (memory / "MEMORY.md").write_text(
+        "2. 段階0.5(方式A2)→ `axes/reading/protocol.py`。"
+        "採否と、測定の結果はリポジトリの`docs/trial15_two_stage_reading_report.md`"
+        "(記憶には書かない)\n",
+        encoding="utf-8",
+    )
+    assert scan_memory(tmp_path / "memory") == []
