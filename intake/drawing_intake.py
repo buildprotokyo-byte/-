@@ -15,10 +15,17 @@
 
 この入口が守っていること
 ------------------------
-1. **ラスターのページを黙って捨てない。** ベクター(CAD 由来)のページだけを
-   抽出に回し、スキャンされたページは「未対応」として `PageOutcome` に残す。
-   捨ててしまうと、34 ページのうち何ページが読めなかったのかが
-   どこにも残らない。
+1. **ラスターのページを黙って捨てない。** 既定では、ベクター(CAD 由来)の
+   ページだけを抽出に回し、スキャンされたページは「未対応」として
+   `PageOutcome` に残す。捨ててしまうと、34 ページのうち何ページが
+   読めなかったのかがどこにも残らない。
+   **2026-09-22 に、スキャンのページを OCR で読む道を足した**
+   (`IntakeConfig.ocr`、`axes/image_axis/ocr_text.py`、v8 17章)。
+   **渡さなければ今までどおり「未対応」のままで、振る舞いは変わらない。**
+   渡したときは、図面に文字として書かれている面積の記載を証拠として出す。
+   ただし OCR は文字を別の字に化けさせ、**その化けを確信度が知らせない**
+   (`docs/ocr_scanned_pages_report.md`)ので、埋め込み文字とは別の手法
+   (``ocr_text_area`` / ``ocr_text_scale``)として未校正で登録してある。
 2. **縮尺が読めないページで長さを出さない。** `extract_scale()` が None を
    返したページでは、開き戸の抽出そのものを行わない(扉幅の実寸が出せない)。
 3. **ページをまたいで足し算しない。** 開き戸の件数はページごとの対象として
@@ -69,6 +76,19 @@ from arbitration.method_policies import (
     DEFAULT_METHOD_POLICIES,
     METHOD_HUMAN_REFERENCE_POINT,
 )
+from axes.image_axis.ocr_readings import (
+    METHOD_OCR_TEXT_AREA,
+    METHOD_OCR_TEXT_SCALE,
+    read_area_labels,
+    read_scale,
+)
+from axes.image_axis.ocr_text import (
+    DEFAULT_MIN_CONFIDENCE,
+    OCR_DPI,
+    OcrBackend,
+    OcrPage,
+    recognize_page,
+)
 from axes.image_axis.pdf_pages import ContentKind, rasterize
 from axes.image_axis.pdf_vector_symbols import (
     METHOD_DOOR_ARC,
@@ -96,6 +116,7 @@ from intake.case_answers import (
     AnswerStore,
     PendingQuestion,
 )
+from axes.reading.meaning import PHASE_UNKNOWN, PURPOSE_UNESTABLISHED, Meaning
 from intake.start_kit import (
     DOOR_ARC_PAGE_KINDS,
     PageDeclaration,
@@ -140,11 +161,39 @@ SCALE_AGREEMENT_TOLERANCE: Fraction = CENTER_TOLERANCES["mm"].relative or Fracti
 #: ページの種別判定・用紙寸法・埋め込み文字は dpi に依存しない。
 CLASSIFY_DPI = 72
 
-PageStatus = Literal["processed", "unsupported_raster", "unsupported_empty"]
+#: ページをどう扱ったか。``processed_ocr`` は**スキャンのページを OCR で
+#: 読んだ**状態で、ベクターのページの ``processed`` と分けてある。
+#: 読めた中身の確かさが違うので、集計のときに同じ数に混ぜない。
+PageStatus = Literal[
+    "processed", "processed_ocr", "unsupported_raster", "unsupported_empty"
+]
 
 
 class IntakeError(Exception):
     """入口の設定が受け付けられなかった。"""
+
+
+@dataclass(frozen=True)
+class OcrSettings:
+    """スキャンのページを読むときの設定。**渡さなければ OCR は動かない。**
+
+    `backends` に 2 つ以上のエンジンを渡すと、**両方が同じに読んだ語だけ**が
+    通る(`axes/image_axis/ocr_text.recognize_page`)。実測では、中国語・英語の
+    モデルが数字に強くて日本語の語を化けさせ、日本語のモデルはその逆だった
+    (`docs/ocr_scanned_pages_report.md`)。1 つだけ渡すこともできるが、
+    その読みは突き合わせを通っていないことが証拠に残る。
+    """
+
+    backends: tuple[OcrBackend, ...] = ()
+    dpi: int = OCR_DPI
+    min_confidence: float = DEFAULT_MIN_CONFIDENCE
+
+    def __post_init__(self) -> None:
+        if not self.backends:
+            raise IntakeError(
+                "OcrSettings にエンジンが 1 つも入っていません。"
+                "OCR を使わないなら IntakeConfig.ocr を None のままにしてください"
+            )
 
 
 @dataclass(frozen=True)
@@ -165,6 +214,9 @@ class IntakeConfig:
     #: 人が最初に決める前提(`intake/start_kit.py`)。**任意。**
     #: 与えられなければ、今までどおり自動で処理する。
     start_kit: StartKit | None = None
+    #: スキャン(ラスター)のページを OCR で読むための設定。**任意。**
+    #: None なら、ラスターのページは今までどおり「未対応」として記録される。
+    ocr: OcrSettings | None = None
 
     def __post_init__(self) -> None:
         if not self.case_id:
@@ -248,6 +300,14 @@ class DrawingFinding:
     provenance: dict[str, Any] = field(default_factory=dict)
     """ページ番号・座標・元の文字列。**仲裁層まで一緒に運ぶ。**"""
 
+    meaning: Meaning | None = None
+    """この値の意味の 4 欄(`axes/reading/meaning.py`)。
+
+    **新しく書いた経路(OCR)では必ず入る**(おーちゃんの回答9、2026-09-22)。
+    既存の経路(埋め込み文字・建具表・開き戸)はまだ None で、修正のついでに
+    順に入れていく。**None は「意味が無い」ではなく「まだ付けていない」。**
+    """
+
 
 @dataclass(frozen=True)
 class TargetDecision:
@@ -284,6 +344,10 @@ class IntakeResult:
     pending_decisions: tuple[PendingDecision, ...] = ()
     #: 人が入れた現況と計画の対応。**差分の計算はまだしていない。**
     page_pairings: tuple[PagePairing, ...] = ()
+
+    #: スキャンのページを OCR に掛けた結果。**読めなかったもの・エンジンどうしで
+    #: 食い違ったものもここに残る。** OCR を渡していなければ空。
+    ocr_pages: tuple[OcrPage, ...] = ()
 
     door_schedule_rows: tuple[DoorScheduleRow, ...] = ()
     """建具表から読んだ行。**数量が読めなかった行もここには残る。**"""
@@ -433,7 +497,7 @@ def read_drawing(
     human_source_id = f"{config.case_id}::start_kit"
     human_fingerprint = start_kit_fingerprint(start_kit)
 
-    pages, findings, pending_decisions, door_rows, finish_rows = _extract(
+    pages, findings, pending_decisions, door_rows, finish_rows, ocr_pages = _extract(
         pdf_path, config, start_kit, page_count, scale_tolerance
     )
     findings, pending_questions, area_pending = _apply_area_basis(
@@ -468,6 +532,7 @@ def read_drawing(
         page_pairings=tuple(start_kit.page_pairings),
         door_schedule_rows=tuple(door_rows),
         finish_schedule_rows=tuple(finish_rows),
+        ocr_pages=tuple(ocr_pages),
     )
 
 
@@ -503,11 +568,18 @@ def _extract(
     list[PendingDecision],
     list[DoorScheduleRow],
     list[FinishScheduleRow],
+    list[OcrPage],
 ]:
     outcomes: list[PageOutcome] = []
     #: ラベルごとに、読めた値とその根拠を集める。ページをまたいで同じ記載が
     #: あるのは普通なので、ここでまとめる。**別のデータ源として数えない。**
-    area_hits: dict[str, list[tuple[float, dict[str, Any]]]] = {}
+    #:
+    #: 鍵に手法IDを入れてあるのは、**埋め込み文字から読んだ面積と、スキャンを
+    #: OCR で読んだ面積を混ぜないため。** 同じ対象(``専有延床面積``)の
+    #: 別々の読みとして仲裁層へ渡り、そこで突き合わせられる。
+    area_hits: dict[
+        tuple[str, str], list[tuple[float, dict[str, Any], Meaning | None]]
+    ] = {}
     #: 建具番号ごとに、読めた数量とその根拠。同じ建具番号が複数ページに
     #: 出てくることがある(建具表が分割されている、既存と新設で別紙)。
     #: **足さない。** 値が食い違えばレンジにして、判断は仲裁層へ回す。
@@ -516,6 +588,7 @@ def _extract(
     finish_rows: list[FinishScheduleRow] = []
     findings: list[DrawingFinding] = []
     pending: list[PendingDecision] = []
+    ocr_pages: list[OcrPage] = []
 
     indices = range(page_count) if config.pages is None else config.pages
     for index in indices:
@@ -529,13 +602,32 @@ def _extract(
         notes: list[str] = []
 
         if page.content_kind == "raster":
+            if config.ocr is None:
+                outcomes.append(
+                    PageOutcome(
+                        page_number=page_number,
+                        content_kind=page.content_kind,
+                        status="unsupported_raster",
+                        declaration=declaration,
+                        notes=(
+                            "スキャン画像のページ。この経路では読めない(未対応)",
+                        ),
+                    )
+                )
+                continue
             outcomes.append(
-                PageOutcome(
+                _read_scanned_page(
+                    pdf_path,
+                    index,
                     page_number=page_number,
-                    content_kind=page.content_kind,
-                    status="unsupported_raster",
+                    settings=config.ocr,
                     declaration=declaration,
-                    notes=("スキャン画像のページ。この経路では読めない(未対応)",),
+                    reference_points=start_kit.reference_points_for(page_number),
+                    tolerance=scale_tolerance,
+                    findings=findings,
+                    pending=pending,
+                    area_hits=area_hits,
+                    ocr_pages=ocr_pages,
                 )
             )
             continue
@@ -590,7 +682,7 @@ def _extract(
         )
 
         for label in find_area_labels(pdf_path, index):
-            area_hits.setdefault(label.label, []).append(
+            area_hits.setdefault((label.label, METHOD_TEXT_AREA), []).append(
                 (
                     label.value_sqm,
                     {
@@ -598,6 +690,7 @@ def _extract(
                         "source_text": label.source_text,
                         "rect_pt": list(label.rect_pt) if label.rect_pt else None,
                     },
+                    None,
                 )
             )
 
@@ -629,7 +722,129 @@ def _extract(
 
     findings.extend(_area_findings(area_hits))
     findings.extend(_door_quantity_findings(door_quantity_hits))
-    return tuple(outcomes), findings, pending, door_rows, finish_rows
+    return tuple(outcomes), findings, pending, door_rows, finish_rows, ocr_pages
+
+
+def _read_scanned_page(
+    pdf_path: Path,
+    index: int,
+    *,
+    page_number: int,
+    settings: OcrSettings,
+    declaration: PageDeclaration | None,
+    reference_points: Sequence[ReferencePoint],
+    tolerance: Fraction,
+    findings: list[DrawingFinding],
+    pending: list[PendingDecision],
+    area_hits: dict[tuple[str, str], list[tuple[float, dict[str, Any], Meaning | None]]],
+    ocr_pages: list[OcrPage],
+) -> PageOutcome:
+    """スキャン(ラスター)のページ 1 枚を OCR で読む。
+
+    **このページからは実寸(長さ)を出さない。** 止めているのではなく、
+    出す対象が無いからである。スキャンのページには図形データが入っていないので、
+    ベクターのページで拾っている開き戸の円弧のような「図面上の長さ」が
+    そもそも取れない。読んだ縮尺の印字は、**人が入れた基準点との
+    突き合わせ(検算)にだけ**使い、合わなければ警告を残してどちらも採らない
+    (原則 3-1: 図面に書かれた縮尺の表記は当てにしない)。
+
+    なお、印字の縮尺だけに頼って長さを出す場合は「仮説に基づく」として出す、
+    というのがおーちゃんの指示(2026-09-22)だが、**この経路にはその対象が無い。**
+    画像から長さを測る実装(罫線・輪郭の検出)が入った時点で、その決まりが効く。
+
+    出すのは、図面に**文字として書かれている**面積の記載だけである。
+    建具表を表として読む経路は、罫線を画像から見つける実装がまだ無いので
+    動かない(次の段)。
+    """
+    ocr_page = recognize_page(
+        pdf_path,
+        index,
+        backends=settings.backends,
+        dpi=settings.dpi,
+        min_confidence=settings.min_confidence,
+    )
+    ocr_pages.append(ocr_page)
+
+    notes: list[str] = [
+        f"スキャン画像のページを OCR で読んだ(エンジン: {'、'.join(ocr_page.engines)})",
+        *ocr_page.notes,
+        "このページからは実寸(長さ)を出していない。"
+        "スキャンには図形データが無く、長さを出す対象がそもそも無いため。"
+        "印字の縮尺は、人が入れた基準点との突き合わせにだけ使った",
+    ]
+
+    printed = read_scale(ocr_page)
+    scale, readings, disagreement = _resolve_scale(
+        page_number=page_number,
+        printed=(
+            DrawingScale(denominator=printed.denominator, source_text=printed.source_text)
+            if printed is not None
+            else None
+        ),
+        reference_points=reference_points,
+        tolerance=tolerance,
+        printed_origin="スキャンを OCR で読んだ表題欄の印字",
+    )
+    if disagreement is not None:
+        pending.append(disagreement)
+        notes.append(
+            "人が入れた基準点と、OCR で読んだ印字の縮尺が食い違った。"
+            "どちらも採っていない"
+        )
+    elif printed is None:
+        notes.append("縮尺の印字は読めなかった(**書かれていないという意味ではない**)")
+    if reference_points:
+        notes.append(
+            "人が入れた基準点は、このページでは縮尺の突き合わせにだけ使った"
+            "(スキャンなので実寸の抽出はしない)"
+        )
+
+    phase = declaration.phase if declaration is not None else PHASE_UNKNOWN
+    if phase not in {"現況", "計画", "解体"}:
+        phase = PHASE_UNKNOWN
+
+    for label in read_area_labels(ocr_page):
+        area_hits.setdefault((label.label, METHOD_OCR_TEXT_AREA), []).append(
+            (
+                label.value_sqm,
+                {
+                    "page_number": page_number,
+                    "source_text": label.source_text,
+                    "rect_pt": list(label.rect_pt) if label.rect_pt else None,
+                    "engines": list(label.engines),
+                    "cross_checked": label.cross_checked,
+                    "confidence": round(label.confidence, 3),
+                    "readings": [list(item) for item in label.readings],
+                    "read_by": "ocr",
+                    "limitation": (
+                        "スキャンを OCR で読んだ値。文字が別の字に化けても"
+                        "確信度では止まらない"
+                    ),
+                },
+                Meaning(
+                    what=label.meaning.what,
+                    where=label.meaning.where,
+                    phase=phase,
+                    purpose_link=PURPOSE_UNESTABLISHED,
+                ),
+            )
+        )
+
+    if ocr_page.conflicts:
+        notes.append(
+            f"エンジンどうしで読みが食い違った語が {len(ocr_page.conflicts)} 件ある。"
+            "食い違った語は数量にしていない"
+        )
+
+    return PageOutcome(
+        page_number=page_number,
+        content_kind="raster",
+        status="processed_ocr",
+        scale=scale,
+        scale_readings=readings,
+        declaration=declaration,
+        notes=tuple(notes),
+    )
 
 
 def _read_schedules(
@@ -728,6 +943,7 @@ def _resolve_scale(
     printed: DrawingScale | None,
     reference_points: Sequence[ReferencePoint],
     tolerance: Fraction,
+    printed_origin: str = "表題欄の印字",
 ) -> tuple[DrawingScale | None, tuple[ScaleReading, ...], PendingDecision | None]:
     """このページで使う縮尺を決める。食い違えば**使わずに判断待ちにする。**
 
@@ -747,7 +963,7 @@ def _resolve_scale(
         readings.append(
             ScaleReading(
                 denominator=printed.denominator,
-                origin="表題欄の印字",
+                origin=printed_origin,
                 detail=printed.source_text,
             )
         )
@@ -941,33 +1157,88 @@ def _door_arc_findings(
 
 
 def _area_findings(
-    area_hits: Mapping[str, list[tuple[float, dict[str, Any]]]]
+    area_hits: Mapping[
+        tuple[str, str], list[tuple[float, dict[str, Any], Meaning | None]]
+    ]
 ) -> list[DrawingFinding]:
-    """ラベルごとに 1 件の数量にまとめる。
+    """ラベルと手法ごとに 1 件の数量にまとめる。
 
     同じラベルが複数ページに違う値で書かれていたときは、**どちらかを選ばず
     レンジにする。** 図面が2つの値を主張しているという事実をそのまま残すほうが、
     片方を黙って採るより安全である(レンジが広ければ仲裁層が確定しない)。
+
+    **埋め込み文字から読んだ値と、スキャンを OCR で読んだ値はまとめない。**
+    手法が違うので、同じ対象に対する別々の読みとして仲裁層へ渡す。
+    まとめてしまうと、質の違う 2 つの読みが 1 本のレンジに溶けて、
+    突き合わせが起きなくなる。
     """
     out: list[DrawingFinding] = []
-    for label, hits in sorted(area_hits.items()):
-        values = [value for value, _ in hits]
-        provenance: dict[str, Any] = {"occurrences": [meta for _, meta in hits]}
+    for (label, method_id), hits in sorted(area_hits.items()):
+        values = [value for value, _, _ in hits]
+        provenance: dict[str, Any] = {"occurrences": [meta for _, meta, _ in hits]}
         if min(values) != max(values):
             provenance["note"] = (
                 "同じラベルの記載がページによって違う値だったため、"
                 "どちらも捨てずにレンジにした"
             )
+        meaning = _merge_meanings([item for _, _, item in hits])
+        if meaning is not None:
+            provenance["meaning"] = meaning.as_dict()
+        provenance.update(_shared_reading_provenance([meta for _, meta, _ in hits]))
         out.append(
             DrawingFinding(
                 target=label,
                 value_range=(min(values), max(values)),
                 unit=AREA_UNIT,
-                method_id=METHOD_TEXT_AREA,
+                method_id=method_id,
+                # OCR で読んだ値は、文字化けを確信度が知らせないので弱い軸として
+                # 名乗る(登録簿の上限も weak)。埋め込み文字はこれまでどおり。
+                strength="weak" if method_id == METHOD_OCR_TEXT_AREA else "strong",
                 provenance=provenance,
+                meaning=meaning,
             )
         )
     return out
+
+
+def _merge_meanings(meanings: Sequence[Meaning | None]) -> Meaning | None:
+    """複数ページの読みをまとめたときの意味。
+
+    **ページによって現況/計画の宣言が違ったら ``不明`` に落とす。** どちらかを
+    選ぶと、宣言されていないほうの意味を名乗ることになる。
+    """
+    present = [item for item in meanings if item is not None]
+    if not present:
+        return None
+    first = present[0]
+    phases = {item.phase for item in present}
+    wheres = sorted({item.where for item in present})
+    return Meaning(
+        what=first.what,
+        where="、".join(wheres),
+        phase=first.phase if len(phases) == 1 else PHASE_UNKNOWN,
+        purpose_link=first.purpose_link,
+    )
+
+
+def _shared_reading_provenance(metas: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """読みに共通して載せる、OCR まわりの根拠。埋め込み文字のときは空。"""
+    engines: list[str] = []
+    cross_checked: list[bool] = []
+    for meta in metas:
+        if "engines" in meta:
+            for engine in meta["engines"]:
+                if engine not in engines:
+                    engines.append(engine)
+        if "cross_checked" in meta:
+            cross_checked.append(bool(meta["cross_checked"]))
+    if not engines:
+        return {}
+    return {
+        "engines": tuple(engines),
+        # 1 ページでも突き合わせていない読みが混ざっていれば False。
+        "cross_checked": all(cross_checked) if cross_checked else False,
+    }
 
 
 # ---------------------------------------------------------------------------
