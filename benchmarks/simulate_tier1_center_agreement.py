@@ -380,6 +380,17 @@ def condition_key(model: str, with_weak_axes: bool) -> str:
     return f"{shape}/{model}"
 
 
+#: 測れる条件の一覧。**条件ごとに別プロセスで並列に回せる。**
+#: 1プロセスで直列に回すと、この規模(30試行 x 9方針)で1条件に数十分かかる。
+#: 条件どうしは独立で、乱数シードも条件ごとに 0〜trials-1 を使うだけなので、
+#: 並列にしても結果は変わらない(`--only` を使った結果と直列の結果が一致する
+#: ことを `tests/test_center_agreement_effect.py` で確認する)。
+ALL_CONDITIONS: tuple[tuple[str, bool], ...] = (
+    ("overlapping", True), ("disjoint", True),
+    ("overlapping", False), ("disjoint", False),
+)
+
+
 def compare(model: str, trials: int, *, with_weak_axes: bool) -> dict[str, object]:
     scenario = build_scenario()
     shape = ("強い軸1つ+弱い軸2つ(階層2ができる形)" if with_weak_axes
@@ -486,13 +497,20 @@ def main() -> None:
         "--json", type=Path, default=None,
         help=f"計測結果の保存先(省略時は書き出さない。既定の置き場は {RESULT_PATH})",
     )
+    parser.add_argument(
+        "--only", action="append", default=None,
+        choices=[condition_key(m, w) for m, w in ALL_CONDITIONS],
+        help="この条件だけを測る。**条件ごとに別プロセスで並列に回すために使う。**"
+             " 複数指定できる。省略すると4条件すべてを直列に回す(遅い)",
+    )
     args = parser.parse_args()
+    wanted = (
+        [c for c in ALL_CONDITIONS if condition_key(*c) in set(args.only)]
+        if args.only else list(ALL_CONDITIONS)
+    )
     conditions: list[dict[str, object]] = []
-    for with_weak in (True, False):
-        for model in ("overlapping", "disjoint"):
-            conditions.append(
-                compare(model, args.trials, with_weak_axes=with_weak)
-            )
+    for model, with_weak in wanted:
+        conditions.append(compare(model, args.trials, with_weak_axes=with_weak))
     if args.json is not None:
         payload = {
             "trials": args.trials,
