@@ -218,6 +218,17 @@ def extract_scale(pdf_path: str | Path, page_index: int) -> DrawingScale | None:
             raise IndexError(f"ページ {page_index} は存在しません")
         text = doc.load_page(page_index).get_text("text")
 
+    return parse_scale_text(text)
+
+
+def parse_scale_text(text: str) -> DrawingScale | None:
+    """文字列から縮尺の表記を拾う。**文字の出どころを問わない。**
+
+    `extract_scale()` が PDF の埋め込み文字に使い、
+    `axes/image_axis/ocr_readings.py` がスキャンを OCR した文字に使う。
+    **同じ規則で読むために 1 か所に置いてある。** 片方だけ緩めると、
+    スキャンのほうが甘い判定で通るようになる。
+    """
     match = _SCALE_RE.search(text)
     if match is None:
         return None
@@ -342,8 +353,7 @@ def find_area_labels(pdf_path: str | Path, page_index: int) -> list[AreaLabel]:
         page = doc.load_page(page_index)
         text = page.get_text("text")
         out: list[AreaLabel] = []
-        for match in _AREA_RE.finditer(text):
-            label, raw_value = match.group(1), match.group(2)
+        for label, value, source_text, raw_value in parse_area_text(text):
             hits = page.search_for(raw_value)
             rect = (
                 (hits[0].x0, hits[0].y0, hits[0].x1, hits[0].y1) if hits else None
@@ -351,12 +361,26 @@ def find_area_labels(pdf_path: str | Path, page_index: int) -> list[AreaLabel]:
             out.append(
                 AreaLabel(
                     label=label,
-                    value_sqm=float(raw_value),
-                    source_text=match.group(0),
+                    value_sqm=value,
+                    source_text=source_text,
                     page_index=page_index,
                     rect_pt=rect,
                 )
             )
+    return out
+
+
+def parse_area_text(text: str) -> list[tuple[str, float, str, str]]:
+    """文字列から面積の記載を拾い、``(ラベル, 値, 一致した文字列, 数値の文字列)``で返す。
+
+    `find_area_labels()` が PDF の埋め込み文字に使い、
+    `axes/image_axis/ocr_readings.py` がスキャンを OCR した文字に使う。
+    **同じ規則で読むために 1 か所に置いてある。**
+    """
+    out: list[tuple[str, float, str, str]] = []
+    for match in _AREA_RE.finditer(text):
+        label, raw_value = match.group(1), match.group(2)
+        out.append((label, float(raw_value), match.group(0), raw_value))
     return out
 
 

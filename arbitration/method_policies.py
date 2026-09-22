@@ -40,6 +40,10 @@ from axes.image_axis.pdf_vector_symbols import (
     METHOD_TEXT_AREA,
     METHOD_TEXT_SCALE,
 )
+from axes.image_axis.ocr_readings import (
+    METHOD_OCR_TEXT_AREA,
+    METHOD_OCR_TEXT_SCALE,
+)
 from axes.image_axis.schedule_tables import (
     METHOD_DOOR_SCHEDULE,
     METHOD_FINISH_SCHEDULE,
@@ -104,6 +108,23 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   無いので面積が出せない)。数量を出す経路ができるまでは証拠として
 #:   渡されないが、将来つないだときに強い軸へ昇格しないよう
 #:   ``max_strength="weak"`` で登録しておく。
+#: - ``ocr_text_area`` / ``ocr_text_scale`` … **スキャンされたページを OCR で
+#:   読んだ**面積の記載と縮尺の印字(`axes/image_axis/ocr_readings.py`)。
+#:   埋め込み文字の ``pdf_text_area`` / ``pdf_text_scale`` と**別の手法**に
+#:   してある。同じ ID にすると、印字をそのまま読む手法の校正の話に
+#:   OCR の読み違いが混ざる。
+#:
+#:   **上限を ``weak`` にした理由は実測にある**
+#:   (`docs/ocr_scanned_pages_report.md` 2節)。合成したスキャンに本物の
+#:   OCR を掛けたところ、中国語・英語のモデルは ``種別`` を ``种别``
+#:   (確信度 0.99)、``引戸`` を ``引户``(0.97)と読み、日本語のモデルは
+#:   ``1650`` を ``16.0``、``95.54`` を ``ｓｓ・ｓ４`` と読んだ。
+#:   **どちらの化けも確信度では止まらない。** 見出しの ``高さ`` が丸ごと
+#:   返ってこない回もあった。``pdf_text_area`` は「印字をそのまま読む手法は
+#:   原理的にハード制約になりうる」として上限 ``strong`` だが、OCR は
+#:   **印字をそのまま読めていない**ので、その理由が当てはまらない。
+#:   校正で外れ率を測っても、上限を上げる前に
+#:   「どの字がどの字に化けたか」の分布が要る。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -113,6 +134,8 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_HUMAN_REFERENCE_POINT: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_DOOR_SCHEDULE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_OCR_TEXT_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_OCR_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 
