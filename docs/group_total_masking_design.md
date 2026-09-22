@@ -1,8 +1,10 @@
 # 群合計制約の矛盾検出が、停止した要素のせいで効かなくなる問題 — 現象の確認と設計案
 
-作成: 2026-09-22 / 対象コミット: `816e95b`（`claude/eloquent-feynman-c0o8rf` の HEAD）
+作成: 2026-09-22 / 現象の確認に使ったコミット: `816e95b`
+**実装済み（2026-09-22、おーちゃんの判断を受けて）。** 実装した内容は7節。
 再現テスト: `tests/test_group_total_masking.py`
-**この文書は設計案までで、実装は含まない。**
+実装: `arbitration/group_total.py`、`arbitration/consistency_solver.py`（`Variable.detection_range`）、
+`killer_question/firewall_bridge.py`
 
 ---
 
@@ -225,3 +227,71 @@ solver に入る制約の1つでしかなく、sat だったときに「この�
   `add_relation` にラムダを渡して書くことになっている。C案を入れるなら
   「この制約は群合計である」と宣言できる入口が要る（残差検査は、どの変数が
   1つの群を成すかを知らないと書けないため）
+
+---
+
+## 7. 実装したもの（2026-09-22）
+
+おーちゃんの4条件（1 検出用と確定用の範囲を分ける / 2 sat を自動確定の根拠に
+数えない / 3 UNSAT の安全装置を弱めない / 4 テスト）に沿って実装した。
+4-1節の扱いは **(a) を採用**した（吸収が起きた群の階層1の要素を階層2へ落とす）。
+(c) のキラークエスチョンは入れていない。
+
+### 7-1. 検出用の範囲と確定用の範囲を分けた（条件1・原因A・原因B）
+
+`ConsistencySolver.Variable` に `detection_lower` / `detection_upper` を足し、
+`solve(use_detection_ranges=True)` でそちらを定義域に使えるようにした。
+確定用の範囲より広い検出用の範囲は登録時に弾く（広い側で吸収が起きるため）。
+
+`firewall_bridge` の変更は3点。
+
+- **停止した要素も必ず変数として登録する。** 変数を作らないのは「意味のある範囲が
+  存在しない」2つの場合だけにした。単位・粒度が混在している場合（違う物差しの
+  数字は足せない。バグ①の上限 246 はこれだった）と、棄権していない証拠が
+  1つも無い場合。それ以外は `_reading_based_range()`（棄権を除いた読みの積集合。
+  空なら和集合）で登録する
+- **精密モードで開き直すのは確定用の範囲だけ**にし、`detection_range` は
+  `confirmed_range` のまま据え置いた。これで「精密モードのほうが見逃す」逆転が消える
+- `allow_provisional_domain=True` も確定用の範囲にしか効かない
+
+### 7-2. 群合計を「検査」として扱う入口を作った（条件2・条件3・原因C）
+
+新規 `arbitration/group_total.py`。
+
+- `GroupTotalConstraint` … 群を宣言する入口（6節の残件だったもの）。
+  要素が1つでも未登録なら `apply()` がその場で失敗する。**黙って読み飛ばすと
+  「制約があるのに何も検査していない」状態になる**ため
+- `check_group_total()` … 群合計が実際に何を確かめたかを返す。判定はすべて
+  `use_detection_ranges=True` で行う
+  - **unsat なら群を止める**（条件3。`targets_requiring_audit` に群の全要素）
+  - sat なら要素ごとに、**群合計ありで値が1つに決まり、群合計なしでは
+    決まらない**要素だけを `verified_targets` に入れる。自分の読みだけで
+    既に幅0だった要素は `unverified_targets`（＝**その要素について群合計は
+    何も確かめていない**。条件2のおーちゃんの判定基準そのもの）
+  - 停止した要素が自分の読みの中心から `CENTER_TOLERANCES` を超えて押し出されて
+    いれば `absorbing_targets`。このとき群の階層1の要素を
+    `targets_requiring_audit` に挙げる（4-1節の (a)）
+- `group_total_is_meaningless()` … 吸収余地が1以上なら「検出力なし」（4-4節 D案）
+
+**4-1節で書いた残差の区間演算は使わなかった。** 同じ判定を solver の
+`use_detection_ranges=True` の解そのものから読めるので、中心と許容差の
+計算を2箇所に持たずに済む。判定の結果は試作と一致する。
+
+### 7-3. 確かめたこと
+
+- 全 584 件パス（修正前の 575 件 + 新規 9 件）。`rm -rf __pycache__` と
+  `PYTHONDONTWRITEBYTECODE=1` を付けて実行
+- 先に書いた失敗テスト3件は、`xfail(strict=True)` の印を外して通常のテストとして通る
+- **実装を5通りに壊して、それぞれテストが落ちることを確認した。**
+  ①`detection_range` を無視する ②階層3（強い軸なし）を登録しない
+  ③精密モードで `detection_range` も広げる ④吸収を報告しない
+  ⑤「群合計が確かめた要素」を「幅0になった要素」と取り違える
+
+### 7-4. 既存の回帰テストを1件だけ書き換えた（明記しておく）
+
+`test_bug1_no_strong_axis_does_not_create_a_hard_variable` は
+「変数を作らないこと」を主張していたが、これが原因A そのものだった。
+`test_bug1_no_strong_axis_does_not_widen_a_hard_range` に改め、主張を
+**「範囲を 0〜246 に広げないこと」**（バグ①の実害）に変えた。
+単位混在から変数を作らないことは
+`test_bug1_mixed_units_still_create_no_hard_variable` を新設して押さえている。

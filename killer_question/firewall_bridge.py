@@ -22,6 +22,25 @@
 → **修正: 強い軸が1つも無い場合、代替のハード変数は作らず、
 その要素を階層3(要確認)へフォールバックさせる**(既定の挙動)。和集合は作らない。
 
+2026-09-22 の変更(群合計制約の矛盾検出)
+----------------------------------------
+上の「変数を作らない」という既定には、実測で分かった副作用があった。
+**その要素を参照する群合計制約が書けなくなるため(``solve()`` が
+``KeyError`` になる)、停止した1要素を守るために同じ群の他の要素の矛盾検出が
+まとめて消えていた。** さらに精密モードの開き直しは、広げた範囲がそのまま
+矛盾検出の定義域になるため、**同じデータに対して標準モードは unsat、
+精密モードは sat** という逆転を起こしていた(`docs/group_total_masking_design.md`)。
+
+→ **修正: 確定に使う範囲と、矛盾を見つけるための範囲を分けて持つ。**
+
+- 停止した要素も**必ず変数として登録する**(単位・粒度が混在している場合を除く。
+  混在した証拠からは意味のある範囲が作れないので、従来どおり登録しない)
+- 矛盾検出には ``detection_range``(読み取り値が支持する狭い範囲)を使う。
+  精密モードで開き直しても ``detection_range`` は確定範囲のまま据え置く
+- ``requires_confirmation=True`` は従来どおり立つので、**確定済みとして
+  扱われることはない**(バグ②の修正はそのまま効いている)
+- 棄権した証拠は、どの経路でも範囲に混ぜない(バグ①の修正はそのまま効いている)
+
 **この修正には副作用がある(要判断)。** ``docs/killer_question_report.md`` 3節が
 実証した「Grounding DINO の読み取り単体(``calibrated=False``、階層3)を暫定候補
 として結合solverに入れ、関係式で ``(2,6)`` から ``(4,5)`` まで絞り込み、1問で
@@ -90,6 +109,33 @@ class BridgeResult:
         return not self.registered or self.requires_confirmation
 
 
+def _reading_based_range(evidences: Sequence[AxisEvidence]) -> tuple[int, int] | None:
+    """棄権していない読みが支持する、いちばん狭い範囲。
+
+    積集合が空でなければ積集合を、空なら和集合を返す。読みが1つも無ければ
+    ``None``。**棄権した証拠は必ず除く**(番兵値 ``(0, 0)`` が下限を 0 まで
+    引き下げるのがバグ①の実害だった)。
+
+    これは「確定に使う範囲」ではなく、**矛盾を見つけるための範囲**である。
+    積集合を採るので、実測校正を通っていない読みや弱い軸の読みも範囲を
+    狭める側に働く。v8 3-2節は弱い軸に「ハードな解を排除する権限」を
+    与えない方針だが、ここで起きうるのは **unsat 側への倒れ込み**、つまり
+    「人が確認する」方向にしか外れない。弱い軸が強い軸とまったく重ならない
+    場合は積集合が空になるので、その場合は和集合に落として拒否権を与えない。
+    """
+    speaking = [item for item in evidences if item.status != "abstained"]
+    if not speaking:
+        return None
+    lower = max(item.count_range[0] for item in speaking)
+    upper = min(item.count_range[1] for item in speaking)
+    if lower <= upper:
+        return (lower, upper)
+    return (
+        min(item.count_range[0] for item in speaking),
+        max(item.count_range[1] for item in speaking),
+    )
+
+
 def add_target_to_joint_solver(
     solver: ConsistencySolver,
     target: str,
@@ -108,65 +154,87 @@ def add_target_to_joint_solver(
     - 階層2(``provisional_audit``): 標準・概算モードでは ``confirmed_range`` を
       確定値として登録する(``FIREWALL_PROVISIONAL_AXIS``)。
       **精密モードでは直接確認の対象にするため、棄権していない証拠のレンジまで
-      開き直し ``requires_confirmation=True`` を立てる**
+      開き直し ``requires_confirmation=True`` を立てる。** ただし開き直すのは
+      確定に使う範囲だけで、``detection_range``(矛盾を見つけるための範囲)は
+      ``confirmed_range`` のまま据え置く
     - 階層3(``requires_review``): ``FIREWALL_UNCONFIRMED_AXIS`` で
       ``requires_confirmation=True`` を立てて登録する。**レンジ幅が0でも
       確定済みとして扱われない。** 強い軸が1つも無く ``confirmed_range`` が
-      ``None`` の場合は、**和集合による代替のハード変数を作らず、変数として
-      登録しない**(その要素はそのまま人の確認へ回る)
+      ``None`` の場合も、読み取り値が支持する狭い範囲
+      (:func:`_reading_based_range`)で**変数として登録する**
+
+    変数を作らないのは次の2つだけで、どちらも「意味のある範囲が存在しない」場合:
+
+    - 単位・粒度が混在している(違う物差しの数字は重ねられない。v8 3-2節)
+    - 棄権していない証拠が1つも無い
 
     :param allow_provisional_domain: 強い軸が1つも無い階層3の要素について、
-        棄権していない証拠のレンジの和集合を「暫定候補の定義域」として
-        登録するか。**既定は False**(モジュール冒頭のバグ①)。True にすると
-        ``docs/killer_question_report.md`` 3節の絞り込みが再現するが、
-        校正されていない読み取りが定義域を決めることになる。どちらの場合も
-        ``requires_confirmation=True`` が立つため、確定済みとして扱われることは
-        ない。
+        棄権していない証拠のレンジの**和集合**を確定用の定義域にするか。
+        **既定は False**(v8 10章14項。既定では読み取り値が支持する狭い範囲を
+        使う)。True にすると ``docs/killer_question_report.md`` 3節の絞り込みが
+        再現するが、校正されていない読み取りが定義域を決めることになる。
+        **どちらの場合も ``detection_range`` は狭い範囲のままで、矛盾検出は
+        緩まない。** また ``requires_confirmation=True`` が立つため、
+        確定済みとして扱われることもない。
 
     戻り値の ``BridgeResult`` で、登録されたか・確認待ちかが分かる。
     """
     if not evidences:
         raise ValueError(f"'{target}' の証拠が空です")
 
+    if decision.escalation is not None and decision.escalation.failure_type == "unit_mismatch":
+        # **単位・粒度が混ざった証拠からは、意味のある範囲を作れない。**
+        # 積集合も和集合も「違う物差しの数字を重ねた値」にしかならず、それを
+        # ハード制約にするのがバグ①の実害そのものだった(実測 lower=0 upper=246)。
+        # 入力の取り違えは人が直すべきなので、変数を作らず階層3へ落とす。
+        return BridgeResult(
+            target=target,
+            registered=False,
+            skipped_reason=(
+                "単位・粒度が混在しているため、範囲を作らず階層3(要確認)へ"
+                "フォールバックした(v8 3-2節)"
+            ),
+        )
+
+    reading_range = _reading_based_range(evidences)
+
     if decision.action == "requires_review":
         requires_confirmation = True
+        axis = FIREWALL_UNCONFIRMED_AXIS
         if decision.confirmed_range is not None:
             lower, upper = decision.confirmed_range
-            axis = FIREWALL_UNCONFIRMED_AXIS
-        elif not allow_provisional_domain:
-            # バグ①の修正(既定)。ここで和集合を作ってはならない。棄権した
-            # 証拠の番兵値や単位の違うレンジが、ハード制約の範囲を書き換える。
+            detection_range = decision.confirmed_range
+        elif reading_range is None:
             return BridgeResult(
                 target=target,
                 registered=False,
                 skipped_reason=(
-                    "実測校正済みの強い軸が1つも無いため、暫定のハード変数を作らず"
+                    "棄権していない証拠が1つも無いため、範囲を作らず"
                     "階層3(要確認)へフォールバックした"
                 ),
             )
         else:
-            # 明示的に許可された場合のみ、暫定候補の定義域として和集合を使う。
-            # **棄権した証拠は必ず除外する**(番兵値 (0,0) が下限を 0 まで
-            # 引き下げるのがバグ①の実害だった)。
-            speaking = [e for e in evidences if e.status != "abstained"]
-            if not speaking:
-                return BridgeResult(
-                    target=target,
-                    registered=False,
-                    skipped_reason=(
-                        "棄権していない証拠が1つも無いため、暫定の定義域を作らず"
-                        "階層3(要確認)へフォールバックした"
-                    ),
-                )
-            lower = min(e.count_range[0] for e in speaking)
-            upper = max(e.count_range[1] for e in speaking)
-            axis = speaking[0].axis_id
+            # **2026-09-22 変更。以前はここで変数を作らず登録を見送っていた。**
+            # 安全側の判断だったが、この要素を参照する群合計制約が書けなくなり、
+            # **停止した1要素を守るために同じ群の他の要素の矛盾検出が
+            # まとめて消えていた**(`docs/group_total_masking_design.md` 2節)。
+            # 変数は作るが、矛盾検出に使うのは読み取り値が支持する狭い範囲で、
+            # ``requires_confirmation=True`` なので確定済みとしては扱われない。
+            detection_range = reading_range
+            if allow_provisional_domain:
+                speaking = [e for e in evidences if e.status != "abstained"]
+                lower = min(e.count_range[0] for e in speaking)
+                upper = max(e.count_range[1] for e in speaking)
+                axis = speaking[0].axis_id
+            else:
+                lower, upper = reading_range
     elif decision.action == "auto_confirm":
         if decision.confirmed_range is None:
             raise ValueError(
                 f"'{target}': action={decision.action} なのに confirmed_range が None"
             )
         lower, upper = decision.confirmed_range
+        detection_range = decision.confirmed_range
         axis = FIREWALL_CONFIRMED_AXIS
         requires_confirmation = False
     else:
@@ -177,6 +245,7 @@ def add_target_to_joint_solver(
             )
         requires_confirmation = mode is PrecisionMode.PRECISE
         axis = FIREWALL_PROVISIONAL_AXIS
+        detection_range = decision.confirmed_range
         if requires_confirmation:
             # 精密モードは標本監査で済ませず直接確認する。確定範囲に絞り込む前の
             # 読み取りレンジまで戻して候補を開き直す。
@@ -195,6 +264,12 @@ def add_target_to_joint_solver(
                 )
             lower = min(e.count_range[0] for e in speaking)
             upper = max(e.count_range[1] for e in speaking)
+            # **開き直すのは「人に質問できるようにするため」であって、
+            # 矛盾検出を緩めるためではない。** 広げた範囲をそのまま矛盾検出に
+            # 使うと、広がった幅が群合計制約の中で他の要素の誤りを吸収し、
+            # **同じデータに対して精密モードのほうが誤りを見逃す**という逆転が
+            # 起きていた(2026-09-22 実測。標準モードは unsat、精密モードは sat)。
+            # detection_range は確定範囲のまま据え置く。
             # 軸名は開き直した読み取りの軸のまま残す。4-3節のデータ源別
             # 誤り率による同点崩しが、この変数にも効くようにするため。
             axis = speaking[0].axis_id
@@ -219,6 +294,7 @@ def add_target_to_joint_solver(
         axis=axis,
         source_axis=speaking_axes[0] if speaking_axes else "",
         requires_confirmation=requires_confirmation,
+        detection_range=detection_range,
         evidence={
             "firewall_tier": decision.tier,
             "firewall_action": decision.action,

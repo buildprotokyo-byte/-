@@ -77,11 +77,19 @@ def _abstained(source: str = "mlit") -> AxisEvidence:
 # =====================================================================
 
 
-def test_bug1_no_strong_axis_does_not_create_a_hard_variable() -> None:
-    """強い軸が1つも無いとき、和集合のハード変数を作らず階層3へ落とす。
+def test_bug1_no_strong_axis_does_not_widen_a_hard_range() -> None:
+    """強い軸が1つも無いとき、和集合でハード変数の範囲を広げない。
 
     修正前はここで ``lower=0 upper=246`` の ``strength="strong"`` 変数が
-    登録されていた。
+    登録されていた(棄権軸の番兵値が下限を 0 に、単位違いの弱い軸が上限を
+    246 にしていた)。
+
+    **2026-09-22 に、このテストの主張を1点だけ変えた。** 以前は
+    「変数を作らないこと」を主張していたが、変数を作らないと**その要素を
+    参照する群合計制約が書けなくなり、同じ群の他の要素の矛盾検出まで
+    まとめて消えていた**(`docs/group_total_masking_design.md`)。
+    いまは変数を作るが、**範囲は読み取り値が支持する狭いほうを使い、
+    棄権した証拠の番兵値は混ぜない。** バグ①の実害(0〜246)は起きない。
     """
     decision = AxisQualityFirewall().assess([
         _weak((3, 5), source="自社実績DB"),
@@ -94,6 +102,40 @@ def test_bug1_no_strong_axis_does_not_create_a_hard_variable() -> None:
     result = add_target_to_joint_solver(
         solver, TARGET, decision, [_weak((3, 5), source="自社実績DB"), _abstained()]
     )
+
+    assert result.registered is True
+    assert result.escalated_to_review is True, "確認待ちであることは変わらない"
+    assert result.requires_confirmation is True
+
+    registered = solver.variable_range(TARGET)
+    assert registered == (3, 5), f"棄権した証拠や単位違いの軸が混ざった: {registered}"
+    assert registered[0] != 0, "番兵値 (0,0) が下限を 0 まで引き下げている"
+    assert registered[1] != 246, "単位違いの弱い軸が上限を書き換えている"
+    # 矛盾検出に使う範囲も同じ。広げた範囲で吸収が起きる余地を作らない。
+    assert solver.variable_detection_range(TARGET) == (3, 5)
+
+
+def test_bug1_mixed_units_still_create_no_hard_variable() -> None:
+    """単位が混在した証拠からは、いまも変数を作らない。
+
+    違う物差しの数字を重ねた範囲はハード制約にできない(v8 3-2節)。
+    バグ①の上限 246 は、まさに金額のレンジが個数に混ざったものだった。
+    """
+    evidences = [
+        _strong((4, 5)),
+        AxisEvidence(
+            derivation="read", unit="yen",
+            target=TARGET, count_range=(30_000, 2_460_000), source_id="mlit-survey",
+            axis_id="rules", method_id="industry_statistics",
+            strength="weak", calibrated=True,
+        ),
+    ]
+    decision = AxisQualityFirewall().assess(evidences)
+    assert decision.escalation is not None
+    assert decision.escalation.failure_type == "unit_mismatch"
+
+    solver = ConsistencySolver()
+    result = add_target_to_joint_solver(solver, TARGET, decision, evidences)
 
     assert result.registered is False
     assert result.escalated_to_review is True
@@ -299,6 +341,7 @@ def test_the_bridge_refuses_an_inconsistent_decision() -> None:
         action = "auto_confirm"
         tier = 1
         confirmed_range = None
+        escalation = None
 
     with pytest.raises(ValueError):
         add_target_to_joint_solver(
