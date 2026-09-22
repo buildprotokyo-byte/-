@@ -8,6 +8,9 @@
 1. **入口の判定をそのまま運ぶ。** 階層と `action` と確定した値は
    `IntakeResult.decisions` から対象名で引き、作り直さない。判定が
    見つからない数量は `action` を None のままにする(確定扱いにしない)。
+   **由来(`read` / `derived` / `assumed`)も同じく運ぶ。** これを写して
+   いなかったので、一般則で補った値と図面から読んだ値が、見積の行の上では
+   見分けられなかった(`docs/principles/principle_conformance_review.md` D-13)。
 2. **属性はページで食い違ったら付けない。** 同じ建具番号の種別がページに
    よって違ったとき、片方を選ぶと選ばなかったほうの規則が黙って外れる。
    付けずに `notes` に残し、規則が当たらない側に倒す。
@@ -97,6 +100,8 @@ def quantities_from_intake(result) -> tuple[QuantityItem, ...]:
                 method_id=finding.method_id,
                 source_kind=getattr(finding, "source_kind", "drawing"),
                 axis_id=getattr(finding, "axis_id", "image"),
+                derivation=getattr(finding, "derivation", "read"),
+                derivation_basis=tuple(getattr(finding, "derivation_basis", ()) or ()),
                 tier=getattr(decision, "tier", None),
                 action=getattr(decision, "action", None),
                 confirmed_range=getattr(decision, "confirmed_range", None),
