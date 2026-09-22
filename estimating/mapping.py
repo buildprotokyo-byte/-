@@ -35,6 +35,7 @@ from decimal import Decimal
 from typing import Any, Iterable, Literal, Mapping, Sequence
 
 from arbitration.units import UNIT_ALIASES
+from estimating.basis import BASIS_STRONGEST_FIRST, weakest
 from estimating.quantities import QuantityItem
 from estimating.rules import EstimateLineSpec, MappingRule, RuleSet
 
@@ -59,6 +60,19 @@ class MappedLine:
     is_confirmed_quantity: bool = False
     """この行の数量を仲裁層が確定させたか。**行が確定したかとは別。**"""
 
+    basis: str = ""
+    """この行が何に基づくか(原則5の4つ)。**行を見ただけで分かるように持つ。**
+
+    行が複数の数量から来るようになったら、**いちばん弱いもの**になる
+    (`estimating/basis.weakest`)。
+    """
+
+    premise_ids: tuple[str, ...] = ()
+    """この行が寄りかかっている案件の前提。"""
+
+    hypothesis_premise_ids: tuple[str, ...] = ()
+    """そのうち仮説として置かれたもの。**仮説が変わったら見直す行を引くための鍵。**"""
+
     source_target: str = ""
     """どの数量から来たか。"""
 
@@ -75,6 +89,9 @@ class MappedLine:
             "value_range": list(self.value_range),
             "canonical_range": list(self.canonical_range),
             "is_confirmed_quantity": self.is_confirmed_quantity,
+            "basis": self.basis,
+            "premise_ids": list(self.premise_ids),
+            "hypothesis_premise_ids": list(self.hypothesis_premise_ids),
             "source_target": self.source_target,
             "note": self.note,
         }
@@ -148,6 +165,31 @@ class MappingResult:
         """規則が 1 つも当たらなかった数量。**捨てていない。**"""
         return tuple(m for m in self.mappings if m.status == "unmapped")
 
+    def basis_counts_text(self) -> str:
+        """行の基づきの内訳。**報告にそのまま貼れる形にする。**"""
+        counts: dict[str, int] = {}
+        for mapping in self.mappings:
+            for line in mapping.lines:
+                counts[line.basis] = counts.get(line.basis, 0) + 1
+        return "、".join(
+            f"{name} {counts[name]} 件"
+            for name in BASIS_STRONGEST_FIRST
+            if name in counts
+        )
+
+    def lines_depending_on(self, premise_id: str) -> tuple[MappedLine, ...]:
+        """その前提に寄りかかっている行。
+
+        原則10(おーちゃんの回答): **前提を差し替えたときは、その前提に
+        依存している行だけを作り直す。** その「どれか」を引くのがこれである。
+        """
+        return tuple(
+            line
+            for mapping in self.mappings
+            for line in mapping.lines
+            if premise_id in line.premise_ids
+        )
+
     def summary(self) -> str:
         """人が読む要約。報告にそのまま貼れる形にする。"""
         lines = [
@@ -156,6 +198,7 @@ class MappingResult:
             f"確定: {len(self.settled_lines())} 件",
             f"候補どまり(当てはめが一意に決まらない): {len(self.candidates())} 件",
             f"当てはまらなかった数量: {len(self.unmapped())} 件",
+            "何に基づくか: " + (self.basis_counts_text() or "(行なし)"),
             f"同じ行がぶつかった: {len(self.collisions)} 件(**足していない**)",
         ]
         for mapping in self.mappings:
@@ -168,7 +211,13 @@ class MappingResult:
                     lines.append(
                         f"      [{outcome.rule_id}] {line.work_item}"
                         f" {line.value_range[0]}〜{line.value_range[1]}{line.unit}"
+                        f" / {line.basis}"
                     )
+                    if line.hypothesis_premise_ids:
+                        lines.append(
+                            "        依存している仮説: "
+                            + "、".join(line.hypothesis_premise_ids)
+                        )
             for reason in mapping.reasons:
                 lines.append(f"      理由: {reason}")
         for collision in self.collisions:
@@ -281,6 +330,11 @@ def _lines_for(quantity: QuantityItem, rule: MappingRule) -> tuple[MappedLine, .
                 major_category=spec.major_category,
                 note=spec.note,
                 is_confirmed_quantity=quantity.is_confirmed,
+                # 行が 1 つの数量から来ている今は、その数量の基づきがそのまま
+                # 行の基づきになる。**複数から来るようになったら弱いほうを採る。**
+                basis=weakest([quantity.basis]),
+                premise_ids=tuple(quantity.premise_ids),
+                hypothesis_premise_ids=tuple(quantity.hypothesis_premise_ids),
                 source_target=quantity.target,
             )
         )

@@ -15,6 +15,10 @@
    その2つが揃ったときだけ真になる。
 3. **読めなかった属性は入れない。** 空文字や既定値で埋めない。属性が
    無いことと、属性が空であることは別である。
+4. **何に基づくかを持つ。** 原則5(`docs/principles/start_kit.md`)の
+   確定／推論に基づく／仮説に基づく／現地確認が必要。決め方は
+   `estimating/basis.py` にあり、**この層は仲裁層の判定を読むだけで
+   やり直さない。**
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from arbitration.units import UnitError, canonical_unit, normalise_range
+from estimating.basis import basis_for
 
 #: 対象名の中で「種類」と「個別の鍵」を分ける印。
 #: 入口が `建具数量::AW-1` `開き戸::ページ1` の形で出している。
@@ -82,6 +87,32 @@ class QuantityItem:
     confirmed_range: tuple[int, int] | None = None
     """**正規形単位の整数**。確定していなければ None。"""
 
+    derivation: str = "read"
+    """仲裁層と同じ由来(`read` / `derived` / `assumed`)。
+
+    **入口の読みからそのまま運ぶ。** ここで作り直すと、一般則で補った値が
+    図面から読んだ値に化ける。
+    """
+
+    derivation_basis: tuple[str, ...] = ()
+    """`derivation="derived"` のとき、計算の根拠にした値それぞれの由来。"""
+
+    premise_ids: tuple[str, ...] = ()
+    """この値が寄りかかっている案件の前提。**仮説かどうかは問わない。**"""
+
+    hypothesis_premise_ids: tuple[str, ...] = ()
+    """そのうち、**仮説として置かれた**前提。基づきを「仮説に基づく」にする。
+
+    原則5「仮説に基づく行は、どの仮説に依存しているかを記録し、仮説が
+    変わったら連動して見直す」のための記録である。
+    """
+
+    site_survey_reason: str | None = None
+    """図面からは決められない理由。**根拠の無い「現地確認が必要」は作らない。**
+
+    原則8(おーちゃんの回答): システムが根拠を付けて提案し、人が確認する。
+    """
+
     attributes: Mapping[str, str] = field(default_factory=dict)
     """規則が条件に使える属性(建具表の種別など)。**読めたものだけ。**"""
 
@@ -99,6 +130,21 @@ class QuantityItem:
             raise QuantityError(
                 f"{self.target} の単位または値が受け付けられません: {error}"
             ) from error
+        if self.derivation not in ("read", "derived", "assumed"):
+            raise QuantityError(
+                f"{self.target} の由来 {self.derivation!r} は知らない値です"
+                "(read / derived / assumed のどれか)"
+            )
+        if self.derivation != "derived" and self.derivation_basis:
+            raise QuantityError(
+                f"{self.target}: 根拠の由来を持てるのは derived のときだけです"
+            )
+        unknown_hypotheses = set(self.hypothesis_premise_ids) - set(self.premise_ids)
+        if unknown_hypotheses:
+            raise QuantityError(
+                f"{self.target}: 仮説として挙げた前提が、依存する前提に入っていません: "
+                + "、".join(sorted(unknown_hypotheses))
+            )
         for name, value in self.attributes.items():
             if not isinstance(value, str) or not value.strip():
                 raise QuantityError(
@@ -127,6 +173,27 @@ class QuantityItem:
     def is_confirmed(self) -> bool:
         """**仲裁層が自動確定したか。** この層は判定をやり直さない。"""
         return self.action == "auto_confirm" and self.confirmed_range is not None
+
+    @property
+    def effective_derivation(self) -> str:
+        """根拠まで遡った由来。
+
+        `axes/reading/protocol.py` と同じ規則で、**計算した値も、根拠に
+        「一般則で補った」が1つでもあれば「一般則で補った」に落ちる。**
+        """
+        if self.derivation == "derived" and "assumed" in self.derivation_basis:
+            return "assumed"
+        return self.derivation
+
+    @property
+    def basis(self) -> str:
+        """この値が何に基づくか(原則5の4つ)。**弱いほうが勝つ。**"""
+        return basis_for(
+            is_confirmed=self.is_confirmed,
+            effective_derivation=self.effective_derivation,
+            hypothesis_premise_ids=tuple(self.hypothesis_premise_ids),
+            site_survey_reason=self.site_survey_reason,
+        )
 
     def attribute(self, name: str) -> str | None:
         return self.attributes.get(name)
