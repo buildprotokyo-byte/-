@@ -40,6 +40,10 @@ from axes.image_axis.pdf_vector_symbols import (
     METHOD_TEXT_AREA,
     METHOD_TEXT_SCALE,
 )
+from axes.image_axis.schedule_tables import (
+    METHOD_DOOR_SCHEDULE,
+    METHOD_FINISH_SCHEDULE,
+)
 from axes.image_axis.vtracer_vectorizer import METHOD_FLOOR_AREA, METHOD_WALL_LINEWORK
 
 from arbitration.inference_orchestrator import MethodPolicy
@@ -85,6 +89,21 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   加えて、引戸・折戸は原理的に拾えず、スキャンページでは常に0件になる。
 #:   つまり「0件」は「建具が無い」ではない。``max_strength="weak"`` は
 #:   この見落としが階層1へ伝わらないための歯止めでもある。
+#: - ``pdf_table_door_schedule`` … 建具表を罫線の升目として読み、
+#:   建具番号ごとの数量を印字されたまま取る
+#:   (`axes/image_axis/schedule_tables.read_door_schedules`)。
+#:   上限を ``strong`` にしてあるのは ``pdf_text_area`` と同じ理由で、
+#:   「印字された数値をそのまま読む」手法は原理的にはハード制約になりうる
+#:   ため。**``calibrated=False`` なので今は階層1の根拠にならない。**
+#:   校正には少なくとも 2 つ要る: ①表の升目を取り違えていないか
+#:   (罫線が途切れている表・セル内改行・続き表)②建具表に載っていない
+#:   建具がどれだけあるか(表は「工事対象の建具」だけを載せることがある)。
+#:   **合成の表でしか確かめていないので、実図面での誤り率は未知である。**
+#: - ``pdf_table_finish_schedule`` … 内装仕上表から「室名・部位・仕上」の
+#:   対応を読む。**この対応そのものは数量ではない**(室の輪郭を取る実装が
+#:   無いので面積が出せない)。数量を出す経路ができるまでは証拠として
+#:   渡されないが、将来つないだときに強い軸へ昇格しないよう
+#:   ``max_strength="weak"`` で登録しておく。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -92,6 +111,8 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_DOOR_ARC: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_HUMAN_REFERENCE_POINT: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_DOOR_SCHEDULE: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 

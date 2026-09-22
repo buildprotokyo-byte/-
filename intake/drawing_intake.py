@@ -6,8 +6,12 @@
 実図面の情報が `arbitration/inference_orchestrator.py` まで届く経路が
 どこにも無かった。このモジュールはその1本目の経路である。
 
-**新しい認識技術は足していない。** 既にある部品を1本につないだだけで、
-読める数量は増えていない。
+**最初の版では新しい認識技術を足していない。** 既にある部品を1本に
+つないだだけだった。2026-09-22 に、そこへ**建具表と内装仕上表を表として
+読む経路**を足した(`axes/image_axis/schedule_tables.py`、v8 15章)。
+引戸・折戸は円弧を描かないので図形からは原理的に拾えないが、**建具表の
+種別の文字が読めれば拾える。** 内装仕上表のほうは室名と仕上げの対応を
+返すだけで、**数量にはならない**(室の輪郭を取る実装がまだ無い)。
 
 この入口が守っていること
 ------------------------
@@ -20,12 +24,19 @@
 3. **ページをまたいで足し算しない。** 開き戸の件数はページごとの対象として
    別々に出す。同じ案件の図面には既存平面図と新設平面図が両方あり、
    足すと同じ建具を二重に数える。どのページが既存でどれが新設かは
-   図面の文字からは決まらないので、ここでは判断しない。
+   図面の文字からは決まらないので、ここでは判断しない。建具表の数量も
+   同じで、同じ建具番号が別のページで違う数量ならレンジにする。
+3-2. **建具表の数量と開き戸の検出数を、ここで突き合わせない。**
+   `建具数量::<建具番号>` と `開き戸::ページN` は別々の対象として出す。
+   数が合うかどうかの判定は仲裁層の仕事である。
 4. **面積の選択を勝手に決めない。** 専有延床面積と施工床面積のどちらを
    使うかは案件ごとに人へ1回だけ聞き(`intake/case_answers.py`)、
    回答が無い間はその数量を出さない。
 5. **根拠を落とさない。** ページ番号・座標・元の文字列を
    `AxisEvidence.evidence["provenance"]` に載せて仲裁層へ渡す。
+6. **表から読んだ寸法の単位を勝手に決めない。** 建具表の `1650` は
+   まず mm だが、単位が表に書かれていなければ mm に直さない
+   (`schedule_tables` 冒頭)。
 
 この入口を通しても確定はしない(2026-09-22 時点)
 ------------------------------------------------
@@ -69,6 +80,14 @@ from axes.image_axis.pdf_vector_symbols import (
     find_area_labels,
     find_door_arcs,
 )
+from axes.image_axis.schedule_tables import (
+    METHOD_DOOR_SCHEDULE,
+    DoorScheduleRow,
+    FinishScheduleRow,
+    is_arc_blind,
+    read_door_schedules,
+    read_finish_schedules,
+)
 from intake.case_answers import (
     AREA_BASIS_DEPENDENT_ITEMS,
     AREA_BASIS_OPTIONS,
@@ -100,6 +119,12 @@ TARGET_WORK_FLOOR_AREA = "施工対象床面積"
 
 #: 長さの単位表記。`arbitration/units.py` が mm の整数へ正規化する。
 LENGTH_UNIT = "mm"
+
+#: 建具表から読んだ数量の対象名の頭。建具番号ごとに 1 つの対象にする。
+#:
+#: **開き戸の円弧から数えた `開き戸::ページN` とは別の対象にしてある。**
+#: 同じページに建具表と平面図があっても、数が合うかどうかをここで判定しない。
+TARGET_DOOR_QUANTITY_PREFIX = "建具数量::"
 
 #: 縮尺の読みが一致しているとみなす許容差。
 #:
@@ -260,6 +285,32 @@ class IntakeResult:
     #: 人が入れた現況と計画の対応。**差分の計算はまだしていない。**
     page_pairings: tuple[PagePairing, ...] = ()
 
+    door_schedule_rows: tuple[DoorScheduleRow, ...] = ()
+    """建具表から読んだ行。**数量が読めなかった行もここには残る。**"""
+
+    finish_schedule_rows: tuple[FinishScheduleRow, ...] = ()
+    """内装仕上表から読んだ「室名・部位・仕上」の対応。
+
+    **これは数量ではない。** 室の輪郭を取る実装がこのリポジトリに無いので、
+    仕上げから面積は出せない(`docs/real_drawing_eval_report.md`)。輪郭が
+    取れるようになったとき、その面積が何の仕上げの数量なのかを決めるための
+    材料として残している。
+    """
+
+    def arc_blind_doors(self) -> tuple[str, ...]:
+        """**円弧では拾えない種別**として建具表に書かれていた建具番号。
+
+        引戸・折戸は円弧を描かないので `find_door_arcs()` の範囲外である。
+        ここに出る建具は、図形からは 1 件も拾えていない建具である。
+        種別が読めなかった建具は**入れない**(「拾えている」とも
+        「拾えていない」とも言えないため)。
+        """
+        marks: list[str] = []
+        for row in self.door_schedule_rows:
+            if is_arc_blind(row.kind) and row.mark not in marks:
+                marks.append(row.mark)
+        return tuple(marks)
+
     @property
     def confirmed_targets(self) -> tuple[str, ...]:
         """自動で確定した対象。**2026-09-22 時点では常に空になる。**"""
@@ -281,6 +332,10 @@ class IntakeResult:
             f"自動確定: {len(self.confirmed_targets)} 件",
             f"人への質問: {len(self.pending_questions)} 件",
             f"判断待ち: {len(self.pending_decisions)} 件",
+            f"建具表から読んだ行: {len(self.door_schedule_rows)} 件"
+            f"(うち円弧では拾えない種別 {len(self.arc_blind_doors())} 件)",
+            f"内装仕上表から読んだ対応: {len(self.finish_schedule_rows)} 件"
+            "(**数量ではない**)",
         ]
         for decision in self.decisions:
             lines.append(
@@ -378,7 +433,7 @@ def read_drawing(
     human_source_id = f"{config.case_id}::start_kit"
     human_fingerprint = start_kit_fingerprint(start_kit)
 
-    pages, findings, pending_decisions = _extract(
+    pages, findings, pending_decisions, door_rows, finish_rows = _extract(
         pdf_path, config, start_kit, page_count, scale_tolerance
     )
     findings, pending_questions, area_pending = _apply_area_basis(
@@ -411,6 +466,8 @@ def read_drawing(
         pending_questions=tuple(pending_questions),
         pending_decisions=tuple(pending_decisions),
         page_pairings=tuple(start_kit.page_pairings),
+        door_schedule_rows=tuple(door_rows),
+        finish_schedule_rows=tuple(finish_rows),
     )
 
 
@@ -440,11 +497,23 @@ def _extract(
     start_kit: StartKit,
     page_count: int,
     scale_tolerance: Fraction,
-) -> tuple[tuple[PageOutcome, ...], list[DrawingFinding], list[PendingDecision]]:
+) -> tuple[
+    tuple[PageOutcome, ...],
+    list[DrawingFinding],
+    list[PendingDecision],
+    list[DoorScheduleRow],
+    list[FinishScheduleRow],
+]:
     outcomes: list[PageOutcome] = []
     #: ラベルごとに、読めた値とその根拠を集める。ページをまたいで同じ記載が
     #: あるのは普通なので、ここでまとめる。**別のデータ源として数えない。**
     area_hits: dict[str, list[tuple[float, dict[str, Any]]]] = {}
+    #: 建具番号ごとに、読めた数量とその根拠。同じ建具番号が複数ページに
+    #: 出てくることがある(建具表が分割されている、既存と新設で別紙)。
+    #: **足さない。** 値が食い違えばレンジにして、判断は仲裁層へ回す。
+    door_quantity_hits: dict[str, list[tuple[float, dict[str, Any]]]] = {}
+    door_rows: list[DoorScheduleRow] = []
+    finish_rows: list[FinishScheduleRow] = []
     findings: list[DrawingFinding] = []
     pending: list[PendingDecision] = []
 
@@ -509,6 +578,17 @@ def _extract(
             _reference_dimension_findings(reference_points, printed, page_number)
         )
 
+        # 表の読み取りは縮尺に依存しない。印字された文字を読むだけなので、
+        # 縮尺が読めないページでも、読みが食い違ったページでも表は読める。
+        _read_schedules(
+            pdf_path,
+            index,
+            notes=notes,
+            door_rows=door_rows,
+            finish_rows=finish_rows,
+            door_quantity_hits=door_quantity_hits,
+        )
+
         for label in find_area_labels(pdf_path, index):
             area_hits.setdefault(label.label, []).append(
                 (
@@ -548,7 +628,86 @@ def _extract(
         )
 
     findings.extend(_area_findings(area_hits))
-    return tuple(outcomes), findings, pending
+    findings.extend(_door_quantity_findings(door_quantity_hits))
+    return tuple(outcomes), findings, pending, door_rows, finish_rows
+
+
+def _read_schedules(
+    pdf_path: Path,
+    index: int,
+    *,
+    notes: list[str],
+    door_rows: list[DoorScheduleRow],
+    finish_rows: list[FinishScheduleRow],
+    door_quantity_hits: dict[str, list[tuple[float, dict[str, Any]]]],
+) -> None:
+    """1 ページぶんの建具表・内装仕上表を読み、結果を呼び出し側の器に足す。"""
+    door_schedules = read_door_schedules(pdf_path, index)
+    if not door_schedules:
+        notes.append(
+            "建具表は見つからなかった(罫線で組まれた表として読めるものが無い)。"
+            "**建具が無いという意味ではない**"
+        )
+    for schedule in door_schedules:
+        door_rows.extend(schedule.rows)
+        if schedule.unit_source is None:
+            notes.append(
+                "建具表の寸法は単位が書かれていないため、mm に直していない"
+            )
+        if schedule.skipped_rows:
+            notes.append(
+                f"建具表で読まなかった行が {len(schedule.skipped_rows)} 行ある"
+            )
+        for row in schedule.rows:
+            if row.quantity is None:
+                continue
+            door_quantity_hits.setdefault(row.mark, []).append(
+                (float(row.quantity), row.provenance())
+            )
+
+    finish_schedules = read_finish_schedules(pdf_path, index)
+    if not finish_schedules:
+        notes.append(
+            "内装仕上表は見つからなかった(罫線で組まれた表として読めるものが無い)"
+        )
+    for schedule in finish_schedules:
+        finish_rows.extend(schedule.rows)
+
+
+def _door_quantity_findings(
+    hits: Mapping[str, list[tuple[float, dict[str, Any]]]]
+) -> list[DrawingFinding]:
+    """建具番号ごとに 1 件の数量にまとめる。**足さない。**
+
+    同じ建具番号が別のページで違う数量になっていたら、どちらかを選ばず
+    レンジにする。合計するのは、既存と新設の建具表が両方あるときに
+    二重に数えることになる。
+    """
+    out: list[DrawingFinding] = []
+    for mark, occurrences in sorted(hits.items()):
+        values = [value for value, _ in occurrences]
+        provenance: dict[str, Any] = {
+            "occurrences": [meta for _, meta in occurrences],
+            "limitation": (
+                "建具表に書かれた数量をそのまま読んだ値。"
+                "表に載っていない建具は拾えない"
+            ),
+        }
+        if min(values) != max(values):
+            provenance["note"] = (
+                "同じ建具番号の数量がページによって違ったため、"
+                "どちらも捨てずにレンジにした(足していない)"
+            )
+        out.append(
+            DrawingFinding(
+                target=f"{TARGET_DOOR_QUANTITY_PREFIX}{mark}",
+                value_range=(min(values), max(values)),
+                unit=COUNT_UNIT,
+                method_id=METHOD_DOOR_SCHEDULE,
+                provenance=provenance,
+            )
+        )
+    return out
 
 
 def _page_count(pdf_path: Path) -> int:
