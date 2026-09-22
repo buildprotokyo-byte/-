@@ -1,0 +1,88 @@
+{
+  "format_version": 1,
+  "ruleset_id": "synthetic-example-v1",
+  "description": "合成の見本。実在の会社の積算ルールでも、実案件の見積明細から作ったものでもない。書式の説明と通しテストのためだけに置いてある。実際に使う規則はリポジトリの外に置き、パスを設定で渡すこと。",
+  "rules": [
+    {
+      "rule_id": "sliding-door-from-schedule",
+      "kind": "建具数量",
+      "unit_dimension": "count",
+      "description": "建具表の種別が引戸系のとき。円弧では拾えない建具がここに来る。",
+      "attributes": {
+        "種別": ["引戸", "片引戸", "引違戸", "引違い戸", "折戸", "折れ戸"]
+      },
+      "line_items": [
+        {
+          "code": "EX-D-110",
+          "work_item": "引戸・折戸 取付費",
+          "major_category": "木工事",
+          "unit": "箇所"
+        },
+        {
+          "code": "EX-D-210",
+          "work_item": "引戸・折戸 材料費",
+          "major_category": "木工事",
+          "unit": "箇所"
+        }
+      ]
+    },
+    {
+      "rule_id": "swing-door-from-schedule",
+      "kind": "建具数量",
+      "unit_dimension": "count",
+      "description": "建具表の種別が開き戸系のとき。",
+      "attributes": {
+        "種別": ["開き戸", "片開き戸", "両開き戸", "開戸"]
+      },
+      "line_items": [
+        {
+          "code": "EX-D-120",
+          "work_item": "開き戸 取付費",
+          "major_category": "木工事",
+          "unit": "箇所"
+        },
+        {
+          "code": "EX-D-220",
+          "work_item": "開き戸 材料費",
+          "major_category": "木工事",
+          "unit": "箇所"
+        }
+      ]
+    },
+    {
+      "rule_id": "swing-door-from-arcs",
+      "kind": "開き戸",
+      "unit_dimension": "count",
+      "description": "平面図の円弧から数えた開き戸。ページごとの数なので、既存平面図と新設平面図の両方が読めると同じ行にぶつかる。そのときは足さず衝突として人へ回る。",
+      "line_items": [
+        {
+          "code": "EX-D-120",
+          "work_item": "開き戸 取付費",
+          "major_category": "木工事",
+          "unit": "箇所",
+          "note": "ページごとの数。建具表から来た同じ行とぶつかることがある"
+        }
+      ]
+    },
+    {
+      "rule_id": "floor-finish-from-work-area",
+      "kind": "施工対象床面積",
+      "unit_dimension": "area",
+      "description": "面積の選択に人が答えたあとに出る対象。答えが無いあいだは入口がこの数量を出さない。",
+      "line_items": [
+        {
+          "code": "EX-F-110",
+          "work_item": "床仕上 撤去",
+          "major_category": "内装工事",
+          "unit": "㎡"
+        },
+        {
+          "code": "EX-F-210",
+          "work_item": "床仕上 新設",
+          "major_category": "内装工事",
+          "unit": "㎡"
+        }
+      ]
+    }
+  ]
+}

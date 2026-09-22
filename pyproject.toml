@@ -17,6 +17,7 @@ packages = [
     "axes.reading",
     "arbitration",
     "intake",
+    "estimating",
     "killer_question",
     "benchmarks",
 ]
