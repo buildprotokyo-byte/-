@@ -244,11 +244,21 @@ def test_罫線の表の升目を室として出さない(tmp_path: Path) -> Non
     for col in range(cols + 1):
         x = x0 + col * cell_w
         _line(page, x, y0, x, y0 + rows * cell_h)
-    page.insert_text(pymupdf.Point(x0 + 10, y0 + 20), "建具表", fontname="japan")
-    for row in range(rows):
+    # **升目をほぼ埋める。** 建具表・仕上表は升目を埋めるために引かれており、
+    # 空欄だらけの格子は実図面では表ではなく平面図の壁である。
+    headers = ("室名", "建具", "数量")
+    for col, header in enumerate(headers):
         page.insert_text(
-            pymupdf.Point(x0 + 10, y0 + (row + 1) * cell_h - 10), f"洋室{row + 1}", fontname="japan"
+            pymupdf.Point(x0 + col * cell_w + 8, y0 + cell_h - 10), header, fontname="japan"
         )
+    for row in range(1, rows):
+        values = (f"洋室{row}", f"WD-0{row}", str(row))
+        for col, value in enumerate(values):
+            page.insert_text(
+                pymupdf.Point(x0 + col * cell_w + 8, y0 + (row + 1) * cell_h - 10),
+                value,
+                fontname="japan",
+            )
     path = _save(doc, tmp_path / "schedule.pdf")
 
     rooms = find_room_outlines(path, 0, SCALE_50)
@@ -266,6 +276,48 @@ def test_面積は刻みで挟んで返す_黙って丸めない(tmp_path: Path)
     assert low <= rooms[0].area_sqm <= high
     assert round(high - low, 6) <= 0.0001
     assert round(low * 10000) == low * 10000  # 刻みに乗っている
+
+
+def test_平行な線を並べただけの図面から室を作らない(tmp_path: Path) -> None:
+    """**測定の負の対照で実際に出た誤りの再現。**
+
+    行き止まりどうしが近ければ向きを問わずつないでいたので、
+    **平行な線を 30 本並べただけの図面から 15 室が出た。**
+    開口は壁の続きにしかできない。壁をまっすぐ延ばした線の上に
+    相手の端点が無ければ、つないではいけない。
+    """
+    doc, page = _new_page()
+    for index in range(30):
+        x = 200.0 + index * _mm(500.0)
+        _line(page, x, 200.0, x, 200.0 + _mm(3000.0))
+    path = _save(doc, tmp_path / "parallel.pdf")
+    assert find_room_outlines(path, 0, SCALE_50) == []
+
+
+def test_壁を2本線で描いた平面図を表と取り違えない(tmp_path: Path) -> None:
+    """**測定で実際に出た誤りの再現。**
+
+    壁の厚みが一定なので升目の高さが揃い、升目の大きさで表を見分けていたとき
+    **12 行 12 列の表と判定されて 7 室中 0 室になった。**
+    見分けるのは升目の埋まりで行う(表は升目を埋めるために引かれている)。
+    """
+    doc, page = _new_page()
+    x0, y0 = 200.0, 200.0
+    x1, y1 = x0 + _mm(4000.0), y0 + _mm(3000.0)
+    t = _mm(120.0)
+    # 実図面と同じに、**通りごとに 2 本の線を通しで引く**。角で交差する。
+    for y in (y0 - t, y0 + t, y1 - t, y1 + t):
+        _line(page, x0 - t, y, x1 + t, y)
+    for x in (x0 - t, x0 + t, x1 - t, x1 + t):
+        _line(page, x, y0 - t, x, y1 + t)
+    page.insert_text(pymupdf.Point(x0 + 40, y0 + 60), "洋室", fontname="japan")
+    path = _save(doc, tmp_path / "double_named.pdf")
+
+    rooms = find_room_outlines(path, 0, SCALE_50)
+    assert any(r.name == "洋室" for r in rooms), f"室が出ていない: {rooms}"
+    # 出るのは**内法**(内側の線で囲まれた領域)。通り芯の寸法ではない。
+    room = next(r for r in rooms if r.name == "洋室")
+    assert room.area_sqm == pytest.approx((4000 - 240) * (3000 - 240) / 1e6, rel=0.02)
 
 
 def test_ページ番号が範囲外なら例外(tmp_path: Path) -> None:

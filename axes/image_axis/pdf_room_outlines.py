@@ -87,6 +87,10 @@ SNAP_MM = 20.0
 #: **これを超える切れ目は閉じない。** 閉じると「壁がある」と嘘をつくため。
 MAX_GAP_MM = 1200.0
 
+#: 罫線の表とみなす「升目の埋まり」の下限。
+#: **暫定値で、実図面で校正していない。**
+TABLE_MIN_FILL = 0.6
+
 AreaBasis = Literal["内法", "壁芯", "不明"]
 
 
@@ -196,8 +200,19 @@ class _Points:
 
 def _split_segments(
     segments: list[tuple[float, float, float, float]], tolerance: float
-) -> list[tuple[int, int, bool]]:
-    """線分を交点と T 字の突き当たりで切り、点の番号の組にして返す。
+) -> tuple[list[tuple[int, int, bool]], "_Points"]:
+    """線分を、**その上に乗っている点すべて**で切り、点の番号の組にして返す。
+
+    切る点は 2 通りある。どちらも入れないと面が閉じない。
+
+    1. **交点** … 2 本の線分が交差する所(平行でない組)
+    2. **線分の上に乗っている端点** … T 字に突き当たる所と、
+       **同じ直線上で重なっている線分の端**
+
+    2 を落としていたせいで、平面図の測定で 7 室中 0 室しか出なかった。
+    壁は隣り合う室で共有されるので、同じ直線上に重なる線分が必ず現れる
+    (居室の下端と廊下の上端など)。交点だけを見ていると、そこで線が
+    切れないまま面をたどることになり、室が 1 つの大きな領域に溶ける。
 
     返すのは ``(点1, 点2, 仮の線か)``。ここで作る辺はすべて図面の線なので
     ``仮の線か`` は常に False。
@@ -209,7 +224,7 @@ def _split_segments(
             continue
         raw.append((points.add(x1, y1), points.add(x2, y2)))
 
-    # 交点を足す。格子で候補を絞ってから総当たりする。
+    # 1. 交点を足す。格子で候補を絞ってから総当たりする。
     cell = max(tolerance * 20.0, 1.0)
     grid: dict[tuple[int, int], list[int]] = defaultdict(list)
     for index, (a, b) in enumerate(raw):
@@ -219,7 +234,6 @@ def _split_segments(
             for gy in range(int(min(ay, by) // cell), int(max(ay, by) // cell) + 1):
                 grid[(gx, gy)].append(index)
 
-    extra: dict[int, list[int]] = defaultdict(list)
     seen_pairs: set[tuple[int, int]] = set()
     for bucket in grid.values():
         for i, first in enumerate(bucket):
@@ -229,48 +243,72 @@ def _split_segments(
                     continue
                 seen_pairs.add(pair)
                 hit = _intersection(points, raw[first], raw[second], tolerance)
-                if hit is None:
-                    continue
-                index = points.add(*hit)
-                extra[first].append(index)
-                extra[second].append(index)
+                if hit is not None:
+                    points.add(*hit)
 
-    # T 字の突き当たり: どの線分の内側に落ちる点も割り込ませる。
+    # 2. すべての点を、その点が上に乗っている線分に割り込ませる。
+    #    点の格子を作り、線分に沿って歩きながら近くの点だけを見る。
+    vertex_cell = max(tolerance * 2.0, 1e-6)
+    vertex_grid: dict[tuple[int, int], list[int]] = defaultdict(list)
+    for index, (x, y) in enumerate(points.coords):
+        vertex_grid[(int(x // vertex_cell), int(y // vertex_cell))].append(index)
+
     edges: list[tuple[int, int, bool]] = []
-    for index, (a, b) in enumerate(raw):
+    for a, b in raw:
         ax, ay = points.coords[a]
         bx, by = points.coords[b]
         length = math.hypot(bx - ax, by - ay)
+        if length <= 0:
+            continue
+        candidates: set[int] = set()
+        steps = max(int(length / vertex_cell) + 1, 1)
+        for step in range(steps + 1):
+            t = step / steps
+            px, py = ax + t * (bx - ax), ay + t * (by - ay)
+            gx, gy = int(px // vertex_cell), int(py // vertex_cell)
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    candidates.update(vertex_grid.get((gx + dx, gy + dy), ()))
         on_line: list[tuple[float, int]] = [(0.0, a), (length, b)]
-        for candidate in set(extra.get(index, ())):
+        for candidate in candidates:
+            if candidate in (a, b):
+                continue
             cx, cy = points.coords[candidate]
             t = ((cx - ax) * (bx - ax) + (cy - ay) * (by - ay)) / (length * length)
-            if 0.0 < t < 1.0:
+            if not 0.0 < t < 1.0:
+                continue
+            # 線分からの距離
+            distance = abs((bx - ax) * (ay - cy) - (ax - cx) * (by - ay)) / length
+            if distance <= tolerance:
                 on_line.append((t * length, candidate))
         on_line.sort()
         for step in range(len(on_line) - 1):
             u, v = on_line[step][1], on_line[step + 1][1]
             if u != v:
                 edges.append((u, v, False))
-    return _dedupe(edges), points  # type: ignore[return-value]
+    return _dedupe(edges), points
 
 
 def _intersection(points, first, second, tolerance) -> tuple[float, float] | None:
-    """2 本の線分の交点。端点どうしが同じ点なら None(切る必要が無い)。"""
+    """2 本の線分の交点。端点を共有していれば None(切る必要が無い)。
+
+    平行な組は None を返す。**同じ直線上で重なっている線分**はここでは
+    扱わず、`_split_segments()` の 2 段目(点を線分に割り込ませる)が拾う。
+    """
     a, b = first
     c, d = second
-    if len({a, b} & {c, d}) > 0:
+    if {a, b} & {c, d}:
         return None
     ax, ay = points.coords[a]
     bx, by = points.coords[b]
     cx, cy = points.coords[c]
     dx, dy = points.coords[d]
     r = (bx - ax, by - ay)
-    s = (dx - cx, dy - cy)
-    denominator = r[0] * s[1] - r[1] * s[0]
+    s_vec = (dx - cx, dy - cy)
+    denominator = r[0] * s_vec[1] - r[1] * s_vec[0]
     if abs(denominator) < 1e-12:
-        return None  # 平行。重なりはここでは扱わない
-    t = ((cx - ax) * s[1] - (cy - ay) * s[0]) / denominator
+        return None
+    t = ((cx - ax) * s_vec[1] - (cy - ay) * s_vec[0]) / denominator
     u = ((cx - ax) * r[1] - (cy - ay) * r[0]) / denominator
     if not (0.0 <= t <= 1.0 and 0.0 <= u <= 1.0):
         return None
@@ -290,20 +328,53 @@ def _close_gaps(
     edges: list[tuple[int, int, bool]],
     coords: list[tuple[float, float]],
     max_gap_pt: float,
+    tolerance_pt: float,
 ) -> list[tuple[int, int, bool]]:
     """行き止まりの端点どうしを、決めた幅までなら仮の線でつなぐ。
 
-    **つないだ辺は「仮の線」と記録する。** どの室がこちらの都合で閉じられたかを
-    出力に残すため。``max_gap_pt`` を超える切れ目はつながない
-    (つなぐと「そこに壁がある」と嘘をつくことになる)。
+    **開口は壁の続きにしかできない。** だから、つないでよいのは
+    次の 3 つを満たす組だけにする。
+
+    1. どちらも行き止まり(そこで線が終わっている)
+    2. 距離が ``max_gap_pt`` 以内
+    3. **相手の端点が、こちらの壁をまっすぐ延ばした線の上に乗っている**
+       (両側から見て許容差以内)
+
+    3 を入れていなかったとき、**平行な線を 30 本並べただけの図面から
+    15 室が出た**(測定の負の対照で判明)。行き止まりどうしが近ければ
+    向きを問わずつないでいたので、壁でも何でもない線から室が作られていた。
+
+    つないだ辺は「仮の線」として記録する。``max_gap_pt`` を超える切れ目は
+    つながない(つなぐと「そこに壁がある」と嘘をつくことになる)。
     """
     degree: dict[int, int] = defaultdict(int)
+    neighbor_of: dict[int, list[int]] = defaultdict(list)
     for u, v, _ in edges:
         degree[u] += 1
         degree[v] += 1
+        neighbor_of[u].append(v)
+        neighbor_of[v].append(u)
     dangling = sorted(index for index, count in degree.items() if count == 1)
     if len(dangling) < 2:
         return edges
+
+    def on_extension(origin: int, target: int) -> bool:
+        """``target`` が ``origin`` の壁をまっすぐ延ばした線の上にあるか。"""
+        back = neighbor_of[origin][0]
+        ox, oy = coords[origin]
+        bx, by = coords[back]
+        tx, ty = coords[target]
+        length = math.hypot(ox - bx, oy - by)
+        if length <= 0:
+            return False
+        # 壁の向きの単位ベクトル(back → origin)
+        ux, uy = (ox - bx) / length, (oy - by) / length
+        dx, dy = tx - ox, ty - oy
+        along = dx * ux + dy * uy
+        if along <= 0:
+            return False  # 壁の反対側。開口ではない
+        across = abs(dx * -uy + dy * ux)
+        return across <= tolerance_pt
 
     pairs: list[tuple[float, int, int]] = []
     for i, a in enumerate(dangling):
@@ -311,8 +382,11 @@ def _close_gaps(
             ax, ay = coords[a]
             bx, by = coords[b]
             distance = math.hypot(bx - ax, by - ay)
-            if 0.0 < distance <= max_gap_pt:
-                pairs.append((distance, a, b))
+            if not 0.0 < distance <= max_gap_pt:
+                continue
+            if not (on_extension(a, b) and on_extension(b, a)):
+                continue
+            pairs.append((distance, a, b))
     pairs.sort()
     used: set[int] = set()
     out = list(edges)
@@ -405,6 +479,33 @@ def _perimeter_pt(cycle: list[int], coords: list[tuple[float, float]]) -> float:
     return total
 
 
+def _looks_like_a_ruled_table(region) -> bool:
+    """その「表」が本当に罫線の表か、平面図を表と取り違えたものかを分ける。
+
+    見るのは**升目の埋まり**(罫線で区切られた升目のうち何割に文字が入っているか)
+    ひとつだけ。建具表・仕上表は升目を埋めるために引かれているので、
+    ほとんどの升目に文字が入る。平面図の壁が作る格子には、室名がいくつか
+    入っているだけである。
+
+    この条件は測定で 2 度決め直した。**どちらも実際に壊れてから直している。**
+
+    1. 条件を入れていなかったとき … 建具表の升目が「洋室1」という室として
+       仲裁層まで届いた。
+    2. 升目の大きさの揃い方で見たとき … **壁を 2 本線で描いた平面図が
+       「12 行 12 列の表」と判定され、7 室中 0 室になった。**
+       壁の厚みが一定なので、升目の高さが揃ってしまう。
+
+    **これは目安であって、校正された判定ではない。** 空欄の多い表は表と
+    みなされず、その升目が室の候補として出る。出た候補は
+    ``calibrated=False`` の弱い証拠なので、それだけで数量が決まることはない。
+    """
+    cells = [cell for row in region.rows for cell in row]
+    if len(cells) < 4:
+        return False
+    filled = sum(1 for cell in cells if cell.text.strip())
+    return filled / len(cells) >= TABLE_MIN_FILL
+
+
 def _within(polygon: list[tuple[float, float]], rect: tuple[float, float, float, float]) -> bool:
     """輪郭がまるごと矩形の中に入っているか(罫線の表の升目を落とすため)。"""
     x0, y0, x1, y1 = rect
@@ -479,10 +580,14 @@ def find_room_outlines(
     # 罫線の表の升目は室ではない。表として読めた範囲を先に除いておく。
     table_rects: list[tuple[float, float, float, float]] = []
     if exclude_tables:
-        table_rects = [region.rect_pt for region in find_tables(pdf_path, page_index)]
+        table_rects = [
+            region.rect_pt
+            for region in find_tables(pdf_path, page_index)
+            if _looks_like_a_ruled_table(region)
+        ]
 
     edges, points = _split_segments(segments, tolerance_pt)
-    edges = _close_gaps(edges, points.coords, max_gap_pt)
+    edges = _close_gaps(edges, points.coords, max_gap_pt, tolerance_pt)
 
     out: list[RoomOutline] = []
     for cycle, virtual_count in _faces(edges, points.coords):
