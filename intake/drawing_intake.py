@@ -309,6 +309,15 @@ class PageOutcome:
     declaration: PageDeclaration | None = None
     #: 起きたことの記録(縮尺が読めない、ラスターの中身は読んでいない、など)。
     notes: tuple[str, ...] = ()
+    #: **このページで試すことすらできなかった手法の id。**
+    #:
+    #: 「探したが 0 件だった」と「そもそも探せなかった」は、出力される数量が
+    #: どちらも 0 件なので区別が付かない。**人が読む要約に理由を載せるための欄**
+    #: である(`docs/d_summary_distinguishes_report.md`)。
+    #:
+    #: **人が「建具表のページだ」と宣言したので探さなかった場合は入れない。**
+    #: それは人が自分で決めたことなので、知らないうちに抜けたのとは違う。
+    unattempted_methods: tuple[str, ...] = ()
 
     @property
     def processed(self) -> bool:
@@ -437,6 +446,18 @@ class IntakeResult:
         return tuple(item.target for item in self.decisions if item.confirmed)
 
     @property
+    def pages_with_unattempted_methods(self) -> tuple[int, ...]:
+        """**試すことすらできなかった手法があるページ番号**(1 始まり)。
+
+        未対応のページ(スキャン・空)はここに入らない。あちらは
+        `unsupported_pages` として別に数えている。ここに入るのは
+        **抽出に回したのに、ある手法だけ試せなかったページ**である。
+        """
+        return tuple(
+            page.page_number for page in self.pages if page.unattempted_methods
+        )
+
+    @property
     def unsupported_pages(self) -> tuple[int, ...]:
         """未対応として記録したページ番号(1 始まり)。"""
         return tuple(page.page_number for page in self.pages if not page.processed)
@@ -475,6 +496,10 @@ class IntakeResult:
             f"ページ: 全 {len(self.pages)} / 抽出に回した {sum(1 for p in self.pages if p.processed)}"
             f" / 未対応 {len(self.unsupported_pages)}",
             f"読めた数量: {len(self.findings)} 件",
+            # **「探したが 0 件」と「探せなかった」は、数量の上では同じ 0 件になる。**
+            # 理由を人に渡すための 1 行(`docs/d_summary_distinguishes_report.md`)。
+            f"試せなかった手法があるページ: "
+            f"{len(self.pages_with_unattempted_methods)} 件",
             f"自動確定: {len(self.confirmed_targets)} 件",
             f"人への質問: {len(self.pending_questions)} 件",
             f"判断待ち: {len(self.pending_decisions)} 件",
@@ -914,13 +939,16 @@ def _extract(
             reference_points=reference_points,
             tolerance=scale_tolerance,
         )
+        unattempted: list[str] = []
         if disagreement is not None:
             pending.append(disagreement)
             notes.append(
                 "縮尺の読みが食い違ったため、このページでは実寸に依存する抽出を行わない"
             )
+            unattempted.append(METHOD_DOOR_ARC)
         elif scale is None:
             notes.append("縮尺が読めないため、実寸に依存する抽出(開き戸)は行わない")
+            unattempted.append(METHOD_DOOR_ARC)
         elif any(reading.is_human_input for reading in readings):
             notes.append("人が入れた基準点から求めた縮尺を使った")
 
@@ -972,6 +1000,7 @@ def _extract(
                 content_kind=page.content_kind,
                 status="processed",
                 scale=scale,
+                unattempted_methods=tuple(unattempted),
                 scale_readings=readings,
                 declaration=declaration,
                 notes=tuple(notes),
