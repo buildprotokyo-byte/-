@@ -52,6 +52,7 @@ from axes.image_axis.schedule_tables import (
     METHOD_DOOR_SCHEDULE,
     METHOD_FINISH_SCHEDULE,
 )
+from axes.image_axis.legend_region import METHOD_LEGEND_TABLE
 from axes.image_axis.vtracer_vectorizer import METHOD_FLOOR_AREA, METHOD_WALL_LINEWORK
 
 from arbitration.inference_orchestrator import MethodPolicy
@@ -82,6 +83,14 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   それだけを根拠に自動確定させない**というおーちゃんの指示(2026-09-22)を
 #:   コードで担保するため、ここで未校正として登録する。`calibrated=False` の
 #:   あいだは `is_hard_eligible` が False になり、ハード制約に入らない。
+#: - ``pdf_table_legend_symbol`` … 罫線の表の升目の中だけを凡例として読む
+#:   (`axes/image_axis/legend_region.py`)。**未校正・上限 weak。**
+#:   11 周目に実図面で測って**不採用**にした手法である
+#:   (`docs/a1_legend_region_report.md`)。図面のページでは、罫線の表の検出が
+#:   **図面そのものを巨大な表として拾う**(1 つの行に図形が 2,429 個入った)。
+#:   登録しておくのは、**将来つないだときに強い軸へ昇格しないための歯止め**で、
+#:   本番の経路からは呼んでいない。名前が読めても、その名前が正しいことの
+#:   校正にはならない(名前の突き合わせは表記のゆれが未着手)。
 #: - ``pdf_text_area`` … 図面に**文字として書かれている**面積の記載をそのまま
 #:   読む(`axes/image_axis/pdf_vector_symbols.find_area_labels`)。
 #:   上限は ``strong`` にしてあるが **``calibrated=False``** なので、
@@ -150,6 +159,7 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_HUMAN_REFERENCE_POINT: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_DOOR_SCHEDULE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_LEGEND_TABLE: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_OCR_TEXT_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_OCR_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_REPEATED_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
