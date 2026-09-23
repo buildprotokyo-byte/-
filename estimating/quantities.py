@@ -29,6 +29,7 @@ from typing import Any, Mapping
 
 from arbitration.units import UnitError, canonical_unit, normalise_range
 from estimating.basis import basis_for
+from estimating.decisive import DecisiveReason
 
 #: 対象名の中で「種類」と「個別の鍵」を分ける印。
 #: 入口が `建具数量::AW-1` `開き戸::ページ1` の形で出している。
@@ -111,6 +112,14 @@ class QuantityItem:
     """図面からは決められない理由。**根拠の無い「現地確認が必要」は作らない。**
 
     原則8(おーちゃんの回答): システムが根拠を付けて提案し、人が確認する。
+    """
+
+    decisive: tuple[DecisiveReason, ...] = ()
+    """**この数量が出た決め手。**(`estimating/decisive.py` の 5 種類)
+
+    **空は「決め手が無い」**であって「観測だけで出た」ではない。
+    一般則で補った値のように、名乗れる証拠が無いものはここが空のまま残る。
+    埋めずに `lines_without_reason()` で名指しする。
     """
 
     attributes: Mapping[str, str] = field(default_factory=dict)

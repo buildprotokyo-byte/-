@@ -443,6 +443,24 @@ class TargetDecision:
     reason_codes: tuple[str, ...]
     is_invalid: bool
 
+    # -- **何が効いたかを、畳んだ後も残す。** ----------------------------------
+    # 仲裁層の `FirewallDecision` はどの読みが効いたかまで持っているのに、
+    # ここで人が読む形に畳むときに落ちていた。見積の行から「複数の経路が
+    # 一致したのか」を辿れないのはそのためである(66周目)。
+    # **判定には使わない。記録だけ。**
+
+    hard_evidence_ids: tuple[str, ...] = ()
+    """ハード制約として効いた読み。`source_id::axis_id::method_id::target`。"""
+
+    advisory_evidence_ids: tuple[str, ...] = ()
+    """参考情報に落ちた読み。**未校正の手法はここに来る。**"""
+
+    independent_strong_source_count: int = 0
+    independent_advisory_source_count: int = 0
+    method_count: int = 0
+    solve_is_consistent: bool = False
+    """読み同士に矛盾が無かったか。**「一致した」と言えるのはこれが真のときだけ。**"""
+
     @property
     def confirmed(self) -> bool:
         return self.action == "auto_confirm" and self.confirmed_range is not None
@@ -2067,4 +2085,20 @@ def _decide(
         reasons=decision.reasons if decision is not None else (),
         reason_codes=reason_codes,
         is_invalid=result.is_invalid,
+        hard_evidence_ids=decision.hard_evidence_ids if decision is not None else (),
+        advisory_evidence_ids=(
+            decision.advisory_evidence_ids if decision is not None else ()
+        ),
+        independent_strong_source_count=(
+            decision.independent_strong_source_count if decision is not None else 0
+        ),
+        independent_advisory_source_count=(
+            decision.independent_advisory_source_count if decision is not None else 0
+        ),
+        method_count=decision.method_count if decision is not None else 0,
+        solve_is_consistent=(
+            bool(getattr(decision.solve_result, "is_consistent", False))
+            if decision is not None
+            else False
+        ),
     )

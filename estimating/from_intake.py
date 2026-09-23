@@ -32,6 +32,13 @@ from estimating.case_premises import (
     SOURCE_HYPOTHESIS,
     CasePremise,
 )
+from estimating.decisive import (
+    NOT_OBTAINED_AREA,
+    NOT_OBTAINED_SYMBOL,
+    DecisiveReason,
+    NotObtained,
+    decisive_reasons_for,
+)
 from estimating.quantities import QuantityItem, split_target
 
 #: 建具表の行から属性として渡す欄。**印字された文字列のまま渡す。**
@@ -47,6 +54,10 @@ DOOR_ATTRIBUTE_FIELDS: tuple[tuple[str, str], ...] = (
 #: (この層が入口の実装に縛られないようにする)。値がずれたときは
 #: `tests/test_estimate_line_mapping.py` の通しテストが気づく。
 DOOR_QUANTITY_KIND = "建具数量"
+
+#: 人が入れた前提から来た読みの `source_kind`。入口の `DrawingFinding` と
+#: 同じ文字列だが、**`intake/` を import しないためにここで持つ。**
+SOURCE_KIND_START_KIT = "start_kit"
 
 
 def attributes_for_door_mark(
@@ -76,6 +87,79 @@ def attributes_for_door_mark(
             continue
         attributes[name] = distinct[0]
     return attributes, tuple(notes)
+
+
+def _methods_of(evidence_ids: Sequence[str]) -> tuple[str, ...]:
+    """証拠の識別子から手法の名前だけを取り出す。
+
+    識別子は `source_id::axis_id::method_id::target`
+    (`arbitration/axis_quality_firewall.AxisEvidence.evidence_id`)。
+    **対象名にも `::` が入る**ので、区切りは 3 回までにする。
+    """
+    out: list[str] = []
+    for evidence_id in evidence_ids:
+        parts = evidence_id.split("::", 3)
+        if len(parts) >= 3 and parts[2] and parts[2] not in out:
+            out.append(parts[2])
+    return tuple(out)
+
+
+def _decisive_for(finding, decision) -> tuple[DecisiveReason, ...]:  # noqa: ANN001
+    """この数量の決め手を、**仲裁層が出した記録から**作る。
+
+    **ここで判定をやり直さない。** 一致したかどうかは仲裁層が解いた結果
+    (`solve_is_consistent`)を読むだけで、範囲を見比べ直したりはしない。
+
+    いまの本番経路で名乗れるのは、実際には
+    **「観測」と、スタートキットが入っているときの「人の回答」**だけである。
+    知識のルール(会社のルール・波及)と要約資料(メニュー)は**経路そのものが
+    まだ無い**ので、ここも空のままになる。**見た目のために埋めない。**
+    """
+    source_kind = getattr(finding, "source_kind", "drawing")
+
+    # **一致は、矛盾なく解けたときだけ。** ハードで効いた読みを先に見て、
+    # 全部が参考情報に落ちている(未校正の手法)ときは参考情報のほうを見る。
+    paths: tuple[str, ...] = ()
+    independent: bool | None = None
+    if decision is not None and getattr(decision, "solve_is_consistent", False):
+        hard = _methods_of(tuple(getattr(decision, "hard_evidence_ids", ()) or ()))
+        if len(hard) >= 2:
+            paths = hard
+            independent = (
+                getattr(decision, "independent_strong_source_count", 0) >= 2
+            )
+        else:
+            advisory = _methods_of(
+                tuple(getattr(decision, "advisory_evidence_ids", ()) or ())
+            )
+            if len(advisory) >= 2:
+                paths = advisory
+                independent = (
+                    getattr(decision, "independent_advisory_source_count", 0) >= 2
+                )
+
+    # 人が入れた前提から出た数量は、**どの入力への回答か**が分かる。
+    question_id = ""
+    if source_kind == SOURCE_KIND_START_KIT:
+        question_id = f"start_kit::{getattr(finding, 'method_id', '')}"
+
+    return decisive_reasons_for(
+        effective_derivation=_effective_derivation(finding),
+        source_kind=source_kind,
+        agreeing_paths=paths,
+        paths_independent=independent,
+        question_id=question_id,
+    )
+
+
+def _effective_derivation(finding) -> str:  # noqa: ANN001
+    """根拠まで遡った由来。**`QuantityItem.effective_derivation` と同じ規則。**"""
+    derivation = getattr(finding, "derivation", "read")
+    if derivation == "derived" and "assumed" in tuple(
+        getattr(finding, "derivation_basis", ()) or ()
+    ):
+        return "assumed"
+    return derivation
 
 
 def quantities_from_intake(result) -> tuple[QuantityItem, ...]:
@@ -114,6 +198,7 @@ def quantities_from_intake(result) -> tuple[QuantityItem, ...]:
                 tier=getattr(decision, "tier", None),
                 action=getattr(decision, "action", None),
                 confirmed_range=getattr(decision, "confirmed_range", None),
+                decisive=_decisive_for(finding, decision),
                 attributes=attributes,
                 provenance=dict(getattr(finding, "provenance", {}) or {}),
                 notes=tuple(notes),
@@ -233,4 +318,59 @@ def premises_from_intake(result) -> tuple[CasePremise, ...]:
             )
         )
 
+    return tuple(out)
+
+
+#: 面積の数量の対象名の頭。入口の `TARGET_WORK_FLOOR_AREA` と同じ文字列。
+AREA_TARGET_KINDS: tuple[str, ...] = ("施工対象床面積", "専有延床面積")
+
+
+def not_obtained_from_intake(result) -> tuple[NotObtained, ...]:  # noqa: ANN001
+    """**入口の側にしか分からない「取れなかった理由」を作る。**
+
+    おーちゃんの指示(66周目)の 4 つのうち、この層が根拠を持てるのは 2 つ。
+
+    - **記号が読めない** … 図形データとして読めなかったページ。
+      そのページからは記号を 1 つも数えられない。
+    - **面積が出せない** … 面積の数量が 1 件も出ていない、または面積の
+      数え方が食い違って人の判断待ちになっている。
+
+    **残りの 2 つ(ルールが無い・現地確認が必要)は当てはめの側が作る**
+    (`estimating/mapping.MappingResult.not_obtained()`)。
+    **推測で埋めない。** 根拠が無い理由は作らない。
+    """
+    out: list[NotObtained] = []
+
+    for page in getattr(result, "pages", ()):
+        status = getattr(page, "status", "")
+        if status in ("unsupported_raster", "unsupported_empty"):
+            out.append(
+                NotObtained(
+                    reason=NOT_OBTAINED_SYMBOL,
+                    target=f"ページ{getattr(page, 'page_number', '?')}",
+                    detail=status,
+                )
+            )
+
+    findings = tuple(getattr(result, "findings", ()))
+    has_area = any(
+        split_target(finding.target)[0] in AREA_TARGET_KINDS for finding in findings
+    )
+    if not has_area:
+        out.append(
+            NotObtained(
+                reason=NOT_OBTAINED_AREA,
+                target="面積",
+                detail="面積の数量が 1 件も出ていない",
+            )
+        )
+    for pending in getattr(result, "pending_decisions", ()):
+        if getattr(pending, "kind", "") == "area_basis_conflict":
+            out.append(
+                NotObtained(
+                    reason=NOT_OBTAINED_AREA,
+                    target="面積",
+                    detail=getattr(pending, "detail", ""),
+                )
+            )
     return tuple(out)
