@@ -26,8 +26,15 @@
 - `phase` … 人がページの種類を宣言していない図面では、そのページが現況か
   計画かは決まらない。**図面の文字からは決まらない**ので推測しない。
   この場合は `PHASE_UNKNOWN`(``不明``)を明示的に入れる。
-- `purpose_link` … 目的(原則 3-2)を受け取る場所がこのリポジトリにまだ無い。
-  誰も埋められないので `PURPOSE_UNESTABLISHED`(``目的未確立``)を入れる。
+- `purpose_link` … 2つに分かれる。
+  - 目的そのものが渡されていない … `PURPOSE_UNESTABLISHED`(``目的未確立``)
+  - 目的は渡されているが、**その目的と個々の値を結び付ける経路が無い**
+    … `PURPOSE_RECEIVED_UNLINKED`(``目的受領済み・結び付けは未実装``)
+
+  目的の受け取り口(`intake/start_kit.py` の `Purpose`)は 2026-09-22 に入った
+  ので、いまは「受け皿が無い」と「結び付けが無い」を分けて記録できる。
+  **方向性の自由記述を `purpose_link` に写さない。** 写すのは結び付けではない
+  (原則 3-2 の二段階目が未実装)。
 
 **どちらも「埋め忘れ」ではなく「まだ決まっていない」という記録である。**
 `is_complete` が False の値は、原則どおりなら数量に使えない。
@@ -52,8 +59,20 @@ PHASES: frozenset[str] = frozenset(
     {PHASE_EXISTING, PHASE_PLANNED, PHASE_DEMOLITION, PHASE_UNKNOWN}
 )
 
-#: 目的を受け取る場所がまだ無いことを表す、`purpose_link` の値。
+#: 目的そのものが渡されていないことを表す、`purpose_link` の値。
 PURPOSE_UNESTABLISHED = "目的未確立"
+
+#: 目的は渡されているが、この値との結び付けが未実装であることを表す値。
+#:
+#: 原則 3-2 の二段階目(AI が図面を読んだ後に詳細な目的を組み立て、人が確認する)が
+#: 入るまで、個々の値が目的のどこに効くのかは決められない。
+PURPOSE_RECEIVED_UNLINKED = "目的受領済み・結び付けは未実装"
+
+#: 結び付けが済んでいないことを表す値の全部。`is_complete` の判定に使う。
+#: **ここに漏れがあると、決まっていない値が「意味が付いた」ことになる。**
+PURPOSE_PLACEHOLDERS: frozenset[str] = frozenset(
+    {PURPOSE_UNESTABLISHED, PURPOSE_RECEIVED_UNLINKED}
+)
 
 
 @dataclass(frozen=True)
@@ -83,10 +102,14 @@ class Meaning:
     def is_complete(self) -> bool:
         """原則 2 の「意味が付けられた」状態か。
 
-        `phase` が ``不明``、`purpose_link` が ``目的未確立`` のあいだは False。
+        `phase` が ``不明``、`purpose_link` が `PURPOSE_PLACEHOLDERS` の
+        どれかのあいだは False。
         **False でもこの層は値を止めない**(モジュール冒頭)。
         """
-        return self.phase != PHASE_UNKNOWN and self.purpose_link != PURPOSE_UNESTABLISHED
+        return (
+            self.phase != PHASE_UNKNOWN
+            and self.purpose_link not in PURPOSE_PLACEHOLDERS
+        )
 
     @property
     def unresolved(self) -> tuple[str, ...]:
@@ -94,7 +117,7 @@ class Meaning:
         out: list[str] = []
         if self.phase == PHASE_UNKNOWN:
             out.append("phase")
-        if self.purpose_link == PURPOSE_UNESTABLISHED:
+        if self.purpose_link in PURPOSE_PLACEHOLDERS:
             out.append("purpose_link")
         return tuple(out)
 

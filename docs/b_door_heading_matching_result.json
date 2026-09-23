@@ -1,0 +1,47 @@
+{
+  "round": 39,
+  "trial": "B",
+  "title": "見出しの当て方を緩めたときの当たりと誤爆",
+  "date": "2026-09-23",
+  "criteria_commit": "e0339a1",
+  "criteria_file": "docs/b_door_heading_matching_criteria.md",
+  "benchmark": "benchmarks/measure_door_heading_matching.py",
+  "split": {"inside_tables": 47, "outside_tables": 60,
+            "caveat": "内側・外側は当たり・誤爆の代わりの目印であって正解ではない。内側にも凡例が混ざり、外側に続きの建具表があるかもしれない。"},
+  "H0_exact": {"inside_passed": 0, "outside_passed": 0,
+               "role_hits_inside": {"種別": 1}},
+  "H1_containment": {"inside_passed": 1, "outside_passed": 1,
+                     "role_hits_inside": {"幅": 12, "種別": 4, "高さ": 2, "数量": 2}},
+  "H2_misfire_over_reach": 1.0,
+  "H4_ambiguous_cells": 7,
+  "controls": {
+    "1_synthetic_door_schedule": {"tables": 1, "passed": 1, "ok": true},
+    "2_finish_schedule": {"exact": 2, "loose": 3, "ok": true,
+                          "warning": "現に動いている経路まで1個動いている。増えた1個が本物の仕上表かは測っていない。"},
+    "3_repeat_3_times": {"H1_inside": [1, 1, 1], "ok": true}
+  },
+  "decision_lines_written_before": {
+    "reach": {"rule": "内側で H0 から 1 個以上増える", "observed": "0 → 1(増分 1)", "met": true},
+    "misfire": {"rule": "H2 < 0.5", "observed": 1.0, "met": false},
+    "ambiguity": {"rule": "H4 = 0", "observed": 7, "met": false}
+  },
+  "verdict": {
+    "result": "保留",
+    "reason": "当たりはあるが誤爆と取り違えの両方で落ちた。案1(丸ごと含み一致)はこのまま入れない。",
+    "what_is_happening": "幅の当たりが0→12に跳ねたのに建具表として通ったのは1個だけ。当たった12個のほとんどは建具表ではない。基準に先に書いた『幅は全幅・幅木に含まれる』がそのままの形で出た。H4の7も同じ話で、升目が役割の名前を含んだ別の言葉。",
+    "familiar_band": "誤爆÷当たり=1.000は、27〜31周目に図面から作った語彙がどれも0.56〜1.00に着地したのと同じ帯。緩め方が粗いときに毎回ここに落ちる。"
+  },
+  "next_round": {
+    "candidates": {
+      "案2a 後方一致": "升目の文字が言い換えで終わるときだけ当てる。有効幅・開口幅・内法高さは当たり、幅木・係数は当たらない。",
+      "案2b 区切ってから完全一致": "升目の文字を空白と記号で割り、どれか1つが言い換えとちょうど同じなら当てる。巾 W は割れて当たり、幅木は割れないので当たらない。"
+    },
+    "lines": "今回と同じ3つ(当たり1個以上・H2 < 0.5・H4 = 0)。結果を見てから変えない。",
+    "also": "建具表だけでなく仕上表にも同じ測り方を当てる(対照2の警告のため)",
+    "implementation_changes": false
+  },
+  "implementation_changed": false,
+  "full_suite": "977 passed, 1 skipped (37周目から変わらず)",
+  "pending_decisions": 5,
+  "asks": 1
+}

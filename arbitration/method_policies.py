@@ -35,6 +35,10 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from axes.image_axis.pdf_dimensions import (
+    METHOD_DIMENSION_SCALE,
+    METHOD_DIMENSION_TEXT,
+)
 from axes.image_axis.pdf_vector_symbols import (
     METHOD_DOOR_ARC,
     METHOD_TEXT_AREA,
@@ -43,6 +47,13 @@ from axes.image_axis.pdf_vector_symbols import (
 from axes.image_axis.ocr_readings import (
     METHOD_OCR_TEXT_AREA,
     METHOD_OCR_TEXT_SCALE,
+)
+from axes.image_axis.pdf_room_outlines import METHOD_ROOM_OUTLINE
+from axes.image_axis.room_regions import METHOD_ROOM_REGION
+from axes.image_axis.wall_network import METHOD_WALL_NETWORK
+from axes.image_axis.pdf_repeated_symbols import (
+    METHOD_LEGEND_SYMBOL,
+    METHOD_REPEATED_SYMBOL,
 )
 from axes.image_axis.schedule_tables import (
     METHOD_DOOR_SCHEDULE,
@@ -119,6 +130,23 @@ METHOD_HUMAN_ROOM_DIMENSIONS = "human_room_dimensions"
 #:   (罫線が途切れている表・セル内改行・続き表)②建具表に載っていない
 #:   建具がどれだけあるか(表は「工事対象の建具」だけを載せることがある)。
 #:   **合成の表でしか確かめていないので、実図面での誤り率は未知である。**
+#: - ``pdf_dimension_text`` … 図面に**記入された寸法の数字**を、それが指す2点と
+#:   一緒に読む(`axes/image_axis/pdf_dimensions.read_dimensions`)。上限を
+#:   ``strong`` にしてあるのは ``pdf_text_area`` と同じ理由で、「印字された数値を
+#:   そのまま読む」手法は原理的にはハード制約になりうるため。
+#:   **``calibrated=False`` なので今は階層1の根拠にならない。**
+#:   校正には少なくとも3つ要る: ①数字と寸法線の対応を取り違えていないか
+#:   (寸法線を横切る線があると測る区間が短く取られる)②単位が書かれていない
+#:   数字を mm と m で取り違えていないか(**1000 倍ずれる**)③寸法線に平行に
+#:   文字が入っていない図面でどれだけ落ちるか。
+#:   **合成 PDF でしか確かめていないので、実図面での誤り率は未知である。**
+#: - ``pdf_dimension_scale`` … 記入された寸法どうしの一致から出したページの縮尺
+#:   (`page_scale_from_dimensions`)。**表題欄の印字(`pdf_text_scale`)とは別の
+#:   手法**にしてあるのは、原則3-1「図面に書かれた縮尺の表記は当てにしない」を
+#:   守るために突き合わせる相手が要るから。上限は ``pdf_text_scale`` と同じ
+#:   ``strong`` / **``calibrated=False``**。ただし**同じ PDF から読んでいるので、
+#:   印字の縮尺とは独立なデータ源ではない**(`source_fingerprint` が同じ)。
+#:   独立なのは人が入れた基準点(`human_reference_point`)との間だけである。
 #: - ``pdf_table_finish_schedule`` … 内装仕上表から「室名・部位・仕上」の
 #:   対応を読む。**この対応そのものは数量ではない**(室の輪郭を取る実装が
 #:   無いので面積が出せない)。数量を出す経路ができるまでは証拠として
@@ -141,6 +169,51 @@ METHOD_HUMAN_ROOM_DIMENSIONS = "human_room_dimensions"
 #:   **印字をそのまま読めていない**ので、その理由が当てはまらない。
 #:   校正で外れ率を測っても、上限を上げる前に
 #:   「どの字がどの字に化けたか」の分布が要る。
+#: - ``pdf_vector_repeated_symbol`` … CAD 由来 PDF で**同じ図形が繰り返し
+#:   現れること**だけを手がかりに記号の候補を数える
+#:   (`axes/image_axis/pdf_repeated_symbols.find_repeated_symbols`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 3 つある。
+#:   ①1 回しか出てこない記号と、大きさの窓の外にある記号は原理的に落ちる
+#:   ので、件数は常に**下限**であって実数ではない。②大きさの窓の既定値
+#:   (30〜1500mm)は実図面で校正していない暫定値である。③ハッチングや
+#:   寸法線のように「繰り返すが記号でないもの」も群として出る。
+#: - ``pdf_vector_legend_symbol`` … 凡例のページで読めた「名前 ↔ 図形」の
+#:   対応(`read_legend_symbols`)。名前が付いても**同じ 1 つの PDF の中の
+#:   一致**なので、独立した 2 つ目の軸ではない(原則 3 節)。
+#:   だから上限は ``weak`` のままにしてある。
+#: - ``pdf_vector_room_outline`` … 図面の線を平面グラフに直し、線で囲まれた
+#:   最小の領域を室の候補として取り出す
+#:   (`axes/image_axis/pdf_room_outlines.find_room_outlines`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 4 つ。
+#:   ①面積が**内法か壁芯か図形からは決まらない**ので、面積の値は
+#:   「どちらとして数えるか」が決まるまで数量として確定できない。
+#:   ②建具の開口を**こちらの都合で仮に閉じている**ことがある
+#:   (``virtual_edges`` に残る)。③面積の窓(0.5〜200㎡)と最小の幅(400mm)は
+#:   実図面で校正していない暫定値である。④開口が広すぎて閉じられない室は
+#:   輪郭が漏れて落ちるので、**出た室の数は常に下限**である。
+#: - ``pdf_vector_room_region`` … 仕上表から読んだ室名を種にして、床の目地や
+#:   造作の線で割れた区画をまとめ直したもの
+#:   (`axes/image_axis/room_regions.find_room_regions`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 4 つ。
+#:   ①``pdf_vector_room_outline`` の弱点(①〜④)をそのまま引き継ぐ。
+#:   ②**仕上表に載っていない室は種が無いので絶対に出ない。**
+#:   出た室の数はここでも常に下限で、**0 件は「室が無い」ではない**。
+#:   ③まとめる範囲を決める止め札のうち、室の下限 0.5㎡ と
+#:   壁の細長さ 6.0 は**実図面で校正していない暫定値**である。
+#:   ④室名と面のひもづけは「その文字を含むいちばん小さい面」という
+#:   こちらの決めごとで、図面がそう描かれている保証は無い。
+#:   **室名は仕上表という別の出どころから来るが、面の形は同じ PDF の線から
+#:   来るので、独立した 2 つ目の軸にはならない**(原則 3 節)。
+#: - ``pdf_vector_wall_network`` … 壁の中身の面だけを境にして、そのまわりを
+#:   まとめたもの(`axes/image_axis/wall_network.find_regions_between_walls`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 4 つ。
+#:   ①``pdf_vector_room_outline`` の弱点(①〜④)をそのまま引き継ぐ。
+#:   ②**壁を 1 本線で描いた図面には原理的に効かない**(全部が 1 つに溶ける)。
+#:   出た室の数は常に下限で、**0 件は「室が無い」ではない**。
+#:   ③壁と呼ぶ条件(細長さ 6.0、紙の上の厚み 1pt、幅 400mm)は
+#:   **どれも実図面で校正していない暫定値**である。
+#:   ④壁の網に切れ目があると隣とつながって面積が大きく出る。
+#:   窓の外なら落ちるが、窓の中に収まってしまえば**大きいまま出る。**
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -151,8 +224,15 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_HUMAN_ROOM_DIMENSIONS: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_DOOR_SCHEDULE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_DIMENSION_TEXT: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_DIMENSION_SCALE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_OCR_TEXT_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_OCR_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_REPEATED_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_LEGEND_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_ROOM_OUTLINE: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_ROOM_REGION: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_WALL_NETWORK: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 

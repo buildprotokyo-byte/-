@@ -36,6 +36,13 @@ from typing import Any, Iterable, Literal, Mapping, Sequence
 
 from arbitration.units import UNIT_ALIASES
 from estimating.basis import BASIS_STRONGEST_FIRST, weakest
+from estimating.decisive import (
+    NOT_OBTAINED_NO_RULE,
+    NOT_OBTAINED_OTHER,
+    NOT_OBTAINED_SITE_SURVEY,
+    DecisiveReason,
+    NotObtained,
+)
 from estimating.quantities import QuantityItem
 from estimating.rules import EstimateLineSpec, MappingRule, RuleSet
 
@@ -76,6 +83,33 @@ class MappedLine:
     source_target: str = ""
     """どの数量から来たか。"""
 
+    # -- **何が効いたか。行 1 つを見ただけで分かるように持つ。** ----------------
+    # これまでは木の形(`MappingResult` → `QuantityMapping` → `RuleOutcome`)
+    # でしか無く、**行だけを取り出す経路**(`settled_lines()`・`as_dict()`)を
+    # 通ると落ちていた。報告や見積に出るのはその形である。
+
+    rule_id: str = ""
+    """この行を作った規則。"""
+
+    method_id: str = ""
+    """元の数量を読んだ手法。"""
+
+    axis_id: str = ""
+    """元の数量が出てきた軸。"""
+
+    tier: int | None = None
+    """仲裁層の階層。仲裁にかけていなければ None。"""
+
+    action: str | None = None
+    """仲裁層の処置(`auto_confirm` / `requires_review` など)。"""
+
+    decisive: tuple[DecisiveReason, ...] = ()
+    """**この行が出た決め手**(`estimating/decisive.py` の 5 種類)。
+
+    元の数量の決め手をそのまま運ぶ。**この層で作り直さない。**
+    **空は「決め手が無い」**であって「観測だけで出た」ではない。
+    """
+
     def line_key(self) -> tuple[str | None, str, str]:
         """同じ見積の行かどうかを見るための鍵。"""
         return (self.code, self.work_item, self.unit)
@@ -93,6 +127,12 @@ class MappedLine:
             "premise_ids": list(self.premise_ids),
             "hypothesis_premise_ids": list(self.hypothesis_premise_ids),
             "source_target": self.source_target,
+            "rule_id": self.rule_id,
+            "method_id": self.method_id,
+            "axis_id": self.axis_id,
+            "tier": self.tier,
+            "action": self.action,
+            "decisive": [reason.as_dict() for reason in self.decisive],
             "note": self.note,
         }
 
@@ -164,6 +204,54 @@ class MappingResult:
     def unmapped(self) -> tuple[QuantityMapping, ...]:
         """規則が 1 つも当たらなかった数量。**捨てていない。**"""
         return tuple(m for m in self.mappings if m.status == "unmapped")
+
+    def not_obtained(self) -> tuple[NotObtained, ...]:
+        """**行にならなかったものを、理由別に数えられる形で返す。**
+
+        おーちゃんの指示(66周目): 取れなかった行も理由別に集計する。
+        **この層から分かる理由だけを作る。** 図面が読めなかった側の理由
+        (記号が読めない・面積が出せない)は入口しか知らないので、
+        `estimating/from_intake.not_obtained_from_intake()` が作る。
+
+        **「その他」には必ず説明を付ける**(束ねて中身を消さない)。
+        """
+        out: list[NotObtained] = []
+        for mapping in self.mappings:
+            quantity = mapping.quantity
+            if quantity.site_survey_reason:
+                out.append(
+                    NotObtained(
+                        reason=NOT_OBTAINED_SITE_SURVEY,
+                        target=quantity.target,
+                        detail=quantity.site_survey_reason,
+                    )
+                )
+                continue
+            if mapping.status == "unmapped":
+                out.append(
+                    NotObtained(
+                        reason=NOT_OBTAINED_NO_RULE,
+                        target=quantity.target,
+                        detail="、".join(mapping.reasons),
+                    )
+                )
+            elif mapping.status == "ambiguous":
+                out.append(
+                    NotObtained(
+                        reason=NOT_OBTAINED_OTHER,
+                        target=quantity.target,
+                        detail="当てはめが一意に決まらない(候補のまま)",
+                    )
+                )
+            elif mapping.line_collision:
+                out.append(
+                    NotObtained(
+                        reason=NOT_OBTAINED_OTHER,
+                        target=quantity.target,
+                        detail="同じ見積の行に別の数量もぶつかっている(足さずに人へ回す)",
+                    )
+                )
+        return tuple(out)
 
     def basis_counts_text(self) -> str:
         """行の基づきの内訳。**報告にそのまま貼れる形にする。**"""
@@ -336,6 +424,12 @@ def _lines_for(quantity: QuantityItem, rule: MappingRule) -> tuple[MappedLine, .
                 premise_ids=tuple(quantity.premise_ids),
                 hypothesis_premise_ids=tuple(quantity.hypothesis_premise_ids),
                 source_target=quantity.target,
+                rule_id=rule.rule_id,
+                method_id=quantity.method_id,
+                axis_id=quantity.axis_id,
+                tier=quantity.tier,
+                action=quantity.action,
+                decisive=tuple(quantity.decisive),
             )
         )
     return tuple(out)
