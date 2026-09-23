@@ -220,19 +220,36 @@ class OcrSettings:
     `backends` に 2 つ以上のエンジンを渡すと、**両方が同じに読んだ語だけ**が
     通る(`axes/image_axis/ocr_text.recognize_page`)。実測では、中国語・英語の
     モデルが数字に強くて日本語の語を化けさせ、日本語のモデルはその逆だった
-    (`docs/ocr_scanned_pages_report.md`)。1 つだけ渡すこともできるが、
+    (`docs/ocr_scanned_pages_report.md`)。
+
+    **2026-09-23、おーちゃんの判断で「2 つが同じに読んだ語だけを通す」が既定になった。**
+    2 つ一致に絞ると実測で誤りは 0 件だが、29 語のうち 7〜8 語しか通らない。
+    **それでも、文字化けを数量側へ持ち込まないほうを既定に置く。**
+
+    **1 つだけで読む道は塞いでいない。**(塞ぐと、片方のエンジンしか入らない
+    環境で何も読めなくなる。)`allow_single_backend=True` と**はっきり書けば**通り、
     その読みは突き合わせを通っていないことが証拠に残る。
     """
 
     backends: tuple[OcrBackend, ...] = ()
     dpi: int = OCR_DPI
     min_confidence: float = DEFAULT_MIN_CONFIDENCE
+    #: **エンジン 1 つだけの読みを受け入れるか。**既定は受け入れない。
+    #: 突き合わせを通っていない読みを、黙って数量側へ入れないためである。
+    allow_single_backend: bool = False
 
     def __post_init__(self) -> None:
         if not self.backends:
             raise IntakeError(
                 "OcrSettings にエンジンが 1 つも入っていません。"
                 "OCR を使わないなら IntakeConfig.ocr を None のままにしてください"
+            )
+        if len(self.backends) < 2 and not self.allow_single_backend:
+            raise IntakeError(
+                "OcrSettings のエンジンが 1 つだけです。"
+                "既定では、2 つのエンジンが同じに読んだ語だけを通します"
+                "(突き合わせを通っていない読みを黙って入れないため)。"
+                "1 つだけで読むなら allow_single_backend=True と明示してください"
             )
 
 
