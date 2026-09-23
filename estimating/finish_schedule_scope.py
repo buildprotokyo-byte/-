@@ -51,6 +51,8 @@ from typing import Any, Literal
 from estimating.scope_diff import (
     WORK_ALTERED,
     WORK_AS_IS,
+    WORK_NEW,
+    WORK_REMOVAL,
     WORK_UNDECIDED,
     ScopeEvidence,
     WorkScopeItem,
@@ -71,18 +73,29 @@ READINGS: tuple[str, ...] = (
     READING_QUESTION,
 )
 
-#: 部品の区分 → 工事区分の 5 つ(`estimating/scope_diff.py`)。
+#: 部品の区分 → 工事区分(`estimating/scope_diff.py`)。**1 つの読みが
+#: 複数の区分になることがある。**
 #:
-#: **3 つの読みが「改修」1 つに畳まれる。** 仕上だけやり替えるのと、下地から
-#: やり替えるのでは、単価も工程も違う。畳んだ結果しか下流へ行かないと
+#: **「撤去して新設」だけは要素 2 つ(撤去・新設)になる。** おーちゃんの
+#: 回答(札、2026-09-23 15:11)。1 件に畳むと片方が見えなくなるので、
+#: 見積の行のほうを 2 本に分ける。**どちらの要素も根拠は同じ仕上表の
+#: 同じページ・同じ行**で、読み(`FinishScopeAssignment.reading`)は
+#: 1 行分のまま「撤去して新設」で残る。
+#:
+#: **残りの 2 つの読みは「改修」1 つに畳まれる。** 仕上だけやり替えるのと、
+#: 下地からやり替えるのでは、単価も工程も違う。畳んだ結果しか下流へ行かないと
 #: その差が消えるので、**読みのほうも `FinishScopeAssignment.reading` に
-#: 残したまま運ぶ。**
-READING_TO_WORK_KIND: dict[str, str] = {
-    READING_NO_WORK: WORK_AS_IS,
-    READING_FINISH_ONLY: WORK_ALTERED,
-    READING_REPLACE: WORK_ALTERED,
-    READING_FROM_BASE: WORK_ALTERED,
-    READING_QUESTION: WORK_UNDECIDED,
+#: 残したまま運ぶ**(おーちゃんの回答、札、2026-09-23 15:01。この形でよい)。
+#:
+#: 「下地からやり替え」も撤去を含みうるが、**どこまで撤去するかは仕上表
+#: からは決まらない。** 回答が名指ししたのは「撤去して新設」だけなので、
+#: ここを勝手に広げない。
+READING_TO_WORK_KINDS: dict[str, tuple[str, ...]] = {
+    READING_NO_WORK: (WORK_AS_IS,),
+    READING_FINISH_ONLY: (WORK_ALTERED,),
+    READING_REPLACE: (WORK_REMOVAL, WORK_NEW),
+    READING_FROM_BASE: (WORK_ALTERED,),
+    READING_QUESTION: (WORK_UNDECIDED,),
 }
 
 #: 下地欄の「現況のまま」を表す書き方。
@@ -169,7 +182,13 @@ class FinishScopeAssignment:
     finish: str | None
     page_number: int
     row_index: int
-    item: WorkScopeItem
+    items: tuple[WorkScopeItem, ...]
+    """この行から出た要素。**1 行が 1 要素とは限らない。**
+
+    「撤去して新設」の行は撤去と新設の 2 要素になる(おーちゃんの回答、
+    札、2026-09-23 15:11)。**行の数を数えるときは `assignments` を、
+    見積の行の数を数えるときは要素を数えること。**
+    """
     question: ScopeQuestion | None = None
     """問いになった行では、**要素(区分不明)と問いの両方が出る。**
 
@@ -187,7 +206,7 @@ class FinishScopeAssignment:
             "part_source": self.part_source,
             "page_number": self.page_number,
             "row_index": self.row_index,
-            "item": self.item.as_dict(),
+            "items": [item.as_dict() for item in self.items],
             "question": self.question.as_dict() if self.question else None,
         }
 
@@ -224,21 +243,28 @@ class FinishScopeResult:
             counts[assignment.reading] += 1
         return counts
 
+    @property
+    def item_count(self) -> int:
+        """作った要素の数。**行の数とは違う**(「撤去して新設」が 2 つになる)。"""
+        return sum(len(assignment.items) for assignment in self.assignments)
+
     def counts_by_work_kind(self) -> dict[str, int]:
         counts: dict[str, int] = {}
         for assignment in self.assignments:
-            kind = assignment.item.work_kind
-            counts[kind] = counts.get(kind, 0) + 1
+            for item in assignment.items:
+                counts[item.work_kind] = counts.get(item.work_kind, 0) + 1
         return counts
 
     def counts_text(self) -> str:
         parts = [f"{name} {count}件" for name, count in self.counts_by_reading().items()]
+        parts.append(f"要素 {self.item_count}件")
         parts.append(f"割り当てられなかった行 {len(self.unassigned)}件")
         return " / ".join(parts)
 
     def as_dict(self) -> dict[str, Any]:
         return {
             "row_count": self.row_count,
+            "item_count": self.item_count,
             "no_base_column": self.no_base_column,
             "counts_by_reading": self.counts_by_reading(),
             "counts_by_work_kind": self.counts_by_work_kind(),
@@ -340,7 +366,7 @@ def _reading_of(base: str | None, finish: str | None) -> tuple[str, str]:
     return READING_FROM_BASE, f"下地欄に材料名({base!r})がある"
 
 
-def _item_for(
+def _items_for(
     reading: str,
     *,
     room: str,
@@ -349,35 +375,45 @@ def _item_for(
     row_index: int,
     source_texts: dict[str, str],
     notes: tuple[str, ...],
-) -> WorkScopeItem:
-    alternatives: tuple[str, ...] = ()
-    if reading == READING_REPLACE:
-        alternatives = ("撤去", "新設")
+) -> tuple[WorkScopeItem, ...]:
+    """1 行から要素を作る。**「撤去して新設」だけ 2 つになる。**
+
+    分けた 2 つは**同じ根拠**(同じページ・同じ行)を持つ。別々の根拠に
+    すると、見積の 2 行が別の証拠から出てきたように見えてしまう。
+    """
+    kinds = READING_TO_WORK_KINDS[reading]
+
+    if reading == READING_FROM_BASE:
         notes = notes + (
-            "この 1 件は撤去と新設の両方を含む。"
-            "工事区分を「改修」1 つに畳むと片方が見えなくなる",
+            "下地から替わるので、撤去も含みうる。"
+            "どこまで撤去するかは仕上表からは決まらないので、ここでは分けない",
         )
-    elif reading == READING_FROM_BASE:
-        alternatives = ("撤去", "新設")
-        notes = notes + (
-            "下地から替わるので、撤去と新設の両方を含みうる。"
-            "どこまで撤去するかは仕上表からは決まらない",
+
+    items: list[WorkScopeItem] = []
+    for kind in kinds:
+        item_notes = notes
+        if len(kinds) > 1:
+            item_notes = item_notes + (
+                f"仕上表の 1 行(下地欄が「交換」)を撤去と新設の 2 件に分けた"
+                f"うちの「{kind}」。もう一方と根拠は同じ行である",
+            )
+        items.append(
+            WorkScopeItem(
+                work_kind=kind,
+                what=part,
+                where=room,
+                evidence=(
+                    ScopeEvidence(
+                        kind=EVIDENCE_KIND,
+                        page_number=page_number,
+                        row_index=row_index,
+                        source_texts=source_texts,
+                    ),
+                ),
+                notes=item_notes,
+            )
         )
-    return WorkScopeItem(
-        work_kind=READING_TO_WORK_KIND[reading],
-        what=part,
-        where=room,
-        evidence=(
-            ScopeEvidence(
-                kind=EVIDENCE_KIND,
-                page_number=page_number,
-                row_index=row_index,
-                source_texts=source_texts,
-            ),
-        ),
-        alternatives=alternatives,
-        notes=notes,
-    )
+    return tuple(items)
 
 
 def assign_finish_schedule_scope(schedule: Any) -> FinishScopeResult:
@@ -488,7 +524,7 @@ def assign_finish_schedule_scope(schedule: Any) -> FinishScopeResult:
             finish=view.finish,
             page_number=page_number,
             row_index=view.row_index,
-            item=_item_for(
+            items=_items_for(
                 reading,
                 room=room,
                 part=part,

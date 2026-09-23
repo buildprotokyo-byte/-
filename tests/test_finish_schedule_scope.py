@@ -15,6 +15,9 @@
 5. **下地の列が無い表では、工事の有無を名乗らないこと**(全行が問い)。
 6. 読み取り側が「部位も仕上も空」として落とした行も、**継続行として
    拾い直すこと。** 落としたままだと問いが 10 件消える。
+7. **「撤去して新設」の行は、要素 2 つ(撤去・新設)になること。**
+   おーちゃんの回答(札、2026-09-23 15:11)。どちらの要素も根拠には
+   **同じ仕上表のページと行番号**が入る。
 """
 
 from __future__ import annotations
@@ -35,6 +38,8 @@ from estimating.finish_schedule_scope import (
 from estimating.scope_diff import (
     WORK_ALTERED,
     WORK_AS_IS,
+    WORK_NEW,
+    WORK_REMOVAL,
     WORK_UNDECIDED,
 )
 from tests.test_pdf_tables import single_table_pdf
@@ -91,25 +96,65 @@ def test_the_not_applicable_row_keeps_its_reason(tmp_path: Path) -> None:
 def test_the_readings_map_onto_the_five_work_kinds(tmp_path: Path) -> None:
     result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
 
-    assert [a.item.work_kind for a in result.assignments] == [
-        WORK_AS_IS,
-        WORK_ALTERED,
-        WORK_ALTERED,
-        WORK_AS_IS,
-        WORK_AS_IS,
-        WORK_ALTERED,
+    assert [[i.work_kind for i in a.items] for a in result.assignments] == [
+        [WORK_AS_IS],
+        [WORK_ALTERED],
+        [WORK_REMOVAL, WORK_NEW],  # 撤去して新設 は 2 つに分かれる
+        [WORK_AS_IS],
+        [WORK_AS_IS],
+        [WORK_ALTERED],
     ]
 
 
-def test_a_replacement_says_that_it_holds_both_a_removal_and_an_install(
+def test_a_replacement_becomes_two_elements_a_removal_and_an_install(
     tmp_path: Path,
 ) -> None:
-    """**「撤去して新設」は 1 つの区分に畳むと片方が消える。** 注記で残す。"""
+    """**「撤去して新設」の行は見積では 2 行になる。**
+
+    おーちゃんの回答(札、2026-09-23 15:11)。1 件に畳むと片方が見えなくなる
+    ので、**要素のほうを 2 つ作る。** 読み(`reading`)は 1 行分のまま
+    「撤去して新設」で残し、どちらが元の行かを追えるようにする。
+    """
     result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
 
     replacement = result.assignments[2]
-    assert replacement.item.alternatives == ("撤去", "新設")
-    assert any("撤去" in note and "新設" in note for note in replacement.item.notes)
+    assert replacement.reading == READING_REPLACE
+    assert [item.work_kind for item in replacement.items] == [WORK_REMOVAL, WORK_NEW]
+    # 区分が分かれたので、**片方を注記に逃がす必要はもう無い。**
+    assert all(item.alternatives == () for item in replacement.items)
+
+
+def test_both_halves_of_a_replacement_point_at_the_same_row_of_the_schedule(
+    tmp_path: Path,
+) -> None:
+    """**2 行に分けても、根拠は同じ仕上表の同じ行である。**
+
+    おーちゃんの指定どおり、どちらにも同じページ番号と行番号を入れる。
+    ここが違うと、見積の 2 行が別々の根拠を持っているように見える。
+    """
+    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+
+    removal, install = result.assignments[2].items
+    assert len(removal.evidence) == 1 and len(install.evidence) == 1
+    assert removal.evidence[0].page_number == install.evidence[0].page_number
+    assert removal.evidence[0].row_index == install.evidence[0].row_index
+    assert removal.evidence[0].kind == install.evidence[0].kind == "仕上表から読んだ"
+    # 部屋と部位も同じ。**分けたのは工事区分だけ。**
+    assert (removal.what, removal.where) == (install.what, install.where)
+
+
+def test_only_the_replacement_reading_becomes_two_elements(tmp_path: Path) -> None:
+    """**分けるのは「撤去して新設」だけ。** ほかの読みは 1 行 1 要素のまま。
+
+    「下地からやり替え」も撤去を含みうるが、**どこまで撤去するかは仕上表
+    からは決まらない。** おーちゃんの回答が名指ししたのは「撤去して新設」
+    だけなので、ここを勝手に広げない。
+    """
+    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+
+    for assignment in result.assignments:
+        expected = 2 if assignment.reading == READING_REPLACE else 1
+        assert len(assignment.items) == expected, assignment.reading
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +211,7 @@ def test_a_question_shows_the_previous_row_and_this_row(tmp_path: Path) -> None:
 def test_a_question_is_undecided_rather_than_guessed(tmp_path: Path) -> None:
     result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", CONTINUATION))
 
-    assert result.assignments[1].item.work_kind == WORK_UNDECIDED
+    assert [i.work_kind for i in result.assignments[1].items] == [WORK_UNDECIDED]
     assert result.assignments[1].question is not None
 
 
@@ -180,8 +225,9 @@ def test_no_quantity_is_produced(tmp_path: Path) -> None:
     result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
 
     for assignment in result.assignments:
-        assert assignment.item.value_range is None
-        assert assignment.item.unit is None
+        for item in assignment.items:
+            assert item.value_range is None
+            assert item.unit is None
 
 
 # ---------------------------------------------------------------------------
@@ -195,17 +241,25 @@ def test_every_element_carries_the_page_and_the_row_it_came_from(
     result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
 
     for assignment in result.assignments:
-        evidence = assignment.item.evidence
-        assert len(evidence) == 1
-        assert evidence[0].kind == "仕上表から読んだ"
-        assert evidence[0].page_number == 1
-        assert evidence[0].row_index >= 1
+        for item in assignment.items:
+            evidence = item.evidence
+            assert len(evidence) == 1
+            assert evidence[0].kind == "仕上表から読んだ"
+            assert evidence[0].page_number == 1
+            assert evidence[0].row_index >= 1
 
 
 def test_the_rows_are_numbered_as_the_table_has_them(tmp_path: Path) -> None:
     result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
 
-    assert [a.item.evidence[0].row_index for a in result.assignments] == [1, 2, 3, 4, 5, 6]
+    assert [a.items[0].evidence[0].row_index for a in result.assignments] == [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +284,11 @@ def test_without_a_base_column_every_row_becomes_a_question(tmp_path: Path) -> N
     result = assign_finish_schedule_scope(schedule)
 
     assert [a.reading for a in result.assignments] == [READING_QUESTION] * 2
-    assert all(a.item.work_kind == WORK_UNDECIDED for a in result.assignments)
+    assert all(
+        item.work_kind == WORK_UNDECIDED
+        for a in result.assignments
+        for item in a.items
+    )
     assert result.no_base_column is True
 
 
@@ -255,7 +313,7 @@ def test_a_blank_part_is_carried_forward_and_the_fact_is_recorded(
     assert second.reading == READING_FROM_BASE
     assert second.part == "壁"
     assert second.part_source == "carried_forward"
-    assert any("引き継" in note for note in second.item.notes)
+    assert any("引き継" in note for note in second.items[0].notes)
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +326,22 @@ def test_the_counts_add_up_to_the_number_of_rows(tmp_path: Path) -> None:
 
     assert sum(result.counts_by_reading().values()) == len(result.assignments)
     assert result.unassigned == ()
+
+
+def test_the_element_count_is_the_row_count_plus_the_replacements(
+    tmp_path: Path,
+) -> None:
+    """**行の数と要素の数はもう同じではない。** 足し算で数えない。
+
+    「撤去して新設」の行だけが 2 つになるので、要素の数は
+    行の数 + 「撤去して新設」の件数である。
+    """
+    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+
+    replacements = result.counts_by_reading()[READING_REPLACE]
+    assert replacements == 1
+    assert result.item_count == len(result.assignments) + replacements
+    assert sum(result.counts_by_work_kind().values()) == result.item_count
 
 
 def test_an_unknown_base_word_is_not_forced_into_a_reading(tmp_path: Path) -> None:

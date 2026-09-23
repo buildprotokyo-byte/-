@@ -83,19 +83,17 @@ def _measure_synthetic() -> dict[str, Any]:
     if schedule is None:
         return {"error": "合成の表が内装仕上表として読めませんでした"}
     result = assign_finish_schedule_scope(schedule)
+    items = [item for a in result.assignments for item in a.items]
     return {
         "rows": result.row_count,
+        "items": result.item_count,
         "counts_by_reading": result.counts_by_reading(),
         "counts_by_work_kind": result.counts_by_work_kind(),
         "questions": len(result.questions),
         "unassigned": len(result.unassigned),
-        "quantities": sum(
-            1 for a in result.assignments if a.item.value_range is not None
-        ),
+        "quantities": sum(1 for item in items if item.value_range is not None),
         "with_page_and_row": sum(
-            1
-            for a in result.assignments
-            if a.item.evidence and a.item.evidence[0].page_number >= 1
+            1 for item in items if item.evidence and item.evidence[0].page_number >= 1
         ),
     }
 
@@ -103,7 +101,7 @@ def _measure_synthetic() -> dict[str, Any]:
 def _measure_pdf(pdf: Path, pages: tuple[int, ...]) -> dict[str, Any]:
     totals = {reading: 0 for reading in READINGS}
     kinds: dict[str, int] = {}
-    rows = questions = unassigned = quantities = with_evidence = 0
+    rows = items = questions = unassigned = quantities = with_evidence = 0
     unassigned_rows: list[dict[str, Any]] = []
     per_page: list[dict[str, Any]] = []
 
@@ -111,6 +109,7 @@ def _measure_pdf(pdf: Path, pages: tuple[int, ...]) -> dict[str, Any]:
         for schedule in read_finish_schedules(pdf, page_number - 1):
             result = assign_finish_schedule_scope(schedule)
             rows += result.row_count
+            items += result.item_count
             questions += len(result.questions)
             unassigned += len(result.unassigned)
             for row in result.unassigned:
@@ -120,14 +119,16 @@ def _measure_pdf(pdf: Path, pages: tuple[int, ...]) -> dict[str, Any]:
             for kind, count in result.counts_by_work_kind().items():
                 kinds[kind] = kinds.get(kind, 0) + count
             for assignment in result.assignments:
-                if assignment.item.value_range is not None:
-                    quantities += 1
-                if assignment.item.evidence:
-                    with_evidence += 1
+                for item in assignment.items:
+                    if item.value_range is not None:
+                        quantities += 1
+                    if item.evidence:
+                        with_evidence += 1
             per_page.append(
                 {
                     "page_number": schedule.page_number,
                     "rows": result.row_count,
+                    "items": result.item_count,
                     "base_columns": list(schedule.base_columns),
                     "counts_by_reading": result.counts_by_reading(),
                 }
@@ -135,6 +136,7 @@ def _measure_pdf(pdf: Path, pages: tuple[int, ...]) -> dict[str, Any]:
 
     return {
         "rows": rows,
+        "items": items,
         "counts_by_reading": totals,
         "counts_by_work_kind": kinds,
         "questions": questions,
