@@ -31,7 +31,7 @@ import sys
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Sequence
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -258,6 +258,23 @@ def _build(scenario: Scenario, evidence, confirmed, policy: TierPolicy):
     return solver, assessments, tier3
 
 
+def _human_checked(tier3: Sequence[str], session) -> set[str]:
+    """人が1件ずつ確認する要素の集合。
+
+    **2026-09-22 に数え方を直した。** それまでは「変数として登録されなかった
+    要素」だけを数えていたが、これは当時
+    ``killer_question/firewall_bridge.py`` が階層3の一部を登録していなかった
+    ことに依存した代理指標だった。停止した要素も必ず登録するようになった
+    (群合計制約が書けなくなるため。`docs/group_total_masking_design.md`)ので、
+    この代理は成り立たない。
+
+    数えるべきは **``requires_confirmation`` が立ったまま残った要素**である。
+    質問で解決された要素は ``mark_confirmed()`` でフラグが降りるので、
+    ``session.question_count`` との二重計上にはならない。
+    """
+    return set(tier3) | set(session.final_solver.names_requiring_confirmation())
+
+
 def run_with_policy(scenario: Scenario, evidence, *, policy: TierPolicy,
                     audit_seed: int) -> SimOutcome:
     confirmed: dict[str, int] = {}
@@ -282,11 +299,12 @@ def run_with_policy(scenario: Scenario, evidence, *, policy: TierPolicy,
     engine = KillerQuestionEngine(solver, axis_error_rates=AXIS_ERROR_RATES)
     session = engine.run(lambda question: scenario.truth[question.variable])
     result = session.final_result
+    human_checked = _human_checked(tier3, session)
 
     def wrong_targets(res, extra_confirmed: set[str]) -> list[str]:
         out = []
         for name, value in scenario.truth.items():
-            if name in tier3 or name in confirmed or name in extra_confirmed:
+            if name in human_checked or name in confirmed or name in extra_confirmed:
                 continue
             solution = res.variables.get(name)
             if solution is None or solution.solved_range != (value, value):
@@ -322,19 +340,20 @@ def run_with_policy(scenario: Scenario, evidence, *, policy: TierPolicy,
         solver2, _, tier3b = _build(scenario, evidence, recheck, policy)
         engine2 = KillerQuestionEngine(solver2, axis_error_rates=AXIS_ERROR_RATES)
         session2 = engine2.run(lambda q: scenario.truth[q.variable])
+        human_checked2 = _human_checked(tier3b, session2)
         after = [
             n for n, v in scenario.truth.items()
-            if n not in tier3b and n not in recheck
+            if n not in human_checked2 and n not in recheck
             and (session2.final_result.variables.get(n) is None
                  or session2.final_result.variables[n].solved_range != (v, v))
         ]
 
-    cost = (session.question_count + len(tier3) + report.sample_size
+    cost = (session.question_count + len(human_checked) + report.sample_size
             + contradiction_checks + len(extra))
     return SimOutcome(
         accuracy_before_audit=1 - len(before) / scenario.size,
         accuracy_after_audit=1 - len(after) / scenario.size,
-        cost=cost, questions=session.question_count, tier3_checks=len(tier3),
+        cost=cost, questions=session.question_count, tier3_checks=len(human_checked),
         tier2_population=len(remaining), audit_samples=report.sample_size,
         audit_catches=len(caught), expanded_checks=len(extra),
         contradiction_checks=contradiction_checks,

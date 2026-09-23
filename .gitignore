@@ -6,3 +6,7 @@ __pycache__/
 venv/
 .mypy_cache/
 .DS_Store
+
+# ベンチマークが作る合成 PDF(生成物。リポジトリに置かない)
+.bench_tmp/
+.venv/

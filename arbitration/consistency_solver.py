@@ -49,7 +49,7 @@ OR-Tools(CP-SAT)・Z3-solver はどちらも PyPI から問題なくインスト
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Literal, Sequence, Union
 
 import z3
@@ -118,6 +118,18 @@ class Variable:
     #: 空文字のときは ``axis`` を出どころとして扱う。
     source_axis: str = ""
 
+    #: **矛盾を見つけるための範囲**(省略すると ``lower``/``upper`` と同じ)。
+    #:
+    #: ``lower``/``upper`` は「確定に使う範囲」で、人に質問できるようにする
+    #: ために広げられることがある(``firewall_bridge`` の精密モード)。
+    #: 広げた範囲をそのまま矛盾検出に使うと、**広がった幅が群合計制約の中で
+    #: 他の要素の誤りを吸収してしまい、unsat が sat に変わる**
+    #: (2026-09-22 実測。`docs/group_total_masking_design.md` 2節)。
+    #: そこで矛盾検出には、読み取り値に基づく狭いほうの範囲を使う。
+    #: ``solve(use_detection_ranges=True)`` がこちらを参照する。
+    detection_lower: int | None = None
+    detection_upper: int | None = None
+
     #: **この値を、いくつの独立したデータ源が言っているか。**
     #:
     #: 問いの質を分けるために使う(2026-09-23 おーちゃんの判断)。
@@ -131,6 +143,13 @@ class Variable:
     def error_rate_axis(self) -> str:
         """データ源別誤り率を引くときに使う軸名。"""
         return self.source_axis or self.axis
+
+    @property
+    def detection_range(self) -> IntRange:
+        """矛盾検出に使う範囲。宣言されていなければ確定用の範囲と同じ。"""
+        lower = self.lower if self.detection_lower is None else self.detection_lower
+        upper = self.upper if self.detection_upper is None else self.detection_upper
+        return (lower, upper)
 
 
 @dataclass(frozen=True)
@@ -248,6 +267,7 @@ class ConsistencySolver:
         requires_confirmation: bool = False,
         unit: str = "",
         source_axis: str = "",
+        detection_range: IntRange | None = None,
         independent_sources: int = 0,
     ) -> None:
         """下限・上限を直接指定して、ハードな制約に使う変数を登録する。
@@ -258,15 +278,36 @@ class ConsistencySolver:
         ``source_axis`` は値の出どころの軸。``axis`` に確信度階層のラベルを
         入れる呼び出し(``firewall_bridge``)でも、データ源別誤り率を引けるように
         するためのもの。省略すると ``axis`` を出どころとして扱う。
+
+        ``detection_range`` は**矛盾を見つけるための範囲**。``lower``/``upper``
+        を人への質問のために広げる場合に、読み取り値に基づく狭いほうの範囲を
+        別に渡す(:attr:`Variable.detection_lower` を参照)。確定用の範囲より
+        広くはできない。
         """
         if name in self._variables:
             raise ValueError(f"変数 '{name}' は既に登録されています")
         if lower > upper:
             raise ValueError(f"'{name}': lower({lower}) > upper({upper})")
+        detection_lower = detection_upper = None
+        if detection_range is not None:
+            detection_lower, detection_upper = detection_range
+            if detection_lower > detection_upper:
+                raise ValueError(
+                    f"'{name}': detection_range の下限({detection_lower})が"
+                    f"上限({detection_upper})を超えています"
+                )
+            if detection_lower < lower or detection_upper > upper:
+                # 確定用より広い検出用の範囲は、「狭いほうで矛盾を見る」という
+                # この仕組みの前提を壊す(広い側で吸収が起きる)。
+                raise ValueError(
+                    f"'{name}': detection_range ({detection_lower}, {detection_upper}) が"
+                    f"確定用の範囲 ({lower}, {upper}) からはみ出しています"
+                )
         self._variables[name] = Variable(
             name, lower, upper, axis, strength, dict(evidence or {}),
             unit=unit, requires_confirmation=requires_confirmation,
             source_axis=source_axis, independent_sources=independent_sources,
+            detection_lower=detection_lower, detection_upper=detection_upper,
         )
 
     def add_variable_from_reading(
@@ -349,6 +390,23 @@ class ConsistencySolver:
         """変数が属する軸の名前(登録時の ``axis`` 引数)。"""
         return self._variables[name].axis
 
+    def variable_range(self, name: str) -> IntRange:
+        """確定に使う範囲(登録時の ``lower`` / ``upper``)。"""
+        variable = self._variables[name]
+        return (variable.lower, variable.upper)
+
+    def variable_detection_range(self, name: str) -> IntRange:
+        """矛盾を見つけるための範囲(:attr:`Variable.detection_range`)。"""
+        return self._variables[name].detection_range
+
+    def variable_evidence(self, name: str) -> dict[str, object]:
+        """変数に添えられた根拠(登録時の ``evidence``)の複製。
+
+        ``firewall_bridge`` が確信度階層(``firewall_tier`` / ``firewall_action``)
+        をここに入れるため、下流が階層を読み直せる。複製を返すので、
+        受け取った側が書き換えても登録内容は壊れない。"""
+        return dict(self._variables[name].evidence)
+
     def variable_error_rate_axis(self, name: str) -> str:
         """データ源別誤り率を引くときに使う軸名(``source_axis`` 優先)。
 
@@ -387,12 +445,10 @@ class ConsistencySolver:
         variable = self._variables.get(name)
         if variable is None or not variable.requires_confirmation:
             return
-        self._variables[name] = Variable(
-            variable.name, variable.lower, variable.upper, variable.axis,
-            variable.strength, dict(variable.evidence),
-            unit=variable.unit, requires_confirmation=False,
-            source_axis=variable.source_axis,
-        )
+        # **欄を並べ直さない。** 手で書き写すと、後から足した欄を
+        # 写し忘れて既定値に戻る(2026-09-23、`independent_sources` で現に起きた。
+        # 確認した要素の「何個のデータ源が言っていたか」が 0 に戻っていた)。
+        self._variables[name] = replace(variable, requires_confirmation=False)
 
     def constraint_names(self) -> tuple[str, ...]:
         """登録済みの制約名の一覧(``add_relation`` / ``add_constraint`` で
@@ -415,6 +471,17 @@ class ConsistencySolver:
         )
         constraint.build(recorder)
         return frozenset(recorder.accessed)
+
+    def remove_constraint(self, name: str) -> None:
+        """登録済みの制約を1つ外す。
+
+        「その制約が無かったら解はどうなるか」を調べるために使う
+        (`arbitration/group_total.py` が、群合計が実際に何を絞り込んだのかを
+        判定するのに使っている)。**元の solver を壊さないよう、
+        ``clone()`` した複製に対して呼ぶこと。**
+        """
+        self._constraint_by_name(name)  # 未登録なら KeyError
+        self._constraints = [c for c in self._constraints if c.name != name]
 
     def _constraint_by_name(self, name: str) -> Constraint:
         for constraint in self._constraints:
@@ -487,8 +554,15 @@ class ConsistencySolver:
         return operand
 
     # -- 求解 ----------------------------------------------------------------
-    def solve(self) -> SolveResult:
-        """強い軸の変数・制約だけでハードに解き、弱い軸は参考情報として突き合わせる。"""
+    def solve(self, *, use_detection_ranges: bool = False) -> SolveResult:
+        """強い軸の変数・制約だけでハードに解き、弱い軸は参考情報として突き合わせる。
+
+        ``use_detection_ranges=True`` にすると、各変数の定義域に
+        :attr:`Variable.detection_range`(矛盾を見つけるための狭い範囲)を使う。
+        **確定に使う範囲と矛盾を見つけるための範囲を分けて持つ**ためのもので、
+        人への質問のために広げた範囲が、群合計制約の中で他の要素の誤りを
+        吸収してしまうのを防ぐ(`docs/group_total_masking_design.md`)。
+        """
         # 短いZ3呼び出しはWindowsのmonotonic時計では0 msに丸められることがある。
         # 効果測定に使える高分解能時計で計測する。
         start = time.perf_counter()
@@ -512,10 +586,16 @@ class ConsistencySolver:
         ctx = z3.Context()
         z3vars = {name: z3.Int(name, ctx) for name in strong_vars}
 
+        domains = {
+            name: (var.detection_range if use_detection_ranges else (var.lower, var.upper))
+            for name, var in strong_vars.items()
+        }
+
         items: list[tuple[str, z3.BoolRef]] = []
-        for name, var in strong_vars.items():
+        for name in strong_vars:
+            low, high = domains[name]
             items.append(
-                (f"range::{name}", z3.And(z3vars[name] >= var.lower, z3vars[name] <= var.upper))
+                (f"range::{name}", z3.And(z3vars[name] >= low, z3vars[name] <= high))
             )
         for constraint in self._constraints:
             items.append((constraint.name, constraint.build(z3vars)))
@@ -529,7 +609,7 @@ class ConsistencySolver:
             elapsed = time.perf_counter() - start
             conflicting = tuple(str(c) for c in core_solver.unsat_core())
             variables = {
-                name: VariableSolution(name, var.axis, (var.lower, var.upper), (var.lower, var.upper))
+                name: VariableSolution(name, var.axis, domains[name], domains[name])
                 for name, var in strong_vars.items()
             }
             return SolveResult(
@@ -545,7 +625,7 @@ class ConsistencySolver:
         }
         variables = {
             name: VariableSolution(
-                name, var.axis, (var.lower, var.upper), solved_ranges[name]
+                name, var.axis, domains[name], solved_ranges[name]
             )
             for name, var in strong_vars.items()
         }

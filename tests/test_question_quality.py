@@ -97,3 +97,21 @@ def test_the_disagreement_does_not_pin_the_value() -> None:
     solution = session.final_result.variables["count"]
 
     assert solution.solved_range == (3, 5)
+
+
+def test_confirming_a_variable_keeps_how_many_sources_said_it() -> None:
+    """**人が確認しても、「何個のデータ源が言っていたか」は消えない。**
+
+    `mark_confirmed` は変数を作り直すので、**写し忘れた欄は既定値に戻る。**
+    独立したデータ源の数が 0(分からない)に戻ると、その要素の問いは
+    検算できない C の扱いになる。**確認したことで階級が下がるのはおかしい。**
+    """
+    solver = ConsistencySolver()
+    solver.add_variable(
+        "count", 3, 5, axis="image", independent_sources=2, requires_confirmation=True
+    )
+    assert solver.independent_sources("count") == 2
+
+    solver.mark_confirmed("count")
+
+    assert solver.independent_sources("count") == 2
