@@ -24,13 +24,44 @@ from intake.drawing_intake import IntakeConfig, read_drawing  # noqa: E402
 #: 紙の上の位置が分かる鍵。
 POSITION_KEYS = ("rect_pt", "point_a_pt", "center_pt", "cell_rect_pt")
 #: 元の文字列が分かる鍵。
-TEXT_KEYS = ("source_text", "printed_scale_source_text", "cell_text", "raw_text")
+TEXT_KEYS = ("source_text", "printed_scale_source_text", "scale_source_text", "cell_text", "raw_text")
+
+
+def _walk(value):
+    """`provenance` を入れ子ごとたどって、辞書の (鍵, 値) を全部返す。
+
+    **最初の実装は一番外側しか見ていなかった。** 実際の根拠は
+    `arcs` や `occurrences` の中に 1 段くぐって入っている。
+    基準に書いた言葉は「位置**または**元の文字が分かるか」なので、
+    **どの深さにあっても分かることに変わりはない。**
+    (この直しの経緯は `docs/d_tier3_usefulness_report.md` に書いた。)
+    """
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield key, item
+            yield from _walk(item)
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _walk(item)
 
 
 def has_position_or_text(provenance: dict) -> tuple[bool, bool]:
-    position = any(provenance.get(key) for key in POSITION_KEYS)
-    text = any(provenance.get(key) for key in TEXT_KEYS)
+    position = False
+    text = False
+    for key, value in _walk(provenance):
+        if value in (None, "", [], {}):
+            continue
+        if key in POSITION_KEYS:
+            position = True
+        if key in TEXT_KEYS:
+            text = True
     return position, text
+
+
+def has_page_number(provenance: dict) -> bool:
+    return any(
+        key == "page_number" and value is not None for key, value in _walk(provenance)
+    )
 
 
 def main(argv: list[str]) -> int:
@@ -67,7 +98,7 @@ def main(argv: list[str]) -> int:
         position, text = has_position_or_text(provenance)
         checks = {
             "数値の範囲": finding.value_range is not None,
-            "ページ番号": provenance.get("page_number") is not None,
+            "ページ番号": has_page_number(provenance),
             "位置または元の文字": position or text,
             "手法の名前": bool(finding.method_id),
         }
@@ -100,7 +131,7 @@ def main(argv: list[str]) -> int:
             position, text = has_position_or_text(provenance)
             if (
                 finding.value_range is not None
-                and provenance.get("page_number") is not None
+                and has_page_number(provenance)
                 and (position or text)
                 and finding.method_id
             ):
