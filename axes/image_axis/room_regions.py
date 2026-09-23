@@ -74,6 +74,7 @@ from pathlib import Path
 
 from axes.image_axis.pdf_room_outlines import (
     MAX_GAP_MM,
+    WALL_MIN_ASPECT,
     ROOM_MAX_SQM,
     ROOM_MIN_SQM,
     ROOM_MIN_WIDTH_MM,
@@ -82,21 +83,20 @@ from axes.image_axis.pdf_room_outlines import (
     PlanGraph,
     _apply_area_basis,
     _inside,
+    _boundary_cycle,
+    _has_island,
+    _perimeter,
+    _representative_point,
+    _sides,
     bracket_to_square_centimetre,
     build_plan_graph,
     face_metrics,
+    is_wall_cavity,
 )
 from axes.image_axis.pdf_vector_symbols import DrawingScale
 
 #: 手法ID。`arbitration/method_policies.py` の登録簿がこの名前を鍵にする。
 METHOD_ROOM_REGION = "pdf_vector_room_region"
-
-#: 壁の中身とみなすのに要る「細長さ」(長さ ÷ 幅)。
-#: **狭いだけでは壁ではない。** 床の目地で割れた小さな区画も
-#: ``2 × 面積 ÷ 周長`` は小さくなる(600 x 300mm の区画で 200mm)。
-#: 壁の中身は狭いうえに**長い**(3800 x 200mm の壁で細長さ 20)。
-#: **暫定値で、実図面で校正していない。**
-WALL_MIN_ASPECT = 6.0
 
 
 @dataclass(frozen=True)
@@ -295,36 +295,12 @@ def find_room_regions(
 def _looks_like_a_wall(
     metric: tuple[float, float, float], min_width_mm: float
 ) -> bool:
-    """その面が壁の中身か。**狭いだけでは壁ではない。狭くて長いのが壁である。**
+    """`pdf_room_outlines.is_wall_cavity` の薄い包み(**紙の上の厚みは見ない**)。
 
-    床の目地で割れた小さな区画も ``2 × 面積 ÷ 周長`` は小さくなるので、
-    幅だけで見ると**区画が全部壁になってしまう**(合成図面で 133 面すべてが
-    壁と判定された)。長さと幅の比も一緒に見る。
+    7 周目の判定をそのまま再現できるように残してある。
+    紙の上の厚みを見るのは 8 周目の `wall_network.py` である。
     """
-    area_sqm, perimeter_mm, width_mm = metric
-    if width_mm <= 0 or width_mm >= min_width_mm:
-        return False
-    length_mm, short_mm = _sides(area_sqm * 1_000_000.0, perimeter_mm)
-    if short_mm <= 0:
-        return False
-    return length_mm / short_mm >= WALL_MIN_ASPECT
-
-
-def _sides(area_mm2: float, perimeter_mm: float) -> tuple[float, float]:
-    """面積と周長から、同じ面積・周長を持つ長方形の (長辺, 短辺) を出す。
-
-    ``2 × 面積 ÷ 周長`` は長方形の辺そのものではない
-    (1200 x 300mm の区画で 240mm になる)。長さと幅の比を見るには辺が要る。
-    長方形にならない面(解が無い)では、短辺を ``2 × 面積 ÷ 周長`` で代用する。
-    """
-    half = perimeter_mm / 2.0
-    discriminant = half * half - 4.0 * area_mm2
-    if discriminant < 0:
-        width = 2.0 * area_mm2 / perimeter_mm if perimeter_mm > 0 else 0.0
-        return (half - width, width)
-    root = discriminant ** 0.5
-    short = (half - root) / 2.0
-    return (half - short, short)
+    return is_wall_cavity(metric, min_width_mm)
 
 
 def _smallest_face_containing(
@@ -395,40 +371,6 @@ def _grow(
 # ---------------------------------------------------------------------------
 
 
-def _boundary_cycle(region: set[int], graph: PlanGraph) -> list[int] | None:
-    """領域の外周を 1 本の輪にする。穴があるときや枝分かれするときは None。"""
-    outgoing: dict[int, int] = {}
-    virtual = 0
-    count = 0
-    for face in region:
-        cycle = graph.cycles[face]
-        for position in range(len(cycle)):
-            a = cycle[position]
-            b = cycle[(position + 1) % len(cycle)]
-            twin = graph.owner.get((b, a))
-            if twin is not None and twin in region:
-                continue
-            if a in outgoing:
-                return None  # 枝分かれ(8 の字など)
-            outgoing[a] = b
-            count += 1
-            if (a, b) in graph.virtual_edges:
-                virtual += 1
-    if not outgoing:
-        return None
-    start = next(iter(outgoing))
-    chain = [start]
-    current = outgoing[start]
-    while current != start:
-        if current not in outgoing or len(chain) > count:
-            return None
-        chain.append(current)
-        current = outgoing[current]
-    if len(chain) != count:
-        return None  # 外周のほかに穴がある
-    return chain
-
-
 def _build_region(
     region: set[int],
     names: set[str],
@@ -480,51 +422,3 @@ def _build_region(
     )
 
 
-def _has_island(
-    region: set[int],
-    graph: PlanGraph,
-    metrics: list[tuple[float, float, float]],
-    region_area_sqm: float,
-) -> bool:
-    """領域の外周の内側に、領域に入っていない面があるか。
-
-    独立柱のように**どの壁にも触れていない**図形は、面をたどっても領域に入らない。
-    外周だけで面積を数えると、その柱のぶんだけ大きく出る。**大きく出すくらいなら出さない。**
-    """
-    cycle = _boundary_cycle(region, graph)
-    if cycle is None:
-        return False  # つながらない時点で出さないので、ここでは判定しない
-    polygon = [graph.coords[index] for index in cycle]
-    xs = [x for x, _ in polygon]
-    ys = [y for _, y in polygon]
-    box = (min(xs), min(ys), max(xs), max(ys))
-    for index, (area, _, _) in enumerate(metrics):
-        if area <= 0 or index in region:
-            continue
-        if area >= region_area_sqm:
-            continue  # **中にあるものは外より小さい。** 図面枠の面を島と数えない
-        xs = [graph.coords[k][0] for k in graph.cycles[index]]
-        ys = [graph.coords[k][1] for k in graph.cycles[index]]
-        if not (box[0] <= min(xs) and max(xs) <= box[2] and box[1] <= min(ys) and max(ys) <= box[3]):
-            continue
-        if _inside(_representative_point(graph.cycles[index], graph.coords), polygon):
-            return True
-    return False
-
-
-def _representative_point(
-    cycle: list[int], coords: list[tuple[float, float]]
-) -> tuple[float, float]:
-    """面の中にあるとみなせる点。**重心を使う**(凹んだ面では外へ出ることがある)。"""
-    xs = [coords[index][0] for index in cycle]
-    ys = [coords[index][1] for index in cycle]
-    return (sum(xs) / len(xs), sum(ys) / len(ys))
-
-
-def _perimeter(polygon: list[tuple[float, float]]) -> float:
-    total = 0.0
-    for index in range(len(polygon)):
-        x1, y1 = polygon[index]
-        x2, y2 = polygon[(index + 1) % len(polygon)]
-        total += ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
-    return total

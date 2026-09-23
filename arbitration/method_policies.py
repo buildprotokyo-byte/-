@@ -46,6 +46,7 @@ from axes.image_axis.ocr_readings import (
 )
 from axes.image_axis.pdf_room_outlines import METHOD_ROOM_OUTLINE
 from axes.image_axis.room_regions import METHOD_ROOM_REGION
+from axes.image_axis.wall_network import METHOD_WALL_NETWORK
 from axes.image_axis.pdf_repeated_symbols import (
     METHOD_LEGEND_SYMBOL,
     METHOD_REPEATED_SYMBOL,
@@ -166,6 +167,16 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   こちらの決めごとで、図面がそう描かれている保証は無い。
 #:   **室名は仕上表という別の出どころから来るが、面の形は同じ PDF の線から
 #:   来るので、独立した 2 つ目の軸にはならない**(原則 3 節)。
+#: - ``pdf_vector_wall_network`` … 壁の中身の面だけを境にして、そのまわりを
+#:   まとめたもの(`axes/image_axis/wall_network.find_regions_between_walls`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 4 つ。
+#:   ①``pdf_vector_room_outline`` の弱点(①〜④)をそのまま引き継ぐ。
+#:   ②**壁を 1 本線で描いた図面には原理的に効かない**(全部が 1 つに溶ける)。
+#:   出た室の数は常に下限で、**0 件は「室が無い」ではない**。
+#:   ③壁と呼ぶ条件(細長さ 6.0、紙の上の厚み 1pt、幅 400mm)は
+#:   **どれも実図面で校正していない暫定値**である。
+#:   ④壁の網に切れ目があると隣とつながって面積が大きく出る。
+#:   窓の外なら落ちるが、窓の中に収まってしまえば**大きいまま出る。**
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -181,6 +192,7 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_LEGEND_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_ROOM_OUTLINE: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_ROOM_REGION: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_WALL_NETWORK: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 
