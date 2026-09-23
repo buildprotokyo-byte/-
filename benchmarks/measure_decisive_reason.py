@@ -14,8 +14,12 @@
 使い方::
 
     .venv/bin/python benchmarks/measure_decisive_reason.py
+    .venv/bin/python benchmarks/measure_decisive_reason.py <実図面PDFのパス>
 
-**出すのは件数と割合だけ。**
+引数に実図面を渡すと、**同じ数え方で理由別の内訳だけ**を足して出す
+(**PC 側=Codex-A 用**。パスは引数で渡し、リポジトリには書かない)。
+
+**出すのは件数と割合だけ。図面の中身は 1 文字も出さない。**
 """
 
 from __future__ import annotations
@@ -67,6 +71,33 @@ def run_production_path(tmp: Path) -> tuple[list, list, dict]:
     result = read_drawing(
         IntakeConfig(
             case_id="DEC-BENCH", pdf_path=pdf, answers_path=tmp / "answers.json"
+        )
+    )
+    mapping = map_quantities(quantities_from_intake(result), load_rules(EXAMPLE_RULES))
+    lines = [line for m in mapping.mappings for line in m.lines]
+    not_obtained = list(not_obtained_from_intake(result)) + list(mapping.not_obtained())
+    existing = {
+        "行数": len(lines),
+        "確定した行数": len(mapping.settled_lines()),
+        "基づきの内訳": mapping.basis_counts_text(),
+    }
+    return lines, not_obtained, existing
+
+
+def run_on_pdf(pdf_path: Path, tmp: Path) -> tuple[list, list, dict]:
+    """**渡された図面 1 冊**を、本番経路と同じ順で通す。
+
+    **出すのは件数だけ。** 室名も寸法も数量の値も返さない
+    (取り決め④: 実図面から作ったデータはリポジトリに残さない)。
+    """
+    from estimating.from_intake import not_obtained_from_intake, quantities_from_intake
+    from estimating.mapping import map_quantities
+    from estimating.rules import load_rules
+    from intake.drawing_intake import IntakeConfig, read_drawing
+
+    result = read_drawing(
+        IntakeConfig(
+            case_id="REAL", pdf_path=pdf_path, answers_path=tmp / "answers.json"
         )
     )
     mapping = map_quantities(quantities_from_intake(result), load_rules(EXAMPLE_RULES))
@@ -301,6 +332,8 @@ def control_3_existing_metrics(after: dict) -> dict:
 
 
 def main() -> int:
+    real_pdf = Path(sys.argv[1]) if len(sys.argv) > 1 else None
+
     with tempfile.TemporaryDirectory() as tmp:
         prod_lines, prod_not_obtained, prod_existing = run_production_path(Path(tmp))
     fixed_lines, fixed_not_obtained, fixed_existing = run_fixed_quantities()
@@ -321,6 +354,17 @@ def main() -> int:
         "C3_既存の指標": control_3_existing_metrics(prod_existing),
         "既存の指標_入力い": fixed_existing,
     }
+
+    if real_pdf is not None:
+        # **実図面。対象名は出さない**(合成案件と違い、対象名から中身が読める)。
+        with tempfile.TemporaryDirectory() as tmp:
+            real_lines, real_not_obtained, real_existing = run_on_pdf(
+                real_pdf, Path(tmp)
+            )
+        real = measure(real_lines, real_not_obtained)
+        real["M1_決め手が無い行"] = len(real["M1_決め手が無い行"])  # 件数だけ
+        payload["入力う_実図面"] = real
+        payload["既存の指標_入力う"] = real_existing
 
     c0 = all(payload["C0_行が出たか"].values())  # type: ignore[union-attr]
     c1 = all(payload["C1_でたらめを断るか"].values())  # type: ignore[union-attr]
