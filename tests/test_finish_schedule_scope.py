@@ -30,6 +30,15 @@ import pytest
 
 from axes.image_axis.schedule_tables import read_finish_schedules
 from estimating.finish_schedule_scope import (
+    BASE_EXISTING,
+    BASE_NOT_APPLICABLE,
+    BASE_OWNER_SUPPLIED,
+    BASE_REPLACED,
+    BASE_SAME_AS_ABOVE,
+    BASE_UNDETERMINED,
+    CAUSE_OWNER_SUPPLIED,
+    CAUSE_SAME_AS_ABOVE,
+    CAUSE_UNKNOWN_BASE_WORD,
     READING_FINISH_ONLY,
     READING_FROM_BASE,
     READING_NO_WORK,
@@ -426,3 +435,133 @@ def test_a_row_with_no_characters_at_all_is_not_a_question(tmp_path: Path) -> No
         READING_FROM_BASE,
         READING_QUESTION,
     ]
+
+
+# ---------------------------------------------------------------------------
+# 7. 下地欄の書き方の一覧(K-10 1番・2番)
+# ---------------------------------------------------------------------------
+
+
+def _one_row(tmp_path: Path, base: str, finish: str = "ビニルクロス"):
+    """下地欄だけを差し替えた 2 行の表。1 行目は普通の行(問いの「前の行」)。"""
+    rows: tuple[tuple[str | None, ...], ...] = (
+        ("室名", "部位", "下地", "仕上", "メーカー"),
+        ("洋室1", "壁", "軸組新設", "ビニルクロス", "架空社"),
+        ("洋室1", "天井", base, finish, "架空社"),
+    )
+    return assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", rows))
+
+
+def test_same_as_above_is_a_question_of_its_own_kind(tmp_path: Path) -> None:
+    """**「同上」は「まだ決まっていない」ではない**(K-10 1番)。
+
+    上の行と同じ、という意味である。だからといって**上の行の下地を自動で
+    引き継がない。** 継続行と同じで、問いに回す。
+    """
+    result = _one_row(tmp_path, "同上")
+
+    assert result.assignments[1].reading == READING_QUESTION
+    question = result.questions[0]
+    assert question.cause == CAUSE_SAME_AS_ABOVE
+    assert question.question == "この行の下地は、上の行と同じですか"
+
+
+def test_the_same_as_above_question_shows_the_previous_base(tmp_path: Path) -> None:
+    """おーちゃんの指定どおり、**上の行の室名・部位・下地**を並べて見せる。"""
+    question = _one_row(tmp_path, "同上").questions[0]
+
+    assert question.previous_room == "洋室1"
+    assert question.previous_part == "壁"
+    assert question.previous_base == "軸組新設"
+
+
+def test_same_as_above_does_not_inherit_the_base_of_the_row_above(
+    tmp_path: Path,
+) -> None:
+    """**引き継いだ結果「下地からやり替え」にしない。** 区分不明で止める。"""
+    result = _one_row(tmp_path, "同上")
+
+    assert [i.work_kind for i in result.assignments[1].items] == [WORK_UNDECIDED]
+    assert result.assignments[1].base == "同上"
+
+
+def test_owner_supplied_material_is_a_question_not_a_missing_job(
+    tmp_path: Path,
+) -> None:
+    """**「施主支給」は工事が無いのではない**(K-10 2番)。
+
+    おーちゃんの言葉で、材料の出どころが違うだけである。**材料費が落ちる
+    一方、手間は残る。** どちらに寄せるかは人が決めるので、問いに回す。
+    """
+    result = _one_row(tmp_path, "施主支給")
+
+    assert result.assignments[1].reading == READING_QUESTION
+    question = result.questions[0]
+    assert question.cause == CAUSE_OWNER_SUPPLIED
+    assert "手間" in question.question
+
+
+@pytest.mark.parametrize("word", ["協議", "別途見積"])
+def test_words_that_are_not_material_names_go_to_a_question(
+    tmp_path: Path, word: str
+) -> None:
+    """**「協議」「別途見積」を材料名とみなさない**(K-10 2番)。
+
+    みなすと、ありもしない「下地からやり替え」が 1 件増える。
+    """
+    result = _one_row(tmp_path, word)
+
+    assert result.assignments[1].reading == READING_QUESTION
+    assert result.questions[0].cause == CAUSE_UNKNOWN_BASE_WORD
+
+
+@pytest.mark.parametrize("word", ["流用", "再使用"])
+def test_words_that_mean_the_base_stays_are_read_as_existing(
+    tmp_path: Path, word: str
+) -> None:
+    """**「流用」「再使用」は下地が残る**(K-10 2番)。仕上に材料名があるので
+    「仕上だけやり替え」になる。"""
+    result = _one_row(tmp_path, word)
+
+    assert result.assignments[1].reading == READING_FINISH_ONLY
+    assert [i.work_kind for i in result.assignments[1].items] == [WORK_ALTERED]
+
+
+@pytest.mark.parametrize("word", ["更新", "新替"])
+def test_words_that_mean_the_base_is_swapped_are_read_as_replacement(
+    tmp_path: Path, word: str
+) -> None:
+    """**「更新」「新替」は取り替え**(K-10 2番)。撤去と新設の 2 行になる。"""
+    result = _one_row(tmp_path, word)
+
+    assert result.assignments[1].reading == READING_REPLACE
+    assert [i.work_kind for i in result.assignments[1].items] == [
+        WORK_REMOVAL,
+        WORK_NEW,
+    ]
+
+
+def test_the_word_lists_do_not_overlap() -> None:
+    """**同じ語が 2 つの一覧に入っていると、どちらに読まれるか順番で決まる。**
+
+    読み方の表は上から順に当てるので、重なりがあると一覧を並べ替えた瞬間に
+    読みが変わる。重なりを作らないことをここで固定する。
+    """
+    lists = {
+        "現況のまま": BASE_EXISTING,
+        "取り替える": BASE_REPLACED,
+        "該当なし": BASE_NOT_APPLICABLE,
+        "材料名とみなさない": BASE_UNDETERMINED,
+        "同上": BASE_SAME_AS_ABOVE,
+        "施主支給": BASE_OWNER_SUPPLIED,
+    }
+    for left, left_words in lists.items():
+        for right, right_words in lists.items():
+            if left < right:
+                assert not (left_words & right_words), (left, right)
+
+
+def test_same_as_above_is_no_longer_in_the_undetermined_list() -> None:
+    """**「同上」は「まだ決まっていない」ではない**(K-10 1番、おーちゃんの訂正)。"""
+    assert "同上" not in BASE_UNDETERMINED
+    assert "同上" in BASE_SAME_AS_ABOVE

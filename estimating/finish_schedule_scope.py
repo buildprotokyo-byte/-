@@ -115,10 +115,16 @@ READING_TO_WORK_KINDS: dict[str, tuple[str, ...]] = {
 NOTE_EXTENT_UNKNOWN = "範囲は仕上表からは決まらない"
 
 #: 下地欄の「現況のまま」を表す書き方。
-BASE_EXISTING: frozenset[str] = frozenset({"既存", "既存のまま", "現況", "現状"})
+#: ``流用`` ``再使用`` はおーちゃんが足した(K-10 2番。住宅改修でよく使う)。
+BASE_EXISTING: frozenset[str] = frozenset(
+    {"既存", "既存のまま", "現況", "現状", "流用", "再使用"}
+)
 
 #: 下地欄の「取り替える」を表す書き方。
-BASE_REPLACED: frozenset[str] = frozenset({"交換", "取替", "取り替え", "取替え"})
+#: ``更新`` ``新替`` はおーちゃんが足した(K-10 2番)。
+BASE_REPLACED: frozenset[str] = frozenset(
+    {"交換", "取替", "取り替え", "取替え", "更新", "新替"}
+)
 
 #: 下地欄の「該当なし」を表す書き方。長音符・ダッシュ・ハイフンの区別は
 #: 図面ごとに揺れるので、見た目が横棒 1 本のものはまとめて受ける。
@@ -129,12 +135,39 @@ BASE_NOT_APPLICABLE: frozenset[str] = frozenset(
 #: **材料名として読んではいけない書き方。** 「まだ決まっていない」という
 #: 意味の語で、材料名とみなすと工事が 1 件増える。
 #:
-#: **この一覧は校正していない。** P011 の 69 行にはこのどれも出てこないので、
-#: 入れても外しても実案件の数は変わらない。**安全な向き(問いへ倒す)へ
-#: 倒してあるだけ**である。
+#: 2026-09-23、おーちゃんが ``協議`` ``別途見積`` を足した(K-10 2番)。
+#: P011 の 69 行にはこのどれも出てこないが、**住宅改修ではよく使う**とのこと。
+#:
+#: **``同上`` はここから外した**(K-10 1番)。「まだ決まっていない」ではなく
+#: 「上の行と同じ」という意味なので、`BASE_SAME_AS_ABOVE` へ移した。
 BASE_UNDETERMINED: frozenset[str] = frozenset(
-    {"未定", "不明", "確認中", "別途", "要確認", "現地確認", "同上", "?", "？"}
+    {
+        "未定",
+        "不明",
+        "確認中",
+        "別途",
+        "要確認",
+        "現地確認",
+        "協議",
+        "別途見積",
+        "?",
+        "？",
+    }
 )
+
+#: 下地欄の「上の行と同じ」を表す書き方(K-10 1番)。
+#:
+#: **上の行の下地を自動で引き継がない。** 継続行と同じで、問いに回す
+#: (おーちゃんの指示)。引き継ぐと、上の行が「軸組新設」だったときに
+#: 下の行まで勝手に「下地からやり替え」になる。
+BASE_SAME_AS_ABOVE: frozenset[str] = frozenset({"同上"})
+
+#: 下地欄の「施主支給」(K-10 2番)。
+#:
+#: **工事が無いのではない。材料の出どころが違うだけである**(おーちゃんの言葉)。
+#: **材料費が落ちる一方、手間は残る。** どちらに寄せるかは人が決めるので、
+#: 問いに回す。
+BASE_OWNER_SUPPLIED: frozenset[str] = frozenset({"施主支給"})
 
 PartSource = Literal["cell", "carried_forward", "unknown"]
 
@@ -142,6 +175,31 @@ PartSource = Literal["cell", "carried_forward", "unknown"]
 CAUSE_BLANK_BASE = "下地欄が空欄の継続行"
 CAUSE_NO_BASE_COLUMN = "下地の列が無い"
 CAUSE_UNKNOWN_BASE_WORD = "下地欄が表に無い書き方"
+CAUSE_SAME_AS_ABOVE = "下地欄が「同上」"
+CAUSE_OWNER_SUPPLIED = "下地欄が「施主支給」"
+
+#: 問いの文面。**おーちゃんが指定した形をそのまま持つ。**
+QUESTION_CONTINUATION = "この行は前の行と同じ工事の材料違いですか、別の工事ですか"
+QUESTION_SAME_AS_ABOVE = "この行の下地は、上の行と同じですか"
+#: **見積の項目の名前(「材料費」など)をこの文面に書かない。**
+#: `tests/test_estimate_line_mapping.py` が `estimating/` のコードに当てはめ先の
+#: 名前が埋め込まれていないことを見張っている(当てはめの規則は差し替えられる
+#: 設定として持つ、という決まり)。問いの文面でも同じ扱いになる。
+QUESTION_OWNER_SUPPLIED = (
+    "この行は施主支給です。材料は施主が用意する前提で、手間だけを見積もりますか"
+)
+QUESTION_NO_BASE_COLUMN = (
+    "この表には下地の欄がありません。この部位に工事はありますか"
+)
+
+#: 原因 → 問いの文面。**ここに無い原因は継続行の文面になる。**
+QUESTION_BY_CAUSE: dict[str, str] = {
+    CAUSE_BLANK_BASE: QUESTION_CONTINUATION,
+    CAUSE_UNKNOWN_BASE_WORD: QUESTION_CONTINUATION,
+    CAUSE_SAME_AS_ABOVE: QUESTION_SAME_AS_ABOVE,
+    CAUSE_OWNER_SUPPLIED: QUESTION_OWNER_SUPPLIED,
+    CAUSE_NO_BASE_COLUMN: QUESTION_NO_BASE_COLUMN,
+}
 
 EVIDENCE_KIND = "仕上表から読んだ"
 
@@ -167,6 +225,7 @@ class ScopeQuestion:
     row_index: int
     previous_room: str | None = None
     previous_part: str | None = None
+    previous_base: str | None = None
     previous_finish: str | None = None
     this_row_texts: tuple[str, ...] = ()
     """この行に書かれていること。**列の役割を決めつけずに、空でない升目を
@@ -180,6 +239,7 @@ class ScopeQuestion:
             "row_index": self.row_index,
             "previous_room": self.previous_room,
             "previous_part": self.previous_part,
+            "previous_base": self.previous_base,
             "previous_finish": self.previous_finish,
             "this_row_texts": list(self.this_row_texts),
         }
@@ -359,27 +419,50 @@ def _views(schedule: Any) -> list[_RowView]:
 # ---------------------------------------------------------------------------
 
 
-def _reading_of(base: str | None, finish: str | None) -> tuple[str, str]:
-    """下地欄と仕上欄から、読みとその理由を返す。"""
+def _reading_of(base: str | None, finish: str | None) -> tuple[str, str, str]:
+    """下地欄と仕上欄から、読みと理由と**問いの原因**を返す。
+
+    問いにならない読みでは、原因は空文字である。**原因は当てた場所で決める。**
+    後から「問いだったなら原因はこれだろう」と推し量ると、読みを 1 つ足す
+    たびに取り違える(`同上` と `施主支給` は、どちらも「表に無い書き方」
+    ではない)。
+    """
     key = _normalize(base)
     if not key:
-        return READING_QUESTION, f"{CAUSE_BLANK_BASE}のため、自動では判定しない"
+        return (
+            READING_QUESTION,
+            f"{CAUSE_BLANK_BASE}のため、自動では判定しない",
+            CAUSE_BLANK_BASE,
+        )
+    if key in BASE_SAME_AS_ABOVE:
+        return (
+            READING_QUESTION,
+            f"下地欄が {base!r} なので、上の行と同じかどうかを人に聞く",
+            CAUSE_SAME_AS_ABOVE,
+        )
+    if key in BASE_OWNER_SUPPLIED:
+        return (
+            READING_QUESTION,
+            f"下地欄が {base!r}。工事が無いのではなく、材料の出どころが違う",
+            CAUSE_OWNER_SUPPLIED,
+        )
     if key in BASE_UNDETERMINED:
         return (
             READING_QUESTION,
             f"{CAUSE_UNKNOWN_BASE_WORD}({base!r})なので、材料名とみなさない",
+            CAUSE_UNKNOWN_BASE_WORD,
         )
     if key in BASE_NOT_APPLICABLE:
-        return READING_NO_WORK, f"該当なし(下地欄が {base!r})"
+        return READING_NO_WORK, f"該当なし(下地欄が {base!r})", ""
     if key in BASE_REPLACED:
-        return READING_REPLACE, f"下地欄が {base!r} なので、既存を撤去して新設"
+        return READING_REPLACE, f"下地欄が {base!r} なので、既存を撤去して新設", ""
     if key in BASE_EXISTING:
         if _normalize(finish) in BASE_EXISTING:
-            return READING_NO_WORK, "下地も仕上も既存"
+            return READING_NO_WORK, "下地も仕上も既存", ""
         if not _normalize(finish):
-            return READING_NO_WORK, "下地は既存で、仕上の欄が空欄"
-        return READING_FINISH_ONLY, "下地は既存で、仕上に材料名がある"
-    return READING_FROM_BASE, f"下地欄に材料名({base!r})がある"
+            return READING_NO_WORK, "下地は既存で、仕上の欄が空欄", ""
+        return READING_FINISH_ONLY, "下地は既存で、仕上に材料名がある", ""
+    return READING_FROM_BASE, f"下地欄に材料名({base!r})がある", ""
 
 
 def _items_for(
@@ -482,12 +565,7 @@ def assign_finish_schedule_scope(schedule: Any) -> FinishScopeResult:
             reason = f"{CAUSE_NO_BASE_COLUMN}ので、工事の有無を名乗らない"
             cause = CAUSE_NO_BASE_COLUMN
         else:
-            reading, reason = _reading_of(view.base, view.finish)
-            cause = (
-                CAUSE_UNKNOWN_BASE_WORD
-                if reading == READING_QUESTION and _normalize(view.base)
-                else CAUSE_BLANK_BASE
-            )
+            reading, reason, cause = _reading_of(view.base, view.finish)
 
         notes: tuple[str, ...] = ()
         if part_source == "carried_forward":
@@ -512,17 +590,13 @@ def assign_finish_schedule_scope(schedule: Any) -> FinishScopeResult:
         question: ScopeQuestion | None = None
         if reading == READING_QUESTION:
             question = ScopeQuestion(
-                question=(
-                    "この行は前の行と同じ工事の材料違いですか、別の工事ですか"
-                    if cause != CAUSE_NO_BASE_COLUMN
-                    else "この表には下地の欄がありません。"
-                    "この部位に工事はありますか"
-                ),
+                question=QUESTION_BY_CAUSE.get(cause, QUESTION_CONTINUATION),
                 cause=cause,
                 page_number=page_number,
                 row_index=view.row_index,
                 previous_room=previous.room if previous else None,
                 previous_part=previous.part if previous else None,
+                previous_base=previous.base if previous else None,
                 previous_finish=previous.finish if previous else None,
                 this_row_texts=view.texts,
             )
