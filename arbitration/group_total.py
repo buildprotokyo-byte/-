@@ -38,6 +38,12 @@
 4. 吸収が起きた群では、群の中の階層1(自動確定)の要素を
    ``targets_requiring_audit`` に挙げる。呼び出し側はこれを階層2
    (仮採用+抜き取り監査)へ落とす。
+
+吸収が起きた群には、あわせて**キラークエスチョンを1問だけ**立てられる
+(判断の5番、4-1節の (c))。問いの選び方は
+``killer_question.engine.KillerQuestionEngine.group_total_question`` にあり、
+ここは「群の残差」(:func:`group_total_absorption_excess`)を出すだけである。
+(c) は 4 の降格を置き換えない。**問いを足すだけで、階層は何も変えない。**
 """
 
 from __future__ import annotations
@@ -278,6 +284,37 @@ def _solver_without(solver: ConsistencySolver, constraint_name: str) -> Consiste
     clone = solver.clone()
     clone.remove_constraint(constraint_name)
     return clone
+
+
+def group_total_absorption_excess(
+    solver: ConsistencySolver, constraint: GroupTotalConstraint
+) -> Fraction | None:
+    """**群の残差**: 停止した要素が、群合計のせいで自分の読みの中心窓の外へ
+    押し出された量の合計。
+
+    停止した要素(``requires_confirmation=True``)ごとに、
+    ``use_detection_ranges=True`` で解いた範囲と、自分の読みの中心 ±
+    :data:`~arbitration.axis_quality_firewall.CENTER_TOLERANCES` の窓との
+    すき間(重なっていれば 0)を足す。**0 より大きいことが、
+    :func:`check_group_total` の「吸収された」(``is_absorbed``)と同じ意味**に
+    なるように、同じ窓・同じ比べ方を使う(判定を2通りに持たない)。
+
+    群合計が unsat なら ``None``(残差は定義できない。群は既存の安全装置で止まる)。
+
+    判断の5番(4-1節の (c))で、どの要素に聞けば残差が最も動くかを測るのに使う
+    (``killer_question.engine.KillerQuestionEngine.group_total_question``)。
+    """
+    result = solver.solve(use_detection_ranges=True)
+    if result.status == "unsat":
+        return None
+    excess = Fraction(0)
+    for name in constraint.members:
+        if not solver.requires_confirmation(name):
+            continue
+        low, high = _center_window(solver.variable_detection_range(name), constraint.unit)
+        solved_low, solved_high = result.variables[name].solved_range
+        excess += max(Fraction(0), low - solved_high, solved_low - high)
+    return excess
 
 
 def group_total_absorption_slack(

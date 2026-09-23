@@ -116,7 +116,9 @@ def test_an_absorbed_group_gets_exactly_one_question_on_the_element_that_moves_t
     # 候補は群合計で潰した値 (5,) ではなく、door_0 自身の読みの範囲。
     # 群合計そのものが疑われているので、群合計で候補を絞らない。
     assert question.candidate_values == tuple(range(0, 7))
-    assert question.score > 0
+    # どの答えでも残差 1 が全部動く(5 なら door_0 が確認済みになって吸収が
+    # 説明され、5 以外なら群合計が矛盾する)。平均も 1。
+    assert question.score == 1.0
 
 
 def test_a_truthful_answer_exposes_the_hidden_error_and_the_group_stops() -> None:
@@ -184,13 +186,15 @@ def test_no_absorption_means_no_group_question() -> None:
     clean, _d, _u = _run_firewall(
         _build_group(stopped_evidence=_stopped("door_0", (0, 6)), wrong_targets={})
     )
-    assert KillerQuestionEngine(clean).group_total_question(_add_group_total(clean)) is None
+    clean_constraint = _add_group_total(clean)
+    assert KillerQuestionEngine(clean).group_total_question(clean_constraint) is None
 
     # 誤りなし・停止なし
     tight, _d, _u = _run_firewall(
         _build_group(stopped_evidence=_agreeing_strong_axes("door_0", 3), wrong_targets={})
     )
-    assert KillerQuestionEngine(tight).group_total_question(_add_group_total(tight)) is None
+    tight_constraint = _add_group_total(tight)
+    assert KillerQuestionEngine(tight).group_total_question(tight_constraint) is None
 
     # unsat の群は既存の安全装置が群ごと止める。(c) は問いを足さない。
     broken, _d, _u = _run_firewall(
