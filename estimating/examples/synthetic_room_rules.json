@@ -1,0 +1,41 @@
+{
+  "format_version": 1,
+  "ruleset_id": "synthetic-room-example-v1",
+  "description": "人が入れた室の寸法から出る数量の当てはめの見本。**合成である。** 実案件の見積明細からは作っていない(実案件の規則はリポジトリの外に置き、パスを設定で渡す)。",
+  "rules": [
+    {
+      "rule_id": "floor-from-room-area",
+      "kind": "床面積",
+      "unit_dimension": "area",
+      "line_items": [
+        {"code": "SYN-F-001", "work_item": "床組(合成の見本)", "major_category": "木工事", "unit": "㎡"},
+        {"code": "SYN-F-002", "work_item": "床仕上(合成の見本)", "major_category": "内装工事", "unit": "㎡"}
+      ]
+    },
+    {
+      "rule_id": "ceiling-from-room-area",
+      "kind": "床面積",
+      "unit_dimension": "area",
+      "attributes": {"部位": ["天井"]},
+      "line_items": [
+        {"code": "SYN-C-001", "work_item": "天井ボード貼(合成の見本)", "major_category": "木工事", "unit": "㎡"}
+      ]
+    },
+    {
+      "rule_id": "wall-board-from-wall-area",
+      "kind": "内壁面積",
+      "unit_dimension": "area",
+      "line_items": [
+        {"code": "SYN-W-001", "work_item": "内壁ボード貼(合成の見本)", "major_category": "木工事", "unit": "㎡"}
+      ]
+    },
+    {
+      "rule_id": "baseboard-from-perimeter",
+      "kind": "室の周長",
+      "unit_dimension": "length",
+      "line_items": [
+        {"code": "SYN-B-001", "work_item": "巾木施工(合成の見本)", "major_category": "木工事", "unit": "m"}
+      ]
+    }
+  ]
+}
