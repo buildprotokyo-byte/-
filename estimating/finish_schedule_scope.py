@@ -171,7 +171,7 @@ class FinishScopeAssignment:
     row_index: int
     item: WorkScopeItem
     question: ScopeQuestion | None = None
-    """問いになった行では、**要素(区分未定)と問いの両方が出る。**
+    """問いになった行では、**要素(区分不明)と問いの両方が出る。**
 
     要素を出すのは、工事が無いことと見落としたことを区別するため
     (`docs/principles/scope_of_work_diff.md` 4-2節)。**同じ行なので、

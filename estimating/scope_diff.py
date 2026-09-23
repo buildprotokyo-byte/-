@@ -31,7 +31,7 @@ WORK_REMOVAL = "撤去"
 WORK_NEW = "新設"
 WORK_AS_IS = "既存のまま"
 WORK_ALTERED = "改修"
-WORK_UNDECIDED = "区分未定"
+WORK_UNDECIDED = "区分不明"
 
 #: 区分の全部。**ここに無い値は受け付けない。**
 WORK_KINDS: tuple[str, ...] = (

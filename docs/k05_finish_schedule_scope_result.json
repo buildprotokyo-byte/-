@@ -11,7 +11,7 @@
     "counts_by_work_kind": {
       "既存のまま": 3,
       "改修": 3,
-      "区分未定": 2
+      "区分不明": 2
     },
     "questions": 2,
     "unassigned": 0,
@@ -30,7 +30,7 @@
     "counts_by_work_kind": {
       "既存のまま": 16,
       "改修": 37,
-      "区分未定": 16
+      "区分不明": 16
     },
     "questions": 16,
     "unassigned": 0,
