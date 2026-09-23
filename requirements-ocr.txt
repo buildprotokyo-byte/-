@@ -1,0 +1,33 @@
+# スキャンされたページを OCR で読むためのエンジン。
+#
+# **requirements.txt とは別にしてある。** 本体の動作に要らないからで、
+# これを入れなくてもリポジトリは動く（入れていない場合、ラスターのページは
+# 今までどおり「未対応」として記録される。intake/drawing_intake.py）。
+#
+# 入れると tests/test_ocr_rapidocr_integration.py が skip されずに走る。
+#
+# **opencv-python ではなく opencv-python-headless を使う。**
+# rapidocr-onnxruntime は opencv-python（画面を出す版）を要求するが、
+# 素直に入れると opencv-python と opencv-python-headless が両方入り、
+# どちらも同じ `cv2` を提供する状態になる（実測: 片方だけで 116MB 増える）。
+# 画面の無い環境では headless だけで足りることを実測したので、
+# **下の rapidocr-onnxruntime は `--no-deps` で入れ、依存はここに並べる。**
+#
+#   pip install -r requirements.txt
+#   pip install -r requirements-ocr.txt
+#   pip install --no-deps rapidocr-onnxruntime
+#
+# 実測（2026-09-22、CPU 4コアのクラウド環境、Python 3.11）:
+#   ダウンロード 約40MB（onnxruntime 23.5MB + rapidocr 14.9MB + pyclipper 1.0MB）
+#   仮想環境の増加 約83MB（opencv-python を避けた場合）
+#   全件テスト 177秒 → 185秒（+8秒、走る試験が 1 件増える）
+# docs/ocr_scanned_pages_report.md には 415MB とあるが、それは
+# opencv-python（画面を出す版）まで入れた場合の数字である。
+
+onnxruntime
+pyclipper
+PyYAML
+Pillow
+tqdm
+six
+shapely

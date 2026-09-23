@@ -21,6 +21,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # OCR エンジン。入れないと tests/test_ocr_rapidocr_integration.py が
+      # skip される。--no-deps の理由は requirements-ocr.txt の冒頭を参照
+      # (opencv-python と opencv-python-headless が両方入るのを避けるため)。
+      - name: Install OCR engine
+        run: |
+          pip install -r requirements-ocr.txt
+          pip install --no-deps rapidocr-onnxruntime
+
       - name: Run pytest
         run: pytest --junitxml=pytest-results.xml
 

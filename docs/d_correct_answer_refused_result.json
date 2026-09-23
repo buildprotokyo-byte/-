@@ -1,0 +1,41 @@
+{
+  "round": 59,
+  "criteria_commit": "f1857ea",
+  "criteria_file": "docs/d_correct_answer_refused_criteria.md",
+  "benchmark": "benchmarks/measure_correct_answer_refused.py",
+  "shift": 2,
+  "controls": {
+    "1_no_refusal_when_correct": true,
+    "2_shift_changes_candidates": false,
+    "2_per_variable": [
+      {
+        "scenario": "星形",
+        "variable": "leaf_1",
+        "candidates_changed": false
+      },
+      {
+        "scenario": "2つのまとまり",
+        "variable": "hub_a",
+        "candidates_changed": true
+      },
+      {
+        "scenario": "2つのまとまり",
+        "variable": "hub_b",
+        "candidates_changed": true
+      },
+      {
+        "scenario": "鎖",
+        "variable": "door_count",
+        "candidates_changed": false
+      },
+      {
+        "scenario": "合流",
+        "variable": "door_count",
+        "candidates_changed": true
+      }
+    ]
+  },
+  "verdict": "controls_failed",
+  "implementation_changed": false,
+  "synthetic_only": true
+}

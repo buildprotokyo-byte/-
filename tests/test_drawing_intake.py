@@ -561,3 +561,56 @@ def test_the_door_arc_geometry_is_what_the_count_is_based_on(
     widths = sorted(arc["width_mm"] for arc in doors.provenance["arcs"])
 
     assert all(math.isclose(got, want, rel_tol=0.01) for got, want in zip(widths, [750.0, 800.0]))
+
+
+def _one_page(path: Path, *, scale: bool) -> Path:
+    """1 ページだけの平面図。**開き戸は 1 つも描かない。**
+
+    `scale` が False のときは縮尺の印字だけを落とし、代わりに同じだけ別の文字を置く
+    (文字の有無そのものが差にならないようにする)。
+    """
+    doc = pymupdf.open()
+    if scale:
+        _vector_plan_page(
+            doc, scale_text="1/50", door_widths_mm=(), sliding_doors=2, areas=False
+        )
+    else:
+        page = doc.new_page(width=1190, height=842)
+        page.insert_text(
+            pymupdf.Point(850, 780), "図面名 平面図", fontname="japan", fontsize=11
+        )
+        _draw_sliding_door(page, 150.0, 600.0, 1600.0 * PT_PER_MM_AT_50)
+        _draw_sliding_door(page, 330.0, 600.0, 1600.0 * PT_PER_MM_AT_50)
+    doc.save(path)
+    doc.close()
+    return path
+
+
+def test_the_summary_says_when_a_method_could_not_be_attempted(tmp_path: Path) -> None:
+    """**「探したが 0 件」と「探せなかった」を、人が読む要約が区別すること。**
+
+    どちらも数量は 0 件になる。違うのは理由だけで、その理由はページごとの
+    記録には残っているが、**要約に載っていなければ人には届かない**
+    (`docs/d_summary_distinguishes_report.md`)。
+
+    縮尺が読めないページでは開き戸を探さない決まりがある
+    (`intake/drawing_intake.py` の `if scale is not None:`)。
+    **探さなかったことが要約から分かること。**
+    """
+    searched = read_drawing(
+        IntakeConfig(pdf_path=_one_page(tmp_path / "with.pdf", scale=True), case_id="T")
+    )
+    not_searched = read_drawing(
+        IntakeConfig(pdf_path=_one_page(tmp_path / "without.pdf", scale=False), case_id="T")
+    )
+
+    # どちらも数量は 0 件。ここが違うと理由の比較にならない。
+    assert searched.findings == ()
+    assert not_searched.findings == ()
+
+    assert searched.pages_with_unattempted_methods == ()
+    assert not_searched.pages_with_unattempted_methods == (1,)
+
+    assert "試せなかった手法があるページ: 0 件" in searched.summary()
+    assert "試せなかった手法があるページ: 1 件" in not_searched.summary()
+    assert searched.summary() != not_searched.summary()

@@ -152,14 +152,29 @@ class AxisEvidence:
                 "derivation_basis は derivation='derived' のときだけ指定できます"
             )
 
+    #: **同じものを見ている読みをまとめる名前。**空なら指紋で数える。
+    #:
+    #: 2026-09-23、おーちゃんの判断で入れた。人が入れた基準点と、図面に
+    #: 印字された縮尺の一致を、独立した 2 つの根拠として数えない
+    #: (`docs/d_human_independence_report.md`: **写した値だけが通り、
+    #: 自分で測った値は 3% ずれただけで弾かれる**)。
+    independence_group: str = ""
+
     @property
     def evidence_id(self) -> str:
         return f"{self.source_id}::{self.axis_id}::{self.method_id}::{self.target}"
 
     @property
     def independence_key(self) -> str:
-        """独立性は表示用IDではなく、可能なら元データの不変な指紋で判定する。"""
-        return self.source_fingerprint or self.source_id
+        """独立性は表示用IDではなく、可能なら元データの不変な指紋で判定する。
+
+        **`independence_group` が入っていれば、そちらが勝つ。**
+        資料としては別でも、**同じものを見ている読み**は 1 つに数えるためである
+        (基準寸法の 3 つの読みは 2 点の座標を共有している。
+        `intake/drawing_intake._reference_dimension_findings`)。
+        **群は数を減らす向きにしか働かない。**同じ指紋の読みを 2 つに割ることはない。
+        """
+        return self.independence_group or self.source_fingerprint or self.source_id
 
     @property
     def effective_derivation(self) -> Derivation:

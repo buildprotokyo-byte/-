@@ -1,0 +1,70 @@
+{
+  "format_version": 1,
+  "table_id": "synthetic-example-v1",
+  "synthetic": true,
+  "description": "**架空の見本である。** 実在の会社のルールでも、実案件から作った表でもない。書式の説明と動作確認のためだけに置いてある。実際に使う表はリポジトリの外に置き、パスを設定で渡すこと。",
+  "entries": [
+    {
+      "entry_id": "synthetic-counting-1",
+      "kind": "数え方",
+      "statement": "架空の会社では、飾り柱は1本ごとに数える。",
+      "source": {
+        "document": "架空の社内積算ルール(見本)",
+        "clause": "第0章-0-0",
+        "read_directly": false
+      },
+      "confidence": "見立て",
+      "scope": "自社",
+      "applies_to": {"work_kinds": ["架空工事"], "parts": ["飾り柱"]},
+      "needs_human_check": true,
+      "detail": {
+        "unit": "本",
+        "method": "図面に描かれた飾り柱の記号ごとに1本と数える。",
+        "threshold": {"value": 0.1, "unit": "㎡", "comparison": "以下", "then": "数えない"}
+      },
+      "note": "架空。数字に意味は無い。"
+    },
+    {
+      "entry_id": "synthetic-propagation-1",
+      "kind": "波及",
+      "statement": "架空の会社では、飾り柱を撤去すると、接する架空の天井飾りの改修範囲にも波及する。",
+      "source": {
+        "document": "架空の社内積算ルール(見本)",
+        "clause": "第0章-0-1",
+        "read_directly": false
+      },
+      "confidence": "見立て",
+      "scope": "自社",
+      "applies_to": {"parts": ["飾り柱", "天井飾り"]},
+      "overridden_by": ["特記"],
+      "needs_human_check": true,
+      "detail": {
+        "trigger": "飾り柱を撤去する",
+        "affected": ["天井飾り"],
+        "extent": {"value": 100, "unit": "mm", "basis": "柱の外周から"},
+        "symmetric": false
+      },
+      "note": "架空。逆向き(天井飾りの撤去)には波及しないことを書ける形の見本。"
+    },
+    {
+      "entry_id": "synthetic-question-1",
+      "kind": "問い",
+      "statement": "架空の会社では、飾り柱が構造体かどうかで拾う数量が変わる。",
+      "source": {
+        "document": "架空の社内積算ルール(見本)",
+        "clause": "第0章-0-2",
+        "read_directly": false
+      },
+      "confidence": "見立て",
+      "scope": "自社",
+      "applies_to": {"parts": ["飾り柱"], "axes": ["image"]},
+      "needs_human_check": false,
+      "detail": {
+        "question": "この飾り柱は構造体ですか、それとも化粧だけですか。",
+        "answer_options": ["構造体", "化粧だけ", "分からない"],
+        "what_changes": "構造体なら撤去の行を作らず、化粧だけなら撤去と新設の2行を作る。"
+      },
+      "note": "架空。答えで何が変わるかを必ず書く形の見本。"
+    }
+  ]
+}

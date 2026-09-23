@@ -1,0 +1,119 @@
+{
+  "round": 60,
+  "criteria_commit": "e4fb41d",
+  "criteria_file": "docs/d_correct_answer_refused_v2_criteria.md",
+  "benchmark": "benchmarks/measure_correct_answer_refused_v2.py",
+  "shift": 2,
+  "H0_tried": 15,
+  "H1_effective": 7,
+  "H2_refused": 6,
+  "H3_unsat": 0,
+  "H4_passed": 1,
+  "kept": [
+    {
+      "scenario": "星形",
+      "shifted": "room_count",
+      "outcome": "refused",
+      "detail": "回答 4 は 'leaf_1' の候補 (5, 6, 7) に含まれていません"
+    },
+    {
+      "scenario": "2つのまとまり",
+      "shifted": "hub_a",
+      "outcome": "refused",
+      "detail": "回答 4 は 'hub_a' の候補 (5, 6, 7) に含まれていません"
+    },
+    {
+      "scenario": "2つのまとまり",
+      "shifted": "hub_b",
+      "outcome": "refused",
+      "detail": "回答 11 は 'hub_b' の候補 (12, 13, 14) に含まれていません"
+    },
+    {
+      "scenario": "鎖",
+      "shifted": "room_count",
+      "outcome": "refused",
+      "detail": "回答 5 は 'door_count' の候補 (6, 7, 8) に含まれていません"
+    },
+    {
+      "scenario": "合流",
+      "shifted": "window_count",
+      "outcome": "passed",
+      "questions": 1
+    },
+    {
+      "scenario": "合流",
+      "shifted": "door_count",
+      "outcome": "refused",
+      "detail": "回答 3 は 'door_count' の候補 (4, 5, 6) に含まれていません"
+    },
+    {
+      "scenario": "合流",
+      "shifted": "symbol_total",
+      "outcome": "refused",
+      "detail": "回答 3 は 'door_count' の候補 (4, 5, 6) に含まれていません"
+    }
+  ],
+  "skipped": [
+    {
+      "scenario": "星形",
+      "shifted": "leaf_2",
+      "outcome": "passed",
+      "questions": 1
+    },
+    {
+      "scenario": "星形",
+      "shifted": "leaf_1",
+      "outcome": "passed",
+      "questions": 1
+    },
+    {
+      "scenario": "星形",
+      "shifted": "leaf_3",
+      "outcome": "passed",
+      "questions": 1
+    },
+    {
+      "scenario": "2つのまとまり",
+      "shifted": "leaf_a2",
+      "outcome": "passed",
+      "questions": 2
+    },
+    {
+      "scenario": "2つのまとまり",
+      "shifted": "leaf_b1",
+      "outcome": "passed",
+      "questions": 2
+    },
+    {
+      "scenario": "2つのまとまり",
+      "shifted": "leaf_a1",
+      "outcome": "passed",
+      "questions": 2
+    },
+    {
+      "scenario": "鎖",
+      "shifted": "door_count",
+      "outcome": "passed",
+      "questions": 1
+    },
+    {
+      "scenario": "鎖",
+      "shifted": "window_count",
+      "outcome": "passed",
+      "questions": 1
+    }
+  ],
+  "controls": {
+    "1_no_refusal_when_correct": true,
+    "2_some_shift_worked": true,
+    "3_repeat": [
+      6,
+      6,
+      6
+    ],
+    "4_kept_ratio": 0.4667
+  },
+  "verdict": "refusal_is_real",
+  "implementation_changed": false,
+  "synthetic_only": true
+}
