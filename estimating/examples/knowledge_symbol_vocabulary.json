@@ -1,0 +1,190 @@
+{
+  "format_version": 1,
+  "table_id": "knowledge-vocabulary-v1",
+  "description": "16周目の語彙。**正解ファイルからは作っていない。** 出どころは docs/knowledge/candidates.md(トライアルDが公開されている基準から作った知識)で、公共建築設備数量積算基準(設備版、令和7年改定)第3編・第4編と、建築工事設計図書作成基準 別表1(平面表示記号)である。入れ方は docs/a1_knowledge_vocabulary_criteria.md 5節の規則のとおりで、当たりそうかどうかで足したり削ったりしていない。区分の見出し(機器・盤類・器具類)は記号の名前ではないので入れていない。『建具』という語も、別表1に記号として列挙されているのは両開き扉・片開き扉・両引き戸・片引き戸などの個別の記号なので、まとめた言い方は入れていない(厳しいほうに寄せた)。別名は付けない(15周目で別名は1行も増やさないと分かったため)。",
+  "symbols": [
+    {
+      "canonical": "方位"
+    },
+    {
+      "canonical": "敷地境界"
+    },
+    {
+      "canonical": "ベンチマーク"
+    },
+    {
+      "canonical": "出入口"
+    },
+    {
+      "canonical": "ルーフドレン"
+    },
+    {
+      "canonical": "縦どい"
+    },
+    {
+      "canonical": "水勾配"
+    },
+    {
+      "canonical": "スロープ"
+    },
+    {
+      "canonical": "階段"
+    },
+    {
+      "canonical": "両開き扉"
+    },
+    {
+      "canonical": "親子扉"
+    },
+    {
+      "canonical": "片開き扉"
+    },
+    {
+      "canonical": "両引き戸"
+    },
+    {
+      "canonical": "片引き戸"
+    },
+    {
+      "canonical": "展開図記号"
+    },
+    {
+      "canonical": "吹抜け"
+    },
+    {
+      "canonical": "エレベーター"
+    },
+    {
+      "canonical": "小荷物専用昇降機"
+    },
+    {
+      "canonical": "点検口"
+    },
+    {
+      "canonical": "室名表示"
+    },
+    {
+      "canonical": "誘導標識"
+    },
+    {
+      "canonical": "非常用進入口"
+    },
+    {
+      "canonical": "側溝"
+    },
+    {
+      "canonical": "排水管"
+    },
+    {
+      "canonical": "法面"
+    },
+    {
+      "canonical": "ボーリング位置"
+    },
+    {
+      "canonical": "排水桝"
+    },
+    {
+      "canonical": "囲障"
+    },
+    {
+      "canonical": "縁石"
+    },
+    {
+      "canonical": "分電盤"
+    },
+    {
+      "canonical": "端子盤"
+    },
+    {
+      "canonical": "誘導灯"
+    },
+    {
+      "canonical": "煙感知器"
+    },
+    {
+      "canonical": "熱感知器"
+    },
+    {
+      "canonical": "自動閉鎖装置"
+    },
+    {
+      "canonical": "連動制御器"
+    },
+    {
+      "canonical": "屋内消火栓"
+    },
+    {
+      "canonical": "屋外消火栓"
+    },
+    {
+      "canonical": "量水器"
+    },
+    {
+      "canonical": "ガスメーター"
+    },
+    {
+      "canonical": "電気マンホール"
+    },
+    {
+      "canonical": "電気ハンドホール"
+    },
+    {
+      "canonical": "コンセント"
+    },
+    {
+      "canonical": "スイッチ"
+    },
+    {
+      "canonical": "引掛シーリング"
+    },
+    {
+      "canonical": "照明器具"
+    },
+    {
+      "canonical": "配線器具"
+    },
+    {
+      "canonical": "プレート"
+    },
+    {
+      "canonical": "衛生陶器"
+    },
+    {
+      "canonical": "衛生器具"
+    },
+    {
+      "canonical": "便器"
+    },
+    {
+      "canonical": "洗面台"
+    },
+    {
+      "canonical": "制気口"
+    },
+    {
+      "canonical": "ダンパー"
+    },
+    {
+      "canonical": "吹出口"
+    },
+    {
+      "canonical": "TEL"
+    },
+    {
+      "canonical": "TEL配線"
+    },
+    {
+      "canonical": "配管"
+    },
+    {
+      "canonical": "ダクト"
+    },
+    {
+      "canonical": "配線"
+    },
+    {
+      "canonical": "電灯配線"
+    }
+  ]
+}
