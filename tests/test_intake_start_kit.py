@@ -437,22 +437,13 @@ def test_an_unknown_phase_does_not_invent_a_label(drawing: Path) -> None:
     assert "開き戸::ページ1" in [item.target for item in result.findings]
 
 
-def test_door_arcs_are_not_hunted_on_a_page_declared_as_a_table(
-    drawing: Path,
-) -> None:
-    """建具表と宣言されたページで円弧を探すと、罫線や記号を拾いうる。"""
-    result = read_drawing(
-        IntakeConfig(
-            pdf_path=drawing,
-            case_id="TEST-001",
-            start_kit=StartKit(
-                page_declarations=(PageDeclaration(page_number=1, kind="建具表"),)
-            ),
-        )
-    )
-
-    assert not [item for item in result.findings if item.target.startswith("開き戸")]
-    assert any("建具表" in note for note in result.pages[0].notes)
+# `test_door_arcs_are_not_hunted_on_a_page_declared_as_a_table` は
+# **2026-09-22 に削除した。** 「建具表と宣言されたら開き戸は 0 件」を
+# 正しい振る舞いとして固定していたが、その振る舞い自体が原則4の条件3
+# 「図面の読み方を縛らない」に反していた(おーちゃんの判断、案A)。
+# 代わりは `tests/test_page_kind_is_a_weak_hint.py` の 11 件である。
+# 削除した理由と、元のテストの心配事をどれが受け持つかは、そのファイルの
+# docstring と `docs/page_kind_weak_hint.md` 4 節に書いてある。
 
 
 def test_the_pairing_is_recorded_but_no_difference_is_computed(

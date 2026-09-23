@@ -1,0 +1,48 @@
+{
+  "round": 40,
+  "trial": "B",
+  "title": "当て方の形を変えたら誤爆せずに届くか",
+  "date": "2026-09-23",
+  "criteria_commit": "faccb5f",
+  "criteria_file": "docs/b_door_heading_shape_criteria.md",
+  "benchmark": "benchmarks/measure_door_heading_shape.py",
+  "split": {"inside_tables": 47, "outside_tables": 60},
+  "ways": {
+    "K0 完全一致":       {"M1": 0, "M2": 0, "M3": null, "M4": 0, "M6": 2,
+                          "M5": {"種別": 1, "幅": 0, "高さ": 0, "数量": 0}},
+    "K1 含み一致":       {"M1": 1, "M2": 1, "M3": 1.0,  "M4": 7, "M6": 3,
+                          "M5": {"種別": 4, "幅": 12, "高さ": 2, "数量": 2}},
+    "K2a 後方一致":      {"M1": 0, "M2": 0, "M3": null, "M4": 0, "M6": 2,
+                          "M5": {"種別": 3, "幅": 0, "高さ": 0, "数量": 2}},
+    "K2b 区切って完全一致": {"M1": 0, "M2": 1, "M3": null, "M4": 3, "M6": 3,
+                          "M5": {"種別": 1, "幅": 0, "高さ": 0, "数量": 1}}
+  },
+  "controls": {
+    "1_synthetic_all_four": {"all_passed": true},
+    "2_K1_reproduces_round_39": {"inside": 1, "outside": 1, "M4": 7, "ok": true},
+    "3_finish_not_reduced": {"K0": 2, "K1": 3, "K2a": 2, "K2b": 3, "ok": true},
+    "4_repeat_3_times": {"K2b_inside": [0, 0, 0], "ok": true}
+  },
+  "verdict": {
+    "K2a": {"reach": false, "misfire": false, "ambiguity": true, "finish": true, "result": "不採用"},
+    "K2b": {"reach": false, "misfire": false, "ambiguity": false, "finish": true, "result": "不採用"},
+    "branch": "どちらも満たさない → 両方とも不採用。見出しの当て方では届かない。",
+    "heaviest_finding": "M5を縦に読むと、K2aでは種別が3表・数量が2表で当たっているのに、建具表として通った表は0。36周目では建具番号らしい列を持つ5表がすべて付き添い0だった。つまり『建具番号がある表』と『種別・数量がある表』は別の表である。同じ表ならK2aは通っていた。",
+    "implication": "これは語彙の問題ではない。どんな言い換えを足しても、役割が別々の表に散っているなら1つの表の中で揃うことは無い。"
+  },
+  "killer_question": {
+    "why_now": "3周(38・39・40)を『列の見出しを当てる』前提で使い切り、届きは0か1のまま動かない。前提そのものを疑う番。",
+    "question": "建具表の見出しは、本当に『行』にあるのか。",
+    "mechanism": "_find_header は表の上から3行だけを見て、行に並んだ見出しを探す。列に並んだ見出しは仕掛けのうえで見えない。",
+    "hypothesis": "日本の建具表には建具1本を1列に立てて左端の列に記号・種別・幅・高さ・数量を縦に並べる書き方がある(姿図つきの建具表はたいていこの形)。その形なら見出しは左端の列にあり、いまの読み方では原理的に0件になる。",
+    "how_to_measure": "表を転置して同じ4通りの当て方をもう一度当てる。実装は1行も変えない。線は39・40周目と同じ3つ。",
+    "branches": {
+      "転置したら通る": "読み方の前提が合っていなかった。直す場所は語彙ではなく表の向き。",
+      "転置しても0": "表の升目の取り方そのもの(結合された升目・続き表)を疑う番になる。"
+    }
+  },
+  "implementation_changed": false,
+  "full_suite": "977 passed, 1 skipped (37周目から変わらず)",
+  "pending_decisions": 5,
+  "asks": 1
+}

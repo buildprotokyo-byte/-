@@ -1,0 +1,69 @@
+{
+  "round": 36,
+  "trial": "B",
+  "title": "建具表が0件になるのはどこで落ちているからか",
+  "date": "2026-09-23",
+  "criteria_commit": "4ada878",
+  "criteria_file": "docs/b_door_schedule_zero_criteria.md",
+  "benchmark": "benchmarks/measure_door_schedule_zero.py",
+  "target": {"drawing": "匿名化v2", "pages": 34, "pages_with_tables": 28},
+  "door_path": {
+    "E1_tables": 107,
+    "E2_tables_with_text": 107,
+    "E3_tables_with_mark_column": 5,
+    "E4_supporting_column_histogram": {"0": 5},
+    "E4_threshold": 2,
+    "E5_drop_points": {
+      "L3a 役割が1つも当たらない": 101,
+      "L4 付き添いの列が足りない": 5,
+      "L3b 役割は当たるが建具番号が無い": 1
+    }
+  },
+  "finish_path_E6": {
+    "E1_tables": 107,
+    "E3_tables_with_room_column": 4,
+    "E4_supporting_column_histogram": {"0": 2, "2": 2},
+    "E4_threshold": 1,
+    "passed": 2,
+    "note": "通った2つは35周目に仕上表が取れた2ページと数が合う"
+  },
+  "predictions_written_before": [
+    {"id": 1, "text": "E1 は 0 にならない(L1 ではない)", "held": true, "observed": "107個"},
+    {"id": 2, "text": "落ちどころは L3 か L4", "held": true, "observed": "L2 は 0"},
+    {"id": 3, "text": "E6 との差が直す場所を指す", "held": "half",
+     "observed": "測り方が壊れていない証拠にはなったが、直す場所は決まらなかった"}
+  ],
+  "controls": {
+    "1_finish_schedule_same_method": {"passed": true, "passed_tables": 2},
+    "2_synthetic_door_schedule": {"tables": 1, "passed_tables": 1, "passed": true},
+    "3_repeat_3_times": {"table_counts": [107, 107, 107], "passed": true}
+  },
+  "verdict": {
+    "literal_answer_by_declared_metric": "L3a 役割が1つも当たらない 101/107 = 0.944",
+    "metric_self_criticism": "107の表のほとんどはそもそも建具表ではない(凡例表・面積表・記事欄・仕上表)。建具表でない表で建具表の役割が当たらないのは当たり前で、L3aの101はその当たり前を数えている。32周目と同じ種類の設計ミスを基準に入れた。",
+    "branch_taken": "名指ししない",
+    "reason": "L3aを直す場所として名指しすると、凡例表まで建具表として飲み込む方向に働く。",
+    "narrowed_for_certain": [
+      "L1ではない(28ページに表107個)",
+      "L2でもない(107個すべての升目に文字がある)",
+      "建具番号らしい列を持つ表は5つあり、その5つとも付き添いの列が0。しきいを2から1に下げても0は1にならないので何も通らない。数の問題ではなく見出しが1つも当たっていない問題。"
+    ],
+    "unresolved_fork": {
+      "あ": "5つとも建具表ではない(記号・符号・番号が凡例表の記号列に当たっている)。だとすれば建具表はそもそも1つも見つかっていない。",
+      "い": "5つの中に本物の建具表がある。だとすれば落ちているのは付き添いの見出しの当て方。"
+    }
+  },
+  "next_round": {
+    "target": "建具番号を無視して、種別・幅・高さ・数量の役割だけを107個すべてで数える",
+    "decision_rule": {
+      "どの表でも1つも当たらない": "見出しの言い方が図面と合っていない(い側)",
+      "当たる表はあるが建具番号の列が無い": "列の切り出しか表のまたぎの問題",
+      "どこにも当たらず当たる表も無い": "あ。建具表のページ自体が別の形である可能性が上がる"
+    },
+    "implementation_changes": false
+  },
+  "implementation_changed": false,
+  "full_suite": "977 passed, 1 skipped (35周目から変わらず)",
+  "pending_decisions": 5,
+  "asks": 1
+}

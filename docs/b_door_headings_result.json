@@ -1,0 +1,65 @@
+{
+  "round": 37,
+  "trial": "B",
+  "title": "建具表の付き添いの見出しは107個の表で1つも当たっていないのか",
+  "date": "2026-09-23",
+  "criteria_commit": "5e7f352",
+  "criteria_file": "docs/b_door_headings_criteria.md",
+  "benchmark": "benchmarks/measure_door_headings.py",
+  "target": {"drawing": "匿名化v2", "pages": 34, "tables": 107},
+  "door_supporting": {
+    "F1_tables_with_any_supporting_role": 1,
+    "F1_of": 107,
+    "F2_distribution": {"1": 1},
+    "F3_per_role": {"種別": 1, "幅": 0, "高さ": 0, "数量": 0},
+    "F4_supporting_2plus_without_mark": 0,
+    "F5_mark_without_supporting": 5
+  },
+  "finish_supporting_F6": {
+    "F1_tables_with_any_supporting_role": 2,
+    "F1_of": 107,
+    "F2_distribution": {"2": 2},
+    "F3_per_role": {"部位": 2, "仕上": 2},
+    "F4": 0,
+    "F5": 2
+  },
+  "predictions_written_before": [
+    {"id": 1, "text": "F1 は 0 にはならない", "held": "number_yes_reason_no",
+     "observed": "F1=1。だが理由に書いた「幅・高さ・数量が他の表で当たるはず」は外れ、3つとも0個。"},
+    {"id": 2, "text": "F4 ≧ 1 なら列の切り出しを疑う番", "held": "not_triggered", "observed": "F4=0"},
+    {"id": 3, "text": "F3 でどの役割が当たっていないかが分かる", "held": true, "observed": "4つ中3つが0"}
+  ],
+  "controls": {
+    "1_synthetic_door_schedule": {"supporting_hit_tables": 1, "distribution": {"4": 1}, "passed": true},
+    "2_finish_vocabulary_same_drawing": {"supporting_hit_tables": 2, "passed": true},
+    "3_repeat_3_times": {"F1": [1, 1, 1], "passed": true}
+  },
+  "verdict": {
+    "criteria_contradicted_itself": true,
+    "branch_table_says": "(あ) 建具表は罫線の表として存在しない(F1≧1 かつ F4=0 かつ F5)",
+    "prediction_3_rule_says": "(い) 見出しの言い方が合っていない(4つ中3つが0)",
+    "why_they_conflict": "直し方が正反対になる。分かれ道の表と見込み3の読み方が、同じ数字の上で逆を指した。",
+    "branch_taken": "名指ししない",
+    "reason": "分かれ道の表は『言ってよい』であって『言わねばならない』ではない。基準が自分と食い違っているときにどちらを採るかをこちらが選べることにすると、基準を先に書く意味が無くなる。28・32・36に続いて4回目の自分の基準の設計ミス。",
+    "conflict_with_record": "匿名化v2の評価では『建具表・仕上表・仕様書・凡例が読める』と記録されている。取り決め①により記録を根拠に(あ)を捨てもしないが、記録とぶつかる結論を確かめる測定なしに置かない。",
+    "certain": [
+      "幅・高さ・数量の言い換えは107個の表のどこにも1個も当たっていない",
+      "照合はこの図面で死んでいない(同じ107個の表で仕上表の語は当たった)",
+      "しきいを下げても通らない(36周目)ので、数の調整では直らない",
+      "照合は升目の文字と言い換えの完全一致なので、『巾 W』『寸法』のような書き方は当たらない"
+    ]
+  },
+  "next_round": {
+    "target": "こちらの言葉である『建具』がどのページの文字に現れるかをページ数だけで数える",
+    "decision_rule": {
+      "建具の語があるページに罫線の表がある": "(い)。建具表はある。落ちどころは見出しの当て方",
+      "建具の語がどのページにも無い": "(あ)に寄る。表以外の手がかりで探す周を作る"
+    },
+    "also": "見出し行の升目のうち、どの役割にも当たらなかったものの数",
+    "implementation_changes": false
+  },
+  "implementation_changed": false,
+  "full_suite": "977 passed, 1 skipped (202.20s), exit 0 — 35周目から変わらず",
+  "pending_decisions": 5,
+  "asks": 1
+}

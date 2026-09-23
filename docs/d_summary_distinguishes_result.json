@@ -1,0 +1,57 @@
+{
+  "round": 57,
+  "criteria_commit": "c5c7f69",
+  "criteria_file": "docs/d_summary_distinguishes_criteria.md",
+  "benchmark": "benchmarks/measure_summary_distinguishes.py",
+  "measured_before_fix": {
+    "note": "**こちらが判定である。**基準に先に書いた枝は、この数字で引いた。",
+    "C1_differing_lines": 0,
+    "C2_mentions_reason": false,
+    "C3_page_notes_differ": true,
+    "C4_real_summary_mentions_scale": false,
+    "controls": {
+      "1_s0_has_findings": true,
+      "2_s1_s2_both_zero": true,
+      "3_repeat": [
+        0,
+        0,
+        0
+      ]
+    },
+    "verdict": "summary_does_not_distinguish"
+  },
+  "measurement_flaw_found_and_fixed": {
+    "what": "最初の実装は S1 と S2 に違う案件名を渡していた。案件名は要約の 1 行目に出るので、理由と無関係に『違う行』が 1 本立っていた(C1=1・C2=偽)。",
+    "fix": "3 つとも同じ案件名で回す。直したあとの素の測定が C1=0。",
+    "count": "これで測り方の設計ミスは 5 回目(28・32・36・51・57 周目)。"
+  },
+  "measured_after_fix": {
+    "note": "**判定には使わない。足した 1 行が効いていることの確認だけに使う。**",
+    "C1_differing_lines": 1,
+    "C2_mentions_reason": false,
+    "C3_page_notes_differ": true,
+    "C4_real_summary_mentions_scale": false,
+    "controls": {
+      "1_s0_has_findings": true,
+      "2_s1_s2_both_zero": true,
+      "3_repeat": [
+        1,
+        1,
+        1
+      ]
+    },
+    "verdict": "differs_but_no_reason",
+    "differing_line": "試せなかった手法があるページ: 0 件 / 1 件",
+    "why_C2_is_still_false": "基準に書いた C2 は「未対応」か「縮尺」の語を探す作りだった。足した行はどちらの語も使っていない。**基準は測ったあとに変えないので、そのままにする。**"
+  },
+  "change_made": {
+    "test_first": "tests/test_drawing_intake.py::test_the_summary_says_when_a_method_could_not_be_attempted",
+    "implementation": [
+      "PageOutcome.unattempted_methods(既定は空)",
+      "IntakeResult.pages_with_unattempted_methods",
+      "summary() に 1 行"
+    ],
+    "judgement_changed": false,
+    "full_suite": "979 passed, 1 skipped(追加した 1 件ぶん増えただけ。落ちた既存テストは 0)"
+  }
+}

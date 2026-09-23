@@ -444,6 +444,13 @@ class InferenceOrchestrator:
         # **中身の意味はここでは解釈しない。** JSON にできることだけを確かめ、
         # そのまま `AxisEvidence.evidence["provenance"]` に載せる。
         # 解釈すると、入口が根拠の正しさを保証したかのように読める。
+        # **同じものを見ている読みをまとめる名前。**空なら指紋で数える。
+        # 数を減らす向きにしか働かないので、ここでは形だけ確かめて通す。
+        group_raw = raw.get("independence_group", "")
+        if not isinstance(group_raw, str):
+            errors.append(f"{prefix}:invalid_independence_group")
+            group_raw = ""
+
         provenance_raw = raw.get("provenance")
         provenance: Mapping[str, Any] | None = None
         if provenance_raw is not None:
@@ -508,6 +515,7 @@ class InferenceOrchestrator:
                 # ファイアウォールもソルバーも読んでいなかった。
                 unit=unit or "",
                 source_fingerprint=registered_fingerprint,
+                independence_group=group_raw,
                 strength=effective_strength,
                 status=status,
                 calibrated=effective_calibrated,

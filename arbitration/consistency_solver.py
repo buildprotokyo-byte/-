@@ -130,6 +130,15 @@ class Variable:
     detection_lower: int | None = None
     detection_upper: int | None = None
 
+    #: **この値を、いくつの独立したデータ源が言っているか。**
+    #:
+    #: 問いの質を分けるために使う(2026-09-23 おーちゃんの判断)。
+    #: 2 以上なら、人の答えが間違っていれば突き合わせで出る。
+    #: **0 は「分からない」で、検算できないものとして扱う。**
+    #: 数え方は `arbitration/axis_quality_firewall.AxisEvidence.independence_key`
+    #: と同じで、ここで新しい数え方を作らない。
+    independent_sources: int = 0
+
     @property
     def error_rate_axis(self) -> str:
         """データ源別誤り率を引くときに使う軸名。"""
@@ -259,6 +268,7 @@ class ConsistencySolver:
         unit: str = "",
         source_axis: str = "",
         detection_range: IntRange | None = None,
+        independent_sources: int = 0,
     ) -> None:
         """下限・上限を直接指定して、ハードな制約に使う変数を登録する。
 
@@ -296,7 +306,7 @@ class ConsistencySolver:
         self._variables[name] = Variable(
             name, lower, upper, axis, strength, dict(evidence or {}),
             unit=unit, requires_confirmation=requires_confirmation,
-            source_axis=source_axis,
+            source_axis=source_axis, independent_sources=independent_sources,
             detection_lower=detection_lower, detection_upper=detection_upper,
         )
 
@@ -404,6 +414,16 @@ class ConsistencySolver:
         誤り率の参照にはこちらを使う(v8 4-3節ルール2)。
         """
         return self._variables[name].error_rate_axis
+
+    def independent_sources(self, name: str) -> int:
+        """その変数を、いくつの独立したデータ源が言っているか。
+
+        **0 は「分からない」。**登録時に渡されなければ 0 のままで、
+        問いの質の分け方では「検算できない」側として扱う
+        (`killer_question/engine.py` の `Question.grade`)。
+        """
+        variable = self._variables.get(name)
+        return variable.independent_sources if variable else 0
 
     def requires_confirmation(self, name: str) -> bool:
         """その変数が、レンジ幅に関わらず人の確認を要するか(階層3かどうか)。"""

@@ -1,0 +1,104 @@
+{
+  "round": 50,
+  "page": 7,
+  "Q1": {
+    "drawing": "file_fingerprint(中身の sha256)",
+    "human": "start_kit_fingerprint(入れた値の sha256)"
+  },
+  "Q2_same_file_same_key": true,
+  "Q3_value_changes_key": true,
+  "Q3_keys": {
+    "S0 書き写し": "61fcbfc3",
+    "S1 独自+3%": "81b9953a",
+    "S2 独自+10%": "43e14c72"
+  },
+  "Q4_can_detect_copying": false,
+  "Q5": {
+    "S0 書き写し": {
+      "tier1": 1,
+      "reference_tier": 1,
+      "reference_reasons": [
+        "実測校正済みの独立した強いデータ源が2つ以上一致"
+      ],
+      "keys": [
+        "17ff7343",
+        "61fcbfc3"
+      ]
+    },
+    "S1 独自+3%": {
+      "tier1": 0,
+      "reference_tier": 3,
+      "reference_reasons": [
+        "独立した強い軸同士の制約が矛盾したためエスカレーション"
+      ],
+      "keys": [
+        "17ff7343",
+        "81b9953a"
+      ]
+    },
+    "S2 独自+10%": {
+      "tier1": 0,
+      "reference_tier": 3,
+      "reference_reasons": [
+        "独立した強い軸同士の制約が矛盾したためエスカレーション"
+      ],
+      "keys": [
+        "17ff7343",
+        "43e14c72"
+      ]
+    }
+  },
+  "controls": {
+    "1_s0_matches_round_49": true,
+    "2_same_pdf_one_key": true,
+    "3_repeat": [
+      [
+        1,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        0
+      ],
+      [
+        1,
+        0,
+        0
+      ]
+    ]
+  },
+  "title": "「人の入力は図面と独立している」は何を根拠に言えているのか",
+  "date": "2026-09-23",
+  "criteria_commit": "8ac5589",
+  "criteria_file": "docs/d_human_independence_criteria.md",
+  "benchmark": "benchmarks/measure_human_independence.py",
+  "verdict": {
+    "branch": "S0 が通り、独自の値が落ちた",
+    "conclusion": "いまの一致の見方は、独立性を確かめるどころか、書き写しを選んで通している。",
+    "plain": "図面を写しただけの人が『独立した2つ目の証拠』として扱われ、自分の目で測った人は『矛盾』として弾かれる。",
+    "why_s1_fails": "理由は『中心値が離れている』ではなく『制約が矛盾した』。範囲が重ならなかった。2つの読みは同じ2点から出ていて申告だけが違うので、この対象で一致と呼べるのは実質、写したときだけ。",
+    "not_an_improvement": "これは改善の余地ではなく危険の測定である(基準にそう書いた)。"
+  },
+  "why_mechanism_cannot_decide": "鍵は資料の指紋でできている(図面=ファイルの中身のsha256、人の入力=入れた値のsha256)。どちらも『どの資料から来たか』は正しく見分けるが、『その人が図面を見て書き写したか』は値の指紋には原理的に出ない。実装で直せる種類の欠陥ではなく、運用で決めるしかない。",
+  "effect_on_round_48_card": {
+    "card_not_withdrawn": true,
+    "note_to_add": "選択肢『人が数える』は、そのままでは2つ目のデータ源にならないかもしれない(図面を見て数えた人は図面の写し)。『見積の明細から読む』は別の日に別の目的で別の人が作ったので同じ写しではないが、これも仕組みでは確かめられない。こちらからは決めない。"
+  },
+  "one_sided_only": {
+    "can_say": "この対象・この図面で、書き写しだけが通り、3%ずれた値は弾かれた。",
+    "cannot_say": [
+      "ほかの対象で同じかは測っていない(いま2鍵を持てる対象は基準寸法だけ)",
+      "『見積から読めば独立になる』とは言っていない",
+      "1件の図面での測定である",
+      "『一致の見方を変えれば直る』とも言っていない(判定のしかたの話なのでこちらでは決めない)"
+    ]
+  },
+  "implementation_changed": {
+    "judgement_logic": false,
+    "thresholds": false,
+    "production_code": false
+  },
+  "pending_decisions_now": 3
+}
