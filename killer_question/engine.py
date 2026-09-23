@@ -46,6 +46,11 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from arbitration.consistency_solver import ConsistencySolver, SolveResult
+from arbitration.group_total import (
+    GroupTotalConstraint,
+    check_group_total,
+    group_total_absorption_excess,
+)
 from killer_question.dependency_graph import DependencyGraph, build_dependency_graph
 from killer_question.precision_mode import DEFAULT_TARGET_COVERAGE, PrecisionMode
 
@@ -118,7 +123,7 @@ class Question:
     candidate_values: tuple[int, ...]
     tie_broken_by_axis: bool = False
     mode: PrecisionMode = PrecisionMode.STANDARD
-    selected_by: str = "reduction"  # "reduction" | "impact_fallback"
+    selected_by: str = "reduction"  # "reduction" | "impact_fallback" | "group_residual"
     #: **答えが検算できるかどうかの階級**(2026-09-23 おーちゃんの判断)。
     #:
     #: - ``"A"``: 別のデータ源の読みが 2 つ以上ある。答えが間違っていれば出る
@@ -489,6 +494,88 @@ class KillerQuestionEngine:
             fallback.variable, fallback.score, fallback.candidate_values,
             tie_broken_fb, self._mode, "impact_fallback",
             grade=self._grade_of(fallback.variable),
+        )
+
+    def group_total_question(self, constraint: GroupTotalConstraint) -> Question | None:
+        """**吸収と判定された群に、問いを1問だけ立てる**(判断の5番、
+        `docs/group_total_masking_design.md` 4-1節の (c))。
+
+        群合計は「どの要素が誤っているか」までは言わない。言えるのは
+        「停止した要素を自分の読みの近くに留めると合計が合わない」ことだけである。
+        そこで**その食い違い(群の残差)を最も動かす要素**に聞く。
+
+        群の残差は :func:`arbitration.group_total.group_total_absorption_excess`
+        (停止した要素が中心窓の外へ押し出された量の合計。0 より大きいことが
+        ``check_group_total`` の「吸収された」と同じ意味)。
+
+        要素 ``m`` の効きは、次の平均である。
+
+        - 候補値は **``m`` 自身の読みの範囲**(``detection_range``)。
+          群合計で絞った範囲は使わない。**群合計そのものが疑われている**ので、
+          群合計で候補を潰すと、押し出された値1つしか聞けなくなる
+        - 候補値 ``v`` ごとに、複製した solver に ``m == v`` を置いて
+          ``m`` を確認済みにし(``answer()`` と同じ扱い)、残差を測り直す
+        - 動いた量は「元の残差 − 置いた後の残差」(負なら 0)。**置いた結果
+          群合計が矛盾(unsat)するなら、残差を全部動かしたと数える。**
+          隠れていた矛盾が表に出て、既存の安全装置が群を止めるため
+
+        平均が 0 の要素(答えで残差が動かない要素)は問いにしない。残った中から、
+        ``next_question`` と同じ規則で1つ選ぶ:
+        **検算できる階級を先に**(``_best_grade_subset``)、同じ階級の中では効きの
+        大きい順、同点は誤り率の低い軸 → 名前順(``_tie_break``)。候補が多すぎる
+        要素(``_MAX_CANDIDATE_ENUMERATION`` 超)と、食い違いを人に回した要素は外す。
+
+        返すのは ``Question`` 1つだけで、**solver も階層も変えない。**
+        吸収された群の階層1を階層2へ落とす (a) は ``check_group_total`` の
+        ``targets_requiring_audit`` のまま。答えの反映は通常どおり
+        ``answer()`` / ``run()`` を使う(候補外の答えは食い違いとして残る)。
+
+        吸収が無い群(sat で吸収なし)と、矛盾した群(unsat。群ごと人へ回る)には
+        ``None`` を返す。
+
+        **限界(正直に書く)**: 階層1の要素の読みは強い2軸が一致しているので
+        範囲が幅0で、読みの範囲の答えでは残差を動かせない。**だから群合計の
+        吸収からは、階層1のどの要素が誤っているかは指せない。** 選ばれるのは
+        停止した要素で、その答えが「吸収は説明がつく」か「群合計が矛盾する
+        (= 他のどこかが誤っている)」かを1問で分ける。
+        """
+        check = check_group_total(self._solver, constraint)
+        if check.status != "sat" or not check.is_absorbed:
+            return None
+        base = group_total_absorption_excess(self._solver, constraint)
+        if base is None or base <= 0:
+            return None
+
+        scores: list[CandidateScore] = []
+        for name in constraint.members:
+            if name in self._disputed:
+                continue
+            lower, upper = self._solver.variable_detection_range(name)
+            if upper - lower + 1 > _MAX_CANDIDATE_ENUMERATION:
+                continue
+            candidates = tuple(range(lower, upper + 1))
+            moved: list[float] = []
+            for value in candidates:
+                hypothesis = self._solver.clone()
+                hypothesis.add_relation(
+                    f"{_HYPOTHESIS_PREFIX}{name}__{value}", name, "==", value
+                )
+                hypothesis.mark_confirmed(name)
+                after = group_total_absorption_excess(hypothesis, constraint)
+                moved.append(float(base if after is None else max(0, base - after)))
+            score = sum(moved) / len(moved) if moved else 0.0
+            if score > 0:
+                scores.append(
+                    CandidateScore(name, score, score, _DEFAULT_IMPACT, candidates,
+                                   frozenset(constraint.members))
+                )
+        if not scores:
+            return None
+        scores = self._best_grade_subset(scores)
+        best, tie_broken = self._pick_best_by_score(scores)
+        return Question(
+            best.variable, best.score, best.candidate_values, tie_broken, self._mode,
+            "group_residual", grade=self._grade_of(best.variable),
         )
 
     def answer(self, variable: str, value: int) -> None:
