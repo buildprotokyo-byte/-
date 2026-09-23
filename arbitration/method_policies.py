@@ -48,6 +48,13 @@ from axes.image_axis.ocr_readings import (
     METHOD_OCR_TEXT_AREA,
     METHOD_OCR_TEXT_SCALE,
 )
+from axes.image_axis.pdf_room_outlines import METHOD_ROOM_OUTLINE
+from axes.image_axis.room_regions import METHOD_ROOM_REGION
+from axes.image_axis.wall_network import METHOD_WALL_NETWORK
+from axes.image_axis.pdf_repeated_symbols import (
+    METHOD_LEGEND_SYMBOL,
+    METHOD_REPEATED_SYMBOL,
+)
 from axes.image_axis.schedule_tables import (
     METHOD_DOOR_SCHEDULE,
     METHOD_FINISH_SCHEDULE,
@@ -60,6 +67,14 @@ from arbitration.inference_orchestrator import MethodPolicy
 #: `intake` は `arbitration` を import するので、ここに文字列として置く
 #: (逆向きに import すると循環する)。
 METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
+
+#: 人が室ごとに入れた縦・横・天井高の手法ID。実体は `intake/room_dimensions.py`
+#: にあるが、基準点と同じ理由でここに文字列として置く。
+METHOD_HUMAN_ROOM_DIMENSIONS = "human_room_dimensions"
+
+#: 人が数えた記号の個数の手法ID。実体は `intake/symbol_counts.py`(14周目)。
+#: 同じ理由でここには文字列として置く。
+METHOD_HUMAN_SYMBOL_COUNT = "human_symbol_count"
 
 #: 手法IDごとの、このリポジトリで認められた上限。
 #:
@@ -82,6 +97,18 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   それだけを根拠に自動確定させない**というおーちゃんの指示(2026-09-22)を
 #:   コードで担保するため、ここで未校正として登録する。`calibrated=False` の
 #:   あいだは `is_hard_eligible` が False になり、ハード制約に入らない。
+#: - ``human_room_dimensions`` … 人が室ごとに入れた縦・横・天井高から
+#:   床面積・周長・内壁面積を計算する(`intake/room_dimensions.py`、
+#:   `estimating/from_room_dimensions.py`)。**未校正・上限 weak。**
+#:   上限を ``weak`` にした理由は 4 つある。
+#:   ①**校正していない。** 人が入れた寸法の誤り率を独立のデータで測っていない。
+#:   ②**室を長方形とみなしている。** L 字の室では周長が実際より短く出る。
+#:   ③**開口を引いていない。** 内壁面積は建具の面積を含んだままである。
+#:   ④**独立した証言が 2 つできてしまう危険がある。** 人の入力は図面とは
+#:   別のデータ源なので、ここを ``calibrated=True`` にすると、
+#:   **人が 1 回入れた値と図面の印字が合っただけで階層1(自動確定)に届く。**
+#:   `human_reference_point` と `pdf_text_scale` で確認済みの裏返しの危険と
+#:   同じ形である。
 #: - ``pdf_text_area`` … 図面に**文字として書かれている**面積の記載をそのまま
 #:   読む(`axes/image_axis/pdf_vector_symbols.find_area_labels`)。
 #:   上限は ``strong`` にしてあるが **``calibrated=False``** なので、
@@ -146,6 +173,65 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   **印字をそのまま読めていない**ので、その理由が当てはまらない。
 #:   校正で外れ率を測っても、上限を上げる前に
 #:   「どの字がどの字に化けたか」の分布が要る。
+#: - ``pdf_vector_repeated_symbol`` … CAD 由来 PDF で**同じ図形が繰り返し
+#:   現れること**だけを手がかりに記号の候補を数える
+#:   (`axes/image_axis/pdf_repeated_symbols.find_repeated_symbols`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 3 つある。
+#:   ①1 回しか出てこない記号と、大きさの窓の外にある記号は原理的に落ちる
+#:   ので、件数は常に**下限**であって実数ではない。②大きさの窓の既定値
+#:   (30〜1500mm)は実図面で校正していない暫定値である。③ハッチングや
+#:   寸法線のように「繰り返すが記号でないもの」も群として出る。
+#: - ``pdf_vector_legend_symbol`` … 凡例のページで読めた「名前 ↔ 図形」の
+#:   対応(`read_legend_symbols`)。名前が付いても**同じ 1 つの PDF の中の
+#:   一致**なので、独立した 2 つ目の軸ではない(原則 3 節)。
+#:   だから上限は ``weak`` のままにしてある。
+#: - ``pdf_vector_room_outline`` … 図面の線を平面グラフに直し、線で囲まれた
+#:   最小の領域を室の候補として取り出す
+#:   (`axes/image_axis/pdf_room_outlines.find_room_outlines`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 4 つ。
+#:   ①面積が**内法か壁芯か図形からは決まらない**ので、面積の値は
+#:   「どちらとして数えるか」が決まるまで数量として確定できない。
+#:   ②建具の開口を**こちらの都合で仮に閉じている**ことがある
+#:   (``virtual_edges`` に残る)。③面積の窓(0.5〜200㎡)と最小の幅(400mm)は
+#:   実図面で校正していない暫定値である。④開口が広すぎて閉じられない室は
+#:   輪郭が漏れて落ちるので、**出た室の数は常に下限**である。
+#: - ``pdf_vector_room_region`` … 仕上表から読んだ室名を種にして、床の目地や
+#:   造作の線で割れた区画をまとめ直したもの
+#:   (`axes/image_axis/room_regions.find_room_regions`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 4 つ。
+#:   ①``pdf_vector_room_outline`` の弱点(①〜④)をそのまま引き継ぐ。
+#:   ②**仕上表に載っていない室は種が無いので絶対に出ない。**
+#:   出た室の数はここでも常に下限で、**0 件は「室が無い」ではない**。
+#:   ③まとめる範囲を決める止め札のうち、室の下限 0.5㎡ と
+#:   壁の細長さ 6.0 は**実図面で校正していない暫定値**である。
+#:   ④室名と面のひもづけは「その文字を含むいちばん小さい面」という
+#:   こちらの決めごとで、図面がそう描かれている保証は無い。
+#:   **室名は仕上表という別の出どころから来るが、面の形は同じ PDF の線から
+#:   来るので、独立した 2 つ目の軸にはならない**(原則 3 節)。
+#: - ``pdf_vector_wall_network`` … 壁の中身の面だけを境にして、そのまわりを
+#:   まとめたもの(`axes/image_axis/wall_network.find_regions_between_walls`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 4 つ。
+#:   ①``pdf_vector_room_outline`` の弱点(①〜④)をそのまま引き継ぐ。
+#:   ②**壁を 1 本線で描いた図面には原理的に効かない**(全部が 1 つに溶ける)。
+#:   出た室の数は常に下限で、**0 件は「室が無い」ではない**。
+#:   ③壁と呼ぶ条件(細長さ 6.0、紙の上の厚み 1pt、幅 400mm)は
+#:   **どれも実図面で校正していない暫定値**である。
+#:   ④壁の網に切れ目があると隣とつながって面積が大きく出る。
+#:   窓の外なら落ちるが、窓の中に収まってしまえば**大きいまま出る。**
+#: - ``human_symbol_count`` … 人が図面を見て数えた記号の個数
+#:   (`intake/symbol_counts.py`、14周目)。**未校正・上限 weak で固定する。**
+#:   理由は 4 つある。
+#:   (1) 外れ率を一度も測っていない。人がどのくらい数え落とすかの分布が無い。
+#:   (2) 数え落としと二重数えは、入った値の中からは見つけられない。
+#:       12 と入っていて実際が 13 でも、値そのものは何もおかしくない。
+#:   (3) 同じ人が同じ時に数えた複数の記号は、**1 つのデータ源**である。
+#:       疲れや見落としの癖は全部に同じように効くので、互いに突き合わせても
+#:       誤りは出てこない。
+#:   (4) **いちばん危ないのはここ。** 人が数えた個数は図面とは
+#:       **別のデータ源**なので、ここを校正済みにした瞬間に
+#:       「人が 1 回入れた値」と「図面の印字」だけで
+#:       独立した強い軸が 2 つ揃い、階層1(自動確定)に届いてしまう。
+#:       `human_reference_point` と同じ構図である。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -153,12 +239,19 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_DOOR_ARC: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_HUMAN_REFERENCE_POINT: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_HUMAN_ROOM_DIMENSIONS: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_DOOR_SCHEDULE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_DIMENSION_TEXT: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_DIMENSION_SCALE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_OCR_TEXT_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_OCR_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_REPEATED_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_LEGEND_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_ROOM_OUTLINE: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_ROOM_REGION: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_WALL_NETWORK: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_HUMAN_SYMBOL_COUNT: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 

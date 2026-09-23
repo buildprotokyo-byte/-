@@ -1,0 +1,87 @@
+{
+  "format_version": 2,
+  "ruleset_id": "synthetic-standing-example-v2",
+  "description": "架空の見本。実在の会社の積算ルールでも、実案件の見積明細から作ったものでもない。書式の説明と通しテストのためだけに置いてある。**率・式・どの工種に何を掛けるかは、すべておーちゃんの確認待ちである。**per_unit を null にしてあるのは「まだ決まっていない」という意味で、1 ではない。実際に使う規則はリポジトリの外に置き、パスを設定で渡すこと。",
+  "rules": [],
+  "standing_lines": [
+    {
+      "standing_id": "karisetsu-suido",
+      "work_item": "仮設水道料",
+      "major_category": "仮設工事",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空。数量の決め方は未定"
+    },
+    {
+      "standing_id": "karisetsu-denki",
+      "work_item": "仮設電気料",
+      "major_category": "仮設工事",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空。数量の決め方は未定"
+    },
+    {
+      "standing_id": "shou-unpan",
+      "work_item": "小運搬費",
+      "major_category": "現場管理・諸経費",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空"
+    },
+    {
+      "standing_id": "niage",
+      "work_item": "荷上費",
+      "major_category": "現場管理・諸経費",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空。階数とエレベーターの有無で変わるはずだが、その規則は未定"
+    },
+    {
+      "standing_id": "sumidashi",
+      "work_item": "墨出し",
+      "major_category": "仮設工事",
+      "unit": "㎡",
+      "basis": {
+        "kind": "数量参照",
+        "target_kind": "施工床面積",
+        "per_unit": null
+      },
+      "note": "架空。1㎡ あたりの値は未定のため null"
+    },
+    {
+      "standing_id": "shunko-seiso",
+      "work_item": "竣工時清掃",
+      "major_category": "現場管理・諸経費",
+      "unit": "㎡",
+      "basis": {
+        "kind": "数量参照",
+        "target_kind": "施工床面積",
+        "per_unit": null
+      },
+      "note": "架空。1㎡ あたりの値は未定のため null"
+    },
+    {
+      "standing_id": "chushajo",
+      "work_item": "駐車場代",
+      "major_category": "現場管理・諸経費",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空。工期と台数で変わるはずだが、その規則は未定"
+    }
+  ]
+}
