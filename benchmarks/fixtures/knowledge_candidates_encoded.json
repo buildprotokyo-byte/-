@@ -2,7 +2,7 @@
   "format_version": 2,
   "table_id": "candidates-public-standards",
   "synthetic": false,
-  "description": "docs/knowledge/candidates.md の A・A′・B′・B・C 節を、知識の表の形式で書き直したもの。**公共工事の基準からの候補であって、会社のルールでも採用済みの規則でもない。** 形式が候補を受け取れるかを測るためだけに置いてある(65周目)。format_version 2 への書き直し(2026-09-23、K-04 6 番): 発行元・版・拘束力は docs/knowledge/sources.md 4節の記録から、確認日はその文書を読んだ周のコミットの日付(git log、UTC)から埋めた。採否の状態は全件 候補(採否を決めるのはおーちゃん)。",
+  "description": "docs/knowledge/candidates.md の A・A′・B′・B・C 節を、知識の表の形式で書き直したもの。**公共工事の基準からの候補であって、会社のルールでも採用済みの規則でもない。** 形式が候補を受け取れるかを測るためだけに置いてある(65周目)。format_version 2 への書き直し(2026-09-23、K-04 6 番): 発行元・版・拘束力は docs/knowledge/sources.md 4節の記録から埋めた。確認日は全件 不明(null)。その文書をいつ読んだかの記録が無いため(K-06 の決定)。採否の状態は全件 候補(採否を決めるのはおーちゃん)。",
   "entries": [
     {
       "entry_id": "A-1",
@@ -15,7 +15,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -54,7 +54,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -85,7 +85,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -116,7 +116,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -149,7 +149,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -180,7 +180,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -212,7 +212,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -243,7 +243,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -278,7 +278,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -309,7 +309,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -348,7 +348,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -384,7 +384,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -417,7 +417,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -451,7 +451,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": "2026-09-23",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -496,7 +496,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": "2026-09-23",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -540,7 +540,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": "2026-09-23",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -580,7 +580,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": "2026-09-23",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -622,7 +622,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": "2026-09-23",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -660,7 +660,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -694,7 +694,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -728,7 +728,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -769,7 +769,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -806,7 +806,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -843,7 +843,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": "2026-09-22",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -881,7 +881,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": "2026-09-23",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -924,7 +924,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": "2026-09-23",
+        "checked_on": null,
         "binding": "行政基準"
       },
       "adoption_status": "候補",
