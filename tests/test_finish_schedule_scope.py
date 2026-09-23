@@ -15,9 +15,11 @@
 5. **下地の列が無い表では、工事の有無を名乗らないこと**(全行が問い)。
 6. 読み取り側が「部位も仕上も空」として落とした行も、**継続行として
    拾い直すこと。** 落としたままだと問いが 10 件消える。
-7. **「撤去して新設」の行は、要素 2 つ(撤去・新設)になること。**
-   おーちゃんの回答(札、2026-09-23 15:11)。どちらの要素も根拠には
-   **同じ仕上表のページと行番号**が入る。
+7. **「撤去して新設」と「下地からやり替え」の行は、要素 2 つ(撤去・新設)に
+   なること。** おーちゃんの回答(札、2026-09-23 15:11 と K-08 1番)。
+   どちらの要素も根拠には**同じ仕上表のページと行番号**が入る。
+   「下地からやり替え」の撤去のほうには、**範囲が仕上表からは決まらない**
+   ことを注記で残す。
 """
 
 from __future__ import annotations
@@ -98,11 +100,11 @@ def test_the_readings_map_onto_the_five_work_kinds(tmp_path: Path) -> None:
 
     assert [[i.work_kind for i in a.items] for a in result.assignments] == [
         [WORK_AS_IS],
-        [WORK_ALTERED],
-        [WORK_REMOVAL, WORK_NEW],  # 撤去して新設 は 2 つに分かれる
+        [WORK_ALTERED],  # 仕上だけやり替え。**畳まれるのはこの読みだけ**
+        [WORK_REMOVAL, WORK_NEW],  # 撤去して新設
         [WORK_AS_IS],
         [WORK_AS_IS],
-        [WORK_ALTERED],
+        [WORK_REMOVAL, WORK_NEW],  # 下地からやり替え(K-08 1番)
     ]
 
 
@@ -143,17 +145,50 @@ def test_both_halves_of_a_replacement_point_at_the_same_row_of_the_schedule(
     assert (removal.what, removal.where) == (install.what, install.where)
 
 
-def test_only_the_replacement_reading_becomes_two_elements(tmp_path: Path) -> None:
-    """**分けるのは「撤去して新設」だけ。** ほかの読みは 1 行 1 要素のまま。
+def test_a_from_base_row_becomes_two_elements_as_well(tmp_path: Path) -> None:
+    """**「下地からやり替え」も撤去と新設の 2 行になる**(K-08 1番)。
 
-    「下地からやり替え」も撤去を含みうるが、**どこまで撤去するかは仕上表
-    からは決まらない。** おーちゃんの回答が名指ししたのは「撤去して新設」
-    だけなので、ここを勝手に広げない。
+    おーちゃんの理屈: 下地からやり替えるなら、既存の下地を撤去する工事は
+    必ず起きる。**範囲が決まらないのは数量の話で、工事があるかどうかとは
+    別である。** 数量は人の入力から来るので、ここで止める理由が無い。
     """
     result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
 
+    from_base = result.assignments[5]
+    assert from_base.reading == READING_FROM_BASE
+    assert [item.work_kind for item in from_base.items] == [WORK_REMOVAL, WORK_NEW]
+
+    removal, install = from_base.items
+    assert removal.evidence[0].page_number == install.evidence[0].page_number
+    assert removal.evidence[0].row_index == install.evidence[0].row_index
+    assert (removal.what, removal.where) == (install.what, install.where)
+
+
+def test_the_removal_half_of_a_from_base_row_says_the_extent_is_unknown(
+    tmp_path: Path,
+) -> None:
+    """**撤去の行には「範囲は仕上表からは決まらない」を残す**(K-08 1番)。
+
+    工事があることは言えるが、どこまで撤去するかは表に書いていない。
+    新設のほうにはこの断りを付けない(仕上表が材料名を書いている)。
+    """
+    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+
+    removal, install = result.assignments[5].items
+    assert any("範囲は仕上表からは決まらない" in note for note in removal.notes)
+    assert not any("範囲は仕上表からは決まらない" in note for note in install.notes)
+
+
+def test_the_readings_that_stay_one_element_stay_one_element(tmp_path: Path) -> None:
+    """**分けるのは「撤去して新設」と「下地からやり替え」の 2 つだけ。**
+
+    工事なし・仕上だけやり替え・問いは 1 行 1 要素のままである。
+    """
+    two = {READING_REPLACE, READING_FROM_BASE}
+    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+
     for assignment in result.assignments:
-        expected = 2 if assignment.reading == READING_REPLACE else 1
+        expected = 2 if assignment.reading in two else 1
         assert len(assignment.items) == expected, assignment.reading
 
 
@@ -328,20 +363,24 @@ def test_the_counts_add_up_to_the_number_of_rows(tmp_path: Path) -> None:
     assert result.unassigned == ()
 
 
-def test_the_element_count_is_the_row_count_plus_the_replacements(
+def test_the_element_count_is_the_row_count_plus_the_split_readings(
     tmp_path: Path,
 ) -> None:
     """**行の数と要素の数はもう同じではない。** 足し算で数えない。
 
-    「撤去して新設」の行だけが 2 つになるので、要素の数は
-    行の数 + 「撤去して新設」の件数である。
+    2 つに分かれるのは「撤去して新設」と「下地からやり替え」なので、
+    要素の数は 行の数 + その 2 つの読みの件数である。
     """
-    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+    counts = assign_finish_schedule_scope(
+        _schedule(tmp_path / "a.pdf", SIX_READINGS)
+    )
 
-    replacements = result.counts_by_reading()[READING_REPLACE]
-    assert replacements == 1
-    assert result.item_count == len(result.assignments) + replacements
-    assert sum(result.counts_by_work_kind().values()) == result.item_count
+    split = counts.counts_by_reading()[READING_REPLACE] + (
+        counts.counts_by_reading()[READING_FROM_BASE]
+    )
+    assert split == 2
+    assert counts.item_count == len(counts.assignments) + split
+    assert sum(counts.counts_by_work_kind().values()) == counts.item_count
 
 
 def test_an_unknown_base_word_is_not_forced_into_a_reading(tmp_path: Path) -> None:
