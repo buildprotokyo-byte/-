@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from arbitration.units import UnitError, canonical_unit, normalise_range
+from axes.reading.meaning import Meaning
 from estimating.basis import basis_for
 from estimating.decisive import DecisiveReason, decisive_reasons_for
 
@@ -136,6 +137,14 @@ class QuantityItem:
     attributes: Mapping[str, str] = field(default_factory=dict)
     """規則が条件に使える属性(建具表の種別など)。**読めたものだけ。**"""
 
+    meaning: Meaning | None = None
+    """原則2の意味の4欄(`axes/reading/meaning.py`)。**入口から運ぶだけ。**
+
+    ここで作らないのは、意味を知っているのは読んだ側だけだからである。
+    **None は「意味が無い」ではなく「入口がまだ付けていない」。**
+    値を見て後から組み立てると、読めていない欄を埋めることになる。
+    """
+
     provenance: Mapping[str, Any] = field(default_factory=dict)
     notes: tuple[str, ...] = ()
     """この数量について記録しておくこと(属性が食い違った、など)。"""
@@ -175,6 +184,15 @@ class QuantityItem:
     @property
     def kind(self) -> str:
         return split_target(self.target)[0]
+
+    @property
+    def phase(self) -> str | None:
+        """現況か計画か。**意味の欄からだけ読む。対象名から切り出さない。**
+
+        `不明` は「決まっていない」という記録なので、そのまま返す。
+        **意味そのものが付いていなければ None**(`不明` ですらない)。
+        """
+        return self.meaning.phase if self.meaning is not None else None
 
     @property
     def key(self) -> str | None:

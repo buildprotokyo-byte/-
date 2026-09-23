@@ -36,6 +36,7 @@ from intake.drawing_intake import (
     read_drawing,
     start_kit_fingerprint,
 )
+from estimating.from_intake import quantities_from_intake
 from intake.start_kit import (
     PageDeclaration,
     PagePairing,
@@ -403,8 +404,17 @@ def test_a_pairing_of_a_page_with_itself_is_refused() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_the_phase_is_carried_into_the_target_name(drawing: Path) -> None:
-    """現況と計画のページを、対象の名前で区別できること。"""
+def test_the_phase_is_carried_into_the_meaning(drawing: Path) -> None:
+    """人が宣言した現況/計画が、読みの下流に残ること。
+
+    **確かめ方を 2026-09-23 に変えた。** それまでは対象の名前
+    (`開き戸::現況::ページ1`)で確かめていたが、対象名に入れると
+    `QuantityItem.kind` が `::` の手前しか見ないため、**規則からも
+    差分の層からも `現況` が見えなかった**
+    (`docs/principles/scope_of_work_diff.md` 3-2)。
+    現況/計画は意味の4欄(`Meaning.phase`)に入れることにしたので、
+    **確かめる先をそちらに変える。狙い(人の宣言が下流に残ること)は変えない。**
+    """
     result = read_drawing(
         IntakeConfig(
             pdf_path=drawing,
@@ -417,9 +427,44 @@ def test_the_phase_is_carried_into_the_target_name(drawing: Path) -> None:
         )
     )
 
-    assert "開き戸::現況::ページ1" in [item.target for item in result.findings]
+    arc = next(
+        item for item in result.findings if item.target == "開き戸::ページ1"
+    )
+    assert arc.meaning is not None
+    assert arc.meaning.phase == "現況"
     assert result.pages[0].declaration is not None
     assert result.pages[0].declaration.phase == "現況"
+
+    # **当てはめの層まで届くこと。** 入口で付けても写されなければ意味がない。
+    quantity = next(
+        item
+        for item in quantities_from_intake(result)
+        if item.target == "開き戸::ページ1"
+    )
+    assert quantity.phase == "現況"
+
+
+def test_the_phase_is_not_in_the_target_name(drawing: Path) -> None:
+    """現況/計画を対象の名前に入れないこと(2026-09-23)。
+
+    対象名は**仲裁層から見た対象の同一性**である。そこに現況/計画を混ぜると、
+    名前を切り出さないと区別できず、`kind` を見る規則からは消える。
+    """
+    result = read_drawing(
+        IntakeConfig(
+            pdf_path=drawing,
+            case_id="TEST-001",
+            start_kit=StartKit(
+                page_declarations=(
+                    PageDeclaration(page_number=1, kind="平面図", phase="現況"),
+                )
+            ),
+        )
+    )
+
+    assert not [
+        item.target for item in result.findings if "::現況::" in item.target
+    ]
 
 
 def test_an_unknown_phase_does_not_invent_a_label(drawing: Path) -> None:
@@ -434,7 +479,11 @@ def test_an_unknown_phase_does_not_invent_a_label(drawing: Path) -> None:
         )
     )
 
-    assert "開き戸::ページ1" in [item.target for item in result.findings]
+    arc = next(
+        item for item in result.findings if item.target == "開き戸::ページ1"
+    )
+    assert arc.meaning is not None
+    assert arc.meaning.phase == "不明"
 
 
 # `test_door_arcs_are_not_hunted_on_a_page_declared_as_a_table` は

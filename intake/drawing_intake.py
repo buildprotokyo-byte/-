@@ -149,7 +149,12 @@ from intake.case_answers import (
     AnswerStore,
     PendingQuestion,
 )
-from axes.reading.meaning import PHASE_UNKNOWN, PURPOSE_UNESTABLISHED, Meaning
+from axes.reading.meaning import (
+    PHASE_UNKNOWN,
+    PURPOSE_RECEIVED_UNLINKED,
+    PURPOSE_UNESTABLISHED,
+    Meaning,
+)
 from intake.start_kit import (
     DOOR_ARC_EXPECTED_PAGE_KINDS,
     LEGEND_PAGE_KINDS,
@@ -1152,6 +1157,7 @@ def _extract(
                     declaration,
                     notes,
                     pending=pending,
+                    purpose_received=start_kit.purpose is not None,
                     door_schedule_count=door_schedule_count,
                     finish_schedule_count=finish_schedule_count,
                 )
@@ -1726,6 +1732,7 @@ def _door_arc_findings(
     notes: list[str],
     *,
     pending: list[PendingDecision],
+    purpose_received: bool = False,
     door_schedule_count: int = 0,
     finish_schedule_count: int = 0,
 ) -> list[DrawingFinding]:
@@ -1807,16 +1814,16 @@ def _door_arc_findings(
         )
 
     # ページごとに別の対象にする。足すと既存と新設を二重に数えるため。
-    # 人が現況/計画/解体を宣言していれば、対象の名前に残す。
+    #
+    # **現況/計画は対象の名前に入れない**(2026-09-23、`scope_of_work_diff.md` 3-3)。
+    # 対象名に入れると `QuantityItem.kind` が `::` の手前しか見ないので、
+    # 規則からも差分の層からも `現況` が見えなかった。入れる箱は
+    # `Meaning.phase` として既にあるので、そちらに入れる。
+    # **宣言が無いページは `不明`。** 「計画」に寄せない。
     phase = declaration.phase if declaration is not None else None
-    target = (
-        f"開き戸::{phase}::ページ{page_number}"
-        if phase is not None and phase != "不明"
-        else f"開き戸::ページ{page_number}"
-    )
     return [
         DrawingFinding(
-            target=target,
+            target=f"開き戸::ページ{page_number}",
             value_range=(float(len(arcs)), float(len(arcs))),
             unit=COUNT_UNIT,
             method_id=METHOD_DOOR_ARC,
@@ -1845,6 +1852,20 @@ def _door_arc_findings(
                     "円弧を描かない引戸・折戸は拾えない。0 件は「建具が無い」ではない"
                 ),
             },
+            meaning=Meaning(
+                what="開き戸の数量",
+                # **室の輪郭を取る実装がこのリポジトリに無い**ので、部屋の名前では
+                # 書けない。書けないことを紙の位置として正直に書く。
+                # **`不明` どうしを同じ場所とみなしてはいけない**
+                # (`scope_of_work_diff.md` 3-3)。
+                where=f"ページ{page_number}の平面図",
+                phase=phase if phase is not None else PHASE_UNKNOWN,
+                purpose_link=(
+                    PURPOSE_RECEIVED_UNLINKED
+                    if purpose_received
+                    else PURPOSE_UNESTABLISHED
+                ),
+            ),
         )
     ]
 

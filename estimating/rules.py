@@ -30,6 +30,8 @@
 - `kind` … 対象名の `::` より前(`建具数量`)。**全文には当てない。**
 - `attributes` … 属性名 → 許す値の並び。**書いた属性が数量に無ければ
   当たらない。** 読めなかった属性で行を決めてしまわないため。
+- `phase`(版 3)… 現況/計画/解体の条件。**意味の4欄からだけ読む。**
+  意味が付いていない数量にも、`不明` のままの数量にも当たらない。
 - `line_items` … 1 つの規則が当たったときに**同時に**作る行。取付費と
   材料費のように、1 つの数量が複数の行になるのはあいまいさではない。
 - 複数の**規則**が同じ数量に当たったときが「一意に決まらない」場合で、
@@ -52,6 +54,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from arbitration.units import UNIT_SPECS, UnitError, canonical_unit
+from axes.reading.meaning import PHASE_UNKNOWN, PHASES
 from estimating.quantities import QuantityItem, normalise_text
 
 #: この読み込みが解釈できる規則ファイルの版。
@@ -59,15 +62,23 @@ from estimating.quantities import QuantityItem, normalise_text
 #: Codex 側の仕様が届いたら、この数字を上げた新しい読み込みを足す。
 #: **古い版の読み込みで新しいファイルを読ませない**ので、書式が変わった
 #: ことに気づかないまま半分だけ当たる、という事故が起きない。
-RULES_FORMAT_VERSION = 2
+RULES_FORMAT_VERSION = 3
 
 #: 読める版。**古い版のファイルはそのまま読める**(図面からは決まらない行が
 #: 無いだけ)。新しい項目を書いたのに版を上げていないファイルは断る。
 #: 半分だけ効いた規則がいちばん危ないという約束は変えていない。
-SUPPORTED_RULES_FORMAT_VERSIONS: tuple[int, ...] = (1, 2)
+SUPPORTED_RULES_FORMAT_VERSIONS: tuple[int, ...] = (1, 2, 3)
 
 #: 版 2 で足した項目。版 1 のファイルにこれがあれば断る。
 _VERSION2_ONLY_FIELDS = frozenset({"standing_lines"})
+
+#: 版 3 で足した、**規則 1 つの中の**項目。版 2 以下のファイルにあれば断る。
+#:
+#: `phase` は現況/計画/解体の条件である。それまで `phase` は対象名の中
+#: (`開き戸::現況::ページ1`)にしか無く、`kind` が `::` の手前しか見ないので
+#: **規則からは見えなかった**(`docs/principles/scope_of_work_diff.md` 3-2)。
+#: 意味の4欄(`Meaning.phase`)に移したことで条件にできるようになった。
+_VERSION3_ONLY_RULE_FIELDS = frozenset({"phase"})
 
 #: 図面からは決まらない行の基準の種類。
 STANDING_BASIS_KINDS: tuple[str, ...] = ("一式", "数量参照")
@@ -89,7 +100,15 @@ _STANDING_FIELDS = frozenset(
 )
 _STANDING_BASIS_FIELDS = frozenset({"kind", "quantity", "target_kind", "per_unit"})
 _RULE_FIELDS = frozenset(
-    {"rule_id", "kind", "unit_dimension", "attributes", "line_items", "description"}
+    {
+        "rule_id",
+        "kind",
+        "unit_dimension",
+        "attributes",
+        "phase",
+        "line_items",
+        "description",
+    }
 )
 _LINE_FIELDS = frozenset({"code", "work_item", "major_category", "unit", "note"})
 
@@ -136,6 +155,13 @@ class MappingRule:
     """数量の単位がこの次元(`count` `area` `length` `money`)であることを要求する。"""
 
     attributes: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    phase: tuple[str, ...] = ()
+    """この規則が当たる現況/計画/解体(版 3 で追加)。**空なら問わない。**
+
+    **`不明` は書けない。** 「現況か計画か決まっていない数量に当てる規則」は、
+    決まっていないことを根拠に行を立てることになる(原則2)。
+    """
+
     description: str | None = None
 
     def match(self, quantity: QuantityItem) -> MatchResult:
@@ -162,6 +188,29 @@ class MappingRule:
             if normalise_text(actual) not in {normalise_text(v) for v in allowed}:
                 reasons.append(
                     f"属性 {name} の値 {actual} が規則 {self.rule_id} の条件に無い"
+                )
+
+        # 現況/計画は**意味の4欄からだけ**読む(`QuantityItem.phase`)。
+        # 対象名から切り出さない。**意味が付いていない数量には当てない。**
+        # 読めなかった属性で行を決めない約束(上の `attributes`)と同じ向きで、
+        # 「まだ付けていない」を「現況だろう」で埋めない。
+        if self.phase:
+            actual_phase = quantity.phase
+            if actual_phase is None:
+                reasons.append(
+                    f"規則 {self.rule_id} が現況/計画を条件にしているが、"
+                    "この数量には意味の4欄が付いていない"
+                    "(付いていないことを「不明」と読み替えない)"
+                )
+            elif actual_phase == PHASE_UNKNOWN:
+                reasons.append(
+                    f"規則 {self.rule_id} が現況/計画を条件にしているが、"
+                    "この数量の現況/計画は「不明」のままである"
+                )
+            elif actual_phase not in self.phase:
+                reasons.append(
+                    f"この数量は「{actual_phase}」で、"
+                    f"規則 {self.rule_id} の条件 {list(self.phase)} に無い"
                 )
 
         # 行の単位は、数量の単位と**同じ正規形**でなければならない。
@@ -284,7 +333,7 @@ def parse_rules(payload: Any, *, source_path: Path | None = None) -> RuleSet:
     rules: list[MappingRule] = []
     seen: set[str] = set()
     for raw in raw_rules:
-        rule = _parse_rule(raw)
+        rule = _parse_rule(raw, version=version)
         if rule.rule_id in seen:
             raise RuleError(f"rule_id が重複しています: {rule.rule_id}")
         seen.add(rule.rule_id)
@@ -401,7 +450,7 @@ def _parse_standing_lines(raw: Any) -> tuple[StandingLineSpec, ...]:
     return tuple(out)
 
 
-def _parse_rule(raw: Any) -> MappingRule:
+def _parse_rule(raw: Any, *, version: int) -> MappingRule:
     if not isinstance(raw, Mapping):
         raise RuleError("規則が辞書ではありません")
     unknown = set(raw) - _RULE_FIELDS
@@ -409,6 +458,12 @@ def _parse_rule(raw: Any) -> MappingRule:
         raise RuleError(
             f"規則に知らない項目があります: {sorted(unknown)}。"
             "読み飛ばすと半分だけ効いた規則になるので受け付けません"
+        )
+    too_new = _VERSION3_ONLY_RULE_FIELDS & set(raw)
+    if version < 3 and too_new:
+        raise RuleError(
+            f"format_version {version} の規則に版 3 の項目があります: {sorted(too_new)}。"
+            "版を上げずに新しい項目を書くと、半分だけ効いた規則になるので受け付けません"
         )
 
     rule_id = raw.get("rule_id")
@@ -428,6 +483,7 @@ def _parse_rule(raw: Any) -> MappingRule:
             )
 
     attributes = _parse_attributes(rule_id, raw.get("attributes"))
+    phase = _parse_phase(rule_id, raw.get("phase"))
     line_items = _parse_line_items(rule_id, raw.get("line_items"))
 
     description = raw.get("description")
@@ -440,8 +496,34 @@ def _parse_rule(raw: Any) -> MappingRule:
         line_items=line_items,
         unit_dimension=unit_dimension,
         attributes=attributes,
+        phase=phase,
         description=description,
     )
+
+
+def _parse_phase(rule_id: str, raw: Any) -> tuple[str, ...]:
+    """規則の現況/計画の条件を読む。**`不明` は書かせない。**"""
+    if raw is None:
+        return ()
+    if isinstance(raw, str) or not isinstance(raw, Sequence) or not raw:
+        raise RuleError(
+            f"規則 {rule_id} の phase は、許す値の並び(空でないリスト)"
+            "である必要があります"
+        )
+    out: list[str] = []
+    for value in raw:
+        if not isinstance(value, str) or value not in PHASES:
+            raise RuleError(
+                f"規則 {rule_id} の phase に知らない値があります: {value!r}"
+                f"(使えるのは {sorted(PHASES - {PHASE_UNKNOWN})})"
+            )
+        if value == PHASE_UNKNOWN:
+            raise RuleError(
+                f"規則 {rule_id} の phase に「{PHASE_UNKNOWN}」は書けません。"
+                "決まっていないことを根拠に見積の行を立てることになります"
+            )
+        out.append(value)
+    return tuple(out)
 
 
 def _parse_attributes(rule_id: str, raw: Any) -> Mapping[str, tuple[str, ...]]:

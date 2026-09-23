@@ -186,6 +186,10 @@ def quantities_from_intake(result) -> tuple[QuantityItem, ...]:
                 confirmed_range=getattr(decision, "confirmed_range", None),
                 **_decisive_evidence(finding, decision),
                 attributes=attributes,
+                # **意味の4欄は運ぶだけ。ここで作らない。**
+                # 付いていない読み(埋め込み文字の面積)は None のまま残す。
+                # 既定値で埋めると「まだ付けていない」が「不明と分かっている」に化ける。
+                meaning=getattr(finding, "meaning", None),
                 provenance=dict(getattr(finding, "provenance", {}) or {}),
                 notes=tuple(notes),
             )
