@@ -2085,20 +2085,20 @@ def _decide(
         reasons=decision.reasons if decision is not None else (),
         reason_codes=reason_codes,
         is_invalid=result.is_invalid,
-        hard_evidence_ids=decision.hard_evidence_ids if decision is not None else (),
-        advisory_evidence_ids=(
-            decision.advisory_evidence_ids if decision is not None else ()
+        # **`getattr` で読む。** 試験では判定を差し替えた作り物が来る。
+        # 記録用の欄が無いだけで入口が落ちるのは、追加の代償として重すぎる。
+        hard_evidence_ids=tuple(getattr(decision, "hard_evidence_ids", ()) or ()),
+        advisory_evidence_ids=tuple(
+            getattr(decision, "advisory_evidence_ids", ()) or ()
         ),
-        independent_strong_source_count=(
-            decision.independent_strong_source_count if decision is not None else 0
+        independent_strong_source_count=int(
+            getattr(decision, "independent_strong_source_count", 0) or 0
         ),
-        independent_advisory_source_count=(
-            decision.independent_advisory_source_count if decision is not None else 0
+        independent_advisory_source_count=int(
+            getattr(decision, "independent_advisory_source_count", 0) or 0
         ),
-        method_count=decision.method_count if decision is not None else 0,
-        solve_is_consistent=(
-            bool(getattr(decision.solve_result, "is_consistent", False))
-            if decision is not None
-            else False
+        method_count=int(getattr(decision, "method_count", 0) or 0),
+        solve_is_consistent=bool(
+            getattr(getattr(decision, "solve_result", None), "is_consistent", False)
         ),
     )
