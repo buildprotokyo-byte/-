@@ -211,3 +211,22 @@ def test_door_arcs_are_not_hunted_on_a_page_declared_as_a_table(drawing) -> None
 **「確か」と言われた宣言を無条件の正解に戻す**入口になりうる。
 原則5の「人の入力を無条件の正解にせず、単一の根拠では自動確定させない」は
 確かさが付いても変わらないので、そこを先に書き留めてから実装するのが安全である。
+
+---
+
+## 追記(2026-09-23、K-04 の 5): 関門は 1 箇所ではなくなっていた
+
+1 節の「**この 1 箇所が唯一の関門だった**」は、#37 の時点では正しかったが、
+その後に崩れていた。#37 を含まないブランチで書かれた A-1(繰り返す記号、
+`1b66b76`)と A-2(室の輪郭、`9b690c7`)が、#37 以前の形(宣言で探索を止める
+並び)のまま PR #75 で main に入った。
+
+- `ROOM_OUTLINE_PAGE_KINDS`: 「平面図」以外と宣言したページで室の輪郭を探さない
+- `REPEATED_SYMBOL_PAGE_KINDS`: 「平面図」「設備図」以外と宣言したページで
+  繰り返す記号を探さない(「凡例」と宣言したページも探さない)
+
+開き戸と同じ形に直した(`claude/page-kind-gate-weak-hint`、判定に触るのでマージせず
+判断待ち)。並びは `ROOM_OUTLINE_EXPECTED_PAGE_KINDS` /
+`REPEATED_SYMBOL_EXPECTED_PAGE_KINDS` に改名し、食い違いの判定にだけ使う。
+同じページの食い違いは 1 件の判断待ちにまとめる。
+基準は `docs/page_kind_gate_criteria.md`、結果は `docs/page_kind_gate_report.md`。
