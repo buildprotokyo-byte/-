@@ -1,8 +1,8 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "table_id": "candidates-public-standards",
   "synthetic": false,
-  "description": "docs/knowledge/candidates.md の A・A′・B′・B・C 節を、知識の表の形式で書き直したもの。**公共工事の基準からの候補であって、会社のルールでも採用済みの規則でもない。** 形式が候補を受け取れるかを測るためだけに置いてある(65周目)。",
+  "description": "docs/knowledge/candidates.md の A・A′・B′・B・C 節を、知識の表の形式で書き直したもの。**公共工事の基準からの候補であって、会社のルールでも採用済みの規則でもない。** 形式が候補を受け取れるかを測るためだけに置いてある(65周目)。format_version 2 への書き直し(2026-09-23、K-04 6 番): 発行元・版・拘束力は docs/knowledge/sources.md 4節の記録から埋めた。確認日は全件 不明(null)。その文書をいつ読んだかの記録が無いため(K-06 の決定)。採否の状態は全件 候補(採否を決めるのはおーちゃん)。",
   "entries": [
     {
       "entry_id": "A-1",
@@ -12,8 +12,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第5編-1-2-1・第5編-2-2-2",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -46,8 +51,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第5編-2-2-1(1)2",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -72,8 +82,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第5編-1-2-2(5)",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -98,8 +113,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第7編-3-2-2(4)1・同2(4)3",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -126,8 +146,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第7編-3-2-2(3)1・2",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -152,8 +177,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第7編-1-2-2",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -179,8 +209,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第7編-5-1-2",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -205,8 +240,13 @@
         "document": "公共建築設備数量積算基準(令和7年改定)",
         "clause": "第3編-2-3(2)(3)",
         "url": "https://www.mlit.go.jp/common/001178207.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -235,8 +275,13 @@
         "document": "公共建築設備数量積算基準(令和7年改定)",
         "clause": "第3編-3-3(2)",
         "url": "https://www.mlit.go.jp/common/001178207.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -261,8 +306,13 @@
         "document": "公共建築設備数量積算基準(令和7年改定)",
         "clause": "第3編-4-1",
         "url": "https://www.mlit.go.jp/common/001178207.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -295,8 +345,13 @@
         "document": "公共建築設備数量積算基準(令和7年改定)",
         "clause": "第4編-3-1(1)(2)",
         "url": "https://www.mlit.go.jp/common/001178207.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -326,8 +381,13 @@
         "document": "公共建築設備数量積算基準(令和7年改定)",
         "clause": "第4編-2-2・第4編-1-1",
         "url": "https://www.mlit.go.jp/common/001178207.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -354,8 +414,13 @@
         "document": "公共建築設備数量積算基準(令和7年改定)",
         "clause": "第4編-2-2・第4編-1-1",
         "url": "https://www.mlit.go.jp/common/001178207.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -383,8 +448,13 @@
         "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
         "clause": "6.1.3(2)",
         "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -423,8 +493,13 @@
         "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
         "clause": "6.1.3(3)",
         "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -462,8 +537,13 @@
         "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
         "clause": "6.1.3(5)",
         "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -497,8 +577,13 @@
         "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
         "clause": "6.4.2(2)",
         "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -534,8 +619,13 @@
         "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
         "clause": "6.2.2(1)・6.3.2(2)(3)・6.4.2(1)",
         "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -567,8 +657,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第7編-3-2-1(2)",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -596,8 +691,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第7編-3-2-2(1)・同(2)",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -625,8 +725,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第7編-1-2-2(1)4・(2)4・(3)2",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -661,8 +766,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第5編-1-2-1",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -693,8 +803,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第5編-1-2-2(5)",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -725,8 +840,13 @@
         "document": "公共建築数量積算基準(令和5年改定)",
         "clause": "第7編-1-2-2",
         "url": "https://www.mlit.go.jp/common/001178206.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -758,8 +878,13 @@
         "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
         "clause": "5.1.3",
         "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
@@ -796,8 +921,13 @@
         "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
         "clause": "6.2.2(1)・6.3.2(2)(3)・6.4.2(1)",
         "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
-        "read_directly": true
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
       },
+      "adoption_status": "候補",
       "confidence": "一次資料",
       "scope": "公共工事",
       "applies_to": {
