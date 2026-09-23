@@ -727,6 +727,111 @@ def _apply_area_basis(
     )
 
 
+@dataclass(frozen=True)
+class PlanGraph:
+    """1 ページの線を組み直した平面グラフ。**室の切り出しと、まとめ直しの共通の土台。**
+
+    `find_room_outlines` と `axes/image_axis/room_regions.py` が同じものを見るために
+    切り出してある。**ここで 2 つ目の組み直しを書かない。** 書くと、
+    片方だけ条件の違う面ができる。
+    """
+
+    coords: list[tuple[float, float]]
+    cycles: list[list[int]]
+    virtual_counts: list[int]
+    owner: dict[tuple[int, int], int]
+    """向きつきの辺 → その辺を持つ面。半辺は 1 つの面にしか属さない。"""
+    virtual_edges: set[tuple[int, int]]
+    """**こちらが仮に閉じた辺**(建具の開口)。向きの両方を入れてある。"""
+    spans: list[tuple[str, tuple[float, float]]]
+    table_rects: list[tuple[float, float, float, float]]
+    mm_per_pt: float
+    tolerance_pt: float
+
+
+def build_plan_graph(
+    pdf_path: str | Path,
+    page_index: int,
+    scale: DrawingScale,
+    snap_mm: float = SNAP_MM,
+    max_gap_mm: float = MAX_GAP_MM,
+    exclude_tables: bool = True,
+) -> PlanGraph | None:
+    """ページの線を平面グラフに組み直す。線が 1 本も無ければ None。
+
+    **None は「室が無い」ではなく「この手法では読めていない」である。**
+    """
+    if snap_mm <= 0 or max_gap_mm <= 0:
+        raise ValueError("許容差・開口の値は正でなければなりません")
+    mm_per_pt = scale.mm_per_point
+    tolerance_pt = snap_mm / mm_per_pt
+    max_gap_pt = max_gap_mm / mm_per_pt
+
+    with pymupdf.open(pdf_path) as doc:
+        if not 0 <= page_index < doc.page_count:
+            raise IndexError(f"ページ {page_index} は存在しません")
+        page = doc.load_page(page_index)
+        segments = _segments(page)
+        spans: list[tuple[str, tuple[float, float]]] = []
+        for block in page.get_text("dict")["blocks"]:
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    text = span["text"].strip()
+                    if text:
+                        bbox = span["bbox"]
+                        spans.append((text, ((bbox[0] + bbox[2]) / 2.0, (bbox[1] + bbox[3]) / 2.0)))
+
+    if not segments:
+        return None
+
+    table_rects: list[tuple[float, float, float, float]] = []
+    if exclude_tables:
+        table_rects = [
+            region.rect_pt
+            for region in find_tables(pdf_path, page_index)
+            if _looks_like_a_ruled_table(region)
+        ]
+
+    edges, points = _split_segments(segments, tolerance_pt)
+    edges = _close_gaps(edges, points.coords, max_gap_pt, tolerance_pt)
+    virtual_edges: set[tuple[int, int]] = set()
+    for u, v, virtual in edges:
+        if virtual:
+            virtual_edges.add((u, v))
+            virtual_edges.add((v, u))
+
+    faces = _faces(edges, points.coords)
+    cycles = [cycle for cycle, _ in faces]
+    return PlanGraph(
+        coords=points.coords,
+        cycles=cycles,
+        virtual_counts=[count for _, count in faces],
+        owner=_edge_owner(cycles),
+        virtual_edges=virtual_edges,
+        spans=spans,
+        table_rects=table_rects,
+        mm_per_pt=mm_per_pt,
+        tolerance_pt=tolerance_pt,
+    )
+
+
+def face_metrics(
+    cycle: list[int], coords: list[tuple[float, float]], mm_per_pt: float
+) -> tuple[float, float, float]:
+    """面の (面積㎡, 周長mm, 最小の幅mm)。**外側の面では面積が 0 以下になる。**"""
+    signed = _signed_area_pt(cycle, coords)
+    area_sqm = signed * mm_per_pt * mm_per_pt / 1_000_000.0
+    perimeter_mm = _perimeter_pt(cycle, coords) * mm_per_pt
+    width_mm = 2.0 * (area_sqm * 1_000_000.0) / perimeter_mm if perimeter_mm > 0 else 0.0
+    return area_sqm, perimeter_mm, width_mm
+
+
+def bracket_to_square_centimetre(area_sqm: float) -> tuple[float, float]:
+    """面積を 1cm²(0.0001㎡)の刻みで挟む。**丸めない。**"""
+    step = 0.0001
+    return (round(math.floor(area_sqm / step) * step, 4), round(math.ceil(area_sqm / step) * step, 4))
+
+
 def find_room_outlines(
     pdf_path: str | Path,
     page_index: int,
@@ -755,51 +860,27 @@ def find_room_outlines(
     if area_basis not in ("内法", "壁芯", "不明"):
         raise ValueError(f"知らない面積の数え方です: {area_basis}")
 
-    mm_per_pt = scale.mm_per_point
-    tolerance_pt = snap_mm / mm_per_pt
-    max_gap_pt = max_gap_mm / mm_per_pt
-
-    with pymupdf.open(pdf_path) as doc:
-        if not 0 <= page_index < doc.page_count:
-            raise IndexError(f"ページ {page_index} は存在しません")
-        page = doc.load_page(page_index)
-        segments = _segments(page)
-        spans: list[tuple[str, tuple[float, float]]] = []
-        for block in page.get_text("dict")["blocks"]:
-            for line in block.get("lines", []):
-                for span in line.get("spans", []):
-                    text = span["text"].strip()
-                    if text:
-                        bbox = span["bbox"]
-                        spans.append((text, ((bbox[0] + bbox[2]) / 2.0, (bbox[1] + bbox[3]) / 2.0)))
-
-    if not segments:
+    graph = build_plan_graph(
+        pdf_path, page_index, scale, snap_mm, max_gap_mm, exclude_tables=exclude_tables
+    )
+    if graph is None:
         return []
+    mm_per_pt = graph.mm_per_pt
+    spans = graph.spans
+    table_rects = graph.table_rects
 
-    # 罫線の表の升目は室ではない。表として読めた範囲を先に除いておく。
-    table_rects: list[tuple[float, float, float, float]] = []
-    if exclude_tables:
-        table_rects = [
-            region.rect_pt
-            for region in find_tables(pdf_path, page_index)
-            if _looks_like_a_ruled_table(region)
-        ]
-
-    edges, points = _split_segments(segments, tolerance_pt)
-    edges = _close_gaps(edges, points.coords, max_gap_pt, tolerance_pt)
-
-    all_faces = _faces(edges, points.coords)
-    cycles = [cycle for cycle, _ in all_faces]
-    owner = _edge_owner(cycles)
+    all_faces = list(zip(graph.cycles, graph.virtual_counts))
+    cycles = graph.cycles
+    owner = graph.owner
 
     #: 細長すぎて室ではない面 = 壁の中身。**面積の窓では絞らない**
     #: (壁の中身は室の下限 0.5 ㎡ より小さいことがある)。
     cavities: set[int] = set()
     for index, cycle in enumerate(cycles):
-        signed = _signed_area_pt(cycle, points.coords)
+        signed = _signed_area_pt(cycle, graph.coords)
         if signed <= 0:
             continue
-        perimeter_pt = _perimeter_pt(cycle, points.coords)
+        perimeter_pt = _perimeter_pt(cycle, graph.coords)
         if perimeter_pt <= 0:
             continue
         width = 2.0 * signed / perimeter_pt * mm_per_pt
@@ -808,20 +889,20 @@ def find_room_outlines(
 
     out: list[RoomOutline] = []
     for face_index, (cycle, virtual_count) in enumerate(all_faces):
-        signed = _signed_area_pt(cycle, points.coords)
+        signed = _signed_area_pt(cycle, graph.coords)
         if signed <= 0:
             continue  # 外側の面
         area_sqm = signed * mm_per_pt * mm_per_pt / 1_000_000.0
         if not min_sqm <= area_sqm <= max_sqm:
             continue
-        perimeter_mm = _perimeter_pt(cycle, points.coords) * mm_per_pt
+        perimeter_mm = _perimeter_pt(cycle, graph.coords) * mm_per_pt
         if perimeter_mm <= 0:
             continue
         width_mm = 2.0 * (area_sqm * 1_000_000.0) / perimeter_mm
         if width_mm < min_width_mm:
             continue  # 細長すぎる。壁の中身とみなす
 
-        polygon = [points.coords[index] for index in cycle]
+        polygon = [graph.coords[index] for index in cycle]
         area_kind, area_kind_note, polygon, area_sqm, perimeter_mm = _apply_area_basis(
             area_basis,
             cycle,
@@ -829,7 +910,7 @@ def find_room_outlines(
             polygon,
             area_sqm,
             perimeter_mm,
-            points.coords,
+            graph.coords,
             owner,
             cavities,
             cycles,

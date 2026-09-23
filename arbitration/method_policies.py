@@ -45,6 +45,7 @@ from axes.image_axis.ocr_readings import (
     METHOD_OCR_TEXT_SCALE,
 )
 from axes.image_axis.pdf_room_outlines import METHOD_ROOM_OUTLINE
+from axes.image_axis.room_regions import METHOD_ROOM_REGION
 from axes.image_axis.pdf_repeated_symbols import (
     METHOD_LEGEND_SYMBOL,
     METHOD_REPEATED_SYMBOL,
@@ -152,6 +153,19 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   (``virtual_edges`` に残る)。③面積の窓(0.5〜200㎡)と最小の幅(400mm)は
 #:   実図面で校正していない暫定値である。④開口が広すぎて閉じられない室は
 #:   輪郭が漏れて落ちるので、**出た室の数は常に下限**である。
+#: - ``pdf_vector_room_region`` … 仕上表から読んだ室名を種にして、床の目地や
+#:   造作の線で割れた区画をまとめ直したもの
+#:   (`axes/image_axis/room_regions.find_room_regions`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 4 つ。
+#:   ①``pdf_vector_room_outline`` の弱点(①〜④)をそのまま引き継ぐ。
+#:   ②**仕上表に載っていない室は種が無いので絶対に出ない。**
+#:   出た室の数はここでも常に下限で、**0 件は「室が無い」ではない**。
+#:   ③まとめる範囲を決める止め札のうち、室の下限 0.5㎡ と
+#:   壁の細長さ 6.0 は**実図面で校正していない暫定値**である。
+#:   ④室名と面のひもづけは「その文字を含むいちばん小さい面」という
+#:   こちらの決めごとで、図面がそう描かれている保証は無い。
+#:   **室名は仕上表という別の出どころから来るが、面の形は同じ PDF の線から
+#:   来るので、独立した 2 つ目の軸にはならない**(原則 3 節)。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -166,6 +180,7 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_REPEATED_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_LEGEND_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_ROOM_OUTLINE: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_ROOM_REGION: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 
