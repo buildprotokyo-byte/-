@@ -28,6 +28,7 @@ from pathlib import Path
 import pytest
 
 from knowledge.table import (
+    BINDINGS,
     KNOWLEDGE_FORMAT_VERSION,
     KnowledgeError,
     load_knowledge,
@@ -53,7 +54,7 @@ def test_the_shipped_example_loads_and_says_it_is_synthetic() -> None:
         assert entry.adoption_status == "候補", "見本は候補のまま。採否はおーちゃんが決める"
         assert entry.source.publisher and entry.source.edition
         assert entry.source.checked_on == "2026-09-23"
-        assert entry.source.binding in ("法令", "行政基準", "業界指針", "任意資料")
+        assert entry.source.binding in BINDINGS
 
 
 def test_an_unknown_column_is_refused_not_ignored() -> None:
@@ -186,7 +187,33 @@ def test_an_entry_without_adoption_status_is_refused_not_filled_in() -> None:
         parse_knowledge(payload)
 
 
-@pytest.mark.parametrize("value", ["公共基準", "業界GL", "", "法令・行政基準"])
+def test_in_house_judgement_is_a_binding_value() -> None:
+    """K-10 5 番: 社内で案件の突き合わせなどから起こした見立ては `社内見立て` と書く。
+
+    `任意資料` と混ぜると一覧で見分けられないので、別の値にする。
+    """
+    payload = _payload()
+    payload["entries"][0]["source"]["binding"] = "社内見立て"
+
+    table = parse_knowledge(payload)
+
+    assert table.entries[0].source.binding == "社内見立て"
+
+
+@pytest.mark.parametrize("value", BINDINGS)
+def test_every_listed_binding_is_accepted(value: str) -> None:
+    """**値を足すのは `BINDINGS` の 1 か所だけ**で、読み込みもそれに付いてくる。"""
+    payload = _payload()
+    payload["entries"][0]["source"]["binding"] = value
+
+    assert parse_knowledge(payload).entries[0].source.binding == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    # `社内規程` は K-10 5 番で「今は採らない」(会社として決めたものが出てきてから分ける)。
+    ["公共基準", "業界GL", "", "法令・行政基準", "社内規程", "社内"],
+)
 def test_an_unknown_binding_is_refused(value: str) -> None:
     payload = _payload()
     payload["entries"][0]["source"]["binding"] = value
