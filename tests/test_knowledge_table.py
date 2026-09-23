@@ -234,6 +234,39 @@ def test_a_leap_day_is_a_real_date() -> None:
     assert parse_knowledge(payload).entries[0].source.checked_on == "2028-02-29"
 
 
+def test_a_null_checked_on_is_read_as_unknown() -> None:
+    """**確認日は 不明 を許す(K-06 の決定)。**書き方は JSON の null の 1 つだけ。
+
+    確認した日の記録が無いときは、推して埋めずに null と書く。読み込んだ値は None。
+    """
+    payload = _payload()
+    payload["entries"][0]["source"]["checked_on"] = None
+
+    table = parse_knowledge(payload)
+
+    assert table.entries[0].source.checked_on is None
+    assert table.entries[1].source.checked_on == "2026-09-23", "ほかの件は日付のまま"
+
+
+def test_a_missing_checked_on_is_still_refused_even_though_null_is_allowed() -> None:
+    """**列そのものは必須のまま。**不明なら null と書く。列を消すのとは違う。"""
+    payload = _payload()
+    del payload["entries"][0]["source"]["checked_on"]
+
+    with pytest.raises(KnowledgeError, match="checked_on"):
+        parse_knowledge(payload)
+
+
+@pytest.mark.parametrize("value", ["", "  ", "不明", "null", "None", "unknown", "-", False, 0, [], {}])
+def test_unknown_checked_on_has_only_one_spelling_null(value: object) -> None:
+    """**不明 の書き方は null の 1 つだけ。**空文字や「不明」と書いた文字は断る。"""
+    payload = _payload()
+    payload["entries"][0]["source"]["checked_on"] = value
+
+    with pytest.raises(KnowledgeError, match="checked_on"):
+        parse_knowledge(payload)
+
+
 def _counting(payload: dict) -> dict:
     return next(e for e in payload["entries"] if e["kind"] == "数え方")
 
