@@ -15,9 +15,11 @@
 5. **下地の列が無い表では、工事の有無を名乗らないこと**(全行が問い)。
 6. 読み取り側が「部位も仕上も空」として落とした行も、**継続行として
    拾い直すこと。** 落としたままだと問いが 10 件消える。
-7. **「撤去して新設」の行は、要素 2 つ(撤去・新設)になること。**
-   おーちゃんの回答(札、2026-09-23 15:11)。どちらの要素も根拠には
-   **同じ仕上表のページと行番号**が入る。
+7. **「撤去して新設」と「下地からやり替え」の行は、要素 2 つ(撤去・新設)に
+   なること。** おーちゃんの回答(札、2026-09-23 15:11 と K-08 1番)。
+   どちらの要素も根拠には**同じ仕上表のページと行番号**が入る。
+   「下地からやり替え」の撤去のほうには、**範囲が仕上表からは決まらない**
+   ことを注記で残す。
 """
 
 from __future__ import annotations
@@ -28,6 +30,15 @@ import pytest
 
 from axes.image_axis.schedule_tables import read_finish_schedules
 from estimating.finish_schedule_scope import (
+    BASE_EXISTING,
+    BASE_NOT_APPLICABLE,
+    BASE_OWNER_SUPPLIED,
+    BASE_REPLACED,
+    BASE_SAME_AS_ABOVE,
+    BASE_UNDETERMINED,
+    CAUSE_OWNER_SUPPLIED,
+    CAUSE_SAME_AS_ABOVE,
+    CAUSE_UNKNOWN_BASE_WORD,
     READING_FINISH_ONLY,
     READING_FROM_BASE,
     READING_NO_WORK,
@@ -98,11 +109,11 @@ def test_the_readings_map_onto_the_five_work_kinds(tmp_path: Path) -> None:
 
     assert [[i.work_kind for i in a.items] for a in result.assignments] == [
         [WORK_AS_IS],
-        [WORK_ALTERED],
-        [WORK_REMOVAL, WORK_NEW],  # 撤去して新設 は 2 つに分かれる
+        [WORK_ALTERED],  # 仕上だけやり替え。**畳まれるのはこの読みだけ**
+        [WORK_REMOVAL, WORK_NEW],  # 撤去して新設
         [WORK_AS_IS],
         [WORK_AS_IS],
-        [WORK_ALTERED],
+        [WORK_REMOVAL, WORK_NEW],  # 下地からやり替え(K-08 1番)
     ]
 
 
@@ -143,17 +154,50 @@ def test_both_halves_of_a_replacement_point_at_the_same_row_of_the_schedule(
     assert (removal.what, removal.where) == (install.what, install.where)
 
 
-def test_only_the_replacement_reading_becomes_two_elements(tmp_path: Path) -> None:
-    """**分けるのは「撤去して新設」だけ。** ほかの読みは 1 行 1 要素のまま。
+def test_a_from_base_row_becomes_two_elements_as_well(tmp_path: Path) -> None:
+    """**「下地からやり替え」も撤去と新設の 2 行になる**(K-08 1番)。
 
-    「下地からやり替え」も撤去を含みうるが、**どこまで撤去するかは仕上表
-    からは決まらない。** おーちゃんの回答が名指ししたのは「撤去して新設」
-    だけなので、ここを勝手に広げない。
+    おーちゃんの理屈: 下地からやり替えるなら、既存の下地を撤去する工事は
+    必ず起きる。**範囲が決まらないのは数量の話で、工事があるかどうかとは
+    別である。** 数量は人の入力から来るので、ここで止める理由が無い。
     """
     result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
 
+    from_base = result.assignments[5]
+    assert from_base.reading == READING_FROM_BASE
+    assert [item.work_kind for item in from_base.items] == [WORK_REMOVAL, WORK_NEW]
+
+    removal, install = from_base.items
+    assert removal.evidence[0].page_number == install.evidence[0].page_number
+    assert removal.evidence[0].row_index == install.evidence[0].row_index
+    assert (removal.what, removal.where) == (install.what, install.where)
+
+
+def test_the_removal_half_of_a_from_base_row_says_the_extent_is_unknown(
+    tmp_path: Path,
+) -> None:
+    """**撤去の行には「範囲は仕上表からは決まらない」を残す**(K-08 1番)。
+
+    工事があることは言えるが、どこまで撤去するかは表に書いていない。
+    新設のほうにはこの断りを付けない(仕上表が材料名を書いている)。
+    """
+    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+
+    removal, install = result.assignments[5].items
+    assert any("範囲は仕上表からは決まらない" in note for note in removal.notes)
+    assert not any("範囲は仕上表からは決まらない" in note for note in install.notes)
+
+
+def test_the_readings_that_stay_one_element_stay_one_element(tmp_path: Path) -> None:
+    """**分けるのは「撤去して新設」と「下地からやり替え」の 2 つだけ。**
+
+    工事なし・仕上だけやり替え・問いは 1 行 1 要素のままである。
+    """
+    two = {READING_REPLACE, READING_FROM_BASE}
+    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+
     for assignment in result.assignments:
-        expected = 2 if assignment.reading == READING_REPLACE else 1
+        expected = 2 if assignment.reading in two else 1
         assert len(assignment.items) == expected, assignment.reading
 
 
@@ -328,20 +372,24 @@ def test_the_counts_add_up_to_the_number_of_rows(tmp_path: Path) -> None:
     assert result.unassigned == ()
 
 
-def test_the_element_count_is_the_row_count_plus_the_replacements(
+def test_the_element_count_is_the_row_count_plus_the_split_readings(
     tmp_path: Path,
 ) -> None:
     """**行の数と要素の数はもう同じではない。** 足し算で数えない。
 
-    「撤去して新設」の行だけが 2 つになるので、要素の数は
-    行の数 + 「撤去して新設」の件数である。
+    2 つに分かれるのは「撤去して新設」と「下地からやり替え」なので、
+    要素の数は 行の数 + その 2 つの読みの件数である。
     """
-    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+    counts = assign_finish_schedule_scope(
+        _schedule(tmp_path / "a.pdf", SIX_READINGS)
+    )
 
-    replacements = result.counts_by_reading()[READING_REPLACE]
-    assert replacements == 1
-    assert result.item_count == len(result.assignments) + replacements
-    assert sum(result.counts_by_work_kind().values()) == result.item_count
+    split = counts.counts_by_reading()[READING_REPLACE] + (
+        counts.counts_by_reading()[READING_FROM_BASE]
+    )
+    assert split == 2
+    assert counts.item_count == len(counts.assignments) + split
+    assert sum(counts.counts_by_work_kind().values()) == counts.item_count
 
 
 def test_an_unknown_base_word_is_not_forced_into_a_reading(tmp_path: Path) -> None:
@@ -387,3 +435,133 @@ def test_a_row_with_no_characters_at_all_is_not_a_question(tmp_path: Path) -> No
         READING_FROM_BASE,
         READING_QUESTION,
     ]
+
+
+# ---------------------------------------------------------------------------
+# 7. 下地欄の書き方の一覧(K-10 1番・2番)
+# ---------------------------------------------------------------------------
+
+
+def _one_row(tmp_path: Path, base: str, finish: str = "ビニルクロス"):
+    """下地欄だけを差し替えた 2 行の表。1 行目は普通の行(問いの「前の行」)。"""
+    rows: tuple[tuple[str | None, ...], ...] = (
+        ("室名", "部位", "下地", "仕上", "メーカー"),
+        ("洋室1", "壁", "軸組新設", "ビニルクロス", "架空社"),
+        ("洋室1", "天井", base, finish, "架空社"),
+    )
+    return assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", rows))
+
+
+def test_same_as_above_is_a_question_of_its_own_kind(tmp_path: Path) -> None:
+    """**「同上」は「まだ決まっていない」ではない**(K-10 1番)。
+
+    上の行と同じ、という意味である。だからといって**上の行の下地を自動で
+    引き継がない。** 継続行と同じで、問いに回す。
+    """
+    result = _one_row(tmp_path, "同上")
+
+    assert result.assignments[1].reading == READING_QUESTION
+    question = result.questions[0]
+    assert question.cause == CAUSE_SAME_AS_ABOVE
+    assert question.question == "この行の下地は、上の行と同じですか"
+
+
+def test_the_same_as_above_question_shows_the_previous_base(tmp_path: Path) -> None:
+    """おーちゃんの指定どおり、**上の行の室名・部位・下地**を並べて見せる。"""
+    question = _one_row(tmp_path, "同上").questions[0]
+
+    assert question.previous_room == "洋室1"
+    assert question.previous_part == "壁"
+    assert question.previous_base == "軸組新設"
+
+
+def test_same_as_above_does_not_inherit_the_base_of_the_row_above(
+    tmp_path: Path,
+) -> None:
+    """**引き継いだ結果「下地からやり替え」にしない。** 区分不明で止める。"""
+    result = _one_row(tmp_path, "同上")
+
+    assert [i.work_kind for i in result.assignments[1].items] == [WORK_UNDECIDED]
+    assert result.assignments[1].base == "同上"
+
+
+def test_owner_supplied_material_is_a_question_not_a_missing_job(
+    tmp_path: Path,
+) -> None:
+    """**「施主支給」は工事が無いのではない**(K-10 2番)。
+
+    おーちゃんの言葉で、材料の出どころが違うだけである。**材料費が落ちる
+    一方、手間は残る。** どちらに寄せるかは人が決めるので、問いに回す。
+    """
+    result = _one_row(tmp_path, "施主支給")
+
+    assert result.assignments[1].reading == READING_QUESTION
+    question = result.questions[0]
+    assert question.cause == CAUSE_OWNER_SUPPLIED
+    assert "手間" in question.question
+
+
+@pytest.mark.parametrize("word", ["協議", "別途見積"])
+def test_words_that_are_not_material_names_go_to_a_question(
+    tmp_path: Path, word: str
+) -> None:
+    """**「協議」「別途見積」を材料名とみなさない**(K-10 2番)。
+
+    みなすと、ありもしない「下地からやり替え」が 1 件増える。
+    """
+    result = _one_row(tmp_path, word)
+
+    assert result.assignments[1].reading == READING_QUESTION
+    assert result.questions[0].cause == CAUSE_UNKNOWN_BASE_WORD
+
+
+@pytest.mark.parametrize("word", ["流用", "再使用"])
+def test_words_that_mean_the_base_stays_are_read_as_existing(
+    tmp_path: Path, word: str
+) -> None:
+    """**「流用」「再使用」は下地が残る**(K-10 2番)。仕上に材料名があるので
+    「仕上だけやり替え」になる。"""
+    result = _one_row(tmp_path, word)
+
+    assert result.assignments[1].reading == READING_FINISH_ONLY
+    assert [i.work_kind for i in result.assignments[1].items] == [WORK_ALTERED]
+
+
+@pytest.mark.parametrize("word", ["更新", "新替"])
+def test_words_that_mean_the_base_is_swapped_are_read_as_replacement(
+    tmp_path: Path, word: str
+) -> None:
+    """**「更新」「新替」は取り替え**(K-10 2番)。撤去と新設の 2 行になる。"""
+    result = _one_row(tmp_path, word)
+
+    assert result.assignments[1].reading == READING_REPLACE
+    assert [i.work_kind for i in result.assignments[1].items] == [
+        WORK_REMOVAL,
+        WORK_NEW,
+    ]
+
+
+def test_the_word_lists_do_not_overlap() -> None:
+    """**同じ語が 2 つの一覧に入っていると、どちらに読まれるか順番で決まる。**
+
+    読み方の表は上から順に当てるので、重なりがあると一覧を並べ替えた瞬間に
+    読みが変わる。重なりを作らないことをここで固定する。
+    """
+    lists = {
+        "現況のまま": BASE_EXISTING,
+        "取り替える": BASE_REPLACED,
+        "該当なし": BASE_NOT_APPLICABLE,
+        "材料名とみなさない": BASE_UNDETERMINED,
+        "同上": BASE_SAME_AS_ABOVE,
+        "施主支給": BASE_OWNER_SUPPLIED,
+    }
+    for left, left_words in lists.items():
+        for right, right_words in lists.items():
+            if left < right:
+                assert not (left_words & right_words), (left, right)
+
+
+def test_same_as_above_is_no_longer_in_the_undetermined_list() -> None:
+    """**「同上」は「まだ決まっていない」ではない**(K-10 1番、おーちゃんの訂正)。"""
+    assert "同上" not in BASE_UNDETERMINED
+    assert "同上" in BASE_SAME_AS_ABOVE
