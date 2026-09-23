@@ -41,6 +41,16 @@
   向かない**(`docs/ocr_scanned_pages_report.md`の実測どおり、文字化けを検知できない)。記号や図の
   形そのものを確認したいときは目視、条文のような文章を画像PDFから読みたいときはOCR、と使い分ける。
 
+- **OCR(`requirements-ocr.txt`の`rapidocr-onnxruntime`)も実際にインストールして動いた。**
+  `pip install numpy opencv-python-headless`(requirements.txt分)→`pip install -r
+  requirements-ocr.txt`→`pip install --no-deps rapidocr-onnxruntime`の順で、apt不要・
+  ダウンロード数十MBで完了した(8周目実測)。ただし`docs/ocr_scanned_pages_report.md`が事前に
+  実測していたとおり、**既定モデル(中国語・英語)は日本語の漢字を中国語の簡体字に変換する化けが
+  実際に起きた**(東京都建築安全条例のOCRで確認)。1エンジンでは「章立て・見出しの構造は読めるが
+  本文の正確な文字は引用できない」という結果になる。正確な文字が要る場合は日本語モデルとの
+  2エンジン突き合わせ(`recognize_page(backends=[...])`に2つ渡す)が要るが、日本語モデルの
+  入手はこのコードが自動では行わない設計(`axes/image_axis/ocr_backends.py`冒頭)。
+
 ## 今後この作業を再開するときの方針
 
 1. まず`mlit.go.jp`配下を当たる(特に官庁営繕の技術基準ページ群)。本文まで読める数少ない一次資料。
