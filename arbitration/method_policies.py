@@ -60,6 +60,7 @@ from axes.image_axis.schedule_tables import (
     METHOD_FINISH_SCHEDULE,
 )
 from axes.image_axis.vtracer_vectorizer import METHOD_FLOOR_AREA, METHOD_WALL_LINEWORK
+from axes.image_axis.printed_dimensions import METHOD_PRINTED_DIMENSION
 
 from arbitration.inference_orchestrator import MethodPolicy
 
@@ -232,6 +233,16 @@ METHOD_HUMAN_SYMBOL_COUNT = "human_symbol_count"
 #:       「人が 1 回入れた値」と「図面の印字」だけで
 #:       独立した強い軸が 2 つ揃い、階層1(自動確定)に届いてしまう。
 #:       `human_reference_point` と同じ構図である。
+#: - ``pdf_printed_dimension`` … 図面に印字された寸法の数値
+#:   (`axes/image_axis/printed_dimensions.py`、22周目)。**未校正・上限 weak で固定する。**
+#:   (1) 裸の整数が寸法だという根拠は公共の基準(寸法の単位は mm 固定・単位記号は省略)
+#:       であって、**この図面で確かめたわけではない。** 図面番号・部屋番号も裸の整数である。
+#:   (2) **いちばん危ないのはここ。** 人が入れた寸法(`human_room_dimensions`)は
+#:       図面とは**別のデータ源**なので、ここを校正済みにした瞬間に
+#:       「人が 1 回入れた値」と「図面の印字」だけで独立した強い軸が 2 つ揃い、
+#:       階層1(自動確定)に届いてしまう。`human_reference_point` と同じ構図である。
+#:   (3) `estimating/dimension_check.py` はこの手法から**数量を作らない。**
+#:       出すのは「食い違っている」という指摘だけで、一致は何の根拠にもしない。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -252,6 +263,7 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_ROOM_REGION: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_WALL_NETWORK: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_HUMAN_SYMBOL_COUNT: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_PRINTED_DIMENSION: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 
