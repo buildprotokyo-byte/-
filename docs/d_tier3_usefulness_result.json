@@ -1,0 +1,65 @@
+{
+  "round": 51,
+  "T1_tiers": {
+    "3": 7
+  },
+  "T1_targets": 7,
+  "T2_reasons": {
+    "pdf_vector_door_arc は実測校正を通過していないため、内部confidenceに関係なく参考情報": 5,
+    "自動確定に必要な独立した強いデータ源が2つ未満": 7,
+    "pdf_text_area は実測校正を通過していないため、内部confidenceに関係なく参考情報": 2
+  },
+  "T3_findings": 7,
+  "T4_complete": 7,
+  "T5_missing": {},
+  "by_method": {
+    "pdf_vector_door_arc": 5,
+    "pdf_text_area": 2
+  },
+  "controls": {
+    "1_tier1_zero": true,
+    "2_targets_7": true,
+    "3_repeat": [
+      7,
+      7,
+      7
+    ]
+  },
+  "title": "全部が階層3になるとき、人はそれを使えるのか",
+  "date": "2026-09-23",
+  "criteria_commit": "5552fab",
+  "criteria_file": "docs/d_tier3_usefulness_criteria.md",
+  "benchmark": "benchmarks/measure_tier3_usefulness.py",
+  "measurement_bug_found_and_fixed": {
+    "first_run": {
+      "T4_complete": 0,
+      "T5_missing": {
+        "位置または元の文字": 7,
+        "ページ番号": 2
+      }
+    },
+    "what_was_wrong": "provenance の一番外側の鍵しか見ていなかった。実際の位置や元の文字は1段くぐった中(arcs / occurrences の各要素)に入っていた。",
+    "why_the_fix_is_faithful": "基準の言葉は『紙の上のどこかが分かる…または元の文字列(…など)がある』。聞いているのは『分かるか』であって『一番外側にあるか』ではない。直したのは基準ではなく、基準を写し間違えた測り方。",
+    "disclosure": "それでも結果を見てから直したことに変わりはないので、1回目の数字も直した内容も報告書に全部残した。",
+    "recurrence": "測り方の設計ミスはこれで4回目(28・32・36周目と同じ種類)"
+  },
+  "verdict": {
+    "branch": "T4 = T3",
+    "conclusion": "人が見る材料としては成立している。自動確定が0件であることと、使えないことは別である。",
+    "detail": "読めた7件はすべて、数値の範囲・ページ番号・紙の上の位置・使った手法がそろっている。人はそのまま図面の該当箇所へ確かめに行ける。"
+  },
+  "tier2_same_wall": "階層2も0件で理由は階層1と同じ。階層2は『強い独立データ源1つを、異なる弱いデータ源2つ以上が支持』を求めるが、弱いほうも同じ鍵で数えるので、図面の手法が全部1つの鍵にまとまる案件では2つ目の弱い源も作れない。仕組みが壊れているのではなく、正直に『人が見てください』と言っている状態。",
+  "one_sided_only": {
+    "can_say": "読めた7件は、人が確かめに行ける形でそろっている。",
+    "cannot_say": [
+      "7件が多いか少ないかは測っていない(拾うべき数量の総数との比は別の話)",
+      "値が正しいかは測っていない。そろっているのは確かめるための材料であって正しさではない",
+      "1件の図面での測定である"
+    ]
+  },
+  "implementation_changed": {
+    "judgement_logic": false,
+    "thresholds": false,
+    "production_code": false
+  }
+}

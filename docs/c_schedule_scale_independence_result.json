@@ -1,0 +1,72 @@
+{
+  "round": 45,
+  "trial": "C",
+  "title": "「表の読み取りは縮尺に依存しない」は本当か",
+  "date": "2026-09-23",
+  "criteria_commit": "dc18b11",
+  "criteria_file": "docs/c_schedule_scale_independence_criteria.md",
+  "benchmark": "benchmarks/measure_schedule_scale_independence.py",
+  "target": "intake/drawing_intake.py:931-932 のコメント",
+  "pages": 34,
+  "pages_scale_read": 20,
+  "results": {
+    "W1_door_tables": {"V0": 0, "V1": 0, "V2": 0},
+    "W2_finish_tables": {"V0": 2, "V1": 2, "V2": 0},
+    "W3_door_rows": {"V0": 0, "V1": 0, "V2": 0},
+    "W3_finish_rows": {"V0": 59, "V1": 59, "V2": 0},
+    "W4_v0_vs_v1_differences": [],
+    "W5_rows_lost_if_dependent": {"door": 0, "finish": 59},
+    "W6_page_order_same": true,
+    "finish_table_pages": {"V0": [3, 4], "V1": [3, 4], "V2": []}
+  },
+  "controls": {
+    "1_v0_reproduces_rounds_35_36": {"door_tables": 0, "finish_tables": 2, "pages": [3, 4], "finish_rows": 59, "ok": true},
+    "2_pages_scale_read_matches_round_44": {"value": 20, "ok": true},
+    "3_repeat_3_times": {"finish_rows": [59, 59, 59], "ok": true}
+  },
+  "verdict": {
+    "branch": "W4 = 違いなし",
+    "conclusion": "コメントは正しい。この順番は意味を持っていない。安全に入れ替えられる並びが1本あると確定。",
+    "action": "入れ替える理由が無いので入れ替えない。記録として残すだけ。",
+    "W5_note": "依存させると失うものがある(仕上表59行=全部)。裏付けとして記録し、線には使わない(基準どおり)。"
+  },
+  "found_after_measuring": {
+    "what": "仕上表が読める2ページは、どちらも縮尺が読めないページだった。表を縮尺に依存させると、この図面で読めている仕上表は一部ではなく全部消える。",
+    "gap": "その前提を固定したテストが1件も無かった。tests/test_schedule_tables.py に scale の語が無く、tests/test_drawing_intake_schedules.py の合成ページは全部『縮尺 1/50』を書いている。",
+    "why_unnoticed": "開き戸のほうは if scale is not None: で現に塞いであるので、_read_schedules を同じ塊へ1行動かしても全件テストは何も言わない。",
+    "break_test": {
+      "how": "_read_schedules を if scale is not None: の中へ移して全件テストを流した",
+      "existing_tests_passed": 977,
+      "existing_tests_failed": 0,
+      "new_test_failed": true,
+      "conclusion": "コメントが正しいことと、コメントが守られていることは別。45周目までは正しい順番が偶然そうなっているだけだった。"
+    }
+  },
+  "implementation_changed": {
+    "judgement_logic": false,
+    "thresholds": false,
+    "tests_added": ["tests/test_drawing_intake_schedules.py::test_縮尺が読めなくても表は読める"],
+    "behaviour_change": "なし(足す前も後も同じ結果)"
+  },
+  "one_sided_only": {
+    "can_say": [
+      "この図面では表を縮尺より前に読んでも出力が1件も変わらない",
+      "表を縮尺に依存させるとこの図面で読めている仕上表59行が全部消える",
+      "既存の977件はその壊し方を1件も検出しなかった(実測)"
+    ],
+    "cannot_say": [
+      "ほかの図面でもV0とV1が同じだとは言っていない(1件の図面で測った)",
+      "建具表が3通りとも0なのは順番のせいではなく、もともと0だから(36〜43周目の別件)",
+      "59行が正しいとは言っていない。読めた行の数であって正解との照合ではない"
+    ]
+  },
+  "full_suite": "978 passed, 1 skipped(足す前は 977 passed, 1 skipped)",
+  "next_round": {
+    "question": "「コメントに書いてあるが、テストが無い前提」がほかにもあるのではないか",
+    "how": "コードが自分で宣言している前提を集め、それぞれを壊して全件テストが気づくか数える",
+    "line": "壊して全件テストが落ちない前提が3件以上なら、前提を固定するテストを足す周へ。2件以下なら45周目は単発としてトライアルCの本体(段取り待ち)へ戻る",
+    "criteria_first": true
+  },
+  "pending_decisions": 6,
+  "asks": 1
+}
