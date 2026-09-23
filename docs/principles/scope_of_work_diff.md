@@ -7,6 +7,7 @@
 **この文書は設計だけで、コードは1行も直していない。** おーちゃんの確認後に実装する。
 
 土台にしたコミット: `f569871`(main)。
+**2026-09-23 に main `f01c49f` で読み直した。** 行番号を今の位置に直し、その間に入った `axes/reading/meaning.py`(意味の4欄)がこの設計に効くところを 3-3 節に足した。**設計の結論は1つも変えていない**(下の主張は4つとも今の main でそのまま成り立つ)。
 
 読んだもの(記録ではなく現物): `intake/drawing_intake.py` の
 `_read_pages` / `_door_quantity_findings` / `_door_arc_findings` / `_area_findings`、
@@ -80,7 +81,7 @@ PDF ─→ intake/drawing_intake.py ─→ arbitration/(仲裁層) ─→ estima
 - **確定を作らない。** `is_confirmed` は仲裁層の `action` と `confirmed_range` から来る値で、
   差分の層はそれを**運ぶだけ**である。差分は現況と計画という2つの読みを突き合わせるので、
   「独立した2つの根拠が揃った」ように見えるが、**同じ1つの PDF から読んだ2つのページは独立ではない**
-  (`intake/start_kit.py:31` の但し書きと同じ理由)。**差分から階層1へ上げてはいけない。**
+  (`intake/start_kit.py` の「独立性についての但し書き」と同じ理由)。**差分から階層1へ上げてはいけない。**
 - **足さない・引かない。** 4-3節。
 - 単価も金額も持たない(`estimating/rules.py` の約束のまま)。
 
@@ -92,7 +93,7 @@ PDF ─→ intake/drawing_intake.py ─→ arbitration/(仲裁層) ─→ estima
 
 | 段 | 何の対応か | いまの実装 |
 | --- | --- | --- |
-| 1. 範囲の対応 | 現況のページ ⟷ 計画のページ | `intake/start_kit.py:153` の `PagePairing` |
+| 1. 範囲の対応 | 現況のページ ⟷ 計画のページ | `intake/start_kit.py:285` の `PagePairing` |
 | 2. 対象の対応 | 現況の数量 ⟷ 計画の数量 | **無い** |
 | 3. 個体の対応 | 現況の建具1枚 ⟷ 計画の建具1枚 | **無い。当面つくらない**(2-4節) |
 
@@ -177,7 +178,7 @@ where の代役 = PagePairing が結んだ範囲の識別子(pairing_id)
 
 ### 3-1. 建具表の数量が、現況と計画を1つのレンジに混ぜている(A-3)
 
-`intake/drawing_intake.py:677` の `_door_quantity_findings` は、同じ建具番号が
+`intake/drawing_intake.py:1321` の `_door_quantity_findings` は、同じ建具番号が
 ページによって違う数量だったときレンジにする。コード中のコメント自身が
 「既存と新設の建具表が両方ある」場合を想定している。**それは値の幅ではなく、意味の違いである。**
 
@@ -200,7 +201,7 @@ where の代役 = PagePairing が結んだ範囲の識別子(pairing_id)
 
 ### 3-2. 規則も差分も `phase` を条件にできない(A-4)
 
-`estimating/quantities.py:110` の `kind` は対象名の最初の `::` より前しか見ない。
+`estimating/quantities.py:176` の `kind` は対象名の最初の `::` より前しか見ない。
 `開き戸::現況::ページ1` の `現況` は鍵の側に入るので、規則からも差分の層からも見えない。
 
 **直し方(提案):** `phase` を対象名の文字列から取り出すのをやめ、**属性にする。**
@@ -215,6 +216,44 @@ where の代役 = PagePairing が結んだ範囲の識別子(pairing_id)
 - 差分の層は `attributes["phase"]` で現況と計画を分ける。文字列を切り出さない。
 - **`不明` は属性に入れない。** 読めなかった属性を既定値で埋めない約束
   (`estimating/from_intake.py` の2番)と同じ向きである。属性が無いことが「不明」である。
+
+### 3-3. 【2026-09-23 追記】意味の4欄が入ったので、3-2 節の直し方が変わる
+
+この設計を書いた後、main に `axes/reading/meaning.py` が入った。
+原則2の意味の4欄(`what` / `where` / `phase` / `purpose_link`)を持つ `Meaning` で、
+**4欄すべて必須**(埋められない欄は空にせず `不明` / `目的未確立` と書く)。
+`DrawingFinding.meaning`(`intake/drawing_intake.py:421`)に乗る。
+
+**どこまで入っているかを読んで確かめた(main `f01c49f`):**
+
+| 読み | `meaning` | 中身 |
+| --- | --- | --- |
+| 面積(埋め込み文字・OCR とも) | **付いている** | `_area_findings`。ページによって宣言が違えば `_merge_meanings` が `phase` を `不明` に落とす |
+| 開き戸(`_door_arc_findings`) | **付いていない**(`meaning=None`) | `phase` はいまも対象名(`開き戸::現況::ページN`)と `provenance` の中だけ |
+| 建具表の数量(`_door_quantity_findings`) | **付いていない** | 現況と計画を1つのレンジに混ぜたまま(3-1 節) |
+| `QuantityItem`(`estimating/`) | **届いていない** | `estimating/from_intake.py` が `meaning` を写していない |
+
+**この設計にとっての違いは2つ。**
+
+1. **3-2 節の「属性を新しく作る」は、もう要らない。** `phase` を入れる箱は
+   `Meaning.phase` として既にある。**直すことは「新しい欄を作る」ではなく、
+   ①開き戸と建具表の読みにも `meaning` を付ける ②`from_intake.py` が
+   `QuantityItem` まで運ぶ**、の2つに変わる。**判定を変える変更である**ことは変わらない
+   (対象名から `phase` を外す時点で、仲裁層から見た対象の同一性が変わる)。
+2. **2-2 節の「`where` が取れない」は、半分だけ解けた。** 欄はできたが、
+   **室の輪郭を取る実装が無いことは変わっていない**ので、開き戸の `where` を
+   部屋の名前で埋められるわけではない。`Meaning` は4欄必須なので、埋まらなければ
+   `不明` が入る。**`where` が `不明` の2件を「同じ `where`」とみなしてはいけない**
+   (みなすと、別の部屋の建具が「既存のまま」で相殺される)。
+   したがって 2-2 節の代役(`PagePairing` の組)は**そのまま必要**で、
+   `Meaning.where` が `不明` でない読みについてだけ、代役ではなく本物を使う。
+
+**変わらないこと:** 0 節に挙げた4つの主張(差分の層の位置／引き算をしない／
+現況が不明なときは不明のまま／`planned_only` と `unpaired` を混同しない)は、
+今の main でもそのまま成り立つ。8 節の食い違い2件も、今の main で現物を読んで
+まだ存在することを確かめた。
+
+---
 
 ---
 
@@ -317,8 +356,12 @@ notes = ("対応づけはページの組で行った。同じページの中の�
 
 別スレッドが、原則3-3の**現況の把握の申告**(明確に分かる／おおむね分かるが確実ではない／
 全く分からない・図面で表現されていない／部分によって混在する)を受け取る場所を作っている。
-**この設計を書いた時点(`f569871`)では、`intake/start_kit.py` にまだ入っていない。**
-入る前提で、噛み合わせ方をここに書く。
+**この設計を書いた時点(`f569871`)では、`intake/start_kit.py` にまだ入っていなかった。**
+**【2026-09-23 追記】入った。** `intake/start_kit.ConditionSurvey`(全体の申告と
+`ConditionRange` による範囲ごとの申告)で、`estimating/from_intake.py` が
+`CasePremise` に直している。**下の3つの約束は、3つとも満たされている**
+(未申告は `condition::unstated` として `source="hypothesis"` + `resolved_by` +
+`alternatives` になる)。**噛み合わせのために足してもらうことは無い。**
 
 **噛み合わせの約束(申告の側に求めるのはこの3つだけ):**
 
@@ -330,7 +373,7 @@ notes = ("対応づけはページの組で行った。同じページの中の�
    `source="human"`、`scope` は範囲)として差分の層に届く。
    **差分の層は `intake/` を import しない**(`estimating/from_intake.py` と同じ約束)。
 
-申告が入っていない間の振る舞い: **全件「全く分からない」で動く。**
+人が申告しなかった案件の振る舞い: **全件「全く分からない」で動く。**
 差分は `matched` の組でだけ作られ、残りは5-3節の「現況の確認が必要」に回る。
 
 ### 5-2. 申告ごとの差分の作り方
@@ -431,7 +474,9 @@ notes = ("対応づけはページの組で行った。同じページの中の�
 WorkScopeItem                      工事内容 1 件
   work_kind            撤去 / 新設 / 既存のまま / 改修 / 区分未定
   what                 それは何か(照合鍵の1つ。`QuantityItem.kind` から)
-  where                どこのものか(当面は pairing_id。室が取れたら部屋へ差し替え)
+  where                どこのものか。`Meaning.where` が `不明` でなければそれを使い、
+                       `不明` なら pairing_id で代用する(3-3 節)。**`不明` どうしを
+                       同じ `where` とみなさない。** 室が取れたら代用をやめる
   existing_quantity    元になった現況の QuantityItem(無ければ None)
   planned_quantity     元になった計画の QuantityItem(無ければ None)
   value_range / unit   工事の数量。**引き算では作らない**(4-3節)
@@ -485,7 +530,7 @@ derivation  … 元の数量から運ぶ。ここで作り直さない
 
 コーディネータの指示どおり、**テストは1行も書き換えず、食い違いとして報告する。**
 
-### 8-1. `tests/test_drawing_intake_schedules.py:278`
+### 8-1. `tests/test_drawing_intake_schedules.py:279`
 
 ```python
 # 2 + 5 = 7 にしない。どちらかを選びもしない。
@@ -525,7 +570,7 @@ assert "開き戸::現況::ページ1" in [item.target for item in result.findin
 | # | 内容 | 判定を変えるか | マージ |
 | --- | --- | --- | --- |
 | 1 | `WorkScopeItem` と `ScopeDiffResult` の器だけ作る(誰も呼ばない) | 変えない | 通ればマージ可 |
-| 2 | `phase` を属性にする(3-2節)、規則ファイルの版を上げる | **変える** | **PR のまま待つ** |
+| 2 | 開き戸・建具表の読みに `meaning` を付け、`from_intake.py` が `QuantityItem` まで運ぶ(3-2・3-3節)。規則ファイルの版を上げる | **変える** | **PR のまま待つ** |
 | 3 | 建具表の数量を `phase` ごとに分ける(3-1節) | **変える** | **PR のまま待つ** |
 | 4 | 対応づけ(2節)と差分の突き合わせ(4節)の本体 | 新しい層なので変えない | 2・3 が入ってから |
 | 5 | 現況の把握の申告との噛み合わせ(5節) | 変えない | 申告が入ってから |
@@ -600,6 +645,9 @@ assert "開き戸::現況::ページ1" in [item.target for item in result.findin
   **`PremiseScope` がまだページ単位の範囲を持てない**(その docstring に理由が書かれている)ので、
   2-2節の `where` の代役(pairing_id)は `target_kinds` / `targets` の側で表すことになる。
   実装時に、この形で噛み合うかを確かめる。
-- `intake/start_kit.py` … 現況の把握の申告を別スレッドが足している最中。5-1節の3つの約束で噛み合わせる。
+- `intake/start_kit.py` … 現況の把握の申告(`ConditionSurvey`)は **2026-09-23 時点で main に入っている。** 5-1節の3つの約束は満たされている。
 - `estimating/quantities.py` / `mapping.py` / `basis.py`(PR #29、main) … **変えない。**
   差分の層はこれらの上に乗る。
+- `axes/reading/meaning.py`(2026-09-23 時点で main) … **変えない。** 3-3 節のとおり、
+  この設計の `what` / `where` / `phase` はこの4欄に乗せる。意味を付ける側を触っている
+  スレッドとは、**開き戸と建具表に `meaning` を付けるところで重なる。**
