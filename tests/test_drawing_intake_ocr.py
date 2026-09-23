@@ -28,7 +28,7 @@ from arbitration.method_policies import DEFAULT_METHOD_POLICIES
 from axes.image_axis.ocr_readings import METHOD_OCR_TEXT_AREA, METHOD_OCR_TEXT_SCALE
 from axes.reading.meaning import PHASE_UNKNOWN, PURPOSE_UNESTABLISHED
 from intake.case_answers import AnswerStore
-from intake.drawing_intake import IntakeConfig, OcrSettings, read_drawing
+from intake.drawing_intake import IntakeConfig, IntakeError, OcrSettings, read_drawing
 from intake.start_kit import PageDeclaration, ReferencePoint, StartKit
 from tests.scan_fixtures import (
     SCAN_DPI,
@@ -301,10 +301,44 @@ def test_an_ocr_page_that_reads_nothing_is_not_called_empty(
     scanned: tuple[Path, Path], tmp_path: Path
 ) -> None:
     _, scanned_path = scanned
-    settings = OcrSettings(backends=(ScriptedOcrBackend("empty", []),), dpi=SCAN_DPI)
+    # エンジン 1 つだけなので、はっきり求める必要がある(2026-09-23 の判断)。
+    settings = OcrSettings(
+        backends=(ScriptedOcrBackend("empty", []),),
+        dpi=SCAN_DPI,
+        allow_single_backend=True,
+    )
     result = _read(scanned_path, tmp_path, ocr=settings)
 
     assert result.findings == ()
     assert any(
         "文字が無いという意味ではない" in note for note in result.pages[0].notes
     )
+
+
+def test_a_single_engine_is_refused_unless_it_is_asked_for_explicitly() -> None:
+    """**エンジン 1 つだけの読みは、はっきり求めない限り受け付けない。**
+
+    2026-09-23、おーちゃんの判断。「2 つのモデルが同じに読んだ語だけを通す」を
+    既定にする。実測では、2 つ一致に絞ると誤りは 0 件だが、29 語のうち
+    7〜8 語しか通らない(`docs/ocr_scanned_pages_report.md`)。
+    それでも、文字化けを数量側へ持ち込まないほうを既定に置く。
+
+    **1 つだけで読む道は塞がない。** 塞ぐと、片方のエンジンしか入らない
+    環境で何も読めなくなる。**黙って通さず、呼ぶ側に書かせる。**
+    """
+    one = ScriptedOcrBackend("only", [])
+
+    with pytest.raises(IntakeError) as caught:
+        OcrSettings(backends=(one,), dpi=SCAN_DPI)
+    assert "突き合わせ" in str(caught.value)
+
+    # はっきり求めれば通る。証拠に「突き合わせていない」ことが残る。
+    settings = OcrSettings(backends=(one,), dpi=SCAN_DPI, allow_single_backend=True)
+    assert settings.backends == (one,)
+    assert settings.allow_single_backend is True
+
+    # 2 つ渡せば、何も足さずに通る。
+    two = OcrSettings(
+        backends=(one, ScriptedOcrBackend("second", [])), dpi=SCAN_DPI
+    )
+    assert two.allow_single_backend is False

@@ -349,6 +349,51 @@ def test_a_page_without_tables_says_so_without_guessing(tmp_path: Path) -> None:
     assert any("建具表" in note for note in result.pages[0].notes)
 
 
+def test_縮尺が読めなくても表は読める(tmp_path: Path) -> None:
+    """**縮尺が読めないページでも表は読める。**
+
+    `intake/drawing_intake.py` の `_extract()` はそうコメントに書いているのに、
+    **それを固定したテストが 1 件も無かった**(45 周目に実測して分かった)。
+    開き戸は `if scale is not None:` で塞いであるので、`_read_schedules` を
+    同じ塊へ動かしても**全件テストは通ってしまう。**
+
+    **それが起きると失うものは小さくない。** 実案件 P011 の匿名化 v2 では、
+    内装仕上表が読める 2 ページが**どちらも縮尺の読めないページ**で、
+    表に縮尺の依存を付けた瞬間に**仕上表の行が全部消える**
+    (45 周目の測定、`docs/c_schedule_scale_independence_report.md`)。
+
+    だからここで塞ぐ。表は印字された文字を読むだけなので、縮尺は要らない。
+    """
+
+    def build(doc: pymupdf.Document) -> None:
+        page = doc.new_page(width=1190, height=842)
+        # **縮尺は書かない。** それ以外は `_schedule_page` と同じ紙。
+        draw_table(
+            page,
+            origin=(80.0, 120.0),
+            col_widths=(110.0, 90.0, 80.0, 80.0, 70.0),
+            row_height=24.0,
+            rows=DOOR_ROWS,
+            caption="建具表",
+        )
+        draw_table(
+            page,
+            origin=(80.0, 400.0),
+            col_widths=(120.0, 90.0, 180.0),
+            row_height=24.0,
+            rows=FINISH_ROWS,
+            caption="内装仕上表",
+        )
+
+    result = read_drawing(_config(_pdf(tmp_path, build), tmp_path))
+
+    # 前提: このページの縮尺は読めていない。
+    assert result.pages[0].scale is None
+    # それでも表は読めている。**ここが本題。**
+    assert [row.mark for row in result.door_schedule_rows] == ["WD-01", "WD-02", "WD-03"]
+    assert [row.part for row in result.finish_schedule_rows] == ["床", "壁", "床"]
+
+
 # ---------------------------------------------------------------------------
 # 6. 表が加わっても自動確定しない
 # ---------------------------------------------------------------------------

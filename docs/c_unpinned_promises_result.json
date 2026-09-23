@@ -1,0 +1,126 @@
+{
+  "round": 46,
+  "X1": 8,
+  "X2": 8,
+  "X3": 0,
+  "X4": 0,
+  "X5": 0,
+  "rows": [
+    {
+      "key": "C1",
+      "promise": "呼び出し順に依存しないよう位置で並べる",
+      "suite_failed": true,
+      "detail": "FAILED tests/test_pdf_vector_symbols.py::test_results_are_ordered_and_stable / 1 failed, 709 passed, 1 skipped in 52.97s",
+      "probe_before": "[(155, 200), (555, 600)]",
+      "probe_after": "[(555, 600), (155, 200)]",
+      "observable": true,
+      "bucket": "X2 気づいた"
+    },
+    {
+      "key": "C2",
+      "promise": "単位が違うレンジは比較しない",
+      "suite_failed": true,
+      "detail": "FAILED tests/test_unit_safety.py::test_the_solver_does_not_claim_agreement_across_units / 1 failed, 962 passed, 1 skipped in 214.74s (0:03:34)",
+      "probe_before": "[('weak_axis', None)]",
+      "probe_after": "[('weak_axis', True)]",
+      "observable": true,
+      "bucket": "X2 気づいた"
+    },
+    {
+      "key": "C3",
+      "promise": "vtracer の床面積はハード制約に絶対に昇格しない",
+      "suite_failed": true,
+      "detail": "FAILED tests/test_method_policy_registry.py::test_registry_holds_the_trial12_decision / 1 failed, 643 passed in 47.47s",
+      "probe_before": "(False, 'weak')",
+      "probe_after": "(False, 'strong')",
+      "observable": true,
+      "bucket": "X2 気づいた"
+    },
+    {
+      "key": "C4",
+      "promise": "人の入力もそれだけを根拠に自動確定させない",
+      "suite_failed": true,
+      "detail": "FAILED tests/test_intake_start_kit.py::test_human_input_is_registered_as_uncalibrated / 1 failed, 580 passed in 43.24s",
+      "probe_before": "(False, 'strong')",
+      "probe_after": "(True, 'strong')",
+      "observable": true,
+      "bucket": "X2 気づいた"
+    },
+    {
+      "key": "C5",
+      "promise": "建具番号が空の行はそもそも行にしない",
+      "suite_failed": true,
+      "detail": "FAILED tests/test_schedule_tables.py::test_a_row_without_a_mark_is_dropped_and_recorded / 1 failed, 805 passed, 1 skipped in 51.74s",
+      "probe_before": "Consider using the pymupdf_layout package for a greatly improved page layout analysis.\n1",
+      "probe_after": "Consider using the pymupdf_layout package for a greatly improved page layout analysis.\n2",
+      "observable": true,
+      "bucket": "X2 気づいた"
+    },
+    {
+      "key": "C6",
+      "promise": "弱い軸は z3 の変数にならず、ハードな解に影響しない",
+      "suite_failed": true,
+      "detail": "FAILED tests/test_axis_quality_firewall.py::test_legacy_solver_api_cannot_promote_weak_or_low_confidence_readings / 1 failed, 120 passed in 7.52s",
+      "probe_before": "[]",
+      "probe_after": "[]",
+      "observable": false,
+      "bucket": "X2 気づいた"
+    },
+    {
+      "key": "C7",
+      "promise": "建具表の数量と開き戸の円弧は別の対象にしてある",
+      "suite_failed": true,
+      "detail": "FAILED tests/test_drawing_intake_schedules.py::test_door_schedule_quantities_reach_the_arbitration_layer / 1 failed, 313 passed in 37.89s",
+      "probe_before": "建具数量::",
+      "probe_after": "開き戸::",
+      "observable": true,
+      "bucket": "X2 気づいた"
+    },
+    {
+      "key": "C8",
+      "promise": "図面に印字された面積は階層1の根拠にならない",
+      "suite_failed": true,
+      "detail": "FAILED tests/test_drawing_intake.py::test_the_text_area_method_is_registered_as_uncalibrated / 1 failed, 292 passed in 35.25s",
+      "probe_before": "(False, 'strong')",
+      "probe_after": "(True, 'strong')",
+      "observable": true,
+      "bucket": "X2 気づいた"
+    }
+  ],
+  "controls": {
+    "1_forbidden_shape_fails": true,
+    "1_detail": "FAILED tests/test_drawing_intake.py::test_without_an_answer_the_work_floor_area_is_not_produced / 1 failed, 294 passed in 35.94s",
+    "2_baseline_clean": true,
+    "3_restored": true
+  },
+  "trial": "C",
+  "title": "コードが自分で宣言した前提のうち、守られていないのは何件か",
+  "date": "2026-09-23",
+  "criteria_commit": "9f9587c",
+  "criteria_file": "docs/c_unpinned_promises_criteria.md",
+  "benchmark": "benchmarks/measure_unpinned_promises.py",
+  "verdict": {
+    "branch": "X4 = 0",
+    "conclusion": "45周目の1件が例外だった。何も足さずトライアルCの本体へ戻る。",
+    "note": "記憶が『危ない裏返し』として名指ししている2つ(C4 人の入力・C8 印字された面積)は、どちらも壊した瞬間にテストが落ちた。"
+  },
+  "selection_bias": {
+    "what": "候補を『壊し方を1か所の文字の置き換えで書けるもの』で選んだ。1か所で壊せる前提は1か所で守れる前提でもあるので、テストが付いている側に偏る。",
+    "evidence": "45周目に見つけた1件は値でもフラグでもなく、呼び出しを別の if の中へ動かす壊し方だった。46周目の候補の選び方では拾えない。",
+    "can_say": "1か所の値・フラグ・条件で言い切っている前提8件は、全部テストで守られていた。",
+    "cannot_say": "守られていない前提は無い、とは言っていない。45周目のような置き場所の前提はこの8件に1つも入っていない。",
+    "verdict_unchanged": "基準に先に書いた線はX4の数。結果を見てから候補の選び方を変えるのは、基準を先に書く意味を消す行為なので変えない。"
+  },
+  "implementation_changed": {
+    "judgement_logic": false,
+    "thresholds": false,
+    "tests_added": []
+  },
+  "next_round": {
+    "decision": "トライアルCの本体へ戻る。何も足さない。",
+    "blocked_on": [
+      "まっさらな作業場所(.sealed/ の ab_reading_* 3つの扱いの許可待ち。こちらで消さない)",
+      "同時に動かすスレッドは2本までという決まりの中でのスレッドの枠"
+    ]
+  }
+}

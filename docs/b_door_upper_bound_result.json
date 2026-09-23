@@ -1,0 +1,61 @@
+{
+  "round": 43,
+  "trial": "B",
+  "title": "上限。この升目から建具表は取り出せるのか",
+  "date": "2026-09-23",
+  "criteria_commit": "bd36cbf",
+  "criteria_file": "docs/b_door_upper_bound_criteria.md",
+  "benchmark": "benchmarks/measure_door_upper_bound.py",
+  "key_rows": {
+    "窓3行/そのまま/くっつけない/K1":  {"Q1": 1, "Q2": 1, "Q3": 1.0,  "Q4": 7,  "Q6": 1, "Q7": 3},
+    "窓なし/そのまま/くっつけない/K1":  {"Q1": 2, "Q2": 1, "Q3": 0.5,  "Q4": 27, "Q6": 2, "Q7": 6},
+    "窓なし/そのまま/くっつけない/K0":  {"Q1": 0, "Q2": 0, "Q3": null, "Q4": 0,  "Q6": 0, "Q7": 2},
+    "窓なし/そのまま/くっつけない/K2a": {"Q1": 0, "Q2": 0, "Q3": null, "Q4": 0,  "Q6": 0, "Q7": 2},
+    "窓なし/そのまま/くっつけない/K2b": {"Q1": 0, "Q2": 1, "Q3": null, "Q4": 6,  "Q6": 0, "Q7": 3},
+    "窓なし/転置/くっつけない/K1":     {"Q1": 1, "Q2": 4, "Q3": 4.0,  "Q4": 27, "Q6": 1, "Q7": 4},
+    "窓なし/転置/くっつけない/K2b":    {"Q1": 1, "Q2": 2, "Q3": 2.0,  "Q4": 6,  "Q6": 1, "Q7": 1}
+  },
+  "merging_moved_nothing": "SLACK 6 は窓のあるなしにかかわらず数字を1つも動かさなかった。",
+  "role_hits_no_window_plain": {
+    "K0":  {"種別": 1},
+    "K1":  {"幅": 16, "高さ": 6, "種別": 6, "数量": 3},
+    "K2a": {"種別": 4, "数量": 3, "高さ": 2, "幅": 0},
+    "K2b": {"種別": 1, "数量": 1, "高さ": 1}
+  },
+  "controls": {
+    "1_synthetic_window_removed": {"failed_combinations": [], "ok": true},
+    "2_reproduces_round_42": {"K0": 0, "K1": 1, "K2a": 0, "K2b": 0, "ok": true},
+    "3_finish_not_reduced_by_window": {"dropped": null, "ok": true},
+    "4_repeat_3_times": {"no_window_K1_inside": [2, 2, 2], "ok": true}
+  },
+  "decision_lines": {
+    "reach": {"rule": "Q1 ≧ 2", "observed": 2, "met": true},
+    "misfire": {"rule": "Q3 < 0.5", "observed": 0.5, "met": false,
+                "note": "0.500 は < 0.5 を満たさない。ちょうど線の上なので満たしていない側に数える。"},
+    "ambiguity": {"rule": "Q4 = 0", "observed": 27, "met": false}
+  },
+  "verdict": "窓は効いているが、それだけでは足りない。",
+  "most_honest_caveat": {
+    "what": "増えた1個は、いちばん危ない当て方(K1 含み一致)でしか出ていない。K2a(誤爆も取り違えも0のきれいな当て方)は窓を外しても0のまま。K2aの幅も窓を外しても0のまま。",
+    "consequence": "『正しい読み方が届くようになった』のではない。Q1が1→2になったのを前進と書くのは言い過ぎ。",
+    "what_can_be_said": "見出しが上から3行に無い表が内側に少なくとも1つある(窓を外して初めて通ったため)。表の形がこちらの思っている形ではない、という証拠にはなる。"
+  },
+  "inventory": [
+    {"n": 1, "suspect": "罫線の表が無い", "result": "違う"},
+    {"n": 2, "suspect": "升目に文字が無い", "result": "違う"},
+    {"n": 3, "suspect": "言い換えの語が足りない", "result": "違う"},
+    {"n": 4, "suspect": "当て方の形が悪い", "result": "違う"},
+    {"n": 5, "suspect": "見出しが列にある", "result": "違う"},
+    {"n": 6, "suspect": "表が割れている", "result": "違う(くっつけは数字を1つも動かさない)"},
+    {"n": 7, "suspect": "見出しが上から3行に無い", "result": "一部そう。だが47中2まで。きれいな当て方では0のまま"}
+  ],
+  "stopping": {
+    "why": "おーちゃんに出した札の『あと1周だけ』がこの周だった。約束どおりここで止める。",
+    "resume_when": "おーちゃんの返事。進めるとしても次に要るのは2件目の案件のCAD由来PDF。",
+    "why_second_case": "1件しか無いまま直し方を決めると、この図面に合わせ込んだだけのものになり、合っているかを確かめる手段が無い。"
+  },
+  "implementation_changed": false,
+  "full_suite": "977 passed, 1 skipped (37周目から変わらず)",
+  "pending_decisions": 6,
+  "asks": 1
+}

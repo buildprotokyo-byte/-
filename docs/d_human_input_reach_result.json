@@ -1,0 +1,133 @@
+{
+  "round": 48,
+  "scale_pages": 20,
+  "conditions": {
+    "H0 無し": {
+      "V1_start_kit_evidence": 0,
+      "V2_start_kit_heads": [],
+      "V3_two_source_targets": 0,
+      "V3_heads": [],
+      "V4_not_reference": 0,
+      "V5_quantity": 0,
+      "V6_targets": 7
+    },
+    "H1 基準点1つ": {
+      "V1_start_kit_evidence": 1,
+      "V2_start_kit_heads": [
+        "基準寸法"
+      ],
+      "V3_two_source_targets": 1,
+      "V3_heads": [
+        "基準寸法"
+      ],
+      "V4_not_reference": 0,
+      "V5_quantity": 0,
+      "V6_targets": 8
+    },
+    "H2 基準点2つ": {
+      "V1_start_kit_evidence": 2,
+      "V2_start_kit_heads": [
+        "基準寸法"
+      ],
+      "V3_two_source_targets": 2,
+      "V3_heads": [
+        "基準寸法"
+      ],
+      "V4_not_reference": 0,
+      "V5_quantity": 0,
+      "V6_targets": 9
+    },
+    "H3 基準点4つ": {
+      "V1_start_kit_evidence": 4,
+      "V2_start_kit_heads": [
+        "基準寸法"
+      ],
+      "V3_two_source_targets": 4,
+      "V3_heads": [
+        "基準寸法"
+      ],
+      "V4_not_reference": 0,
+      "V5_quantity": 0,
+      "V6_targets": 11
+    },
+    "H4 基準点1つ+ページ宣言": {
+      "V1_start_kit_evidence": 1,
+      "V2_start_kit_heads": [
+        "基準寸法"
+      ],
+      "V3_two_source_targets": 1,
+      "V3_heads": [
+        "基準寸法"
+      ],
+      "V4_not_reference": 0,
+      "V5_quantity": 0,
+      "V6_targets": 8
+    },
+    "H5 いま入れられる上限": {
+      "V1_start_kit_evidence": 4,
+      "V2_start_kit_heads": [
+        "基準寸法"
+      ],
+      "V3_two_source_targets": 4,
+      "V3_heads": [
+        "基準寸法"
+      ],
+      "V4_not_reference": 0,
+      "V5_quantity": 0,
+      "V6_targets": 11
+    }
+  },
+  "controls": {
+    "1_h0_zero": true,
+    "2_h1_one": true,
+    "3_repeat": [
+      4,
+      4,
+      4
+    ],
+    "4_static_matches_runtime": true,
+    "4_observed_heads": [
+      "基準寸法"
+    ]
+  },
+  "title": "人の入力は、いまの実装でどの対象に2つ目のデータ源を作れるのか",
+  "date": "2026-09-23",
+  "criteria_commit": "90674b1",
+  "criteria_file": "docs/d_human_input_reach_criteria.md",
+  "benchmark": "benchmarks/measure_human_input_reach.py",
+  "verdict": {
+    "branch": "V5 = 0(全条件)",
+    "conclusion": "いまの実装では、人がどれだけ入れても数量には2つ目のデータ源が付かない。",
+    "retracts": "47周目の但し書き『人がどれだけ入れても付かないとは言っていない』は、この実装については消える。",
+    "restated": "壁は校正でも人の入力の量でもない。人の入力が数量を主張できる経路が無いことである。",
+    "why": "source_kind='start_kit' を名乗る証拠を作る場所は _reference_dimension_findings() の1か所だけで、対象は 基準寸法::ページN::縦|横 の形だけ。静的に読んだ結果と実際に流れた証拠が食い違わないことを対照4で確認した。",
+    "v3_is_not_progress": "基準点を1つ入れるたびに基準寸法の対象が1つ増え、その対象に2源が付くだけ。対象の総数も同じだけ増える。増えているのは自分で持ち込んだ対象。",
+    "page_declaration_no_effect": "ページ宣言はV3を1も動かさなかった(H1とH4が同じ)。宣言は図面の読み方を変えるが、増える証拠は図面のデータ源のまま。"
+  },
+  "ask_for_ocha": {
+    "what": "数量に2つ目のデータ源を作るには、人が数量そのものを言える入口が要る。新しく足すものなので勝手に作らない。",
+    "options_not_recommendations": [
+      "人が数えた数を入れる(建具の数、室の数など)",
+      "見積の明細から数量を読む(過去実績軸)",
+      "2件目の案件の図面(ただし別案件なので同じ対象にはならない)"
+    ],
+    "coupled_decision": "1と2は calibrated をどうするかまで含めて判断が要る。47周目で、校正済みにすると作り込んだ一致でも階層1へ通ってしまうことを実測している。"
+  },
+  "one_sided_only": {
+    "can_say": "いまの実装のスタートキットに入れられるものを全部入れても、数量に2源は1件も付かない。",
+    "cannot_say": [
+      "1件の図面での測定である",
+      "仮の基準点は印字された縮尺から逆算して作った本物ではない(ただしこの周の結論は一致の中身に依存しない)",
+      "スタートキットの未実装の項目はまだ何も生まないので測っていない"
+    ]
+  },
+  "implementation_changed": {
+    "judgement_logic": false,
+    "thresholds": false,
+    "production_code": false
+  },
+  "next_round": {
+    "blocked": "ここから先は設計の判断が要るので自走では進めない",
+    "chosen_while_waiting": "基準寸法の一致が『独立していない』ことがテストで固定されているかを確かめる(45周目の形かどうか)。47周目の危険と直結しているため。"
+  }
+}

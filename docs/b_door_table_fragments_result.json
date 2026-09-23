@@ -1,0 +1,61 @@
+{
+  "round": 42,
+  "trial": "B",
+  "title": "建具表は1つの表が割れているのか",
+  "date": "2026-09-23",
+  "criteria_commit": "44d45ec",
+  "criteria_file": "docs/b_door_table_fragments_criteria.md",
+  "benchmark": "benchmarks/measure_door_table_fragments.py",
+  "merging_worked": {"inside_before": 47,
+                     "inside_after": {"0": 25, "2": 25, "6": 25, "12": 20},
+                     "note": "接している表は現にある。くっつけ自体は効いている。"},
+  "reach_by_slack_and_way": {
+    "0":  {"K0": 0, "K1": 1, "K2a": 0, "K2b": 0},
+    "2":  {"K0": 0, "K1": 1, "K2a": 0, "K2b": 0},
+    "6":  {"K0": 0, "K1": 1, "K2a": 0, "K2b": 0},
+    "12": {"K0": 0, "K1": 1, "K2a": 0, "K2b": 0}
+  },
+  "K1_misfire_ratio_all_slacks": 1.0,
+  "role_hits_shrink": {"幅": {"no_merge": 12, "slack_0_6": 6, "slack_12": 4},
+                       "why": "塊にすると見出しの探索範囲(上から3行)に入る升目が変わる。増える向きには働いていない。"},
+  "controls": {
+    "1_synthetic_all_slacks": {"all_passed": true, "ok": true},
+    "2_slack0_reproduces_round_41": {"K0": 0, "K1": 1, "K2a": 0, "K2b": 0, "ok": true},
+    "3_finish_not_reduced": {"ok": true},
+    "4_repeat_3_times": {"slack6_K2b": [0, 0, 0], "ok": true}
+  },
+  "verdict": {
+    "branch": "どの SLACK でも P2 ≦ 1",
+    "literal": "割れているのでもない。建具表の追跡をいったん止め、判断待ちとしておーちゃんに出す。",
+    "taken": true
+  },
+  "measurement_hole_found_by_self": {
+    "what": "くっつけた塊でも見出しを探すのは『上から3行』のまま。塊は元の表の行を上から並べたものなので、2つ目以降の破片の行は4行目より下に来る。破片Aに建具番号、破片Bに幅と高さがあっても、Bの行が窓から外れていればくっつけた意味が無い。",
+    "evidence": "幅の当たりがくっつけるほど減っている(12 → 6 → 4)。",
+    "consequence": "この周の結論は『割れていないと確かめた』ではなく『くっつけるだけでは届かなかった』。強さが違う。"
+  },
+  "next_round_43": {
+    "target": "上から3行ではなく、塊の全部の行から見出しを探す(行・列の両方の向きで、4通りの当て方)",
+    "why_valid": "実装として正しい読み方ではないが、『この升目の集まりから建具表が取り出せるか』の上限としては正しい。上限で届かなければ、どんな正しい読み方でも届かない。",
+    "branches": {
+      "上限で届く": "穴は窓(上から3行)。直す場所が名指しできる。",
+      "上限でも届かない": "この図面の升目からは、この語彙で建具表は取り出せない。7つ試して7つとも違ったことになり、判断待ちの根拠が固くなる。"
+    },
+    "lines": "39〜42周目と同じ3つ",
+    "implementation_changes": false
+  },
+  "new_pending_decision": {
+    "id": 6,
+    "question": "建具表の読み取りをこれ以上追うか",
+    "state": [
+      "建具表はこの図面にある(建具の語が10ページ、その全部に罫線の表)",
+      "6つ疑って6つとも違った(表が無い / 文字が無い / 語が足りない / 当て方の形 / 見出しが列にある / 表が割れている)",
+      "効き方は大きい。引戸・折戸は図形から原理的に拾えないので、この経路が折れているあいだ実図面の新設建具はどの経路でも拾えない",
+      "1案件しか無い。この図面に合わせ込んだ直し方をしても、それが正しいか確かめられない"
+    ]
+  },
+  "implementation_changed": false,
+  "full_suite": "977 passed, 1 skipped (37周目から変わらず)",
+  "pending_decisions": 6,
+  "asks": 1
+}
