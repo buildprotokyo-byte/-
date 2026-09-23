@@ -9,7 +9,8 @@
 実際に403で拒否されたドメイン(実測分のみ): `laws.e-gov.go.jp`(e-Gov法令検索)、`www.e-gov.go.jp`、
 `www.mhlw.go.jp`(厚労省)、`www.env.go.jp`(環境省)、`www.meti.go.jp`(経産省)、`www.soumu.go.jp`(総務省)、
 `www.fdma.go.jp`(消防庁)、`www.metro.tokyo.lg.jp`・`www.toshiseibi.metro.tokyo.lg.jp`(東京都)、
-`www.city.yokohama.lg.jp`、`www.ndl.go.jp`(国立国会図書館)、`ja.wikipedia.org`、
+`www.city.yokohama.lg.jp`・`cgi.city.yokohama.lg.jp`(横浜市、10周目に別サブドメインでも再確認)、
+`www.chord.or.jp`(住まいるダイヤル、10周目確認)、`www.ndl.go.jp`(国立国会図書館)、`ja.wikipedia.org`、
 日本建築学会・建設物価調査会・経済調査会・公共建築協会・日本建設業連合会・建築士会連合会・
 建築技術教育普及センター・マンションリフォーム推進協議会・リノベーション協議会・住宅リフォーム推進協議会・
 建設副産物リサイクル広報推進会議・石綿対策全国連絡会議、TOTO・LIXIL・Panasonic・YKKAPの各サイト。
