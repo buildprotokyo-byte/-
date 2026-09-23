@@ -596,3 +596,26 @@ def test_rules_can_be_swapped_without_touching_the_code(tmp_path: Path) -> None:
     (mapping,) = map_quantities([_door_quantity()], load_rules(path)).mappings
     (outcome,) = mapping.outcomes
     assert [line.work_item for line in outcome.lines] == ["別会社の行"]
+
+
+def test_a_line_carries_what_produced_it() -> None:
+    """**行 1 つを取り出しただけで、何が効いたかが分かる。**
+
+    いままで規則・手法・軸・階層は木の形でしか無く(`MappingResult` →
+    `QuantityMapping` → `RuleOutcome` → `MappedLine`)、
+    **行だけを取り出す経路を通ると落ちていた。**報告や見積に出るのはその形である。
+    """
+    ruleset = parse_rules(_ruleset_payload([_door_rule()]))
+    result = map_quantities([_door_quantity()], ruleset)
+
+    (mapping,) = result.mappings
+    for line in mapping.lines:
+        assert line.rule_id == "door-install"
+        assert line.method_id == _door_quantity().method_id
+        assert line.axis_id == _door_quantity().axis_id
+        assert line.tier == _door_quantity().tier
+        assert line.action == _door_quantity().action
+        # 行を辞書に畳んでも落ちない。**落ちる経路がこれまでの穴だった。**
+        payload = line.as_dict()
+        for field_name in ("rule_id", "method_id", "axis_id", "tier", "action"):
+            assert field_name in payload, f"{field_name} が as_dict に無い"
