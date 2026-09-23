@@ -135,6 +135,8 @@ class RoomOutline:
 
     page_index: int
     method_id: str = METHOD_ROOM_OUTLINE
+    area_basis_note: str = ""
+    """``area_basis`` がそう決まった理由。**決められなかった理由もここに残す。**"""
     limitation: str = (
         "開口が広すぎる室は閉じずに漏れる(閉じると「壁がある」と嘘になるため)。"
         "スキャンされたページでは常に 0 件で、0 件は「室が無い」ではない"
@@ -531,6 +533,200 @@ def _inside(point: tuple[float, float], polygon: list[tuple[float, float]]) -> b
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# 壁芯(芯々)の面積
+#
+# 2026-09-23 におーちゃんが「面積は芯々で数える」と決めた
+# (`docs/decision_area_basis.md`)。**図面からは導けない会社のルールである。**
+#
+# 壁が 2 本線で描いてある図面では、2 本は壁の両側の面なので、囲まれた面は内法で、
+# 壁の中身が別の細長い面として残っている。**その厚みの半分だけ外へ押し出せば
+# 壁芯になる。仮定は 1 つも要らない。**
+#
+# 壁が 1 本線で描いてある図面には厚みがどこにも無い。
+# **そこで厚みを仮定して数字を出すことはしない。** 「不明」のまま返す。
+# ---------------------------------------------------------------------------
+
+
+def _edge_owner(faces: list[list[int]]) -> dict[tuple[int, int], int]:
+    """向きつきの辺 → その辺を持つ面。半辺は 1 つの面にしか属さない。"""
+    owner: dict[tuple[int, int], int] = {}
+    for index, cycle in enumerate(faces):
+        for position in range(len(cycle)):
+            owner[(cycle[position], cycle[(position + 1) % len(cycle)])] = index
+    return owner
+
+
+def _distance_to_line(
+    point: tuple[float, float], a: tuple[float, float], b: tuple[float, float]
+) -> float:
+    """点から直線 ab までの距離。ab が退化しているときは点 a までの距離。"""
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    length = math.hypot(dx, dy)
+    if length <= 1e-12:
+        return math.hypot(point[0] - a[0], point[1] - a[1])
+    return abs(dx * (a[1] - point[1]) - dy * (a[0] - point[0])) / length
+
+
+def _wall_thickness_pt(
+    cavity_cycle: list[int],
+    coords: list[tuple[float, float]],
+    a: tuple[float, float],
+    b: tuple[float, float],
+) -> float:
+    """辺 ab の向こうにある壁の中身の厚み。
+
+    **中身の頂点から辺の直線までのいちばん遠い距離**で測る。
+    面積÷長さ で測ると、隅が斜めに落としてある壁で厚みが太く出る。
+    """
+    return max(_distance_to_line(coords[index], a, b) for index in cavity_cycle)
+
+
+def _offset_polygon(
+    polygon: list[tuple[float, float]], distances: list[float]
+) -> list[tuple[float, float]] | None:
+    """各辺をそれぞれの距離だけ外へ押し出した多角形。
+
+    ``polygon`` は **y を上向きに直した座標で反時計回り**であること。
+    押し出した直線どうしを交わらせて頂点を作る。平行で交わらない場合は
+    押し出した点をそのまま使う。**丸めない。**
+    """
+    count = len(polygon)
+    if count < 3 or len(distances) != count:
+        return None
+    lines: list[tuple[tuple[float, float], tuple[float, float]]] = []
+    for index in range(count):
+        (x1, y1), (x2, y2) = polygon[index], polygon[(index + 1) % count]
+        dx, dy = x2 - x1, y2 - y1
+        length = math.hypot(dx, dy)
+        if length <= 1e-12:
+            return None
+        # 反時計回りの多角形では、進む向きの右側が外側。
+        nx, ny = dy / length, -dx / length
+        shift = distances[index]
+        lines.append(((x1 + nx * shift, y1 + ny * shift), (x2 + nx * shift, y2 + ny * shift)))
+
+    out: list[tuple[float, float]] = []
+    for index in range(count):
+        previous = lines[(index - 1) % count]
+        current = lines[index]
+        point = _line_intersection(previous, current)
+        out.append(point if point is not None else current[0])
+    return out
+
+
+def _line_intersection(
+    first: tuple[tuple[float, float], tuple[float, float]],
+    second: tuple[tuple[float, float], tuple[float, float]],
+) -> tuple[float, float] | None:
+    (x1, y1), (x2, y2) = first
+    (x3, y3), (x4, y4) = second
+    d1x, d1y = x2 - x1, y2 - y1
+    d2x, d2y = x4 - x3, y4 - y3
+    denominator = d1x * d2y - d1y * d2x
+    if abs(denominator) <= 1e-12:
+        return None
+    t = ((x3 - x1) * d2y - (y3 - y1) * d2x) / denominator
+    return (x1 + t * d1x, y1 + t * d1y)
+
+
+def _apply_area_basis(
+    wanted: AreaBasis,
+    cycle: list[int],
+    face_index: int,
+    polygon: list[tuple[float, float]],
+    area_sqm: float,
+    perimeter_mm: float,
+    coords: list[tuple[float, float]],
+    owner: dict[tuple[int, int], int],
+    cavities: set[int],
+    cycles: list[list[int]],
+    mm_per_pt: float,
+) -> tuple[AreaBasis, str, list[tuple[float, float]], float, float]:
+    """求められた数え方で面積を出し直す。**出せないときは「不明」のまま返す。**
+
+    返すのは ``(数え方, 理由, 輪郭, 面積㎡, 周長mm)``。
+    ``wanted`` が「不明」のときは**何も計算しない**(既定の振る舞いを変えない)。
+    """
+    if wanted == "不明":
+        return "不明", "", polygon, area_sqm, perimeter_mm
+
+    # 辺ごとに、向こう側にある壁の中身の厚みを測る。
+    count = len(cycle)
+    thickness_pt: list[float | None] = []
+    for position in range(count):
+        a_index = cycle[position]
+        b_index = cycle[(position + 1) % count]
+        neighbour = owner.get((b_index, a_index))
+        if neighbour is None or neighbour not in cavities:
+            thickness_pt.append(None)
+            continue
+        thickness_pt.append(
+            _wall_thickness_pt(cycles[neighbour], coords, coords[a_index], coords[b_index])
+        )
+
+    # 建具の開口の辺にも壁の中身は接している。開口は壁の**両方の面**に開くので、
+    # こちらが仮に閉じた辺の向こう側は、やはり壁の中身の面になる。
+    # **だから「同じ直線に乗っている別の辺から厚みを借りる」処理は要らない。**
+    # 一度書いたが、試験でも合成の間取りでも一度も通らなかったので消した
+    # (`docs/a2_center_line_area_report.md`)。借りる処理は、借り先を間違えると
+    # 黙って違う面積を出すので、通らないまま残しておくほうが危ない。
+
+    unknown = [position for position, value in enumerate(thickness_pt) if value is None]
+    if unknown:
+        return (
+            "不明",
+            f"{len(unknown)}/{count} の辺で壁の厚みが図面から読めないため、"
+            "内法か壁芯かを決められない(壁が 1 本線で描かれているか、"
+            "隣の室との境に壁の中身が無い)",
+            polygon,
+            area_sqm,
+            perimeter_mm,
+        )
+
+    if wanted == "内法":
+        return (
+            "内法",
+            "すべての辺の向こうに壁の中身があるので、この面は壁の内側である",
+            polygon,
+            area_sqm,
+            perimeter_mm,
+        )
+
+    # 壁芯: 各辺を、その辺の壁の厚みの半分だけ外へ押し出す。
+    flipped = [(x, -y) for x, y in polygon]
+    offsets = [value / 2.0 for value in thickness_pt if value is not None]
+    moved = _offset_polygon(flipped, offsets)
+    if moved is None:
+        return (
+            "不明",
+            "輪郭を外へ押し出せなかった(辺の長さが 0 の頂点がある)",
+            polygon,
+            area_sqm,
+            perimeter_mm,
+        )
+    new_polygon = [(x, -y) for x, y in moved]
+    new_cycle = list(range(len(new_polygon)))
+    signed = _signed_area_pt(new_cycle, new_polygon)
+    if signed <= 0:
+        return (
+            "不明",
+            "押し出した輪郭が裏返った(壁が厚すぎるか、輪郭がねじれている)",
+            polygon,
+            area_sqm,
+            perimeter_mm,
+        )
+    thicknesses = sorted({round(value * mm_per_pt) for value in thickness_pt if value is not None})
+    return (
+        "壁芯",
+        "辺ごとに壁の中身の厚みを測り、その半分だけ外へ押し出した"
+        f"(厚み {'・'.join(str(value) for value in thicknesses)} mm)",
+        new_polygon,
+        signed * mm_per_pt * mm_per_pt / 1_000_000.0,
+        _perimeter_pt(new_cycle, new_polygon) * mm_per_pt,
+    )
+
+
 def find_room_outlines(
     pdf_path: str | Path,
     page_index: int,
@@ -541,6 +737,7 @@ def find_room_outlines(
     snap_mm: float = SNAP_MM,
     max_gap_mm: float = MAX_GAP_MM,
     exclude_tables: bool = True,
+    area_basis: AreaBasis = "不明",
 ) -> list[RoomOutline]:
     """線で囲まれた閉じた領域を、室の候補として返す。
 
@@ -555,6 +752,8 @@ def find_room_outlines(
         raise ValueError("面積の窓が不正です")
     if min_width_mm <= 0 or snap_mm <= 0 or max_gap_mm <= 0:
         raise ValueError("幅・許容差・開口の値は正でなければなりません")
+    if area_basis not in ("内法", "壁芯", "不明"):
+        raise ValueError(f"知らない面積の数え方です: {area_basis}")
 
     mm_per_pt = scale.mm_per_point
     tolerance_pt = snap_mm / mm_per_pt
@@ -589,8 +788,26 @@ def find_room_outlines(
     edges, points = _split_segments(segments, tolerance_pt)
     edges = _close_gaps(edges, points.coords, max_gap_pt, tolerance_pt)
 
+    all_faces = _faces(edges, points.coords)
+    cycles = [cycle for cycle, _ in all_faces]
+    owner = _edge_owner(cycles)
+
+    #: 細長すぎて室ではない面 = 壁の中身。**面積の窓では絞らない**
+    #: (壁の中身は室の下限 0.5 ㎡ より小さいことがある)。
+    cavities: set[int] = set()
+    for index, cycle in enumerate(cycles):
+        signed = _signed_area_pt(cycle, points.coords)
+        if signed <= 0:
+            continue
+        perimeter_pt = _perimeter_pt(cycle, points.coords)
+        if perimeter_pt <= 0:
+            continue
+        width = 2.0 * signed / perimeter_pt * mm_per_pt
+        if width < min_width_mm:
+            cavities.add(index)
+
     out: list[RoomOutline] = []
-    for cycle, virtual_count in _faces(edges, points.coords):
+    for face_index, (cycle, virtual_count) in enumerate(all_faces):
         signed = _signed_area_pt(cycle, points.coords)
         if signed <= 0:
             continue  # 外側の面
@@ -605,6 +822,19 @@ def find_room_outlines(
             continue  # 細長すぎる。壁の中身とみなす
 
         polygon = [points.coords[index] for index in cycle]
+        area_kind, area_kind_note, polygon, area_sqm, perimeter_mm = _apply_area_basis(
+            area_basis,
+            cycle,
+            face_index,
+            polygon,
+            area_sqm,
+            perimeter_mm,
+            points.coords,
+            owner,
+            cavities,
+            cycles,
+            mm_per_pt,
+        )
         if any(_within(polygon, rect) for rect in table_rects):
             continue  # 罫線の表の升目
         hits = [text for text, center in spans if _inside(center, polygon)]
@@ -628,9 +858,10 @@ def find_room_outlines(
                 min_width_mm=width_mm,
                 name=name,
                 name_basis=basis,
-                area_basis="不明",
+                area_basis=area_kind,
                 virtual_edges=virtual_count,
                 page_index=page_index,
+                area_basis_note=area_kind_note,
             )
         )
     out.sort(key=lambda r: (-r.area_sqm, round(r.polygon_pt[0][1], 1), round(r.polygon_pt[0][0], 1)))

@@ -102,6 +102,7 @@ from axes.image_axis.pdf_pages import ContentKind, rasterize
 from axes.image_axis.pdf_room_outlines import (
     METHOD_ROOM_OUTLINE,
     RoomOutline,
+    AreaBasis,
     find_room_outlines,
 )
 from axes.image_axis.pdf_repeated_symbols import (
@@ -271,10 +272,19 @@ class IntakeConfig:
     audit_log_path: Path | None = None
     #: 階層ごとの抜き取り率。既定は `PRODUCTION_AUDIT_POLICIES`。
     audit_policies: Mapping[int, TierAuditPolicy] | None = None
+    #: 室の面積を何で数えるか。**既定は「壁芯」**。
+    #: 2026-09-23 におーちゃんが決めた会社のルールである
+    #: (`docs/decision_area_basis.md`)。図面からは導けない。
+    #: 壁が 1 本線で描かれていて厚みが読めないページでは、
+    #: ここに「壁芯」と書いてあっても**「不明」のまま出る**。
+    #: 厚みを仮定して数字を作ることはしない。
+    area_basis: AreaBasis = "壁芯"
 
     def __post_init__(self) -> None:
         if not self.case_id:
             raise IntakeError("case_id は空にできません")
+        if self.area_basis not in ("内法", "壁芯", "不明"):
+            raise IntakeError(f"知らない面積の数え方です: {self.area_basis}")
         if self.dpi <= 0:
             raise IntakeError("dpi は正の整数である必要があります")
 
@@ -989,7 +999,8 @@ def _extract(
 
             findings.extend(
                 _room_outline_findings(
-                    pdf_path, index, page_number, scale, declaration, notes
+                    pdf_path, index, page_number, scale, declaration, notes,
+                    area_basis=config.area_basis,
                 )
             )
 
@@ -1460,11 +1471,15 @@ def _room_outline_findings(
     scale: DrawingScale,
     declaration: PageDeclaration | None,
     notes: list[str],
+    *,
+    area_basis: AreaBasis = "壁芯",
 ) -> list[DrawingFinding]:
     """室の輪郭を、根拠付きの面積の証拠に直す。
 
-    **面積が内法か壁芯かは決めない。** ``area_basis`` をそのまま
-    provenance に残し、下流が片方に決め打ちできないようにする。
+    ``area_basis`` は**求める数え方**である(既定は会社のルールどおり「壁芯」)。
+    **求めても、図面から厚みが読めなければ「不明」のまま出る。**
+    出た数え方と、その理由は provenance にそのまま残し、
+    下流が片方に決め打ちできないようにする。
     こちらの都合で開口を閉じた室は ``virtual_edges`` が 0 より大きくなる。
     """
     kind = declaration.kind if declaration is not None else None
@@ -1472,7 +1487,7 @@ def _room_outline_findings(
         notes.append(f"人が「{kind}」と宣言したページなので室の輪郭は探さない")
         return []
 
-    rooms = find_room_outlines(pdf_path, index, scale)
+    rooms = find_room_outlines(pdf_path, index, scale, area_basis=area_basis)
     if not rooms:
         notes.append(
             "室の輪郭は 0 件"
@@ -1502,6 +1517,8 @@ def _room_outline_findings(
                     "area_sqm_unrounded": room.area_sqm,
                     "name_basis": room.name_basis,
                     "area_basis": room.area_basis,
+                    "area_basis_wanted": area_basis,
+                    "area_basis_note": room.area_basis_note,
                     "min_width_mm": round(room.min_width_mm, 1),
                     "perimeter_mm": round(room.perimeter_mm, 1),
                     "virtual_edges": room.virtual_edges,

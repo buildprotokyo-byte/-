@@ -324,3 +324,131 @@ def test_ページ番号が範囲外なら例外(tmp_path: Path) -> None:
     path = _single_room(tmp_path / "x.pdf")
     with pytest.raises(IndexError):
         find_room_outlines(path, 5, SCALE_50)
+
+
+# ---------------------------------------------------------------------------
+# 壁芯(芯々)の面積
+#
+# 2026-09-23 におーちゃんが「面積は芯々で数える」と決めた
+# (`docs/decision_area_basis.md`)。壁が 2 本線で描いてある図面なら、
+# 壁の中身の半分を足せば図形だけから出せる。**仮定は要らない。**
+# 壁が 1 本線の図面には厚みがどこにも無いので、**出してはいけない。**
+# ---------------------------------------------------------------------------
+
+
+def test_壁が2本線なら壁芯の面積を出せる(tmp_path: Path) -> None:
+    """内法 4000x3000、壁 150 → 壁芯は 4150x3150 = 13.0725 ㎡。"""
+    rooms = find_room_outlines(
+        _double_wall_room(tmp_path / "center.pdf", wall_mm=150.0),
+        0,
+        SCALE_50,
+        area_basis="壁芯",
+    )
+    assert len(rooms) == 1, f"1 室のはず: {[r.area_sqm for r in rooms]}"
+    room = rooms[0]
+    assert room.area_basis == "壁芯"
+    assert room.area_sqm == pytest.approx(13.0725, rel=0.01)
+    assert room.area_range_sqm[0] <= room.area_sqm <= room.area_range_sqm[1]
+
+
+def test_壁が1本線なら壁芯を求められても出さない(tmp_path: Path) -> None:
+    """**厚みが図面に無いところから厚みを作らない。**"""
+    rooms = find_room_outlines(
+        _single_room(tmp_path / "center_single.pdf"), 0, SCALE_50, area_basis="壁芯"
+    )
+    assert len(rooms) == 1
+    room = rooms[0]
+    assert room.area_basis == "不明", "1 本線の壁で壁芯を名乗ってはいけない"
+    assert room.area_sqm == pytest.approx(12.0, rel=0.01), "内法のまま返す"
+    assert "厚み" in room.area_basis_note
+
+
+def test_壁の厚みが変わっても壁芯は変わらない(tmp_path: Path) -> None:
+    """通り芯は動いていない。**内法だけが小さくなる。**"""
+    thin = find_room_outlines(
+        _double_wall_room(tmp_path / "thin.pdf", wall_mm=100.0), 0, SCALE_50, area_basis="壁芯"
+    )
+    thick = find_room_outlines(
+        _double_wall_room(tmp_path / "thick.pdf", wall_mm=200.0), 0, SCALE_50, area_basis="壁芯"
+    )
+    inner_thin = find_room_outlines(_double_wall_room(tmp_path / "thin2.pdf", wall_mm=100.0), 0, SCALE_50)
+    inner_thick = find_room_outlines(_double_wall_room(tmp_path / "thick2.pdf", wall_mm=200.0), 0, SCALE_50)
+    # 内法は同じ(この作図では内側の四角を動かしていないため)
+    assert inner_thin[0].area_sqm == pytest.approx(inner_thick[0].area_sqm, rel=0.001)
+    # 壁芯は厚みのぶんだけ素直に増える
+    assert thin[0].area_sqm == pytest.approx(4100.0 * 3100.0 / 1_000_000.0, rel=0.01)
+    assert thick[0].area_sqm == pytest.approx(4200.0 * 3200.0 / 1_000_000.0, rel=0.01)
+
+
+def test_既定では壁芯を出さない(tmp_path: Path) -> None:
+    """**既定の振る舞いは変えない。** 呼ぶ側が明示したときだけ壁芯にする。"""
+    rooms = find_room_outlines(_double_wall_room(tmp_path / "default.pdf"), 0, SCALE_50)
+    assert rooms[0].area_basis == "不明"
+    assert rooms[0].area_sqm == pytest.approx(12.0, rel=0.01)
+
+
+def test_知らない面積の数え方は受け付けない(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="面積の数え方"):
+        find_room_outlines(
+            _single_room(tmp_path / "bad.pdf"), 0, SCALE_50, area_basis="だいたい"
+        )
+
+
+def _two_rooms_with_opening(path: Path) -> Path:
+    """壁を 2 本線で描いた 2 室。**間仕切りだけ厚みが違い、そこに開口がある。**
+
+    通り芯は 0/4000(縦)と 0/3000/6000(横)。
+    外周の壁は 400、間仕切りは 200。間仕切りの真ん中に 1200 の開口。
+    **開口の辺の向こうにも壁の中身がある**(開口は壁の両方の面に開くため)。
+    外周の 400 を使ってしまうと面積がずれる。
+
+    壁芯の正解は、上下どちらの室も 4000 x 3000 = 12.0 ㎡。
+    """
+    doc, page = _new_page()
+    ox, oy = 200.0, 200.0
+
+    def face(x1: float, y1: float, x2: float, y2: float, gap_center: float | None = None,
+             gap: float = 0.0) -> None:
+        ax, ay = ox + _mm(x1), oy + _mm(y1)
+        bx, by = ox + _mm(x2), oy + _mm(y2)
+        if gap_center is None:
+            _line(page, ax, ay, bx, by)
+            return
+        cx = ox + _mm(gap_center)
+        half = _mm(gap) / 2.0
+        _line(page, ax, ay, cx - half, ay)
+        _line(page, cx + half, by, bx, by)
+
+    outer, inner = 200.0, 100.0  # それぞれ**半分**の厚み(外周 400、間仕切り 200)
+    # 外周の壁の 2 面。線は交わる相手の壁まで伸ばす(伸ばさないと隅に隙間が開く)。
+    for offset in (-outer, outer):
+        face(-outer, 0 + offset, 4000 + outer, 0 + offset)        # 上
+        face(-outer, 6000 + offset, 4000 + outer, 6000 + offset)  # 下
+        face(0 + offset, -outer, 0 + offset, 6000 + outer)        # 左
+        face(4000 + offset, -outer, 4000 + offset, 6000 + outer)  # 右
+    # 間仕切りの 2 面。開口は両方の面に開ける。
+    for offset in (-inner, inner):
+        face(-outer, 3000 + offset, 4000 + outer, 3000 + offset, gap_center=2000.0, gap=1200.0)
+
+    page.insert_text(pymupdf.Point(ox + _mm(1800), oy + _mm(1500)), "洋室", fontname="japan")
+    page.insert_text(pymupdf.Point(ox + _mm(1800), oy + _mm(4500)), "廊下", fontname="japan")
+    return _save(doc, path)
+
+
+def test_開口の辺でも間仕切りの厚みを使う(tmp_path: Path) -> None:
+    """開口は壁の**両方の面**に開くので、仮に閉じた辺の向こうも壁の中身である。
+
+    直交する外周の壁(400)の厚みを使ってしまうと面積がずれる。
+    """
+    rooms = find_room_outlines(
+        _two_rooms_with_opening(tmp_path / "opening.pdf"), 0, SCALE_50, area_basis="壁芯"
+    )
+    named = {room.name: room for room in rooms if room.name is not None}
+    assert set(named) == {"洋室", "廊下"}, f"2 室のはず: {[r.name for r in rooms]}"
+    for name, room in named.items():
+        assert room.area_basis == "壁芯", f"{name}: {room.area_basis_note}"
+        # 外周 400 を借りると 12.12 ㎡ になる。間仕切りの 200 を使えば 12.0 ㎡。
+        assert room.area_sqm == pytest.approx(12.0, rel=0.005), (
+            f"{name}: 開口の辺で使った厚みが間違っている({room.area_basis_note})"
+        )
+    assert "200・400" in named["洋室"].area_basis_note, "測った厚みをそのまま残すこと"
