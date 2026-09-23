@@ -49,7 +49,7 @@ OR-Tools(CP-SAT)・Z3-solver はどちらも PyPI から問題なくインスト
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Literal, Sequence, Union
 
 import z3
@@ -387,12 +387,10 @@ class ConsistencySolver:
         variable = self._variables.get(name)
         if variable is None or not variable.requires_confirmation:
             return
-        self._variables[name] = Variable(
-            variable.name, variable.lower, variable.upper, variable.axis,
-            variable.strength, dict(variable.evidence),
-            unit=variable.unit, requires_confirmation=False,
-            source_axis=variable.source_axis,
-        )
+        # **欄を並べ直さない。** 手で書き写すと、後から足した欄を
+        # 写し忘れて既定値に戻る(2026-09-23、`independent_sources` で現に起きた。
+        # 確認した要素の「何個のデータ源が言っていたか」が 0 に戻っていた)。
+        self._variables[name] = replace(variable, requires_confirmation=False)
 
     def constraint_names(self) -> tuple[str, ...]:
         """登録済みの制約名の一覧(``add_relation`` / ``add_constraint`` で
