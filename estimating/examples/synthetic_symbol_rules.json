@@ -7,36 +7,198 @@
       "rule_id": "outlet-from-symbol-count",
       "kind": "記号数量",
       "unit_dimension": "count",
-      "attributes": {"記号名": ["コンセント"]},
+      "attributes": {
+        "記号名": [
+          "コンセント"
+        ]
+      },
       "line_items": [
-        {"code": "SYN-E-001", "work_item": "コンセント設置(合成の見本)", "major_category": "電気設備工事", "unit": "箇所"}
+        {
+          "code": "SYN-E-001",
+          "work_item": "コンセント設置(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
       ]
     },
     {
       "rule_id": "switch-from-symbol-count",
       "kind": "記号数量",
       "unit_dimension": "count",
-      "attributes": {"記号名": ["スイッチ"]},
+      "attributes": {
+        "記号名": [
+          "スイッチ"
+        ]
+      },
       "line_items": [
-        {"code": "SYN-E-002", "work_item": "スイッチ設置(合成の見本)", "major_category": "電気設備工事", "unit": "箇所"}
+        {
+          "code": "SYN-E-002",
+          "work_item": "スイッチ設置(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
       ]
     },
     {
       "rule_id": "wiring-from-symbol-count",
       "kind": "記号数量",
       "unit_dimension": "count",
-      "attributes": {"記号名": ["配線"]},
+      "attributes": {
+        "記号名": [
+          "配線"
+        ]
+      },
       "line_items": [
-        {"code": "SYN-E-003", "work_item": "配線(合成の見本)", "major_category": "電気設備工事", "unit": "箇所"}
+        {
+          "code": "SYN-E-003",
+          "work_item": "配線(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
       ]
     },
     {
       "rule_id": "tel-from-symbol-count",
       "kind": "記号数量",
       "unit_dimension": "count",
-      "attributes": {"記号名": ["TEL"]},
+      "attributes": {
+        "記号名": [
+          "TEL"
+        ]
+      },
       "line_items": [
-        {"code": "SYN-E-004", "work_item": "電話配線器具(合成の見本)", "major_category": "電気設備工事", "unit": "箇所"}
+        {
+          "code": "SYN-E-004",
+          "work_item": "電話配線器具(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
+      ]
+    },
+    {
+      "rule_id": "syn-e-005-from-symbol-count",
+      "kind": "記号数量",
+      "unit_dimension": "count",
+      "attributes": {
+        "記号名": [
+          "照明器具"
+        ]
+      },
+      "line_items": [
+        {
+          "code": "SYN-E-005",
+          "work_item": "照明器具取付(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
+      ]
+    },
+    {
+      "rule_id": "syn-e-006-from-symbol-count",
+      "kind": "記号数量",
+      "unit_dimension": "count",
+      "attributes": {
+        "記号名": [
+          "換気扇"
+        ]
+      },
+      "line_items": [
+        {
+          "code": "SYN-E-006",
+          "work_item": "換気扇取付(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
+      ]
+    },
+    {
+      "rule_id": "syn-e-007-from-symbol-count",
+      "kind": "記号数量",
+      "unit_dimension": "count",
+      "attributes": {
+        "記号名": [
+          "分電盤"
+        ]
+      },
+      "line_items": [
+        {
+          "code": "SYN-E-007",
+          "work_item": "分電盤設置(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
+      ]
+    },
+    {
+      "rule_id": "syn-e-008-from-symbol-count",
+      "kind": "記号数量",
+      "unit_dimension": "count",
+      "attributes": {
+        "記号名": [
+          "火災報知器"
+        ]
+      },
+      "line_items": [
+        {
+          "code": "SYN-E-008",
+          "work_item": "火災報知器設置(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
+      ]
+    },
+    {
+      "rule_id": "syn-e-009-from-symbol-count",
+      "kind": "記号数量",
+      "unit_dimension": "count",
+      "attributes": {
+        "記号名": [
+          "インターホン"
+        ]
+      },
+      "line_items": [
+        {
+          "code": "SYN-E-009",
+          "work_item": "インターホン設置(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
+      ]
+    },
+    {
+      "rule_id": "syn-e-010-from-symbol-count",
+      "kind": "記号数量",
+      "unit_dimension": "count",
+      "attributes": {
+        "記号名": [
+          "テレビ端子"
+        ]
+      },
+      "line_items": [
+        {
+          "code": "SYN-E-010",
+          "work_item": "テレビ端子設置(合成の見本)",
+          "major_category": "電気設備工事",
+          "unit": "箇所"
+        }
+      ]
+    },
+    {
+      "rule_id": "syn-e-011-from-symbol-count",
+      "kind": "記号数量",
+      "unit_dimension": "count",
+      "attributes": {
+        "記号名": [
+          "建具"
+        ]
+      },
+      "line_items": [
+        {
+          "code": "SYN-E-011",
+          "work_item": "建具取付(合成の見本)",
+          "major_category": "木製建具工事",
+          "unit": "箇所"
+        }
       ]
     }
   ]
