@@ -19,15 +19,22 @@ from pathlib import Path
 
 import fitz
 
+import re
+import unicodedata
+
 from axes.image_axis.pdf_tables import TableRegion, find_tables
 from axes.image_axis.schedule_tables import (
     DOOR_COLUMN_SYNONYMS,
     DOOR_MIN_SUPPORTING_COLUMNS,
     FINISH_COLUMN_SYNONYMS,
     HEADER_SEARCH_ROWS,
+    _PAREN_RE,
     _match_role,
     _role_of,
 )
+
+#: 案2b が升目の文字を割る区切り。空白と、見出しでよく使われる記号。
+_SPLIT_RE = re.compile(r"[\s・/／,、,\u00d7x\*\-—―:：;；|｜]+")
 
 
 def roles_exact(text: str, synonyms) -> set[str]:
@@ -45,6 +52,41 @@ def roles_loose(text: str, synonyms) -> set[str]:
     if not key:
         return set()
     return {role for role, names in synonyms.items() if any(n and n in key for n in names)}
+
+
+def roles_suffix(text: str, synonyms) -> set[str]:
+    """**案2a 後方一致。** 升目の文字が言い換えで終わるときだけ当てる。
+
+    39周目が次に測るものとして先に書いた案(`docs/b_door_heading_matching_report.md`)。
+    ここだけの実装。**実装のほうは触らない。**
+    """
+    key = _match_role(text)
+    if not key:
+        return set()
+    return {
+        role
+        for role, names in synonyms.items()
+        if any(n and key.endswith(n) for n in names)
+    }
+
+
+def roles_split(text: str, synonyms) -> set[str]:
+    """**案2b 区切ってから完全一致。** 空白と記号で割り、どれかがちょうど同じなら当てる。
+
+    `巾 W` は `巾` と `W` に割れて当たり、**`幅木` は割れないので当たらない。**
+    **空白を落とす前の文字で割る**(実装の `_match_role` は空白を落とすので、
+    `巾 W` が `巾w` という 1 語になってしまう)。
+    """
+    normalized = unicodedata.normalize("NFKC", text)
+    normalized = _PAREN_RE.sub(" ", normalized)
+    parts = [p for p in _SPLIT_RE.split(normalized.lower()) if p]
+    if not parts:
+        return set()
+    return {
+        role
+        for role, names in synonyms.items()
+        if any(part in names for part in parts)
+    }
 
 
 def recognise(table: TableRegion, synonyms, required: str, min_supporting: int, roles_of):
@@ -117,7 +159,9 @@ def main() -> None:
 
     rows = []
     for name, roles_of in (("H0 いまのまま(完全一致)", roles_exact),
-                           ("H1 案1(含み一致)", roles_loose)):
+                           ("H1 案1(含み一致)", roles_loose),
+                           ("H2a 案2a(後方一致)", roles_suffix),
+                           ("H2b 案2b(区切って完全一致)", roles_split)):
         a = passed(inside, DOOR_COLUMN_SYNONYMS, "建具番号", DOOR_MIN_SUPPORTING_COLUMNS, roles_of)
         b = passed(outside, DOOR_COLUMN_SYNONYMS, "建具番号", DOOR_MIN_SUPPORTING_COLUMNS, roles_of)
         rows.append((name, a, b))
@@ -127,12 +171,25 @@ def main() -> None:
         print(f"   H3 役割ごとの当たり(内側): {role_hits(inside, DOOR_COLUMN_SYNONYMS, '建具番号', roles_of)}")
 
     h0_in, h0_out = rows[0][1], rows[0][2]
-    h1_in, h1_out = rows[1][1], rows[1][2]
-    h2 = (h1_out / h1_in) if h1_in else None
-    h4 = ambiguous_cells(inside + outside, DOOR_COLUMN_SYNONYMS, roles_loose)
-    print(f"\nH2 誤爆 ÷ 当たり: {h1_out} / {h1_in} = "
-          f"{'-' if h2 is None else f'{h2:.3f}'}")
-    print(f"H4 1 つの升目が 2 つ以上の役割に当たった回数: {h4}")
+    print("\n=== 先に引いた 3 つの線(39周目の基準。**結果を見てから変えない**) ===")
+    print("   当たり: 内側が H0 から 1 個以上増える / 誤爆÷当たり < 0.5 / 取り違え = 0")
+    for (name, a, b), roles_of in zip(
+        rows[1:], (roles_loose, roles_suffix, roles_split)
+    ):
+        ratio = (b / a) if a else None
+        ambiguous = ambiguous_cells(inside + outside, DOOR_COLUMN_SYNONYMS, roles_of)
+        verdict = (
+            a > h0_in
+            and ratio is not None
+            and ratio < 0.5
+            and ambiguous == 0
+        )
+        print(f"\n   [{name}]")
+        print(f"      当たりの増分: {a - h0_in}(内側 {h0_in} → {a})")
+        print(f"      誤爆 ÷ 当たり: {b} / {a} = "
+              f"{'-' if ratio is None else f'{ratio:.3f}'}")
+        print(f"      取り違え(1 つの升目が 2 つ以上の役割): {ambiguous}")
+        print(f"      → {'3 つとも通る' if verdict else '線を越えていない'}")
 
     print("\n=== 対照 ===")
     if args.synthetic:
