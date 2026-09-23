@@ -24,6 +24,14 @@
   ([`/root/.claude/projects/.../tool-results/webfetch-*.pdf`])。`pip install pdfminer.six`
   (要 `cffi`/`cryptography` の再インストール、環境の`cryptography`が壊れていたため)でテキスト抽出できた。
   `poppler-utils`(`pdftoppm`、Readツールのページレンダリングに必要)はaptが403で入らない。
+- **WebFetchには10MB(`maxContentLength`)の上限がある。** それを超えるPDF(実測: 11MBの公共建築改修
+  工事標準仕様書で発生)は`maxContentLength size of 10485760 exceeded`で失敗する。**`mlit.go.jp`配下
+  なら`curl -o <path> <url>`で直接ダウンロードでき、この上限を回避できる。** 大きいPDFは最初から
+  curlで取りに行く方が早い。
+- **300頁級の大きいPDFは、目次(TOC)だけで数十頁に及ぶことがあり、`extract_text(maxpages=N)`で
+  読める範囲を目次だけで使い切ることがある。** 目的の章の本文が何頁目にあるかは事前に分からないため、
+  `page_numbers=range(a,b)`で範囲を変えながら本文中の見出し(TOCと同じ文字列が2回目に出る場所)を
+  `grep`で探すのが実用的だった。
 
 ## 今後この作業を再開するときの方針
 
