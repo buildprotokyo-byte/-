@@ -33,6 +33,14 @@
   `page_numbers=range(a,b)`で範囲を変えながら本文中の見出し(TOCと同じ文字列が2回目に出る場所)を
   `grep`で探すのが実用的だった。
 
+- **画像だけのページ(標準記号表など)は、リポジトリに既にある`pymupdf`(`requirements.txt`記載、
+  `pip install pymupdf`で入る。apt不要・poppler不要)でページをPNG化し、Readツールで目視確認できる。**
+  実測(6周目): `pymupdf.open(pdf).load_page(i).get_pixmap(dpi=220).save(path)`で1ページ数百KB〜1MB
+  程度のPNGになり、そのままReadツールに渡すと図表の中身(表・記号・ハッチングパターン)が見える。
+  **OCR(`requirements-ocr.txt`のrapidocr)は文字を読むための手段で、図表そのものを見る用途には
+  向かない**(`docs/ocr_scanned_pages_report.md`の実測どおり、文字化けを検知できない)。記号や図の
+  形そのものを確認したいときは目視、条文のような文章を画像PDFから読みたいときはOCR、と使い分ける。
+
 ## 今後この作業を再開するときの方針
 
 1. まず`mlit.go.jp`配下を当たる(特に官庁営繕の技術基準ページ群)。本文まで読める数少ない一次資料。
