@@ -1,0 +1,53 @@
+{
+  "round": 44,
+  "trial": "C",
+  "title": "縮尺が読めないページで開き戸を探さない決まりの値段",
+  "date": "2026-09-23",
+  "criteria_commit": "c4408ba",
+  "criteria_file": "docs/c_scale_gate_cost_criteria.md",
+  "benchmark": "benchmarks/measure_scale_gate_cost.py",
+  "correction_to_criteria": {
+    "what_was_overstated": "基準に『トライアルCを字面どおりには実行できない』と書いたのは言いすぎ。",
+    "fact": "トライアルCの設計はすでにある。claude/a2-room-outlines の docs/experiments/stage_order/design.md(3周目に実行前に固定)。段階0→10を読む側の手順の順番として解釈し、R・S・T・U の4条件に置き換えてある。",
+    "why_stopped": ["読む側を動かすまっさらな作業場所が要る(.sealed/ の ab_reading_* 3つの扱いの許可待ち。こちらで消さない)",
+                     "読む側は別のスレッドが要るが、同時に動かすスレッドは2本までという決まりがある"],
+    "what_remains_true": "『段階0〜10』という連番はこのリポジトリの設計書にもコードにも無い。出どころはおーちゃんのマスタープロンプトで、リポジトリの外にある。",
+    "what_this_round_was": "その設計とは別の、コードの中に実在する順番1本の測定。"
+  },
+  "target": "intake/drawing_intake.py:955 の if scale is not None:",
+  "results": {
+    "R1_pages_scale_read": 20, "R1_pages_scale_unread": 14,
+    "R2_scale_kinds": [10.0, 20.0, 30.0, 50.0],
+    "R3_all_combinations": {"pages": 14, "scales": 4, "combinations": 56, "arcs_found": 0},
+    "R4_zero_under_every_scale": 14, "R4_of": 14,
+    "R5_any_arc": 0
+  },
+  "controls": {
+    "1_own_scale_reproduces_round_35": {"arcs": 90, "pages": 5, "ok": true},
+    "2_scale_changes_counts": {"pages_that_changed": 5, "of": 20, "ok": true,
+                                "why_it_matters": "縮尺を変えると数は現に変わる。だから14ページが0なのは『縮尺が効かないから何を当てても同じ』ではない。"},
+    "3_repeat_3_times": {"R5": [0, 0, 0], "ok": true}
+  },
+  "verdict": {
+    "branch": "R4 = 全部",
+    "conclusion": "この図面では、縮尺の決まりは何も取りこぼしていない。この並びは入れ替える価値なし。",
+    "retracts": "35周目に自分で『穴』と書いたものは、穴ではなかった。"
+  },
+  "one_sided_only": {
+    "can_say": "この14ページには、この図面に実在する4つの縮尺のどれを当てても、開き戸の円弧として通る図形が1つも無い。",
+    "cannot_say": ["この14ページに開き戸が無い(引戸・折戸は原理的に円弧を描かない)",
+                    "4つ以外の縮尺(1/100など)なら出る可能性は否定していない",
+                    "ベクターの図形が無いページなら縮尺以前に何も出ない"],
+    "scope": "この図面でそうだった、というだけ。"
+  },
+  "next_round": {
+    "target": "入れ替えられるほうの並び。intake/drawing_intake.py:931-932 が『表の読み取りは縮尺に依存しない』と書いているのが本当かを測る。",
+    "decision": "表の読み取りを縮尺より前に動かしても結果が1件も変わらないなら、その順番は意味を持っていない(安全に入れ替えられる)。変わるならコメントのほうが間違っている。",
+    "implementation_changes": false
+  },
+  "implementation_changed": false,
+  "full_suite": "977 passed, 1 skipped (37周目から変わらず)",
+  "pending_decisions": 6,
+  "asks": 1,
+  "trial_c_needs": ["まっさらな作業場所", "スレッドの枠"]
+}
