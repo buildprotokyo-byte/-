@@ -240,8 +240,19 @@ def decisive_reasons_for(
         return tuple(reasons)
 
     # **「観測だけで出た」の「だけ」。** 上が 1 つでもあればこちらは名乗らない。
-    if effective_derivation == "read" and source_kind == "drawing":
-        return (DecisiveReason(kind=REASON_OBSERVED),)
+    #
+    # **読んだ値から計算した値も観測に入れる。** 図面以外の根拠が 1 つも
+    # 入っていないからである。**ただし計算したことは書き添える**(素直に
+    # 読めた値と、計算で出した値を、報告で見分けられるようにするため)。
+    # **一般則で補った値(`assumed`)はここに入らない。** 根拠が図面の外にあり、
+    # それを指せるルールIDも無いので、決め手は空のままにする。
+    if source_kind == "drawing" and effective_derivation in ("read", "derived"):
+        return (
+            DecisiveReason(
+                kind=REASON_OBSERVED,
+                detail="読んだ値から計算した" if effective_derivation == "derived" else "",
+            ),
+        )
     return ()
 
 

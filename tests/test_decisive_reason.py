@@ -323,3 +323,18 @@ def test_a_scanned_page_is_counted_as_symbols_unreadable(
 
     counts = not_obtained_counts(not_obtained_from_intake(result))
     assert counts.get(NOT_OBTAINED_SYMBOL, 0) >= 1
+
+
+def test_a_value_calculated_from_read_values_is_still_observation() -> None:
+    """**読んだ値から計算した値も観測。** 図面の外の根拠が入っていない。
+
+    ただし**計算したことを書き添える**ので、素直に読めた値と見分けられる。
+    (本番経路の `pdf_text_scale` がこれで、空欄のままだと
+    「なぜこの行が出たか分からない行」に見えてしまう。)
+    """
+    reasons = decisive_reasons_for(
+        effective_derivation="derived", source_kind="drawing"
+    )
+
+    assert [r.kind for r in reasons] == [REASON_OBSERVED]
+    assert reasons[0].detail == "読んだ値から計算した"
