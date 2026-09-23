@@ -77,6 +77,17 @@ def _build_pages(tmp: Path) -> dict[str, Path]:
         )
     ):
         page.insert_text(pymupdf.Point(80, 100 + row * 30), text, fontname="japan")
+    # 図面の外枠と表題欄。**描画が 1 つも無いと「空のページ」として読み飛ばされ、
+    # 探索まで届かない**ので、実際の仕様書の紙と同じく枠と表題欄を描く。
+    # 表題欄の升目は室の輪郭の窓に入る大きさなので、誤検出の源になりうる。
+    shape = page.new_shape()
+    shape.draw_rect(pymupdf.Rect(20, 20, 1170, 822))
+    shape.draw_rect(pymupdf.Rect(850, 700, 1160, 810))
+    for y in (730.0, 760.0, 790.0):
+        shape.draw_line(pymupdf.Point(850, y), pymupdf.Point(1160, y))
+    shape.draw_line(pymupdf.Point(950, 700), pymupdf.Point(950, 810))
+    shape.finish(color=(0, 0, 0), width=0.5)
+    shape.commit()
     doc.save(tmp / "text.pdf")
     doc.close()
     out["文字だけのページ"] = tmp / "text.pdf"
