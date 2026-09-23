@@ -204,3 +204,34 @@ def test_見本の表は実案件の品目名から作っていないと書い�
     payload = json.loads(open(SYNTHETIC_ALIASES, encoding="utf-8").read())
     assert "合成" in payload["description"]
     assert "正解ファイル" in payload["description"]
+
+
+# ---------------------------------------------------------------- 16周目の語彙
+
+KNOWLEDGE_VOCABULARY = "estimating/examples/knowledge_symbol_vocabulary.json"
+
+
+def test_知識から作った語彙が読める():
+    table = load_alias_table(KNOWLEDGE_VOCABULARY)
+    assert table.table_id == "knowledge-vocabulary-v1"
+    assert len(table.canonical_names) == 61
+
+
+def test_知識の語彙には別名が無い():
+    # 15 周目で別名は 1 行も増やさないと分かったので、16 周目は語彙だけを見る。
+    table = load_alias_table(KNOWLEDGE_VOCABULARY)
+    assert len(table.lookup) == len(table.canonical_names)
+
+
+def test_知識の語彙は正解から作っていないと書いてある():
+    payload = json.loads(open(KNOWLEDGE_VOCABULARY, encoding="utf-8").read())
+    assert "正解ファイルからは作っていない" in payload["description"]
+    assert "公共建築設備数量積算基準" in payload["description"]
+
+
+def test_知識の語彙に区分の見出しは入っていない():
+    # 「機器」「盤類」「器具類」は記号の名前ではなく区分の名前なので入れない。
+    table = load_alias_table(KNOWLEDGE_VOCABULARY)
+    assert "機器" not in table.canonical_names
+    assert "盤類" not in table.canonical_names
+    assert "器具類" not in table.canonical_names
