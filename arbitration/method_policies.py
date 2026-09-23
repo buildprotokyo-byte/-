@@ -72,6 +72,10 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #: にあるが、基準点と同じ理由でここに文字列として置く。
 METHOD_HUMAN_ROOM_DIMENSIONS = "human_room_dimensions"
 
+#: 人が数えた記号の個数の手法ID。実体は `intake/symbol_counts.py`(14周目)。
+#: 同じ理由でここには文字列として置く。
+METHOD_HUMAN_SYMBOL_COUNT = "human_symbol_count"
+
 #: 手法IDごとの、このリポジトリで認められた上限。
 #:
 #: 出どころ(いずれも実測に基づく決定):
@@ -214,6 +218,20 @@ METHOD_HUMAN_ROOM_DIMENSIONS = "human_room_dimensions"
 #:   **どれも実図面で校正していない暫定値**である。
 #:   ④壁の網に切れ目があると隣とつながって面積が大きく出る。
 #:   窓の外なら落ちるが、窓の中に収まってしまえば**大きいまま出る。**
+#: - ``human_symbol_count`` … 人が図面を見て数えた記号の個数
+#:   (`intake/symbol_counts.py`、14周目)。**未校正・上限 weak で固定する。**
+#:   理由は 4 つある。
+#:   (1) 外れ率を一度も測っていない。人がどのくらい数え落とすかの分布が無い。
+#:   (2) 数え落としと二重数えは、入った値の中からは見つけられない。
+#:       12 と入っていて実際が 13 でも、値そのものは何もおかしくない。
+#:   (3) 同じ人が同じ時に数えた複数の記号は、**1 つのデータ源**である。
+#:       疲れや見落としの癖は全部に同じように効くので、互いに突き合わせても
+#:       誤りは出てこない。
+#:   (4) **いちばん危ないのはここ。** 人が数えた個数は図面とは
+#:       **別のデータ源**なので、ここを校正済みにした瞬間に
+#:       「人が 1 回入れた値」と「図面の印字」だけで
+#:       独立した強い軸が 2 つ揃い、階層1(自動確定)に届いてしまう。
+#:       `human_reference_point` と同じ構図である。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -233,6 +251,7 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_ROOM_OUTLINE: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_ROOM_REGION: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_WALL_NETWORK: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_HUMAN_SYMBOL_COUNT: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 
