@@ -143,6 +143,40 @@ def main() -> None:
                     if pages_containing(w, texts)]) for _ in range(3)]
     print(f"対照4 反復 3 回: {repeats}")
 
+    # ------------------------------------------------------------------
+    # 診断(**判定には使わない**)。27周目の基準を書く材料。
+    # ------------------------------------------------------------------
+    print("\n=== 診断(判定には使わない) ===")
+
+    # (1) 対照3 が 0 にならなかったのは短い語のせいか。文字数ごとに分ける。
+    by_len: dict[int, list[str]] = collections.defaultdict(list)
+    for w in words:
+        by_len[len(w)].append(w)
+    print("文字数ごとの、本物の語と並べ替えた語の当たり方:")
+    for size in sorted(by_len):
+        real = sum(1 for w in by_len[size] if pages_containing(w, texts))
+        fake_total = 0
+        for _ in range(10):
+            for w in by_len[size]:
+                chars = list(w)
+                rng.shuffle(chars)
+                if pages_containing("".join(chars), texts):
+                    fake_total += 1
+        print(f"   {size} 文字({len(by_len[size])} 語): 本物 {real}"
+              f" / 並べ替え 10 回の平均 {fake_total / 10:.1f}")
+
+    # (2) 「図面にある」の分母。図面の文字から機械的に切り出せる語は何語あるか。
+    #     ここが大きいほど、「32 語が図面にある」の値打ちは下がる。
+    import re
+
+    token = re.compile(r"[一-龥ぁ-んァ-ヶー]{2,}")
+    tokens = {m for text in texts for m in token.findall(text)}
+    print(f"図面の文字から機械的に切り出せる語(2 文字以上の仮名漢字の並び): {len(tokens)} 語")
+    print(f"   そのうち面積の行の語と完全に一致するもの: "
+          f"{len(set(words) & tokens)} / {len(words)}")
+    print(f"   記号の行の語と完全に一致するもの: "
+          f"{len(set(sym_words) & tokens)} / {len(sym_words)}")
+
 
 if __name__ == "__main__":
     main()
