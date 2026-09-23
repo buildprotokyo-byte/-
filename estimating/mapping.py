@@ -76,6 +76,26 @@ class MappedLine:
     source_target: str = ""
     """どの数量から来たか。"""
 
+    # -- **何が効いたか。行 1 つを見ただけで分かるように持つ。** ----------------
+    # これまでは木の形(`MappingResult` → `QuantityMapping` → `RuleOutcome`)
+    # でしか無く、**行だけを取り出す経路**(`settled_lines()`・`as_dict()`)を
+    # 通ると落ちていた。報告や見積に出るのはその形である。
+
+    rule_id: str = ""
+    """この行を作った規則。"""
+
+    method_id: str = ""
+    """元の数量を読んだ手法。"""
+
+    axis_id: str = ""
+    """元の数量が出てきた軸。"""
+
+    tier: int | None = None
+    """仲裁層の階層。仲裁にかけていなければ None。"""
+
+    action: str | None = None
+    """仲裁層の処置(`auto_confirm` / `requires_review` など)。"""
+
     def line_key(self) -> tuple[str | None, str, str]:
         """同じ見積の行かどうかを見るための鍵。"""
         return (self.code, self.work_item, self.unit)
@@ -93,6 +113,11 @@ class MappedLine:
             "premise_ids": list(self.premise_ids),
             "hypothesis_premise_ids": list(self.hypothesis_premise_ids),
             "source_target": self.source_target,
+            "rule_id": self.rule_id,
+            "method_id": self.method_id,
+            "axis_id": self.axis_id,
+            "tier": self.tier,
+            "action": self.action,
             "note": self.note,
         }
 
@@ -336,6 +361,11 @@ def _lines_for(quantity: QuantityItem, rule: MappingRule) -> tuple[MappedLine, .
                 premise_ids=tuple(quantity.premise_ids),
                 hypothesis_premise_ids=tuple(quantity.hypothesis_premise_ids),
                 source_target=quantity.target,
+                rule_id=rule.rule_id,
+                method_id=quantity.method_id,
+                axis_id=quantity.axis_id,
+                tier=quantity.tier,
+                action=quantity.action,
             )
         )
     return tuple(out)
