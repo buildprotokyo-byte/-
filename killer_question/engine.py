@@ -46,6 +46,11 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from arbitration.consistency_solver import ConsistencySolver, SolveResult
+from arbitration.group_total import (
+    GroupTotalConstraint,
+    check_group_total,
+    group_total_absorption_excess,
+)
 from killer_question.dependency_graph import DependencyGraph, build_dependency_graph
 from killer_question.precision_mode import DEFAULT_TARGET_COVERAGE, PrecisionMode
 
@@ -118,7 +123,16 @@ class Question:
     candidate_values: tuple[int, ...]
     tie_broken_by_axis: bool = False
     mode: PrecisionMode = PrecisionMode.STANDARD
-    selected_by: str = "reduction"  # "reduction" | "impact_fallback"
+    selected_by: str = "reduction"  # "reduction" | "impact_fallback" | "group_residual"
+    #: **答えが検算できるかどうかの階級**(2026-09-23 おーちゃんの判断)。
+    #:
+    #: - ``"A"``: 別のデータ源の読みが 2 つ以上ある。答えが間違っていれば出る
+    #: - ``"B"``: 読みが 1 つだけ
+    #: - ``"C"``: 読みが無い。**答えがそのまま値になる**
+    #:
+    #: 58 周目に測ったとおり、効きだけで選ぶと C が最初に出て、
+    #: **嘘の答えが素通りする**(`docs/d_question_quality_report.md`)。
+    grade: str = "C"
 
 
 @dataclass(frozen=True)
@@ -128,6 +142,24 @@ class AnsweredQuestion:
     variable: str
     answer: int
     score_at_selection: float
+    #: ``"read"``(検算できる問いの答え)か ``"assumed"``(検算できない問いの答え)。
+    #: **assumed は自動確定に上げない。**
+    basis: str = "read"
+    grade: str = "C"
+
+
+@dataclass(frozen=True)
+class AnswerDisagreement:
+    """**仕組みの予想の外にある答え。**どちらも選ばず、人に示すために残す。
+
+    候補の一覧は読み取りから作った予想にすぎない。**人が現場で正しく測った値が
+    その外にあることは現に起きる**(60 周目、ずらしが効いた 7 組のうち 6 組で
+    正しい答えのほうが突き返された。`docs/d_correct_answer_refused_v2_report.md`)。
+    """
+
+    variable: str
+    answer: int
+    candidate_values: tuple[int, ...]
 
 
 @dataclass(frozen=True)
@@ -140,12 +172,20 @@ class SessionResult:
     final_result: SolveResult
     stopped_reason: str  # "all_resolved" | "no_further_reduction" | "unsat"
     #                      | "coverage_reached" | "candidates_not_enumerable"
+    #                      | "disagreement"
     mode: PrecisionMode = PrecisionMode.STANDARD
     final_coverage: float | None = None
+    #: 予想の外の答えとして人に回したもの。**値にはしていない。**
+    disagreements: tuple[AnswerDisagreement, ...] = ()
 
     @property
     def question_count(self) -> int:
         return len(self.answered)
+
+    @property
+    def assumed_variables(self) -> tuple[str, ...]:
+        """**検算できない問いの答え**として置いた変数(仮説に基づく)。"""
+        return tuple(a.variable for a in self.answered if a.basis == "assumed")
 
 
 class KillerQuestionEngine:
@@ -169,6 +209,11 @@ class KillerQuestionEngine:
         self._mode = mode
         self._target_coverage = target_coverage
         self._answered: list[AnsweredQuestion] = []
+        #: 予想の外の答えとして人に回したもの。**値にはしていない。**
+        self._disagreements: list[AnswerDisagreement] = []
+        #: 食い違いが出た要素。**聞き直さない**(同じ予想からもう一度聞いても
+        #: 同じ候補しか出せず、人を二度同じ壁に当てるだけなので)。
+        self._disputed: set[str] = set()
 
     @property
     def solver(self) -> ConsistencySolver:
@@ -369,6 +414,31 @@ class KillerQuestionEngine:
 
     # -- 質問の選定・回答 --------------------------------------------------------
 
+    def _grade_of(self, variable: str) -> str:
+        """**答えが検算できるかどうか。**別のデータ源の読みの数で決める。
+
+        数え方は仲裁層と同じものを使い、ここで新しい数え方を作らない
+        (`arbitration/consistency_solver.independent_sources`)。
+        """
+        count = self._solver.independent_sources(variable)
+        if count >= 2:
+            return "A"
+        if count == 1:
+            return "B"
+        return "C"
+
+    def _best_grade_subset(self, scores: list) -> list:
+        """**検算できる問いを先に出す。**同じ階級の中では、いままでどおり効き順。
+
+        C を禁止はしない。禁止すると、読みが 1 件も無い対象は永久に埋まらない。
+        **出す順番を最後にするだけ**(`docs/question_quality_design.md` 2-2節)。
+        """
+        for grade in ("A", "B", "C"):
+            subset = [s for s in scores if self._grade_of(s.variable) == grade]
+            if subset:
+                return subset
+        return scores
+
     def next_question(self) -> Question | None:
         """現在の状態から、次に聞くべき質問を1つだけ選ぶ(solverは変更しない)。
 
@@ -397,12 +467,17 @@ class KillerQuestionEngine:
         # 未確定のままにするのが正しい扱いなので、ここで選定対象から外すだけで、
         # ``_unresolved_names`` からは落とさない。
         scores = [s for s in all_scores if s.is_askable]
+        # 予想の外の答えとして人に回したものは、聞き直さない。
+        scores = [s for s in scores if s.variable not in self._disputed]
         if not scores:
             return None
+        scores = self._best_grade_subset(scores)
         best, tie_broken = self._pick_best_by_score(scores)
 
         if best.score > 0:
-            return Question(best.variable, best.score, best.candidate_values, tie_broken, self._mode, "reduction")
+            return Question(best.variable, best.score, best.candidate_values,
+                            tie_broken, self._mode, "reduction",
+                            grade=self._grade_of(best.variable))
 
         # 標準モード、および価格情報が無い概算モード(フォールバック先が標準
         # モードと同じ)は、ここで打ち切る。精密モードと、価格情報のある
@@ -418,6 +493,89 @@ class KillerQuestionEngine:
         return Question(
             fallback.variable, fallback.score, fallback.candidate_values,
             tie_broken_fb, self._mode, "impact_fallback",
+            grade=self._grade_of(fallback.variable),
+        )
+
+    def group_total_question(self, constraint: GroupTotalConstraint) -> Question | None:
+        """**吸収と判定された群に、問いを1問だけ立てる**(判断の5番、
+        `docs/group_total_masking_design.md` 4-1節の (c))。
+
+        群合計は「どの要素が誤っているか」までは言わない。言えるのは
+        「停止した要素を自分の読みの近くに留めると合計が合わない」ことだけである。
+        そこで**その食い違い(群の残差)を最も動かす要素**に聞く。
+
+        群の残差は :func:`arbitration.group_total.group_total_absorption_excess`
+        (停止した要素が中心窓の外へ押し出された量の合計。0 より大きいことが
+        ``check_group_total`` の「吸収された」と同じ意味)。
+
+        要素 ``m`` の効きは、次の平均である。
+
+        - 候補値は **``m`` 自身の読みの範囲**(``detection_range``)。
+          群合計で絞った範囲は使わない。**群合計そのものが疑われている**ので、
+          群合計で候補を潰すと、押し出された値1つしか聞けなくなる
+        - 候補値 ``v`` ごとに、複製した solver に ``m == v`` を置いて
+          ``m`` を確認済みにし(``answer()`` と同じ扱い)、残差を測り直す
+        - 動いた量は「元の残差 − 置いた後の残差」(負なら 0)。**置いた結果
+          群合計が矛盾(unsat)するなら、残差を全部動かしたと数える。**
+          隠れていた矛盾が表に出て、既存の安全装置が群を止めるため
+
+        平均が 0 の要素(答えで残差が動かない要素)は問いにしない。残った中から、
+        ``next_question`` と同じ規則で1つ選ぶ:
+        **検算できる階級を先に**(``_best_grade_subset``)、同じ階級の中では効きの
+        大きい順、同点は誤り率の低い軸 → 名前順(``_tie_break``)。候補が多すぎる
+        要素(``_MAX_CANDIDATE_ENUMERATION`` 超)と、食い違いを人に回した要素は外す。
+
+        返すのは ``Question`` 1つだけで、**solver も階層も変えない。**
+        吸収された群の階層1を階層2へ落とす (a) は ``check_group_total`` の
+        ``targets_requiring_audit`` のまま。答えの反映は通常どおり
+        ``answer()`` / ``run()`` を使う(候補外の答えは食い違いとして残る)。
+
+        吸収が無い群(sat で吸収なし)と、矛盾した群(unsat。群ごと人へ回る)には
+        ``None`` を返す。
+
+        **限界(正直に書く)**: 階層1の要素の読みは強い2軸が一致しているので
+        範囲が幅0で、読みの範囲の答えでは残差を動かせない。**だから群合計の
+        吸収からは、階層1のどの要素が誤っているかは指せない。** 選ばれるのは
+        停止した要素で、その答えが「吸収は説明がつく」か「群合計が矛盾する
+        (= 他のどこかが誤っている)」かを1問で分ける。
+        """
+        check = check_group_total(self._solver, constraint)
+        if check.status != "sat" or not check.is_absorbed:
+            return None
+        base = group_total_absorption_excess(self._solver, constraint)
+        if base is None or base <= 0:
+            return None
+
+        scores: list[CandidateScore] = []
+        for name in constraint.members:
+            if name in self._disputed:
+                continue
+            lower, upper = self._solver.variable_detection_range(name)
+            if upper - lower + 1 > _MAX_CANDIDATE_ENUMERATION:
+                continue
+            candidates = tuple(range(lower, upper + 1))
+            moved: list[float] = []
+            for value in candidates:
+                hypothesis = self._solver.clone()
+                hypothesis.add_relation(
+                    f"{_HYPOTHESIS_PREFIX}{name}__{value}", name, "==", value
+                )
+                hypothesis.mark_confirmed(name)
+                after = group_total_absorption_excess(hypothesis, constraint)
+                moved.append(float(base if after is None else max(0, base - after)))
+            score = sum(moved) / len(moved) if moved else 0.0
+            if score > 0:
+                scores.append(
+                    CandidateScore(name, score, score, _DEFAULT_IMPACT, candidates,
+                                   frozenset(constraint.members))
+                )
+        if not scores:
+            return None
+        scores = self._best_grade_subset(scores)
+        best, tie_broken = self._pick_best_by_score(scores)
+        return Question(
+            best.variable, best.score, best.candidate_values, tie_broken, self._mode,
+            "group_residual", grade=self._grade_of(best.variable),
         )
 
     def answer(self, variable: str, value: int) -> None:
@@ -445,13 +603,22 @@ class KillerQuestionEngine:
                 return self._finish()
             answer = answer_fn(question)
             if answer not in question.candidate_values:
-                raise ValueError(
-                    f"回答 {answer} は '{question.variable}' の候補 "
-                    f"{question.candidate_values} に含まれていません"
+                # **突き返さない。**候補の一覧は読み取りから作った予想でしかなく、
+                # 人が現場で正しく測った値がその外にあることは現に起きる
+                # (60 周目: ずらしが効いた 7 組のうち 6 組)。
+                # **どちらも選ばず、食い違いとして人に示す**
+                # (2026-09-23 おーちゃんの判断。建具表と平面図の食い違いと同じ扱い)。
+                self._disagreements.append(
+                    AnswerDisagreement(question.variable, answer,
+                                       question.candidate_values)
                 )
+                self._disputed.add(question.variable)
+                continue
             self.answer(question.variable, answer)
             self._answered.append(
-                AnsweredQuestion(question.variable, answer, question.score)
+                AnsweredQuestion(question.variable, answer, question.score,
+                                 basis="assumed" if question.grade == "C" else "read",
+                                 grade=question.grade)
             )
         raise RuntimeError(
             "反復選定ループが安全上限に達しました(想定外です。バグの可能性があります)"
@@ -476,6 +643,7 @@ class KillerQuestionEngine:
                 stopped_reason="unsat",
                 mode=self._mode,
                 final_coverage=None,
+                disagreements=tuple(self._disagreements),
             )
 
         unresolved = self._unresolved_names(result)
@@ -496,6 +664,11 @@ class KillerQuestionEngine:
             reason = "candidates_not_enumerable"
         else:
             reason = "no_further_reduction"
+        # 食い違いを人に回したまま未解決が残っているなら、**止まった理由は
+        # 「これ以上聞いても減らない」ではなく「食い違い」**。
+        # 人が見るべきものが別にあることを、理由の名前で消さない。
+        if self._disagreements and unresolved:
+            reason = "disagreement"
         return SessionResult(
             answered=tuple(self._answered),
             remaining_unresolved=tuple(unresolved),
@@ -504,4 +677,5 @@ class KillerQuestionEngine:
             stopped_reason=reason,
             mode=self._mode,
             final_coverage=coverage,
+            disagreements=tuple(self._disagreements),
         )

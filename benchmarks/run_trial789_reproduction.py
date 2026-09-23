@@ -51,7 +51,7 @@ import argparse
 import random
 import statistics
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Sequence
 
 from arbitration.axis_quality_firewall import AxisEvidence, AxisQualityFirewall
 from arbitration.consistency_solver import ConsistencySolver
@@ -304,6 +304,23 @@ def _build_joint_solver(
     return solver, assessments, tier3
 
 
+def _human_checked(tier3: Sequence[str], session) -> set[str]:
+    """人が1件ずつ確認する要素の集合。
+
+    **2026-09-22 に数え方を直した。** それまでは「変数として登録されなかった
+    要素」だけを数えていたが、これは当時
+    ``killer_question/firewall_bridge.py`` が階層3の一部を登録していなかった
+    ことに依存した代理指標だった。停止した要素も必ず登録するようになった
+    (群合計制約が書けなくなるため。`docs/group_total_masking_design.md`)ので、
+    この代理は成り立たない。
+
+    数えるべきは **``requires_confirmation`` が立ったまま残った要素**である。
+    質問で解決された要素は ``mark_confirmed()`` でフラグが降りるので、
+    ``session.question_count`` との二重計上にはならない。
+    """
+    return set(tier3) | set(session.final_solver.names_requiring_confirmation())
+
+
 def run_with_tiers(
     scenario: Scenario,
     evidence: dict[str, list[AxisEvidence]],
@@ -341,10 +358,11 @@ def run_with_tiers(
     )
     session = engine.run(lambda question: scenario.truth[question.variable])
     result = session.final_result
+    human_checked = _human_checked(tier3, session)
 
     wrong: list[str] = []
     for name, value in scenario.truth.items():
-        if name in tier3 or name in confirmed:
+        if name in human_checked or name in confirmed:
             continue  # 人が確認するので正解になる
         solution = result.variables.get(name)
         if solution is None or solution.solved_range != (value, value):
@@ -356,11 +374,12 @@ def run_with_tiers(
     remaining = tuple(c for c in population if c.target not in answered)
     audit_samples = plan_sample_size(len(remaining))
 
-    cost = session.question_count + len(tier3) + audit_samples + contradiction_checks
+    cost = (session.question_count + len(human_checked) + audit_samples
+            + contradiction_checks)
     accuracy = 1 - len(wrong) / scenario.size
     return Outcome(
         accuracy=accuracy, cost=cost, questions=session.question_count,
-        tier3_checks=len(tier3), tier2_population=len(remaining),
+        tier3_checks=len(human_checked), tier2_population=len(remaining),
         audit_samples=audit_samples, wrong_targets=tuple(sorted(wrong)),
         contradiction_checks=contradiction_checks, contradiction_rounds=rounds,
         asked=tuple(answer.variable for answer in session.answered),

@@ -59,9 +59,35 @@ from estimating.quantities import QuantityItem, normalise_text
 #: Codex 側の仕様が届いたら、この数字を上げた新しい読み込みを足す。
 #: **古い版の読み込みで新しいファイルを読ませない**ので、書式が変わった
 #: ことに気づかないまま半分だけ当たる、という事故が起きない。
-RULES_FORMAT_VERSION = 1
+RULES_FORMAT_VERSION = 2
 
-_RULESET_FIELDS = frozenset({"format_version", "ruleset_id", "description", "rules"})
+#: 読める版。**古い版のファイルはそのまま読める**(図面からは決まらない行が
+#: 無いだけ)。新しい項目を書いたのに版を上げていないファイルは断る。
+#: 半分だけ効いた規則がいちばん危ないという約束は変えていない。
+SUPPORTED_RULES_FORMAT_VERSIONS: tuple[int, ...] = (1, 2)
+
+#: 版 2 で足した項目。版 1 のファイルにこれがあれば断る。
+_VERSION2_ONLY_FIELDS = frozenset({"standing_lines"})
+
+#: 図面からは決まらない行の基準の種類。
+STANDING_BASIS_KINDS: tuple[str, ...] = ("一式", "数量参照")
+
+#: 「一式」を表す単位。**測れる数量を持たない。**
+#:
+#: `arbitration/units.py` はこれらを知らない。知らないのが正しい。
+#: 仲裁層が扱うのは測れる量(個数・長さ・面積・金額)だけで、
+#: 「式」は**量ではなく数え方の宣言**だからである。採点でも「式・一式」の行は
+#: 数量の判定から外されている。ここでは行の単位としてだけ受け、
+#: 数量として正規化しない。
+LUMP_SUM_UNITS: tuple[str, ...] = ("式", "一式")
+
+_RULESET_FIELDS = frozenset(
+    {"format_version", "ruleset_id", "description", "rules", "standing_lines"}
+)
+_STANDING_FIELDS = frozenset(
+    {"standing_id", "work_item", "major_category", "unit", "basis", "note"}
+)
+_STANDING_BASIS_FIELDS = frozenset({"kind", "quantity", "target_kind", "per_unit"})
 _RULE_FIELDS = frozenset(
     {"rule_id", "kind", "unit_dimension", "attributes", "line_items", "description"}
 )
@@ -154,12 +180,51 @@ class MappingRule:
 
 
 @dataclass(frozen=True)
+class StandingLineSpec:
+    """**図面からは決まらない**見積の行 1 つの規則(版 2 で追加)。
+
+    仮設・運搬・墨出し・清掃のように、図面のどこにも書かれていないが
+    会社のルールがあれば立つ行を表す。**率や式の中身はここに書かない。**
+    リポジトリに置く見本は架空のものだけで、実際の値は外部ファイルで渡す。
+    """
+
+    standing_id: str
+    work_item: str
+    major_category: str
+    unit: str
+    basis_kind: str
+    """``一式`` か ``数量参照``。"""
+
+    lump_sum_quantity: float = 1.0
+    """``一式`` のときの数量。"""
+
+    target_kind: str | None = None
+    """``数量参照`` のとき、もとにする対象名の種類(``::`` より前)。"""
+
+    per_unit: float | None = None
+    """``数量参照`` のとき、もとの数量 1 単位あたりの値。
+
+    **None は「まだ決まっていない」という意味で、1 ではない。**
+    None のままなら数量を入れず、足りないものとして報告する。
+    """
+
+    note: str | None = None
+
+
+@dataclass(frozen=True)
 class RuleSet:
     """差し替えの単位になる規則の束。"""
 
     ruleset_id: str
     format_version: int
     rules: tuple[MappingRule, ...]
+    standing_lines: tuple[StandingLineSpec, ...] = ()
+    """図面からは決まらない行の規則。**版 1 のファイルでは常に空。**
+
+    空であることは「その行が無い」ではなく「**ルールを持っていない**」である。
+    その 2 つを見分けるのが `estimating/standing_lines.py` の仕事。
+    """
+
     description: str | None = None
     source_path: Path | None = None
     """どのファイルから読んだか。報告に残すため。"""
@@ -190,10 +255,16 @@ def parse_rules(payload: Any, *, source_path: Path | None = None) -> RuleSet:
         )
 
     version = payload.get("format_version")
-    if version != RULES_FORMAT_VERSION:
+    if version not in SUPPORTED_RULES_FORMAT_VERSIONS:
         raise RuleError(
             f"format_version が {version!r} です。"
-            f"この読み込みが解釈できるのは {RULES_FORMAT_VERSION} だけです"
+            f"この読み込みが解釈できるのは {list(SUPPORTED_RULES_FORMAT_VERSIONS)} だけです"
+        )
+    too_new = _VERSION2_ONLY_FIELDS & set(payload)
+    if version < 2 and too_new:
+        raise RuleError(
+            f"format_version {version} のファイルに版 2 の項目があります: {sorted(too_new)}。"
+            "版を上げずに新しい項目を書くと、半分だけ効いた規則になるので受け付けません"
         )
 
     ruleset_id = payload.get("ruleset_id")
@@ -203,8 +274,12 @@ def parse_rules(payload: Any, *, source_path: Path | None = None) -> RuleSet:
     raw_rules = payload.get("rules")
     if not isinstance(raw_rules, Sequence) or isinstance(raw_rules, (str, bytes)):
         raise RuleError("rules は規則の並びである必要があります")
-    if not raw_rules:
-        raise RuleError("rules が空です")
+    if not raw_rules and "standing_lines" not in payload:
+        raise RuleError(
+            "rules が空です"
+            "(図面からは決まらない行だけの規則なら standing_lines を書いてください。"
+            "**ルールを持っていないことを表したいなら standing_lines を空で書く**)"
+        )
 
     rules: list[MappingRule] = []
     seen: set[str] = set()
@@ -219,13 +294,111 @@ def parse_rules(payload: Any, *, source_path: Path | None = None) -> RuleSet:
     if description is not None and not isinstance(description, str):
         raise RuleError("description は文字列である必要があります")
 
+    standing = _parse_standing_lines(payload.get("standing_lines"))
+
     return RuleSet(
         ruleset_id=ruleset_id,
-        format_version=RULES_FORMAT_VERSION,
+        format_version=version,
         rules=tuple(rules),
+        standing_lines=standing,
         description=description,
         source_path=source_path,
     )
+
+
+def _parse_standing_lines(raw: Any) -> tuple[StandingLineSpec, ...]:
+    """図面からは決まらない行の規則を読む。**無ければ空**(それ自体が結果)。"""
+    if raw is None:
+        return ()
+    if not isinstance(raw, Sequence) or isinstance(raw, (str, bytes)):
+        raise RuleError("standing_lines は行の並びである必要があります")
+
+    out: list[StandingLineSpec] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, Mapping):
+            raise RuleError("standing_lines の要素が辞書ではありません")
+        unknown = set(item) - _STANDING_FIELDS
+        if unknown:
+            raise RuleError(
+                f"standing_lines に知らない項目があります: {sorted(unknown)}"
+            )
+        standing_id = item.get("standing_id")
+        if not isinstance(standing_id, str) or not standing_id:
+            raise RuleError("standing_id が必要です")
+        if standing_id in seen:
+            raise RuleError(f"standing_id が重複しています: {standing_id}")
+        seen.add(standing_id)
+        for field_name in ("work_item", "major_category", "unit"):
+            value = item.get(field_name)
+            if not isinstance(value, str) or not value:
+                raise RuleError(f"{standing_id}: {field_name} が必要です")
+        unit = item["unit"]
+        is_lump_sum_unit = unit in LUMP_SUM_UNITS
+        if not is_lump_sum_unit:
+            try:
+                canonical_unit(unit)
+            except UnitError as error:
+                raise RuleError(
+                    f"{standing_id}: 単位 {unit!r} は解釈できません"
+                ) from error
+
+        basis = item.get("basis")
+        if not isinstance(basis, Mapping):
+            raise RuleError(f"{standing_id}: basis が必要です")
+        unknown_basis = set(basis) - _STANDING_BASIS_FIELDS
+        if unknown_basis:
+            raise RuleError(
+                f"{standing_id}: basis に知らない項目があります: {sorted(unknown_basis)}"
+            )
+        kind = basis.get("kind")
+        if is_lump_sum_unit and kind == "数量参照":
+            raise RuleError(
+                f"{standing_id}: 単位が {unit!r} なのに数量参照になっています。"
+                "「式」は測れる量ではないので、ほかの数量から計算できません"
+            )
+        if kind not in STANDING_BASIS_KINDS:
+            raise RuleError(
+                f"{standing_id}: basis の kind が {kind!r} です。"
+                f"使えるのは {list(STANDING_BASIS_KINDS)} だけです"
+            )
+
+        lump_sum = 1.0
+        target_kind = None
+        per_unit = None
+        if kind == "一式":
+            quantity = basis.get("quantity", 1)
+            if isinstance(quantity, bool) or not isinstance(quantity, (int, float)):
+                raise RuleError(f"{standing_id}: 一式の quantity が数ではありません")
+            lump_sum = float(quantity)
+        else:
+            target_kind = basis.get("target_kind")
+            if not isinstance(target_kind, str) or not target_kind:
+                raise RuleError(f"{standing_id}: 数量参照には target_kind が必要です")
+            raw_per_unit = basis.get("per_unit", None)
+            if raw_per_unit is not None:
+                if isinstance(raw_per_unit, bool) or not isinstance(raw_per_unit, (int, float)):
+                    raise RuleError(f"{standing_id}: per_unit が数ではありません")
+                per_unit = float(raw_per_unit)
+
+        note = item.get("note")
+        if note is not None and not isinstance(note, str):
+            raise RuleError(f"{standing_id}: note は文字列である必要があります")
+
+        out.append(
+            StandingLineSpec(
+                standing_id=standing_id,
+                work_item=item["work_item"],
+                major_category=item["major_category"],
+                unit=item["unit"],
+                basis_kind=kind,
+                lump_sum_quantity=lump_sum,
+                target_kind=target_kind,
+                per_unit=per_unit,
+                note=note,
+            )
+        )
+    return tuple(out)
 
 
 def _parse_rule(raw: Any) -> MappingRule:

@@ -1,0 +1,957 @@
+{
+  "format_version": 2,
+  "table_id": "candidates-public-standards",
+  "synthetic": false,
+  "description": "docs/knowledge/candidates.md の A・A′・B′・B・C 節を、知識の表の形式で書き直したもの。**公共工事の基準からの候補であって、会社のルールでも採用済みの規則でもない。** 形式が候補を受け取れるかを測るためだけに置いてある(65周目)。format_version 2 への書き直し(2026-09-23、K-04 6 番): 発行元・版・拘束力は docs/knowledge/sources.md 4節の記録から埋めた。確認日は全件 不明(null)。その文書をいつ読んだかの記録が無いため(K-06 の決定)。採否の状態は全件 候補(採否を決めるのはおーちゃん)。",
+  "entries": [
+    {
+      "entry_id": "A-1",
+      "kind": "数え方",
+      "statement": "開口部による欠除は、1か所0.5㎡以下であれば主仕上・下地の面積から控除しない。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第5編-1-2-1・第5編-2-2-2",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "内装"
+        ],
+        "parts": [
+          "壁",
+          "建具"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "㎡",
+        "method": "開口部の内法面積を求め、しきい値を超える場合だけ仕上・下地の面積から引く。",
+        "threshold": {
+          "value": 0.5,
+          "unit": "㎡",
+          "comparison": "以下",
+          "then": "控除しない"
+        }
+      },
+      "note": "石材のみ0.1㎡(第5編-2-3(4))。別の1件として書く。"
+    },
+    {
+      "entry_id": "A-2",
+      "kind": "数え方",
+      "statement": "壁の高さは実測値ではなく、設計図書の天井高さを使う。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第5編-2-2-1(1)2",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "内装"
+        ],
+        "parts": [
+          "壁"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "m",
+        "method": "設計図書に書かれた天井高さを壁高さとして使う。図面上で測った高さは使わない。"
+      }
+    },
+    {
+      "entry_id": "A-3",
+      "kind": "数え方",
+      "statement": "耐火間仕切り(軽量鉄骨下地+両面ボード)は、下地とボード両面を一括し、片面の面積1枚分で数える。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第5編-1-2-2(5)",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "内装"
+        ],
+        "parts": [
+          "間仕切壁"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "㎡",
+        "method": "下地とボード両面を1つの数量として、片面の面積で数える。下地とボードを別々の行にしない。"
+      }
+    },
+    {
+      "entry_id": "A-4",
+      "kind": "数え方",
+      "statement": "内装改修の撤去数量は、部位・種別ごとに区分し、設計寸法による面積・長さ・箇所数とする。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-3-2-2(4)1・同2(4)3",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "内装改修"
+        ],
+        "parts": [
+          "床",
+          "壁",
+          "天井"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "㎡",
+        "method": "部位と種別で区分し、設計寸法から面積・長さ・箇所数のいずれかで数える。実測値は使わない。"
+      }
+    },
+    {
+      "entry_id": "A-5",
+      "kind": "数え方",
+      "statement": "建具改修の撤去・新設は、建具の内法寸法による箇所数・面積・長さとする。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-3-2-2(3)1・2",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "建具改修"
+        ],
+        "parts": [
+          "建具"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "箇所",
+        "method": "建具の内法寸法をもとに、箇所数・面積・長さのいずれかで数える。"
+      }
+    },
+    {
+      "entry_id": "A-6",
+      "kind": "数え方",
+      "statement": "内部仕上足場は天井の改修面積で数え、壁のみ新設・改修の場合は壁の水平長さ×1.0mで数える。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-1-2-2",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "仮設"
+        ],
+        "parts": [
+          "足場"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "㎡",
+        "method": "天井の改修面積。壁のみ新設・改修なら壁の水平長さ×1.0m。"
+      },
+      "note": "墨出し・養生清掃も同じ節に式がある。それぞれ別の1件として書く。"
+    },
+    {
+      "entry_id": "A-7",
+      "kind": "数え方",
+      "statement": "発生材の数量は、各章で定めた撤去数量をそのまま使う。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-5-1-2",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "改修"
+        ],
+        "parts": [
+          "発生材"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "㎡",
+        "method": "撤去数量をそのまま発生材の数量として使う。別に数え直さない。"
+      }
+    },
+    {
+      "entry_id": "Ad-1",
+      "kind": "数え方",
+      "statement": "配線器具は形式および容量の組合せごとの個数、照明器具は形式および記号ごとの個数で数える。",
+      "source": {
+        "document": "公共建築設備数量積算基準(令和7年改定)",
+        "clause": "第3編-2-3(2)(3)",
+        "url": "https://www.mlit.go.jp/common/001178207.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "電気設備"
+        ],
+        "parts": [
+          "配線器具",
+          "照明器具"
+        ],
+        "axes": [
+          "image"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "個",
+        "method": "凡例の記号ごとに個数を数える。面積からの推定はしない。"
+      }
+    },
+    {
+      "entry_id": "Ad-2",
+      "kind": "数え方",
+      "statement": "末端機器が実装されないプレート類は、プレートの材質・種類ごとの個数で数える。",
+      "source": {
+        "document": "公共建築設備数量積算基準(令和7年改定)",
+        "clause": "第3編-3-3(2)",
+        "url": "https://www.mlit.go.jp/common/001178207.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "電気設備"
+        ],
+        "parts": [
+          "プレート"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "個",
+        "method": "材質・種類ごとに個数を数える。"
+      }
+    },
+    {
+      "entry_id": "Ad-3",
+      "kind": "数え方",
+      "statement": "電気設備の撤去は配管・配線・機器・盤類・器具類に区分し、コンクリート埋込部分の配管は計測しない。",
+      "source": {
+        "document": "公共建築設備数量積算基準(令和7年改定)",
+        "clause": "第3編-4-1",
+        "url": "https://www.mlit.go.jp/common/001178207.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "電気設備改修"
+        ],
+        "parts": [
+          "配管",
+          "配線",
+          "機器",
+          "盤",
+          "器具"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "m",
+        "method": "区分ごとに数える。",
+        "excluded": [
+          "コンクリート埋込部分の配管",
+          "付随して撤去されるもの"
+        ]
+      }
+    },
+    {
+      "entry_id": "Ad-4",
+      "kind": "数え方",
+      "statement": "衛生陶器および衛生器具ユニットは、種別・規格ごとの組数で数える。",
+      "source": {
+        "document": "公共建築設備数量積算基準(令和7年改定)",
+        "clause": "第4編-3-1(1)(2)",
+        "url": "https://www.mlit.go.jp/common/001178207.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "給排水設備"
+        ],
+        "parts": [
+          "衛生陶器",
+          "衛生器具"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "組",
+        "method": "種別・規格ごとに組数で数える。",
+        "excluded": [
+          "附属品",
+          "構成部材"
+        ]
+      }
+    },
+    {
+      "entry_id": "Ad-5",
+      "kind": "数え方",
+      "statement": "ダクトおよび配管は長さで数える。",
+      "source": {
+        "document": "公共建築設備数量積算基準(令和7年改定)",
+        "clause": "第4編-2-2・第4編-1-1",
+        "url": "https://www.mlit.go.jp/common/001178207.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "機械設備"
+        ],
+        "parts": [
+          "ダクト",
+          "配管"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "m",
+        "method": "長さで数える。"
+      },
+      "note": "同じ条の「制気口・ダンパー・吹出口等の器具は個数」は別の1件(Ad-5b)として書く。"
+    },
+    {
+      "entry_id": "Ad-5b",
+      "kind": "数え方",
+      "statement": "制気口・ダンパー・吹出口等の器具は個数で数える。",
+      "source": {
+        "document": "公共建築設備数量積算基準(令和7年改定)",
+        "clause": "第4編-2-2・第4編-1-1",
+        "url": "https://www.mlit.go.jp/common/001178207.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "機械設備"
+        ],
+        "parts": [
+          "制気口",
+          "ダンパー",
+          "吹出口"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "個",
+        "method": "個数で数える。"
+      },
+      "note": "Ad-5 と対。長さで数える系統と個数で数える系統の2つに分かれる。"
+    },
+    {
+      "entry_id": "Bd-1",
+      "kind": "波及",
+      "statement": "間仕切壁を撤去すると、取り合う天井・壁・床の改修範囲にも壁厚程度の範囲で波及する。",
+      "source": {
+        "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
+        "clause": "6.1.3(2)",
+        "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "内装改修"
+        ],
+        "parts": [
+          "間仕切壁",
+          "天井",
+          "壁",
+          "床"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "trigger": "間仕切壁を撤去する",
+        "affected": [
+          "天井",
+          "壁",
+          "床"
+        ],
+        "extent": {
+          "text": "壁厚程度"
+        },
+        "symmetric": false
+      },
+      "overridden_by": [
+        "特記"
+      ]
+    },
+    {
+      "entry_id": "Bd-2",
+      "kind": "波及",
+      "statement": "天井裏に隠れていた既存間仕切壁を撤去すると、取り合っていた天井の改修範囲は壁面から両側600mm程度になる。",
+      "source": {
+        "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
+        "clause": "6.1.3(3)",
+        "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "内装改修"
+        ],
+        "parts": [
+          "間仕切壁",
+          "天井"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "trigger": "天井裏に隠れた間仕切壁を撤去する",
+        "affected": [
+          "天井"
+        ],
+        "extent": {
+          "value": 600,
+          "unit": "mm",
+          "basis": "壁面から両側"
+        },
+        "symmetric": false
+      },
+      "overridden_by": [
+        "特記"
+      ],
+      "note": "Bd-1 と似て非なる。壁が見えるか天井内かで波及の量が変わる。"
+    },
+    {
+      "entry_id": "Bd-3",
+      "kind": "波及",
+      "statement": "天井を撤去しても、取り合う壁面の改修は既存のままとする。",
+      "source": {
+        "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
+        "clause": "6.1.3(5)",
+        "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "内装改修"
+        ],
+        "parts": [
+          "天井",
+          "壁"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "trigger": "天井を撤去する",
+        "affected": [],
+        "extent": {
+          "text": "波及しない"
+        },
+        "symmetric": false
+      },
+      "overridden_by": [
+        "特記"
+      ],
+      "note": "**形式に収まっていない**: 「波及しない」ことを書く欄が無いので、extent に文字で書いて逃がしている。affected も空にせざるを得ない。 Bd-1・Bd-2 の逆向きは自動では起きない、という非対称。"
+    },
+    {
+      "entry_id": "Bd-4",
+      "kind": "波及",
+      "statement": "照明器具等の配置が既存と異なる新設をすると、野縁・野縁受けを切断した箇所に同材の補強が要る。",
+      "source": {
+        "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
+        "clause": "6.4.2(2)",
+        "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "電気設備",
+          "内装改修"
+        ],
+        "parts": [
+          "照明器具",
+          "野縁",
+          "天井下地"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "trigger": "照明器具の配置を既存と変えて新設する",
+        "affected": [
+          "野縁",
+          "野縁受け",
+          "天井点検口"
+        ],
+        "extent": {
+          "text": "切断した箇所に同材で補強"
+        },
+        "symmetric": false
+      }
+    },
+    {
+      "entry_id": "Bd-5",
+      "kind": "問い",
+      "statement": "床・壁・天井の撤去は、仕上材だけか、下地材を含めた全撤去かで拾う層が変わる。",
+      "source": {
+        "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
+        "clause": "6.2.2(1)・6.3.2(2)(3)・6.4.2(1)",
+        "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "内装改修"
+        ],
+        "parts": [
+          "床",
+          "壁",
+          "天井"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "question": "この撤去は仕上材だけですか、下地材も含めた全撤去ですか。",
+        "answer_options": [
+          "仕上材だけ",
+          "下地共撤去",
+          "分からない"
+        ],
+        "what_changes": "仕上材だけなら仕上層の数量だけを拾い、下地共撤去なら下地層の数量も拾う。"
+      }
+    },
+    {
+      "entry_id": "B-1",
+      "kind": "数え方",
+      "statement": "仕上改修は、既存仕上の撤去・下地処理・新設仕上・補修の4区分で数える。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-3-2-1(2)",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "仕上改修"
+        ],
+        "parts": [
+          "床",
+          "壁",
+          "天井"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "㎡",
+        "method": "撤去・下地処理・新設・補修の4区分に分けて、それぞれの数量を数える。"
+      },
+      "note": "工事区分(撤去/新設/既存のまま/改修)とは粒度が違う。混同しないこと。"
+    },
+    {
+      "entry_id": "B-2",
+      "kind": "数え方",
+      "statement": "新設仕上の数量は新築の仕上基準(第5編)をそのまま使い、既存仕上撤去の数量は既存主仕上の設計寸法による。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-3-2-2(1)・同(2)",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "仕上改修"
+        ],
+        "parts": [
+          "床",
+          "壁",
+          "天井"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "㎡",
+        "method": "新設側は新築用の規則をそのまま使う。撤去側は既存主仕上の設計寸法で数える。"
+      },
+      "note": "**形式に収まっていない**: 「別の規則集をそのまま使う」という指示であって、数え方そのものではない。method に文章で押し込んでいる。 "
+    },
+    {
+      "entry_id": "B-3",
+      "kind": "波及",
+      "statement": "壁のみを新設・改修する場合、新設壁前面から1.0mの範囲の床面積が算出の対象になる。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-1-2-2(1)4・(2)4・(3)2",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "内装改修",
+          "仮設"
+        ],
+        "parts": [
+          "壁",
+          "床"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "trigger": "壁のみを新設・改修する",
+        "affected": [
+          "床"
+        ],
+        "extent": {
+          "value": 1.0,
+          "unit": "m",
+          "basis": "新設壁前面から"
+        },
+        "symmetric": false
+      }
+    },
+    {
+      "entry_id": "C-1",
+      "kind": "問い",
+      "statement": "開口部の面積が1か所0.5㎡を超えるかどうかで、仕上・下地の面積からの控除が変わる。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第5編-1-2-1",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "parts": [
+          "建具",
+          "壁"
+        ],
+        "axes": [
+          "image"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "question": "この開口部は1か所あたり0.5㎡を超えますか。",
+        "answer_options": [
+          "超える",
+          "超えない",
+          "分からない"
+        ],
+        "what_changes": "超えるなら仕上・下地の面積から控除し、超えなければ控除しない。"
+      }
+    },
+    {
+      "entry_id": "C-2",
+      "kind": "問い",
+      "statement": "間仕切りが耐火間仕切りか片面だけの下地かで、二重計上になるかどうかが変わる。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第5編-1-2-2(5)",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "parts": [
+          "間仕切壁"
+        ],
+        "axes": [
+          "image",
+          "text"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "question": "この間仕切りは耐火間仕切り(軽鉄下地+両面ボード)ですか、片面だけの下地ですか。",
+        "answer_options": [
+          "耐火間仕切り",
+          "片面だけ",
+          "分からない"
+        ],
+        "what_changes": "耐火間仕切りなら下地とボードを一括して片面面積で数え、別々の行にしない。"
+      }
+    },
+    {
+      "entry_id": "C-3",
+      "kind": "問い",
+      "statement": "壁のみの改修か全面改修かで、足場・墨出し・床面積の算出式が変わる。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-1-2-2",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "parts": [
+          "壁",
+          "床",
+          "天井"
+        ],
+        "axes": [
+          "text"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "question": "改修する壁は、床・天井を含む全面改修ですか、壁のみの改修ですか。",
+        "answer_options": [
+          "全面改修",
+          "壁のみ",
+          "分からない"
+        ],
+        "what_changes": "壁のみなら足場・墨出し・床面積の算出式が壁基準の式に変わる。"
+      }
+    },
+    {
+      "entry_id": "C-4",
+      "kind": "問い",
+      "statement": "建具改修が撤去工法かかぶせ工法かで、拾う数量の種類が変わる。",
+      "source": {
+        "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
+        "clause": "5.1.3",
+        "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "建具改修"
+        ],
+        "parts": [
+          "建具"
+        ],
+        "axes": [
+          "text"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "question": "この建具改修は撤去工法ですか、かぶせ工法ですか。",
+        "answer_options": [
+          "撤去工法",
+          "かぶせ工法",
+          "分からない"
+        ],
+        "what_changes": "かぶせ工法なら既存枠の補強・防錆は原則計測しない。"
+      },
+      "overridden_by": [
+        "特記"
+      ],
+      "note": "工法の指定は特記による。図面だけからは決まらない。"
+    },
+    {
+      "entry_id": "C-5",
+      "kind": "問い",
+      "statement": "仕上材だけの撤去か下地共撤去かで、拾う層が変わる。",
+      "source": {
+        "document": "公共建築改修工事標準仕様書(建築工事編)令和7年版",
+        "clause": "6.2.2(1)・6.3.2(2)(3)・6.4.2(1)",
+        "url": "https://www.mlit.go.jp/gobuild/content/001888823.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和7年版",
+        "checked_on": null,
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "parts": [
+          "床",
+          "壁",
+          "天井"
+        ],
+        "axes": [
+          "image",
+          "text"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "question": "床・壁・天井は、仕上材だけを撤去しますか、下地材を含めて撤去しますか。",
+        "answer_options": [
+          "仕上材だけ",
+          "下地共撤去",
+          "分からない"
+        ],
+        "what_changes": "下地共撤去なら下地層の数量も拾う。"
+      },
+      "note": "Bd-5 と同じ分岐。問いとしては1件にまとめてよい。"
+    }
+  ]
+}

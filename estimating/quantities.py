@@ -29,6 +29,7 @@ from typing import Any, Mapping
 
 from arbitration.units import UnitError, canonical_unit, normalise_range
 from estimating.basis import basis_for
+from estimating.decisive import DecisiveReason, decisive_reasons_for
 
 #: 対象名の中で「種類」と「個別の鍵」を分ける印。
 #: 入口が `建具数量::AW-1` `開き戸::ページ1` の形で出している。
@@ -113,6 +114,25 @@ class QuantityItem:
     原則8(おーちゃんの回答): システムが根拠を付けて提案し、人が確認する。
     """
 
+    # -- **決め手の証拠。** 札そのものではなく、証拠のほうを持つ。 -----------
+    # 札を持たせる形にすると、証拠の無い札を手で付けられてしまう。
+    # 札は `decisive` が `estimating/decisive.py` の 1 か所で作る。
+
+    knowledge_rule_ids: tuple[str, ...] = ()
+    """効いた知識のルール(会社のルール・基準・ガイドライン・波及)。"""
+
+    agreeing_paths: tuple[str, ...] = ()
+    """矛盾なく一致した経路(手法)。**仲裁層の記録から運ぶ。数え直さない。**"""
+
+    paths_independent: bool | None = None
+    """その経路が独立したデータ源だったか。**分からなければ None。**"""
+
+    question_id: str = ""
+    """人のどの回答から来たか。"""
+
+    summary_item: str = ""
+    """要約資料(メニュー)のどの項目から探し当てたか。"""
+
     attributes: Mapping[str, str] = field(default_factory=dict)
     """規則が条件に使える属性(建具表の種別など)。**読めたものだけ。**"""
 
@@ -184,6 +204,24 @@ class QuantityItem:
         if self.derivation == "derived" and "assumed" in self.derivation_basis:
             return "assumed"
         return self.derivation
+
+    @property
+    def decisive(self) -> tuple[DecisiveReason, ...]:
+        """**この数量が出た決め手。**(`estimating/decisive.py` の 5 種類)
+
+        **空は「決め手が無い」**であって「観測だけで出た」ではない。
+        一般則で補った値のように、名乗れる証拠が無いものは空のまま残る。
+        埋めずに `lines_without_reason()` で名指しする。
+        """
+        return decisive_reasons_for(
+            effective_derivation=self.effective_derivation,
+            source_kind=self.source_kind,
+            knowledge_rule_ids=self.knowledge_rule_ids,
+            agreeing_paths=self.agreeing_paths,
+            paths_independent=self.paths_independent,
+            question_id=self.question_id,
+            summary_item=self.summary_item,
+        )
 
     @property
     def basis(self) -> str:
