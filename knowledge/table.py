@@ -63,7 +63,7 @@ _SOURCE_FIELDS = {
 _ADDED_IN_V2 = (
     "source.publisher(発行元)",
     "source.edition(出典の版・年)",
-    "source.checked_on(確認日、YYYY-MM-DD)",
+    "source.checked_on(確認日、YYYY-MM-DD。記録が無ければ null で 不明)",
     f"source.binding(拘束力: {' / '.join(BINDINGS)})",
     "adoption_status(採否の状態。新しく書くときは 候補)",
 )
@@ -93,7 +93,8 @@ class Source:
     clause: str
     publisher: str
     edition: str
-    checked_on: str
+    #: 確認日(YYYY-MM-DD)。None は 不明(確認した日の記録が無い。推して埋めない)。
+    checked_on: str | None
     binding: str
     url: str = ""
     read_directly: bool = False
@@ -161,11 +162,23 @@ def _string_tuple(value: Any, what: str) -> tuple[str, ...]:
     return tuple(out)
 
 
-def _checked_on(value: Any) -> str:
+def _checked_on(raw: Mapping[str, Any]) -> str | None:
+    """確認日を読む。**null は 不明。**列そのものは必須(消したら断る)。
+
+    不明 の書き方は null の 1 つだけ。空文字や「不明」と書いた文字は断る。
+    """
     what = "source.checked_on(確認日)"
+    if "checked_on" not in raw:
+        raise KnowledgeError(
+            f"{what} が必要です。確認した日の記録が無ければ null(不明)と書いてください"
+        )
+    value = raw["checked_on"]
+    if value is None:
+        return None
     if not isinstance(value, str) or not _CHECKED_ON.fullmatch(value):
         raise KnowledgeError(
-            f"{what} は YYYY-MM-DD で書いてください(例: 2026-09-23)。いまは {value!r} です"
+            f"{what} は YYYY-MM-DD で書いてください(例: 2026-09-23)。"
+            f"確認した日の記録が無ければ null(不明)と書きます。いまは {value!r} です"
         )
     try:
         date.fromisoformat(value)
@@ -217,7 +230,7 @@ def _parse_source(raw: Any) -> Source:
         clause=_require_text(raw.get("clause"), "source.clause"),
         publisher=_require_text(raw.get("publisher"), "source.publisher(発行元)"),
         edition=_require_text(raw.get("edition"), "source.edition(出典の版・年)"),
-        checked_on=_checked_on(raw.get("checked_on")),
+        checked_on=_checked_on(raw),
         binding=binding,
         url=url,
         read_directly=read_directly,
