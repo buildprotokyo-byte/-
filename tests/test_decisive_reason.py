@@ -41,7 +41,7 @@ from estimating.decisive import (
     score_by_reason,
 )
 from estimating.from_intake import quantities_from_intake
-from estimating.mapping import map_quantities
+from estimating.mapping import MappedLine, map_quantities
 from estimating.quantities import QuantityItem
 from estimating.rules import load_rules
 from intake.drawing_intake import IntakeConfig, read_drawing
@@ -170,6 +170,21 @@ def drawing(tmp_path: Path) -> Path:
     return path
 
 
+def test_a_quantity_keeps_the_evidence_not_the_label() -> None:
+    """**札ではなく証拠を持つ。** 証拠の無い札を手で付けられないようにする。"""
+    quantity = QuantityItem(
+        target="基準寸法::ページ1",
+        value_range=(4000.0, 4000.0),
+        unit="mm",
+        method_id="human_reference_point",
+        source_kind="start_kit",
+        question_id="start_kit::human_reference_point",
+    )
+
+    assert [r.kind for r in quantity.decisive] == [REASON_HUMAN_ANSWER]
+    assert quantity.decisive[0].question_id == "start_kit::human_reference_point"
+
+
 def test_lines_from_the_production_path_carry_a_decisive_reason(
     drawing: Path, tmp_path: Path
 ) -> None:
@@ -193,18 +208,21 @@ def test_lines_from_the_production_path_carry_a_decisive_reason(
 # ---------------------------------------------------------------------------
 
 
-def _line(reason_kinds: tuple[str, ...]):
-    quantity = QuantityItem(
-        target="開き戸::1階",
-        value_range=(3.0, 3.0),
+def _line(reason_kinds: tuple[str, ...]) -> MappedLine:
+    """決め手だけを持たせた行。**集計を測るための最小の行。**"""
+    return MappedLine(
+        work_item="建具工事",
         unit="箇所",
-        method_id="pdf_vector_door_arc",
+        value_range=(1.0, 1.0),
+        canonical_range=(1, 1),
         decisive=tuple(
-            DecisiveReason(kind=kind, question_id="q1" if kind == REASON_HUMAN_ANSWER else "")
+            DecisiveReason(
+                kind=kind,
+                question_id="q1" if kind == REASON_HUMAN_ANSWER else "",
+            )
             for kind in reason_kinds
         ),
     )
-    return map_quantities([quantity], load_rules(EXAMPLE_RULES)).mappings[0].lines[0]
 
 
 def test_counts_are_kept_per_reason() -> None:

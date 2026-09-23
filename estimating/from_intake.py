@@ -35,9 +35,7 @@ from estimating.case_premises import (
 from estimating.decisive import (
     NOT_OBTAINED_AREA,
     NOT_OBTAINED_SYMBOL,
-    DecisiveReason,
     NotObtained,
-    decisive_reasons_for,
 )
 from estimating.quantities import QuantityItem, split_target
 
@@ -104,8 +102,8 @@ def _methods_of(evidence_ids: Sequence[str]) -> tuple[str, ...]:
     return tuple(out)
 
 
-def _decisive_for(finding, decision) -> tuple[DecisiveReason, ...]:  # noqa: ANN001
-    """この数量の決め手を、**仲裁層が出した記録から**作る。
+def _decisive_evidence(finding, decision) -> dict:  # noqa: ANN001
+    """決め手の**証拠**を、仲裁層が出した記録から取り出す。
 
     **ここで判定をやり直さない。** 一致したかどうかは仲裁層が解いた結果
     (`solve_is_consistent`)を読むだけで、範囲を見比べ直したりはしない。
@@ -143,23 +141,11 @@ def _decisive_for(finding, decision) -> tuple[DecisiveReason, ...]:  # noqa: ANN
     if source_kind == SOURCE_KIND_START_KIT:
         question_id = f"start_kit::{getattr(finding, 'method_id', '')}"
 
-    return decisive_reasons_for(
-        effective_derivation=_effective_derivation(finding),
-        source_kind=source_kind,
-        agreeing_paths=paths,
-        paths_independent=independent,
-        question_id=question_id,
-    )
-
-
-def _effective_derivation(finding) -> str:  # noqa: ANN001
-    """根拠まで遡った由来。**`QuantityItem.effective_derivation` と同じ規則。**"""
-    derivation = getattr(finding, "derivation", "read")
-    if derivation == "derived" and "assumed" in tuple(
-        getattr(finding, "derivation_basis", ()) or ()
-    ):
-        return "assumed"
-    return derivation
+    return {
+        "agreeing_paths": paths,
+        "paths_independent": independent,
+        "question_id": question_id,
+    }
 
 
 def quantities_from_intake(result) -> tuple[QuantityItem, ...]:
@@ -198,7 +184,7 @@ def quantities_from_intake(result) -> tuple[QuantityItem, ...]:
                 tier=getattr(decision, "tier", None),
                 action=getattr(decision, "action", None),
                 confirmed_range=getattr(decision, "confirmed_range", None),
-                decisive=_decisive_for(finding, decision),
+                **_decisive_evidence(finding, decision),
                 attributes=attributes,
                 provenance=dict(getattr(finding, "provenance", {}) or {}),
                 notes=tuple(notes),
