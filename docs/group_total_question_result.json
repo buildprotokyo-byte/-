@@ -1,0 +1,3518 @@
+{
+ "criteria": "docs/group_total_question_criteria.md",
+ "synthetic_only": true,
+ "named": {
+  "summary": {
+   "groups_total": 10,
+   "excluded": 0,
+   "measured": 10,
+   "questions_before_group_path": 0,
+   "questions_after_group_path": 4,
+   "before_next_question_non_none": 0,
+   "before_next_question_non_none_on_absorbed": 0,
+   "A1_negative_control_questions": 0,
+   "A1_negative_control_groups": 4,
+   "A2_not_absorbed_questions": 0,
+   "A2_not_absorbed_groups": 6,
+   "A3_absorbed_groups": 4,
+   "A3_absorbed_with_exactly_one_question": 4,
+   "A4_unchanged_all": true,
+   "A4_changed_count": 0,
+   "A5_unsat_groups": 1,
+   "A5_unsat_all_members_audited": 1,
+   "by_error_kind": {
+    "none": {
+     "groups": 4,
+     "unsat": 0,
+     "absorbed": 0,
+     "sat_not_absorbed": 4,
+     "questions_after": 0,
+     "chosen_is_planted_wrong": 0,
+     "after_answer": {},
+     "tier1_error_hidden_after_answer": 0
+    },
+    "tier1": {
+     "groups": 5,
+     "unsat": 1,
+     "absorbed": 3,
+     "sat_not_absorbed": 1,
+     "questions_after": 3,
+     "chosen_is_planted_wrong": 0,
+     "after_answer": {
+      "unsat_group_stops": 3
+     },
+     "tier1_error_hidden_after_answer": 0
+    },
+    "stopped_center": {
+     "groups": 1,
+     "unsat": 0,
+     "absorbed": 1,
+     "sat_not_absorbed": 0,
+     "questions_after": 1,
+     "chosen_is_planted_wrong": 1,
+     "after_answer": {
+      "sat_no_absorption": 1
+     },
+     "tier1_error_hidden_after_answer": 0
+    }
+   }
+  },
+  "rows": [
+   {
+    "name": "N1 誤りなし・停止なし",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true
+   },
+   {
+    "name": "N2 誤りなし・停止(幅広)",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true
+   },
+   {
+    "name": "N3 誤りなし・停止(幅狭)",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true
+   },
+   {
+    "name": "N4 誤りなし・強い軸0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true
+   },
+   {
+    "name": "E1 階層1が−2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 1.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 1.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": false,
+    "after_answer": "unsat_group_stops",
+    "tier1_error_hidden_after_answer": false
+   },
+   {
+    "name": "E2 階層1が−2×2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1",
+     "door_2"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true
+   },
+   {
+    "name": "E3 階層1が+1(死角)",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true
+   },
+   {
+    "name": "E4 階層1が−2・強い軸0",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 1.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 1.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": false,
+    "after_answer": "unsat_group_stops",
+    "tier1_error_hidden_after_answer": false
+   },
+   {
+    "name": "E5 停止した要素の読みがずれ",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 2.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 2.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": true,
+    "after_answer": "sat_no_absorption",
+    "tier1_error_hidden_after_answer": false
+   },
+   {
+    "name": "E6 停止2つ・階層1が−2×3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1",
+     "door_2",
+     "door_3"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0",
+     "door_5"
+    ],
+    "excess": 4.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 3.7142857142857144,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": false,
+    "after_answer": "unsat_group_stops",
+    "tier1_error_hidden_after_answer": false
+   }
+  ]
+ },
+ "grid": {
+  "summary": {
+   "groups_total": 117,
+   "excluded": 0,
+   "measured": 117,
+   "questions_before_group_path": 0,
+   "questions_after_group_path": 11,
+   "before_next_question_non_none": 66,
+   "before_next_question_non_none_on_absorbed": 0,
+   "A1_negative_control_questions": 0,
+   "A1_negative_control_groups": 9,
+   "A2_not_absorbed_questions": 0,
+   "A2_not_absorbed_groups": 106,
+   "A3_absorbed_groups": 11,
+   "A3_absorbed_with_exactly_one_question": 11,
+   "A4_unchanged_all": true,
+   "A4_changed_count": 0,
+   "A5_unsat_groups": 16,
+   "A5_unsat_all_members_audited": 16,
+   "by_error_kind": {
+    "none": {
+     "groups": 9,
+     "unsat": 0,
+     "absorbed": 0,
+     "sat_not_absorbed": 9,
+     "questions_after": 0,
+     "chosen_is_planted_wrong": 0,
+     "after_answer": {},
+     "tier1_error_hidden_after_answer": 0
+    },
+    "tier1": {
+     "groups": 54,
+     "unsat": 8,
+     "absorbed": 6,
+     "sat_not_absorbed": 40,
+     "questions_after": 6,
+     "chosen_is_planted_wrong": 0,
+     "after_answer": {
+      "unsat_group_stops": 6
+     },
+     "tier1_error_hidden_after_answer": 0
+    },
+    "stopped_center": {
+     "groups": 54,
+     "unsat": 8,
+     "absorbed": 5,
+     "sat_not_absorbed": 41,
+     "questions_after": 5,
+     "chosen_is_planted_wrong": 5,
+     "after_answer": {
+      "sat_no_absorption": 5
+     },
+     "tier1_error_hidden_after_answer": 0
+    }
+   }
+  },
+  "rows": [
+   {
+    "name": "k=1 w=1 none d=+0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": 0
+   },
+   {
+    "name": "k=1 w=1 tier1 d=-3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": -3
+   },
+   {
+    "name": "k=1 w=1 tier1 d=-2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": -2
+   },
+   {
+    "name": "k=1 w=1 tier1 d=-1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": -1
+   },
+   {
+    "name": "k=1 w=1 tier1 d=+1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": 1
+   },
+   {
+    "name": "k=1 w=1 tier1 d=+2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": 2
+   },
+   {
+    "name": "k=1 w=1 tier1 d=+3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": 3
+   },
+   {
+    "name": "k=1 w=1 stopped_center d=-3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": -3
+   },
+   {
+    "name": "k=1 w=1 stopped_center d=-2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": -2
+   },
+   {
+    "name": "k=1 w=1 stopped_center d=-1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": -1
+   },
+   {
+    "name": "k=1 w=1 stopped_center d=+1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": 1
+   },
+   {
+    "name": "k=1 w=1 stopped_center d=+2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": 2
+   },
+   {
+    "name": "k=1 w=1 stopped_center d=+3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 1,
+    "d": 3
+   },
+   {
+    "name": "k=1 w=2 none d=+0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 2,
+    "d": 0
+   },
+   {
+    "name": "k=1 w=2 tier1 d=-3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 2,
+    "d": -3
+   },
+   {
+    "name": "k=1 w=2 tier1 d=-2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 1.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 1.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": false,
+    "after_answer": "unsat_group_stops",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 2,
+    "d": -2
+   },
+   {
+    "name": "k=1 w=2 tier1 d=-1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 2,
+    "d": -1
+   },
+   {
+    "name": "k=1 w=2 tier1 d=+1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 2,
+    "d": 1
+   },
+   {
+    "name": "k=1 w=2 tier1 d=+2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 1.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 1.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": false,
+    "after_answer": "unsat_group_stops",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 2,
+    "d": 2
+   },
+   {
+    "name": "k=1 w=2 tier1 d=+3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 2,
+    "d": 3
+   },
+   {
+    "name": "k=1 w=2 stopped_center d=-3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 2,
+    "d": -3
+   },
+   {
+    "name": "k=1 w=2 stopped_center d=-2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 0.5,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 0.5,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": true,
+    "after_answer": "sat_no_absorption",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 2,
+    "d": -2
+   },
+   {
+    "name": "k=1 w=2 stopped_center d=-1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 2,
+    "d": -1
+   },
+   {
+    "name": "k=1 w=2 stopped_center d=+1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 2,
+    "d": 1
+   },
+   {
+    "name": "k=1 w=2 stopped_center d=+2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 1.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 1.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": true,
+    "after_answer": "sat_no_absorption",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 2,
+    "d": 2
+   },
+   {
+    "name": "k=1 w=2 stopped_center d=+3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 2,
+    "d": 3
+   },
+   {
+    "name": "k=1 w=3 none d=+0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 3,
+    "d": 0
+   },
+   {
+    "name": "k=1 w=3 tier1 d=-3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 2.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 2.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": false,
+    "after_answer": "unsat_group_stops",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 3,
+    "d": -3
+   },
+   {
+    "name": "k=1 w=3 tier1 d=-2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 1.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 1.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": false,
+    "after_answer": "unsat_group_stops",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 3,
+    "d": -2
+   },
+   {
+    "name": "k=1 w=3 tier1 d=-1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 3,
+    "d": -1
+   },
+   {
+    "name": "k=1 w=3 tier1 d=+1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 3,
+    "d": 1
+   },
+   {
+    "name": "k=1 w=3 tier1 d=+2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 1.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 1.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": false,
+    "after_answer": "unsat_group_stops",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 3,
+    "d": 2
+   },
+   {
+    "name": "k=1 w=3 tier1 d=+3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 2.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 2.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": false,
+    "after_answer": "unsat_group_stops",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 3,
+    "d": 3
+   },
+   {
+    "name": "k=1 w=3 stopped_center d=-3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 0.5,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 0.5,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": true,
+    "after_answer": "sat_no_absorption",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 3,
+    "d": -3
+   },
+   {
+    "name": "k=1 w=3 stopped_center d=-2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 3,
+    "d": -2
+   },
+   {
+    "name": "k=1 w=3 stopped_center d=-1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 3,
+    "d": -1
+   },
+   {
+    "name": "k=1 w=3 stopped_center d=+1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 1,
+    "w": 3,
+    "d": 1
+   },
+   {
+    "name": "k=1 w=3 stopped_center d=+2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 1.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 1.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": true,
+    "after_answer": "sat_no_absorption",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 3,
+    "d": 2
+   },
+   {
+    "name": "k=1 w=3 stopped_center d=+3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0"
+    ],
+    "status": "sat",
+    "absorbed": true,
+    "absorbing": [
+     "door_0"
+    ],
+    "excess": 2.0,
+    "audit_before": [
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": "door_0",
+    "question_score": 2.0,
+    "question_grade": "C",
+    "unchanged_by_question": true,
+    "chosen_is_planted_wrong": true,
+    "after_answer": "sat_no_absorption",
+    "tier1_error_hidden_after_answer": false,
+    "k": 1,
+    "w": 3,
+    "d": 3
+   },
+   {
+    "name": "k=2 w=1 none d=+0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": 0
+   },
+   {
+    "name": "k=2 w=1 tier1 d=-3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": -3
+   },
+   {
+    "name": "k=2 w=1 tier1 d=-2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": -2
+   },
+   {
+    "name": "k=2 w=1 tier1 d=-1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": -1
+   },
+   {
+    "name": "k=2 w=1 tier1 d=+1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": 1
+   },
+   {
+    "name": "k=2 w=1 tier1 d=+2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": 2
+   },
+   {
+    "name": "k=2 w=1 tier1 d=+3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": 3
+   },
+   {
+    "name": "k=2 w=1 stopped_center d=-3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": -3
+   },
+   {
+    "name": "k=2 w=1 stopped_center d=-2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": -2
+   },
+   {
+    "name": "k=2 w=1 stopped_center d=-1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": -1
+   },
+   {
+    "name": "k=2 w=1 stopped_center d=+1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": 1
+   },
+   {
+    "name": "k=2 w=1 stopped_center d=+2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": 2
+   },
+   {
+    "name": "k=2 w=1 stopped_center d=+3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "unsat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": null,
+    "audit_before": [
+     "door_0",
+     "door_1",
+     "door_2",
+     "door_3",
+     "door_4",
+     "door_5",
+     "door_6",
+     "door_7",
+     "door_8",
+     "door_9"
+    ],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 1,
+    "d": 3
+   },
+   {
+    "name": "k=2 w=2 none d=+0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": 0
+   },
+   {
+    "name": "k=2 w=2 tier1 d=-3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": -3
+   },
+   {
+    "name": "k=2 w=2 tier1 d=-2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": -2
+   },
+   {
+    "name": "k=2 w=2 tier1 d=-1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": -1
+   },
+   {
+    "name": "k=2 w=2 tier1 d=+1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": 1
+   },
+   {
+    "name": "k=2 w=2 tier1 d=+2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": 2
+   },
+   {
+    "name": "k=2 w=2 tier1 d=+3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": 3
+   },
+   {
+    "name": "k=2 w=2 stopped_center d=-3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": -3
+   },
+   {
+    "name": "k=2 w=2 stopped_center d=-2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": -2
+   },
+   {
+    "name": "k=2 w=2 stopped_center d=-1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": -1
+   },
+   {
+    "name": "k=2 w=2 stopped_center d=+1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": 1
+   },
+   {
+    "name": "k=2 w=2 stopped_center d=+2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": 2
+   },
+   {
+    "name": "k=2 w=2 stopped_center d=+3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 2,
+    "d": 3
+   },
+   {
+    "name": "k=2 w=3 none d=+0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": 0
+   },
+   {
+    "name": "k=2 w=3 tier1 d=-3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": -3
+   },
+   {
+    "name": "k=2 w=3 tier1 d=-2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": -2
+   },
+   {
+    "name": "k=2 w=3 tier1 d=-1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": -1
+   },
+   {
+    "name": "k=2 w=3 tier1 d=+1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": 1
+   },
+   {
+    "name": "k=2 w=3 tier1 d=+2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": 2
+   },
+   {
+    "name": "k=2 w=3 tier1 d=+3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": 3
+   },
+   {
+    "name": "k=2 w=3 stopped_center d=-3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": -3
+   },
+   {
+    "name": "k=2 w=3 stopped_center d=-2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": -2
+   },
+   {
+    "name": "k=2 w=3 stopped_center d=-1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": -1
+   },
+   {
+    "name": "k=2 w=3 stopped_center d=+1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": 1
+   },
+   {
+    "name": "k=2 w=3 stopped_center d=+2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": 2
+   },
+   {
+    "name": "k=2 w=3 stopped_center d=+3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 2,
+    "w": 3,
+    "d": 3
+   },
+   {
+    "name": "k=3 w=1 none d=+0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": 0
+   },
+   {
+    "name": "k=3 w=1 tier1 d=-3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": -3
+   },
+   {
+    "name": "k=3 w=1 tier1 d=-2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": -2
+   },
+   {
+    "name": "k=3 w=1 tier1 d=-1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": -1
+   },
+   {
+    "name": "k=3 w=1 tier1 d=+1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": 1
+   },
+   {
+    "name": "k=3 w=1 tier1 d=+2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": 2
+   },
+   {
+    "name": "k=3 w=1 tier1 d=+3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": 3
+   },
+   {
+    "name": "k=3 w=1 stopped_center d=-3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": -3
+   },
+   {
+    "name": "k=3 w=1 stopped_center d=-2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": -2
+   },
+   {
+    "name": "k=3 w=1 stopped_center d=-1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": -1
+   },
+   {
+    "name": "k=3 w=1 stopped_center d=+1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": 1
+   },
+   {
+    "name": "k=3 w=1 stopped_center d=+2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": 2
+   },
+   {
+    "name": "k=3 w=1 stopped_center d=+3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": null,
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 1,
+    "d": 3
+   },
+   {
+    "name": "k=3 w=2 none d=+0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": 0
+   },
+   {
+    "name": "k=3 w=2 tier1 d=-3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": -3
+   },
+   {
+    "name": "k=3 w=2 tier1 d=-2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": -2
+   },
+   {
+    "name": "k=3 w=2 tier1 d=-1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": -1
+   },
+   {
+    "name": "k=3 w=2 tier1 d=+1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": 1
+   },
+   {
+    "name": "k=3 w=2 tier1 d=+2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": 2
+   },
+   {
+    "name": "k=3 w=2 tier1 d=+3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": 3
+   },
+   {
+    "name": "k=3 w=2 stopped_center d=-3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_5",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": -3
+   },
+   {
+    "name": "k=3 w=2 stopped_center d=-2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_5",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": -2
+   },
+   {
+    "name": "k=3 w=2 stopped_center d=-1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": -1
+   },
+   {
+    "name": "k=3 w=2 stopped_center d=+1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": 1
+   },
+   {
+    "name": "k=3 w=2 stopped_center d=+2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": 2
+   },
+   {
+    "name": "k=3 w=2 stopped_center d=+3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 2,
+    "d": 3
+   },
+   {
+    "name": "k=3 w=3 none d=+0",
+    "error_kind": "none",
+    "planted_wrong": [],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": 0
+   },
+   {
+    "name": "k=3 w=3 tier1 d=-3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": -3
+   },
+   {
+    "name": "k=3 w=3 tier1 d=-2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": -2
+   },
+   {
+    "name": "k=3 w=3 tier1 d=-1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": -1
+   },
+   {
+    "name": "k=3 w=3 tier1 d=+1",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": 1
+   },
+   {
+    "name": "k=3 w=3 tier1 d=+2",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": 2
+   },
+   {
+    "name": "k=3 w=3 tier1 d=+3",
+    "error_kind": "tier1",
+    "planted_wrong": [
+     "door_1"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": 3
+   },
+   {
+    "name": "k=3 w=3 stopped_center d=-3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_5",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": -3
+   },
+   {
+    "name": "k=3 w=3 stopped_center d=-2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_5",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": -2
+   },
+   {
+    "name": "k=3 w=3 stopped_center d=-1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_5",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": -1
+   },
+   {
+    "name": "k=3 w=3 stopped_center d=+1",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": 1
+   },
+   {
+    "name": "k=3 w=3 stopped_center d=+2",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": 2
+   },
+   {
+    "name": "k=3 w=3 stopped_center d=+3",
+    "error_kind": "stopped_center",
+    "planted_wrong": [
+     "door_0"
+    ],
+    "stopped": [
+     "door_0",
+     "door_5",
+     "door_9"
+    ],
+    "status": "sat",
+    "absorbed": false,
+    "absorbing": [],
+    "excess": 0.0,
+    "audit_before": [],
+    "before_next_question": "door_0",
+    "question": null,
+    "question_score": null,
+    "question_grade": null,
+    "unchanged_by_question": true,
+    "k": 3,
+    "w": 3,
+    "d": 3
+   }
+  ]
+ }
+}
