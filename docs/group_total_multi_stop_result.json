@@ -1,0 +1,8108 @@
+{
+ "criteria": "docs/group_total_multi_stop_criteria.md",
+ "synthetic_only": true,
+ "judgment_code_changed": false,
+ "summary": {
+  "groups_total": 215,
+  "excluded": 0,
+  "excluded_names": [],
+  "measured": 215,
+  "criteria": {
+   "B1_k0_k1_identical": {
+    "pass": true,
+    "groups": 62,
+    "differing": []
+   },
+   "B2_negative_control_new_absorbed": {
+    "pass": true,
+    "groups": 13,
+    "new_absorbed": []
+   },
+   "B3_no_loss": {
+    "pass": true,
+    "lost": []
+   },
+   "B4_beyond_group_tolerance_slip": {
+    "pass": true,
+    "sat_groups": 28,
+    "left": []
+   }
+  },
+  "all_criteria_pass": true,
+  "slip_by_band": {
+   "current": {
+    "within_group_tolerance": {
+     "groups": 36,
+     "slip": 36
+    },
+    "beyond_group_tolerance": {
+     "groups": 68,
+     "slip": 18
+    }
+   },
+   "candidate": {
+    "within_group_tolerance": {
+     "groups": 36,
+     "slip": 36
+    },
+    "beyond_group_tolerance": {
+     "groups": 68,
+     "slip": 0
+    }
+   }
+  },
+  "slip_by_k": {
+   "current": {
+    "0": 0,
+    "1": 0,
+    "2": 12,
+    "3": 20,
+    "4": 22
+   },
+   "candidate": {
+    "0": 0,
+    "1": 0,
+    "2": 6,
+    "3": 12,
+    "4": 18
+   }
+  },
+  "tier1_slip_table": [
+   {
+    "k": 0,
+    "abs_d": 1,
+    "band": "within_element_tolerance",
+    "groups": 2,
+    "current": {
+     "unsat": 2
+    },
+    "candidate": {
+     "unsat": 2
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 0,
+    "abs_d": 2,
+    "band": "beyond_group_tolerance",
+    "groups": 2,
+    "current": {
+     "unsat": 2
+    },
+    "candidate": {
+     "unsat": 2
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 0,
+    "abs_d": 3,
+    "band": "beyond_group_tolerance",
+    "groups": 2,
+    "current": {
+     "unsat": 2
+    },
+    "candidate": {
+     "unsat": 2
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 0,
+    "abs_d": 4,
+    "band": "beyond_group_tolerance",
+    "groups": 2,
+    "current": {
+     "unsat": 2
+    },
+    "candidate": {
+     "unsat": 2
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 0,
+    "abs_d": 5,
+    "band": "beyond_group_tolerance",
+    "groups": 2,
+    "current": {
+     "unsat": 2
+    },
+    "candidate": {
+     "unsat": 2
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 1,
+    "abs_d": 1,
+    "band": "within_element_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 1,
+    "abs_d": 2,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 2,
+     "absorbed": 4
+    },
+    "candidate": {
+     "unsat": 2,
+     "absorbed": 4
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 1,
+    "abs_d": 3,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 4,
+     "absorbed": 2
+    },
+    "candidate": {
+     "unsat": 4,
+     "absorbed": 2
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 1,
+    "abs_d": 4,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 6
+    },
+    "candidate": {
+     "unsat": 6
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 1,
+    "abs_d": 5,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 6
+    },
+    "candidate": {
+     "unsat": 6
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 2,
+    "abs_d": 1,
+    "band": "within_element_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 2,
+    "abs_d": 2,
+    "band": "within_group_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 6,
+    "candidate_slip": 6
+   },
+   {
+    "k": 2,
+    "abs_d": 3,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 2,
+     "sat_not_absorbed": 4
+    },
+    "candidate": {
+     "unsat": 2,
+     "absorbed": 4
+    },
+    "current_slip": 4,
+    "candidate_slip": 0
+   },
+   {
+    "k": 2,
+    "abs_d": 4,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 2,
+     "absorbed": 2,
+     "sat_not_absorbed": 2
+    },
+    "candidate": {
+     "unsat": 2,
+     "absorbed": 4
+    },
+    "current_slip": 2,
+    "candidate_slip": 0
+   },
+   {
+    "k": 2,
+    "abs_d": 5,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 4,
+     "absorbed": 2
+    },
+    "candidate": {
+     "unsat": 4,
+     "absorbed": 2
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 3,
+    "abs_d": 1,
+    "band": "within_element_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 3,
+    "abs_d": 2,
+    "band": "within_group_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 6,
+    "candidate_slip": 6
+   },
+   {
+    "k": 3,
+    "abs_d": 3,
+    "band": "within_group_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 6,
+    "candidate_slip": 6
+   },
+   {
+    "k": 3,
+    "abs_d": 4,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 2,
+     "sat_not_absorbed": 4
+    },
+    "candidate": {
+     "unsat": 2,
+     "absorbed": 4
+    },
+    "current_slip": 4,
+    "candidate_slip": 0
+   },
+   {
+    "k": 3,
+    "abs_d": 5,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 2,
+     "sat_not_absorbed": 4
+    },
+    "candidate": {
+     "unsat": 2,
+     "absorbed": 4
+    },
+    "current_slip": 4,
+    "candidate_slip": 0
+   },
+   {
+    "k": 4,
+    "abs_d": 1,
+    "band": "within_element_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 0,
+    "candidate_slip": 0
+   },
+   {
+    "k": 4,
+    "abs_d": 2,
+    "band": "within_group_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 6,
+    "candidate_slip": 6
+   },
+   {
+    "k": 4,
+    "abs_d": 3,
+    "band": "within_group_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 6,
+    "candidate_slip": 6
+   },
+   {
+    "k": 4,
+    "abs_d": 4,
+    "band": "within_group_tolerance",
+    "groups": 6,
+    "current": {
+     "sat_not_absorbed": 6
+    },
+    "candidate": {
+     "sat_not_absorbed": 6
+    },
+    "current_slip": 6,
+    "candidate_slip": 6
+   },
+   {
+    "k": 4,
+    "abs_d": 5,
+    "band": "beyond_group_tolerance",
+    "groups": 6,
+    "current": {
+     "unsat": 2,
+     "sat_not_absorbed": 4
+    },
+    "candidate": {
+     "unsat": 2,
+     "absorbed": 4
+    },
+    "current_slip": 4,
+    "candidate_slip": 0
+   }
+  ],
+  "audit_changed_by_kind_and_k": {
+   "none": {
+    "0": 0,
+    "1": 0,
+    "2": 0,
+    "3": 0,
+    "4": 0
+   },
+   "tier1": {
+    "0": 0,
+    "1": 0,
+    "2": 6,
+    "3": 8,
+    "4": 4
+   },
+   "stopped": {
+    "0": 0,
+    "1": 0,
+    "2": 2,
+    "3": 0,
+    "4": 0
+   }
+  },
+  "audit_changed_total": 20,
+  "within_element_tolerance_tier1": {
+   "groups": 26,
+   "current": {
+    "unsat": 2,
+    "sat_not_absorbed": 24
+   },
+   "candidate": {
+    "unsat": 2,
+    "sat_not_absorbed": 24
+   }
+  },
+  "stopped_error": {
+   "1": {
+    "groups": 18,
+    "current": {
+     "unsat": 6,
+     "sat_not_absorbed": 7,
+     "absorbed": 5
+    },
+    "candidate": {
+     "unsat": 6,
+     "sat_not_absorbed": 7,
+     "absorbed": 5
+    },
+    "correct_tier1_newly_audited_groups": 0
+   },
+   "2": {
+    "groups": 18,
+    "current": {
+     "unsat": 2,
+     "sat_not_absorbed": 16
+    },
+    "candidate": {
+     "unsat": 2,
+     "sat_not_absorbed": 14,
+     "absorbed": 2
+    },
+    "correct_tier1_newly_audited_groups": 2
+   },
+   "3": {
+    "groups": 18,
+    "current": {
+     "sat_not_absorbed": 18
+    },
+    "candidate": {
+     "sat_not_absorbed": 18
+    },
+    "correct_tier1_newly_audited_groups": 0
+   },
+   "4": {
+    "groups": 18,
+    "current": {
+     "sat_not_absorbed": 18
+    },
+    "candidate": {
+     "sat_not_absorbed": 18
+    },
+    "correct_tier1_newly_audited_groups": 0
+   }
+  },
+  "negative_control": {
+   "groups": 13,
+   "current": {
+    "sat_not_absorbed": 13
+   },
+   "candidate": {
+    "sat_not_absorbed": 13
+   }
+  }
+ },
+ "rows": [
+  {
+   "name": "k=0 w=0 none d=+0",
+   "k": 0,
+   "w": 0,
+   "kind": "none",
+   "d": 0,
+   "stopped": [],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null
+  },
+  {
+   "name": "k=0 w=0 tier1 d=-5",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=0 w=0 tier1 d=-4",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=0 w=0 tier1 d=-3",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=0 w=0 tier1 d=-2",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=0 w=0 tier1 d=-1",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=0 w=0 tier1 d=+1",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=0 w=0 tier1 d=+2",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=0 w=0 tier1 d=+3",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=0 w=0 tier1 d=+4",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=0 w=0 tier1 d=+5",
+   "k": 0,
+   "w": 0,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": null,
+   "stopped_window_sum": null,
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 none d=+0",
+   "k": 1,
+   "w": 1,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ]
+  },
+  {
+   "name": "k=1 w=1 tier1 d=-5",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 tier1 d=-4",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 tier1 d=-3",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    6.0,
+    6.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 tier1 d=-2",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    5.0,
+    5.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 tier1 d=-1",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    4.0,
+    4.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 tier1 d=+1",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    2.0,
+    2.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 tier1 d=+2",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    1.0,
+    1.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 tier1 d=+3",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    0.0,
+    0.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 tier1 d=+4",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    -1.0,
+    -1.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 tier1 d=+5",
+   "k": 1,
+   "w": 1,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    -2.0,
+    -2.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=1 stopped d=-3",
+   "k": 1,
+   "w": 1,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    -0.5,
+    1.5
+   ]
+  },
+  {
+   "name": "k=1 w=1 stopped d=-2",
+   "k": 1,
+   "w": 1,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    0.0,
+    2.0
+   ]
+  },
+  {
+   "name": "k=1 w=1 stopped d=-1",
+   "k": 1,
+   "w": 1,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    1.0,
+    3.0
+   ]
+  },
+  {
+   "name": "k=1 w=1 stopped d=+1",
+   "k": 1,
+   "w": 1,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    3.0,
+    5.0
+   ]
+  },
+  {
+   "name": "k=1 w=1 stopped d=+2",
+   "k": 1,
+   "w": 1,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    4.0,
+    6.0
+   ]
+  },
+  {
+   "name": "k=1 w=1 stopped d=+3",
+   "k": 1,
+   "w": 1,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    7.0
+   ]
+  },
+  {
+   "name": "k=1 w=2 none d=+0",
+   "k": 1,
+   "w": 2,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ]
+  },
+  {
+   "name": "k=1 w=2 tier1 d=-5",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 tier1 d=-4",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 tier1 d=-3",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    6.0,
+    6.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 tier1 d=-2",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    5.0,
+    5.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 tier1 d=-1",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    4.0,
+    4.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 tier1 d=+1",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    2.0,
+    2.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 tier1 d=+2",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    1.0,
+    1.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 tier1 d=+3",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    0.0,
+    0.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 tier1 d=+4",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    -1.0,
+    -1.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 tier1 d=+5",
+   "k": 1,
+   "w": 2,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    -2.0,
+    -2.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=2 stopped d=-3",
+   "k": 1,
+   "w": 2,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    0.0,
+    2.0
+   ]
+  },
+  {
+   "name": "k=1 w=2 stopped d=-2",
+   "k": 1,
+   "w": 2,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    0.5,
+    2.5
+   ]
+  },
+  {
+   "name": "k=1 w=2 stopped d=-1",
+   "k": 1,
+   "w": 2,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    1.0,
+    3.0
+   ]
+  },
+  {
+   "name": "k=1 w=2 stopped d=+1",
+   "k": 1,
+   "w": 2,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    3.0,
+    5.0
+   ]
+  },
+  {
+   "name": "k=1 w=2 stopped d=+2",
+   "k": 1,
+   "w": 2,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    4.0,
+    6.0
+   ]
+  },
+  {
+   "name": "k=1 w=2 stopped d=+3",
+   "k": 1,
+   "w": 2,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    7.0
+   ]
+  },
+  {
+   "name": "k=1 w=3 none d=+0",
+   "k": 1,
+   "w": 3,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ]
+  },
+  {
+   "name": "k=1 w=3 tier1 d=-5",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 tier1 d=-4",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 tier1 d=-3",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    6.0,
+    6.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 tier1 d=-2",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    5.0,
+    5.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 tier1 d=-1",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    4.0,
+    4.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 tier1 d=+1",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    2.0,
+    2.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 tier1 d=+2",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    1.0,
+    1.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 tier1 d=+3",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    0.0,
+    0.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 tier1 d=+4",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    -1.0,
+    -1.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 tier1 d=+5",
+   "k": 1,
+   "w": 3,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    -2.0,
+    -2.0
+   ],
+   "stopped_window_sum": [
+    2.0,
+    4.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=1 w=3 stopped d=-3",
+   "k": 1,
+   "w": 3,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    0.5,
+    2.5
+   ]
+  },
+  {
+   "name": "k=1 w=3 stopped d=-2",
+   "k": 1,
+   "w": 3,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    1.0,
+    3.0
+   ]
+  },
+  {
+   "name": "k=1 w=3 stopped d=-1",
+   "k": 1,
+   "w": 3,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    1.5,
+    3.5
+   ]
+  },
+  {
+   "name": "k=1 w=3 stopped d=+1",
+   "k": 1,
+   "w": 3,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    3.0,
+    5.0
+   ]
+  },
+  {
+   "name": "k=1 w=3 stopped d=+2",
+   "k": 1,
+   "w": 3,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    4.0,
+    6.0
+   ]
+  },
+  {
+   "name": "k=1 w=3 stopped d=+3",
+   "k": 1,
+   "w": 3,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    7.0
+   ]
+  },
+  {
+   "name": "k=2 w=1 none d=+0",
+   "k": 2,
+   "w": 1,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ]
+  },
+  {
+   "name": "k=2 w=1 tier1 d=-5",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    12.0,
+    12.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=1 tier1 d=-4",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    11.0,
+    11.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=1 tier1 d=-3",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=1 tier1 d=-2",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    9.0,
+    9.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=2 w=1 tier1 d=-1",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=1 tier1 d=+1",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    6.0,
+    6.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=1 tier1 d=+2",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    5.0,
+    5.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=2 w=1 tier1 d=+3",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    4.0,
+    4.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=1 tier1 d=+4",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=1 tier1 d=+5",
+   "k": 2,
+   "w": 1,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    2.0,
+    2.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=1 stopped d=-3",
+   "k": 2,
+   "w": 1,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    2.5,
+    6.5
+   ]
+  },
+  {
+   "name": "k=2 w=1 stopped d=-2",
+   "k": 2,
+   "w": 1,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    3.0,
+    7.0
+   ]
+  },
+  {
+   "name": "k=2 w=1 stopped d=-1",
+   "k": 2,
+   "w": 1,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    4.0,
+    8.0
+   ]
+  },
+  {
+   "name": "k=2 w=1 stopped d=+1",
+   "k": 2,
+   "w": 1,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    6.0,
+    10.0
+   ]
+  },
+  {
+   "name": "k=2 w=1 stopped d=+2",
+   "k": 2,
+   "w": 1,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    11.0
+   ]
+  },
+  {
+   "name": "k=2 w=1 stopped d=+3",
+   "k": 2,
+   "w": 1,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    8.0,
+    12.0
+   ]
+  },
+  {
+   "name": "k=2 w=2 none d=+0",
+   "k": 2,
+   "w": 2,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ]
+  },
+  {
+   "name": "k=2 w=2 tier1 d=-5",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    12.0,
+    12.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=2 tier1 d=-4",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0",
+    "door_5"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    11.0,
+    11.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=2 tier1 d=-3",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=2 tier1 d=-2",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    9.0,
+    9.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=2 w=2 tier1 d=-1",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=2 tier1 d=+1",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    6.0,
+    6.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=2 tier1 d=+2",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    5.0,
+    5.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=2 w=2 tier1 d=+3",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    4.0,
+    4.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=2 tier1 d=+4",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0",
+    "door_5"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=2 tier1 d=+5",
+   "k": 2,
+   "w": 2,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    2.0,
+    2.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=2 stopped d=-3",
+   "k": 2,
+   "w": 2,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    3.0,
+    7.0
+   ]
+  },
+  {
+   "name": "k=2 w=2 stopped d=-2",
+   "k": 2,
+   "w": 2,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    3.5,
+    7.5
+   ]
+  },
+  {
+   "name": "k=2 w=2 stopped d=-1",
+   "k": 2,
+   "w": 2,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    4.0,
+    8.0
+   ]
+  },
+  {
+   "name": "k=2 w=2 stopped d=+1",
+   "k": 2,
+   "w": 2,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    6.0,
+    10.0
+   ]
+  },
+  {
+   "name": "k=2 w=2 stopped d=+2",
+   "k": 2,
+   "w": 2,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    11.0
+   ]
+  },
+  {
+   "name": "k=2 w=2 stopped d=+3",
+   "k": 2,
+   "w": 2,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    8.0,
+    12.0
+   ]
+  },
+  {
+   "name": "k=2 w=3 none d=+0",
+   "k": 2,
+   "w": 3,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ]
+  },
+  {
+   "name": "k=2 w=3 tier1 d=-5",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0",
+    "door_5"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    12.0,
+    12.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=3 tier1 d=-4",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    11.0,
+    11.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=3 tier1 d=-3",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=3 tier1 d=-2",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    9.0,
+    9.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=2 w=3 tier1 d=-1",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=3 tier1 d=+1",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    6.0,
+    6.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=3 tier1 d=+2",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    5.0,
+    5.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=2 w=3 tier1 d=+3",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    4.0,
+    4.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=3 tier1 d=+4",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    3.0,
+    3.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=3 tier1 d=+5",
+   "k": 2,
+   "w": 3,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "absorbed",
+   "current_absorbing": [
+    "door_0",
+    "door_5"
+   ],
+   "current_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    2.0,
+    2.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    9.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=2 w=3 stopped d=-3",
+   "k": 2,
+   "w": 3,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    3.5,
+    7.5
+   ]
+  },
+  {
+   "name": "k=2 w=3 stopped d=-2",
+   "k": 2,
+   "w": 3,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    4.0,
+    8.0
+   ]
+  },
+  {
+   "name": "k=2 w=3 stopped d=-1",
+   "k": 2,
+   "w": 3,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    4.5,
+    8.5
+   ]
+  },
+  {
+   "name": "k=2 w=3 stopped d=+1",
+   "k": 2,
+   "w": 3,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    6.0,
+    10.0
+   ]
+  },
+  {
+   "name": "k=2 w=3 stopped d=+2",
+   "k": 2,
+   "w": 3,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    11.0
+   ]
+  },
+  {
+   "name": "k=2 w=3 stopped d=+3",
+   "k": 2,
+   "w": 3,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    8.0,
+    12.0
+   ]
+  },
+  {
+   "name": "k=3 w=1 none d=+0",
+   "k": 3,
+   "w": 1,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ]
+  },
+  {
+   "name": "k=3 w=1 tier1 d=-5",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    15.0,
+    15.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=1 tier1 d=-4",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    14.0,
+    14.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=1 tier1 d=-3",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=1 tier1 d=-2",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    12.0,
+    12.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=1 tier1 d=-1",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    11.0,
+    11.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=1 tier1 d=+1",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    9.0,
+    9.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=1 tier1 d=+2",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=1 tier1 d=+3",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=1 tier1 d=+4",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    6.0,
+    6.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=1 tier1 d=+5",
+   "k": 3,
+   "w": 1,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    5.0,
+    5.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=1 stopped d=-3",
+   "k": 3,
+   "w": 1,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    4.5,
+    10.5
+   ]
+  },
+  {
+   "name": "k=3 w=1 stopped d=-2",
+   "k": 3,
+   "w": 1,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    11.0
+   ]
+  },
+  {
+   "name": "k=3 w=1 stopped d=-1",
+   "k": 3,
+   "w": 1,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    6.0,
+    12.0
+   ]
+  },
+  {
+   "name": "k=3 w=1 stopped d=+1",
+   "k": 3,
+   "w": 1,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    8.0,
+    14.0
+   ]
+  },
+  {
+   "name": "k=3 w=1 stopped d=+2",
+   "k": 3,
+   "w": 1,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    15.0
+   ]
+  },
+  {
+   "name": "k=3 w=1 stopped d=+3",
+   "k": 3,
+   "w": 1,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    10.0,
+    16.0
+   ]
+  },
+  {
+   "name": "k=3 w=2 none d=+0",
+   "k": 3,
+   "w": 2,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ]
+  },
+  {
+   "name": "k=3 w=2 tier1 d=-5",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    15.0,
+    15.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=2 tier1 d=-4",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    14.0,
+    14.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=2 tier1 d=-3",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=2 tier1 d=-2",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    12.0,
+    12.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=2 tier1 d=-1",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    11.0,
+    11.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=2 tier1 d=+1",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    9.0,
+    9.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=2 tier1 d=+2",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=2 tier1 d=+3",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=2 tier1 d=+4",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    6.0,
+    6.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=2 tier1 d=+5",
+   "k": 3,
+   "w": 2,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    5.0,
+    5.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=2 stopped d=-3",
+   "k": 3,
+   "w": 2,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    5.0,
+    11.0
+   ]
+  },
+  {
+   "name": "k=3 w=2 stopped d=-2",
+   "k": 3,
+   "w": 2,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    5.5,
+    11.5
+   ]
+  },
+  {
+   "name": "k=3 w=2 stopped d=-1",
+   "k": 3,
+   "w": 2,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    6.0,
+    12.0
+   ]
+  },
+  {
+   "name": "k=3 w=2 stopped d=+1",
+   "k": 3,
+   "w": 2,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    8.0,
+    14.0
+   ]
+  },
+  {
+   "name": "k=3 w=2 stopped d=+2",
+   "k": 3,
+   "w": 2,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    15.0
+   ]
+  },
+  {
+   "name": "k=3 w=2 stopped d=+3",
+   "k": 3,
+   "w": 2,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    10.0,
+    16.0
+   ]
+  },
+  {
+   "name": "k=3 w=3 none d=+0",
+   "k": 3,
+   "w": 3,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ]
+  },
+  {
+   "name": "k=3 w=3 tier1 d=-5",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    15.0,
+    15.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=3 tier1 d=-4",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    14.0,
+    14.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=3 tier1 d=-3",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=3 tier1 d=-2",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    12.0,
+    12.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=3 tier1 d=-1",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    11.0,
+    11.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=3 tier1 d=+1",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    9.0,
+    9.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=3 tier1 d=+2",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=3 tier1 d=+3",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    7.0,
+    7.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=3 w=3 tier1 d=+4",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    6.0,
+    6.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=3 tier1 d=+5",
+   "k": 3,
+   "w": 3,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_7",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    5.0,
+    5.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    13.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=3 w=3 stopped d=-3",
+   "k": 3,
+   "w": 3,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    5.5,
+    11.5
+   ]
+  },
+  {
+   "name": "k=3 w=3 stopped d=-2",
+   "k": 3,
+   "w": 3,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    6.0,
+    12.0
+   ]
+  },
+  {
+   "name": "k=3 w=3 stopped d=-1",
+   "k": 3,
+   "w": 3,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    6.5,
+    12.5
+   ]
+  },
+  {
+   "name": "k=3 w=3 stopped d=+1",
+   "k": 3,
+   "w": 3,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    8.0,
+    14.0
+   ]
+  },
+  {
+   "name": "k=3 w=3 stopped d=+2",
+   "k": 3,
+   "w": 3,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    15.0
+   ]
+  },
+  {
+   "name": "k=3 w=3 stopped d=+3",
+   "k": 3,
+   "w": 3,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    10.0,
+    16.0
+   ]
+  },
+  {
+   "name": "k=4 w=1 none d=+0",
+   "k": 4,
+   "w": 1,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ]
+  },
+  {
+   "name": "k=4 w=1 tier1 d=-5",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    18.0,
+    18.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=1 tier1 d=-4",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    17.0,
+    17.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=1 tier1 d=-3",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    16.0,
+    16.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=1 tier1 d=-2",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    15.0,
+    15.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=1 tier1 d=-1",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    14.0,
+    14.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=1 tier1 d=+1",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    12.0,
+    12.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=1 tier1 d=+2",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    11.0,
+    11.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=1 tier1 d=+3",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=1 tier1 d=+4",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    9.0,
+    9.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=1 tier1 d=+5",
+   "k": 4,
+   "w": 1,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "unsat",
+   "current_absorbing": [],
+   "current_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate": "unsat",
+   "candidate_audit": [
+    "door_0",
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_5",
+    "door_6",
+    "door_7",
+    "door_8",
+    "door_9"
+   ],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=1 stopped d=-3",
+   "k": 4,
+   "w": 1,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    6.5,
+    14.5
+   ]
+  },
+  {
+   "name": "k=4 w=1 stopped d=-2",
+   "k": 4,
+   "w": 1,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    15.0
+   ]
+  },
+  {
+   "name": "k=4 w=1 stopped d=-1",
+   "k": 4,
+   "w": 1,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    8.0,
+    16.0
+   ]
+  },
+  {
+   "name": "k=4 w=1 stopped d=+1",
+   "k": 4,
+   "w": 1,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    10.0,
+    18.0
+   ]
+  },
+  {
+   "name": "k=4 w=1 stopped d=+2",
+   "k": 4,
+   "w": 1,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    11.0,
+    19.0
+   ]
+  },
+  {
+   "name": "k=4 w=1 stopped d=+3",
+   "k": 4,
+   "w": 1,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    12.0,
+    20.0
+   ]
+  },
+  {
+   "name": "k=4 w=2 none d=+0",
+   "k": 4,
+   "w": 2,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ]
+  },
+  {
+   "name": "k=4 w=2 tier1 d=-5",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    18.0,
+    18.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=2 tier1 d=-4",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    17.0,
+    17.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=2 tier1 d=-3",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    16.0,
+    16.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=2 tier1 d=-2",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    15.0,
+    15.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=2 tier1 d=-1",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    14.0,
+    14.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=2 tier1 d=+1",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    12.0,
+    12.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=2 tier1 d=+2",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    11.0,
+    11.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=2 tier1 d=+3",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=2 tier1 d=+4",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    9.0,
+    9.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=2 tier1 d=+5",
+   "k": 4,
+   "w": 2,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=2 stopped d=-3",
+   "k": 4,
+   "w": 2,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    7.0,
+    15.0
+   ]
+  },
+  {
+   "name": "k=4 w=2 stopped d=-2",
+   "k": 4,
+   "w": 2,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    7.5,
+    15.5
+   ]
+  },
+  {
+   "name": "k=4 w=2 stopped d=-1",
+   "k": 4,
+   "w": 2,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    8.0,
+    16.0
+   ]
+  },
+  {
+   "name": "k=4 w=2 stopped d=+1",
+   "k": 4,
+   "w": 2,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    10.0,
+    18.0
+   ]
+  },
+  {
+   "name": "k=4 w=2 stopped d=+2",
+   "k": 4,
+   "w": 2,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    11.0,
+    19.0
+   ]
+  },
+  {
+   "name": "k=4 w=2 stopped d=+3",
+   "k": 4,
+   "w": 2,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    12.0,
+    20.0
+   ]
+  },
+  {
+   "name": "k=4 w=3 none d=+0",
+   "k": 4,
+   "w": 3,
+   "kind": "none",
+   "d": 0,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ]
+  },
+  {
+   "name": "k=4 w=3 tier1 d=-5",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": -5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    18.0,
+    18.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=3 tier1 d=-4",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": -4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    17.0,
+    17.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=3 tier1 d=-3",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    16.0,
+    16.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=3 tier1 d=-2",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    15.0,
+    15.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=3 tier1 d=-1",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    14.0,
+    14.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=3 tier1 d=+1",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    12.0,
+    12.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_element_tolerance",
+   "current_slip": false,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=3 tier1 d=+2",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    11.0,
+    11.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=3 tier1 d=+3",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    10.0,
+    10.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=3 tier1 d=+4",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": 4,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    9.0,
+    9.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "within_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": true
+  },
+  {
+   "name": "k=4 w=3 tier1 d=+5",
+   "k": 4,
+   "w": 3,
+   "kind": "tier1",
+   "d": 5,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "absorbed",
+   "candidate_audit": [
+    "door_1",
+    "door_2",
+    "door_3",
+    "door_4",
+    "door_6",
+    "door_8"
+   ],
+   "candidate_by_group_formula_only": true,
+   "audit_changed": true,
+   "residual": [
+    8.0,
+    8.0
+   ],
+   "stopped_window_sum": [
+    9.0,
+    17.0
+   ],
+   "band": "beyond_group_tolerance",
+   "current_slip": true,
+   "candidate_slip": false
+  },
+  {
+   "name": "k=4 w=3 stopped d=-3",
+   "k": 4,
+   "w": 3,
+   "kind": "stopped",
+   "d": -3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    7.5,
+    15.5
+   ]
+  },
+  {
+   "name": "k=4 w=3 stopped d=-2",
+   "k": 4,
+   "w": 3,
+   "kind": "stopped",
+   "d": -2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    8.0,
+    16.0
+   ]
+  },
+  {
+   "name": "k=4 w=3 stopped d=-1",
+   "k": 4,
+   "w": 3,
+   "kind": "stopped",
+   "d": -1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    8.5,
+    16.5
+   ]
+  },
+  {
+   "name": "k=4 w=3 stopped d=+1",
+   "k": 4,
+   "w": 3,
+   "kind": "stopped",
+   "d": 1,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    10.0,
+    18.0
+   ]
+  },
+  {
+   "name": "k=4 w=3 stopped d=+2",
+   "k": 4,
+   "w": 3,
+   "kind": "stopped",
+   "d": 2,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    11.0,
+    19.0
+   ]
+  },
+  {
+   "name": "k=4 w=3 stopped d=+3",
+   "k": 4,
+   "w": 3,
+   "kind": "stopped",
+   "d": 3,
+   "stopped": [
+    "door_0",
+    "door_5",
+    "door_9",
+    "door_7"
+   ],
+   "current": "sat_not_absorbed",
+   "current_absorbing": [],
+   "current_audit": [],
+   "candidate": "sat_not_absorbed",
+   "candidate_audit": [],
+   "candidate_by_group_formula_only": false,
+   "audit_changed": false,
+   "residual": [
+    13.0,
+    13.0
+   ],
+   "stopped_window_sum": [
+    12.0,
+    20.0
+   ]
+  }
+ ]
+}
