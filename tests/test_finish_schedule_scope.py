@@ -565,3 +565,23 @@ def test_same_as_above_is_no_longer_in_the_undetermined_list() -> None:
     """**「同上」は「まだ決まっていない」ではない**(K-10 1番、おーちゃんの訂正)。"""
     assert "同上" not in BASE_UNDETERMINED
     assert "同上" in BASE_SAME_AS_ABOVE
+
+
+@pytest.mark.parametrize("word", ["同上", "〃"])
+def test_the_ditto_mark_is_read_the_same_way_as_the_word(
+    tmp_path: Path, word: str
+) -> None:
+    """**「〃」も「同上」と同じ問いに回す**(札、2026-09-23 23:47)。
+
+    表で「同上」と書くか「〃」と書くかは書き手の癖でしかない。**片方だけ
+    問いに回すと、同じ意味の行が図面によって別の扱いになる。**
+    引き継がないところも同じで、上の行の下地は当てない。
+    """
+    result = _one_row(tmp_path, word)
+
+    assert result.assignments[1].reading == READING_QUESTION
+    question = result.questions[0]
+    assert question.cause == CAUSE_SAME_AS_ABOVE
+    assert question.question == "この行の下地は、上の行と同じですか"
+    assert question.previous_base == "軸組新設"
+    assert [i.work_kind for i in result.assignments[1].items] == [WORK_UNDECIDED]
