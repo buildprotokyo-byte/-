@@ -59,7 +59,7 @@ WebSearchの要約では、共同住宅に関わる規制として窓先空地�
 | 公共建築工事積算基準等資料 | 令和8年改定 | https://www.mlit.go.jp/gobuild/content/001733150.pdf | 公共基準 | 書誌のみ | 含む可能性(未読) |
 | 公共建築工事標準単価積算基準 | 令和8年改定 | https://www.mlit.go.jp/gobuild/content/001733127.pdf | 公共基準 | 書誌のみ | 単価側のため対象外 |
 | 公共建築工事標準仕様書(建築工事編) | 令和7年版 | https://www.mlit.go.jp/gobuild/content/001888816.pdf | 公共基準 | 書誌のみ | 含まない(施工方法・材料仕様が中心) |
-| **公共建築改修工事標準仕様書(建築工事編)** | 令和7年版(令和7年3月12日決定) | 本文 https://www.mlit.go.jp/gobuild/content/001888823.pdf / 正誤表 https://www.mlit.go.jp/gobuild/content/001888884.pdf / 概要 https://www.mlit.go.jp/common/001473988.pdf | 公共基準 | 書誌のみ(次回本文、改修工事の施工方法基準として数量積算基準と対になる) | 含まない想定(施工方法中心) |
+| **公共建築改修工事標準仕様書(建築工事編)** | 令和7年版(令和7年3月12日決定) | 本文 https://www.mlit.go.jp/gobuild/content/001888823.pdf(299頁、11MB。WebFetchは10MB上限で失敗、curlで直接取得しpdfminerでテキスト化) / 正誤表 https://www.mlit.go.jp/gobuild/content/001888884.pdf / 概要 https://www.mlit.go.jp/common/001473988.pdf | 公共基準 | **直読(4周目)。全章立て(1〜8章以降)と、第1章(共通事項)・第5章(建具改修工事、かぶせ工法/撤去工法の定義)を確認** | 施工方法中心で数量は含まないが、工法の定義(かぶせ/撤去)は数量の数え方の前提として重要。要点は[candidates.md](./candidates.md) F節・C-4 |
 | **建築工事設計図書作成基準** | 令和2年改定 | https://www.mlit.go.jp/common/001157950.pdf | 公共基準 | **直読(3周目)。全6章のうち第3章(基本製図・尺度・寸法・表示記号)、第4章(図面の並び30種)、第5章(改修工事の図面)を確認** | 図面の描き方そのもの。要点は[candidates.md](./candidates.md) E節 |
 | 建築設備工事設計図書作成基準 | 令和6年改定 | https://www.mlit.go.jp/gobuild/content/001390977.pdf | 公共基準 | 書誌のみ | 同上(設備図面) |
 
