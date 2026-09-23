@@ -57,6 +57,10 @@ from arbitration.inference_orchestrator import MethodPolicy
 #: (逆向きに import すると循環する)。
 METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 
+#: 人が室ごとに入れた縦・横・天井高の手法ID。実体は `intake/room_dimensions.py`
+#: にあるが、基準点と同じ理由でここに文字列として置く。
+METHOD_HUMAN_ROOM_DIMENSIONS = "human_room_dimensions"
+
 #: 手法IDごとの、このリポジトリで認められた上限。
 #:
 #: 出どころ(いずれも実測に基づく決定):
@@ -78,6 +82,18 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   それだけを根拠に自動確定させない**というおーちゃんの指示(2026-09-22)を
 #:   コードで担保するため、ここで未校正として登録する。`calibrated=False` の
 #:   あいだは `is_hard_eligible` が False になり、ハード制約に入らない。
+#: - ``human_room_dimensions`` … 人が室ごとに入れた縦・横・天井高から
+#:   床面積・周長・内壁面積を計算する(`intake/room_dimensions.py`、
+#:   `estimating/from_room_dimensions.py`)。**未校正・上限 weak。**
+#:   上限を ``weak`` にした理由は 4 つある。
+#:   ①**校正していない。** 人が入れた寸法の誤り率を独立のデータで測っていない。
+#:   ②**室を長方形とみなしている。** L 字の室では周長が実際より短く出る。
+#:   ③**開口を引いていない。** 内壁面積は建具の面積を含んだままである。
+#:   ④**独立した証言が 2 つできてしまう危険がある。** 人の入力は図面とは
+#:   別のデータ源なので、ここを ``calibrated=True`` にすると、
+#:   **人が 1 回入れた値と図面の印字が合っただけで階層1(自動確定)に届く。**
+#:   `human_reference_point` と `pdf_text_scale` で確認済みの裏返しの危険と
+#:   同じ形である。
 #: - ``pdf_text_area`` … 図面に**文字として書かれている**面積の記載をそのまま
 #:   読む(`axes/image_axis/pdf_vector_symbols.find_area_labels`)。
 #:   上限は ``strong`` にしてあるが **``calibrated=False``** なので、
@@ -132,6 +148,7 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_DOOR_ARC: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_HUMAN_REFERENCE_POINT: MethodPolicy(calibrated=False, max_strength="strong"),
+    METHOD_HUMAN_ROOM_DIMENSIONS: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_DOOR_SCHEDULE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_OCR_TEXT_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
