@@ -1,6 +1,27 @@
 """人が入れた室の寸法を、図面に印字された寸法と突き合わせる。
 
-2026-09-23、22周目。**この層が出すのは「食い違っている」という指摘だけである。**
+2026-09-23、22周目。23周目に出し方を直した。
+
+**この層は一般の検算ではない。桁違いの見張りである。**
+
+なぜ名前を狭めたか(23周目、測って決めた)
+------------------------------------------
+22 周目に、**正しく入れた値でも「食い違い」として出てしまう割合**を測ったところ、
+2 区間の和で **0.986**、3 区間の和で **0.997** だった。
+壁の寸法は区間ごとに分けて印字されるので、**室の寸法は「区間の和」になるのが普通**である。
+
+原因は、**「間違っている」と「確かめられない」を同じに数えていた**ことだった
+(20 周目に語彙の測定で見つけたのと同じ形)。そこで 3 つに分けた。
+
+| 結果 | 意味 | 指摘として出すか |
+|---|---|---|
+| `印字にある` | その値がそのまま印字されている | 出さない |
+| **`桁が違う見込み`** | 10 倍・10 分の 1 が印字されている | **出す** |
+| **`確かめられない`** | この値はこのページに印字されていない | **出さない** |
+
+**`確かめられない` を指摘にしない。** 区間に分かれていれば正しくてもこうなるので、
+**指摘にすると、ほとんどの室で空振りする。**
+ただし**黙らせもしない。** `unverifiable` と「確かめられない率」で数える。
 
 一致しても確定させない(いちばん大事なところ)
 ----------------------------------------------
@@ -40,8 +61,12 @@ from axes.image_axis.printed_dimensions import METHOD_PRINTED_DIMENSION
 
 #: 突き合わせの結果。
 FOUND = "印字にある"
-NOT_FOUND = "印字に無い"
+UNVERIFIABLE = "確かめられない"
 DIGIT_SHIFT = "桁が違う見込み"
+
+#: 22 周目の名前。**外向きの意味が変わったので名前も変えた。**
+#: 古い名前を残しておくと「印字に無い = 間違い」と読まれ続ける。
+NOT_FOUND = UNVERIFIABLE
 
 #: 桁違いとして見る倍率。
 DIGIT_FACTORS: tuple[int, ...] = (10, 100)
@@ -61,7 +86,16 @@ class DimensionFinding:
 
     @property
     def is_mismatch(self) -> bool:
-        return self.status != FOUND
+        """**間違いの見込みが高いものだけ。**
+
+        `確かめられない` を真にしない。区間に分かれて印字されていれば
+        正しくてもそうなるので、**指摘にすると空振りする**(23周目に測った)。
+        """
+        return self.status == DIGIT_SHIFT
+
+    @property
+    def is_unverifiable(self) -> bool:
+        return self.status == UNVERIFIABLE
 
 
 @dataclass(frozen=True)
@@ -74,12 +108,28 @@ class DimensionCheckResult:
 
     @property
     def mismatches(self) -> tuple[DimensionFinding, ...]:
+        """**指摘。桁違いだけ。**"""
         return tuple(f for f in self.findings if f.is_mismatch)
 
+    @property
+    def unverifiable(self) -> tuple[DimensionFinding, ...]:
+        """**確かめられなかったもの。黙らせずに数える。**"""
+        return tuple(f for f in self.findings if f.is_unverifiable)
+
+    @property
+    def unverifiable_rate(self) -> float | None:
+        """確かめられない率。突き合わせが 0 件なら `None`。"""
+        if not self.findings:
+            return None
+        return len(self.unverifiable) / len(self.findings)
+
     def summary(self) -> str:
+        rate = self.unverifiable_rate
         return (
             f"突き合わせ {len(self.findings)} 件 / "
-            f"食い違い {len(self.mismatches)} 件 / "
+            f"指摘(桁違い) {len(self.mismatches)} 件 / "
+            f"確かめられない {len(self.unverifiable)} 件"
+            f"({'—' if rate is None else f'{rate:.3f}'}) / "
             f"印字の値 {self.printed_count} 通り"
         )
 
@@ -126,10 +176,11 @@ def check_values(
                 room_name,
                 label,
                 value,
-                NOT_FOUND,
-                "この値はこのページに印字されていない。"
-                "**間違いとは限らない**(壁の寸法が区間に分かれて印字されていると、"
-                "合計はどこにも印字されない)",
+                UNVERIFIABLE,
+                "この値はこのページに印字されていないので、**確かめられない。**"
+                "**間違いという意味ではない**(壁の寸法が区間に分かれて印字されていると、"
+                "合計はどこにも印字されない。23周目に測ったところ、"
+                "2 区間の和の 98.6% がこうなる)",
             )
         )
 
@@ -152,5 +203,6 @@ __all__ = [
     "DimensionFinding",
     "FOUND",
     "NOT_FOUND",
+    "UNVERIFIABLE",
     "check_values",
 ]

@@ -20,7 +20,7 @@ from axes.image_axis.printed_dimensions import (
 from estimating.dimension_check import (
     DIGIT_SHIFT,
     FOUND,
-    NOT_FOUND,
+    UNVERIFIABLE,
     check_values,
 )
 
@@ -132,18 +132,20 @@ def test_印字にあれば見つかる():
     assert finding.is_mismatch is False
 
 
-def test_印字に無ければ食い違いになる():
+def test_印字に無ければ確かめられないになる():
+    # **「間違い」ではない。** 区間に分かれて印字されていれば正しくてもこうなる。
     result = check_values("室A", [("縦", 3641.0)], [910, 3640])
     (finding,) = result.findings
-    assert finding.status == NOT_FOUND
-    assert finding.is_mismatch is True
+    assert finding.status == UNVERIFIABLE
+    assert finding.is_mismatch is False
+    assert finding.is_unverifiable is True
 
 
 def test_足し合わせでは一致させない():
     # **910 + 1820 = 2730 は「印字にある」にしない。**
     # 和を許すとどんな数でも一致してしまう(22周目に測って決めた)。
     result = check_values("室A", [("縦", 2730.0)], [910, 1820])
-    assert result.findings[0].status == NOT_FOUND
+    assert result.findings[0].status == UNVERIFIABLE
 
 
 def test_十倍の桁違いを名指しする():
@@ -176,17 +178,42 @@ def test_入れていない値は突き合わせない():
     assert result.findings[0].label == "横"
 
 
-def test_印字が空なら全部食い違いになる():
+def test_印字が空なら確かめられないになる():
+    # **印字が無いことを「全部間違い」にしない。**
     result = check_values("室A", [("縦", 3640.0)], [])
-    assert result.findings[0].status == NOT_FOUND
+    assert result.findings[0].status == UNVERIFIABLE
+    assert result.mismatches == ()
+    assert result.unverifiable_rate == 1.0
     assert result.printed_count == 0
 
 
-def test_食い違いだけを取り出せる():
+def test_指摘は桁違いだけである():
+    # 9999 は印字に無いだけなので指摘にしない。36400 は桁違いなので指摘にする。
+    result = check_values(
+        "室A", [("縦", 3640.0), ("横", 9999.0), ("天井高", 36400.0)], [3640]
+    )
+    assert len(result.findings) == 3
+    assert [f.label for f in result.mismatches] == ["天井高"]
+    assert [f.label for f in result.unverifiable] == ["横"]
+
+
+def test_確かめられない率を出す():
     result = check_values("室A", [("縦", 3640.0), ("横", 9999.0)], [3640])
-    assert len(result.findings) == 2
-    assert len(result.mismatches) == 1
-    assert result.mismatches[0].label == "横"
+    assert result.unverifiable_rate == 0.5
+
+
+def test_突き合わせが0件なら確かめられない率はNone():
+    result = check_values("室A", [("縦", None)], [3640])
+    assert result.findings == ()
+    assert result.unverifiable_rate is None
+
+
+def test_古い名前は新しい名前と同じものを指す():
+    # 「印字に無い = 間違い」と読まれ続けないように、意味ごと差し替えてある。
+    from estimating.dimension_check import NOT_FOUND
+
+    assert NOT_FOUND == UNVERIFIABLE
+    assert UNVERIFIABLE == "確かめられない"
 
 
 def test_突き合わせた印字の数を持つ():
