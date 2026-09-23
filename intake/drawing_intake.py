@@ -127,7 +127,7 @@ from intake.case_answers import (
 )
 from axes.reading.meaning import PHASE_UNKNOWN, PURPOSE_UNESTABLISHED, Meaning
 from intake.start_kit import (
-    DOOR_ARC_PAGE_KINDS,
+    DOOR_ARC_EXPECTED_PAGE_KINDS,
     PageDeclaration,
     PagePairing,
     ReferencePoint,
@@ -151,6 +151,14 @@ TARGET_WORK_FLOOR_AREA = "施工対象床面積"
 
 #: 長さの単位表記。`arbitration/units.py` が mm の整数へ正規化する。
 LENGTH_UNIT = "mm"
+
+#: 人が宣言したページの種類と、実際に読めた中身が食い違ったときの
+#: `PendingDecision.kind`。
+#:
+#: **食い違っても読み取りは止めない。** 止めるかわりに、読みを「仮説に
+#: 基づく」側へ落として(由来を ``assumed`` にして)自動確定から外し、
+#: この記録で人の判断へ回す(原則4の条件3・原則5)。
+PAGE_KIND_DISAGREEMENT = "page_kind_disagreement"
 
 #: 建具表から読んだ数量の対象名の頭。建具番号ごとに 1 つの対象にする。
 #:
@@ -284,7 +292,7 @@ class PendingDecision:
     """人の判断を待つことになった食い違い。**黙って片方を採らない。**"""
 
     kind: str
-    """``scale_disagreement`` / ``area_basis_conflict``。"""
+    """``scale_disagreement`` / ``area_basis_conflict`` / ``page_kind_disagreement``。"""
 
     detail: str
     observed: tuple[tuple[str, float], ...] = ()
@@ -930,7 +938,7 @@ def _extract(
 
         # 表の読み取りは縮尺に依存しない。印字された文字を読むだけなので、
         # 縮尺が読めないページでも、読みが食い違ったページでも表は読める。
-        _read_schedules(
+        door_schedule_count, finish_schedule_count = _read_schedules(
             pdf_path,
             index,
             notes=notes,
@@ -953,18 +961,22 @@ def _extract(
             )
 
         if scale is not None:
-            if declaration is not None and declaration.kind not in DOOR_ARC_PAGE_KINDS:
-                # 人が「建具表」「仕上表」と宣言したページで円弧を探すと、
-                # 表の罫線や記号を建具として拾いうる。宣言があるなら従う。
-                notes.append(
-                    f"人が「{declaration.kind}」と宣言したページなので開き戸は探さない"
+            # **宣言でページを外さない。** 人が「建具表」と宣言していても
+            # 円弧は探す(原則4の条件3「図面の読み方を縛らない」)。
+            # 宣言と食い違ったときの扱いは `_door_arc_findings` の中。
+            findings.extend(
+                _door_arc_findings(
+                    pdf_path,
+                    index,
+                    page_number,
+                    scale,
+                    declaration,
+                    notes,
+                    pending=pending,
+                    door_schedule_count=door_schedule_count,
+                    finish_schedule_count=finish_schedule_count,
                 )
-            else:
-                findings.extend(
-                    _door_arc_findings(
-                        pdf_path, index, page_number, scale, declaration, notes
-                    )
-                )
+            )
 
         outcomes.append(
             PageOutcome(
@@ -1113,8 +1125,14 @@ def _read_schedules(
     door_rows: list[DoorScheduleRow],
     finish_rows: list[FinishScheduleRow],
     door_quantity_hits: dict[str, list[tuple[float, dict[str, Any]]]],
-) -> None:
-    """1 ページぶんの建具表・内装仕上表を読み、結果を呼び出し側の器に足す。"""
+) -> tuple[int, int]:
+    """1 ページぶんの建具表・内装仕上表を読み、結果を呼び出し側の器に足す。
+
+    返すのは、そのページで**表として読めた**建具表と内装仕上表の数である。
+    人が宣言したページの種類と突き合わせる材料に使う(原則5)。
+    **0 件は「表が無い」ではない。** 罫線で組まれていない表とスキャンの
+    ページは、この経路では読めない。
+    """
     door_schedules = read_door_schedules(pdf_path, index)
     if not door_schedules:
         notes.append(
@@ -1145,6 +1163,8 @@ def _read_schedules(
         )
     for schedule in finish_schedules:
         finish_rows.extend(schedule.rows)
+
+    return len(door_schedules), len(finish_schedules)
 
 
 def _door_quantity_findings(
@@ -1372,11 +1392,88 @@ def _door_arc_findings(
     scale: DrawingScale,
     declaration: PageDeclaration | None,
     notes: list[str],
+    *,
+    pending: list[PendingDecision],
+    door_schedule_count: int = 0,
+    finish_schedule_count: int = 0,
 ) -> list[DrawingFinding]:
+    """そのページの開き戸の円弧を数える。**人の宣言では止めない。**
+
+    人が宣言したページの種類は**弱い手がかり**であって、読み取りの範囲では
+    ない(原則4の条件3)。宣言が「平面図」以外でも円弧は探し、出た件数は
+    そのまま出す(原則5「前提が揃うまで止めるのではなく、何に基づくかを
+    区別して出す」)。
+
+    宣言と読み取りが食い違ったとき(「建具表」と宣言されたページで円弧が
+    出たとき)にすることは 3 つある。
+
+    1. **読みを捨てない。** 値は出す。
+    2. 由来を ``assumed`` にする。表の罫線や姿図の記号を開き戸と
+       取り違えているかもしれない、という**仮説の上に乗っている**ため。
+       見積の行では「仮説に基づく」になり、階層1(自動確定)には上がらない。
+    3. 食い違いを `PendingDecision` に残して人へ回す。同じページで建具表が
+       実際に表として読めていれば、それも材料として書く
+       (**人の宣言のほうが正しい場合もある**)。
+
+    円弧が 0 件のときは食い違いを立てない。**捨てられた読みが無い**ので、
+    正しい宣言のたびに人へ質問が飛ぶのを避ける。
+    """
     arcs = find_door_arcs(pdf_path, index, scale)
+    declared_kind = declaration.kind if declaration is not None else None
+    unexpected_here = (
+        declared_kind is not None
+        and declared_kind not in DOOR_ARC_EXPECTED_PAGE_KINDS
+    )
     if not arcs:
         notes.append("開き戸の円弧は 0 件(引戸・折戸はこの手法では拾えない)")
+        if unexpected_here:
+            notes.append(
+                f"人が「{declared_kind}」と宣言したページでも円弧は探した"
+                "(宣言は読み取りの範囲を決めない)。結果は 0 件で、"
+                "宣言と食い違わなかった"
+            )
         return []
+
+    conflict = unexpected_here
+    if conflict:
+        notes.append(
+            f"人が「{declared_kind}」と宣言したページだが、開き戸の円弧が "
+            f"{len(arcs)} 件出た。**宣言を理由に捨てていない。** ただし表の罫線や"
+            "姿図の記号を取り違えている可能性があるので、この値は"
+            "「仮説に基づく」として出し、食い違いを人の判断へ回した"
+        )
+        observed: list[tuple[str, float]] = [("開き戸の円弧", float(len(arcs)))]
+        if door_schedule_count:
+            observed.append(("読めた建具表", float(door_schedule_count)))
+        if finish_schedule_count:
+            observed.append(("読めた内装仕上表", float(finish_schedule_count)))
+        detail = (
+            f"ページ{page_number}は人が「{declared_kind}」と宣言しているが、"
+            f"開き戸の円弧が {len(arcs)} 件読めた。"
+            "宣言が誤っている(実際は平面図、または平面図が同居している)のか、"
+            "表の罫線・姿図の記号を円弧として拾ったのか、"
+            "図面を見て決めてください。"
+        )
+        if door_schedule_count:
+            detail += (
+                f"なお、このページでは建具表も {door_schedule_count} 件"
+                "表として読めている(宣言どおりの可能性がある)。"
+            )
+        else:
+            detail += (
+                "なお、このページでは建具表を表として読めていない"
+                "(**表が無いという意味ではない**。罫線で組まれていない表と"
+                "スキャンのページは、この経路では読めない)。"
+            )
+        pending.append(
+            PendingDecision(
+                kind=PAGE_KIND_DISAGREEMENT,
+                detail=detail,
+                observed=tuple(observed),
+                page_number=page_number,
+            )
+        )
+
     # ページごとに別の対象にする。足すと既存と新設を二重に数えるため。
     # 人が現況/計画/解体を宣言していれば、対象の名前に残す。
     phase = declaration.phase if declaration is not None else None
@@ -1392,11 +1489,17 @@ def _door_arc_findings(
             unit=COUNT_UNIT,
             method_id=METHOD_DOOR_ARC,
             strength="weak",
+            # 宣言と食い違った読みは「仮説に基づく」側に落とす。
+            # `assumed` は `arbitration/` が階層1へ上げない由来である。
+            derivation="assumed" if conflict else "read",
             provenance={
                 "page_number": page_number,
                 "scale": f"1/{scale.denominator:g}",
                 "scale_source_text": scale.source_text,
                 "phase": phase,
+                "declared_page_kind": declared_kind,
+                "declaration_conflict": conflict,
+                "door_schedules_read_on_page": door_schedule_count,
                 "arcs": [
                     {
                         "center_pt": list(arc.center_pt),
