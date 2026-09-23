@@ -221,6 +221,12 @@ PAGE_KIND_DISAGREEMENT = "page_kind_disagreement"
 #: 同じページに建具表と平面図があっても、数が合うかどうかをここで判定しない。
 TARGET_DOOR_QUANTITY_PREFIX = "建具数量::"
 
+#: 対象名の中で区切りに使う印。`estimating/quantities.py` の `TARGET_SEPARATOR` と
+#: 同じ文字列だが、**`estimating/` を import しないためにここで持つ**
+#: (向きを逆にすると循環する)。ずれたときは
+#: `tests/test_estimate_line_mapping.py` の通しテストが気づく。
+TARGET_SEPARATOR = "::"
+
 #: 本番で抜き取り検査を走らせる割合。**階層ごとに分けて数える。**
 #:
 #: 階層2の 30%・最小5件は既存の値で、変えていない。
@@ -984,10 +990,20 @@ def _extract(
     area_hits: dict[
         tuple[str, str], list[tuple[float, dict[str, Any], Meaning | None]]
     ] = {}
-    #: 建具番号ごとに、読めた数量とその根拠。同じ建具番号が複数ページに
-    #: 出てくることがある(建具表が分割されている、既存と新設で別紙)。
-    #: **足さない。** 値が食い違えばレンジにして、判断は仲裁層へ回す。
-    door_quantity_hits: dict[str, list[tuple[float, dict[str, Any]]]] = {}
+    #: **建具番号と現況/計画の組**ごとに、読めた数量とその根拠。
+    #: 同じ建具番号が複数ページに出てくることがある(建具表が分割されている、
+    #: 既存と新設で別紙)。**足さない。** 値が食い違えばレンジにして、
+    #: 判断は仲裁層へ回す。
+    #:
+    #: **鍵に現況/計画を入れたのは 2026-09-23**
+    #: (`docs/principles/scope_of_work_diff.md` 3-1)。それまでは建具番号だけが
+    #: 鍵だったので、**現況 2 件と計画 5 件が `(2.0, 5.0)` という 1 つのレンジに
+    #: 混ざっていた。** それは値の幅ではなく意味の違いで、この形のままでは
+    #: 差分(工事内容)の層から現況も計画も見えない。
+    #: **宣言が無いページは `None` の組**にまとめる(「計画」に寄せない)。
+    door_quantity_hits: dict[
+        tuple[str, str | None], list[tuple[float, dict[str, Any]]]
+    ] = {}
     door_rows: list[DoorScheduleRow] = []
     finish_rows: list[FinishScheduleRow] = []
     #: ページごとの「繰り返す図形の群」と、凡例で読めた「名前 ↔ 図形」。
@@ -1129,6 +1145,7 @@ def _extract(
             door_rows=door_rows,
             finish_rows=finish_rows,
             door_quantity_hits=door_quantity_hits,
+            phase=declaration.phase if declaration is not None else None,
         )
 
         for label in find_area_labels(pdf_path, index):
@@ -1197,7 +1214,11 @@ def _extract(
         )
 
     findings.extend(_area_findings(area_hits))
-    findings.extend(_door_quantity_findings(door_quantity_hits))
+    findings.extend(
+        _door_quantity_findings(
+            door_quantity_hits, purpose_received=start_kit.purpose is not None
+        )
+    )
     findings.extend(_repeated_symbol_findings(symbol_clusters, legend_symbols))
     return tuple(outcomes), findings, pending, door_rows, finish_rows, ocr_pages
 
@@ -1331,7 +1352,10 @@ def _read_schedules(
     notes: list[str],
     door_rows: list[DoorScheduleRow],
     finish_rows: list[FinishScheduleRow],
-    door_quantity_hits: dict[str, list[tuple[float, dict[str, Any]]]],
+    door_quantity_hits: dict[
+        tuple[str, str | None], list[tuple[float, dict[str, Any]]]
+    ],
+    phase: str | None = None,
 ) -> tuple[int, int]:
     """1 ページぶんの建具表・内装仕上表を読み、結果を呼び出し側の器に足す。
 
@@ -1359,8 +1383,13 @@ def _read_schedules(
         for row in schedule.rows:
             if row.quantity is None:
                 continue
-            door_quantity_hits.setdefault(row.mark, []).append(
-                (float(row.quantity), row.provenance())
+            # **現況の建具表と計画の建具表を、同じ器に入れない。**
+            # 宣言が無い(または `不明`)ページは `None` の組にまとめる。
+            key_phase = phase if phase not in (None, PHASE_UNKNOWN) else None
+            provenance = dict(row.provenance())
+            provenance["phase"] = phase
+            door_quantity_hits.setdefault((row.mark, key_phase), []).append(
+                (float(row.quantity), provenance)
             )
 
     finish_schedules = read_finish_schedules(pdf_path, index)
@@ -1375,19 +1404,39 @@ def _read_schedules(
 
 
 def _door_quantity_findings(
-    hits: Mapping[str, list[tuple[float, dict[str, Any]]]]
+    hits: Mapping[tuple[str, str | None], list[tuple[float, dict[str, Any]]]],
+    *,
+    purpose_received: bool = False,
 ) -> list[DrawingFinding]:
-    """建具番号ごとに 1 件の数量にまとめる。**足さない。**
+    """**建具番号と現況/計画の組**ごとに 1 件の数量にまとめる。**足さない。**
 
-    同じ建具番号が別のページで違う数量になっていたら、どちらかを選ばず
-    レンジにする。合計するのは、既存と新設の建具表が両方あるときに
-    二重に数えることになる。
+    同じ建具番号・同じ現況/計画の中で、別のページの数量が違っていたら、
+    どちらかを選ばずレンジにする。**そこは本当に値の幅である。**
+
+    **現況と計画は別の対象にする**(2026-09-23、`scope_of_work_diff.md` 3-1)。
+    それまでは建具番号だけでまとめていたので、現況 2 件と計画 5 件が
+    `(2.0, 5.0)` という 1 つのレンジになっていた。**それは値の幅ではなく
+    意味の違いで、レンジに畳むと差分の層から現況も計画も見えない。**
+
+    対象の名前について
+    ------------------
+    開き戸(`_door_arc_findings`)は現況/計画を対象名から外したのに、
+    ここでは `建具数量::WD-01::現況` のように名前に残す。**向きが逆に見えるが
+    理由がある。** 開き戸はページごとに別の対象なので、ページ番号だけで
+    区別がつく。建具表の数量は**ページをまたいでまとめる**ので、
+    現況と計画を別の対象として扱うには対象名が違っていなければならない
+    (同じ対象名の読みは仲裁層が 1 つの判定にまとめる)。
+    **規則と差分の層が見るのは、対象名ではなく `Meaning.phase` のほうである。**
+    **宣言が無い組は今までどおり `建具数量::WD-01`。**「計画」に寄せない。
     """
     out: list[DrawingFinding] = []
-    for mark, occurrences in sorted(hits.items()):
+    for (mark, phase), occurrences in sorted(
+        hits.items(), key=lambda item: (item[0][0], item[0][1] or "")
+    ):
         values = [value for value, _ in occurrences]
         provenance: dict[str, Any] = {
             "occurrences": [meta for _, meta in occurrences],
+            "phase": phase,
             "limitation": (
                 "建具表に書かれた数量をそのまま読んだ値。"
                 "表に載っていない建具は拾えない"
@@ -1395,16 +1444,29 @@ def _door_quantity_findings(
         }
         if min(values) != max(values):
             provenance["note"] = (
-                "同じ建具番号の数量がページによって違ったため、"
+                "同じ建具番号・同じ現況/計画の数量がページによって違ったため、"
                 "どちらも捨てずにレンジにした(足していない)"
             )
+        target = f"{TARGET_DOOR_QUANTITY_PREFIX}{mark}"
+        if phase is not None:
+            target = f"{target}{TARGET_SEPARATOR}{phase}"
         out.append(
             DrawingFinding(
-                target=f"{TARGET_DOOR_QUANTITY_PREFIX}{mark}",
+                target=target,
                 value_range=(min(values), max(values)),
                 unit=COUNT_UNIT,
                 method_id=METHOD_DOOR_SCHEDULE,
                 provenance=provenance,
+                meaning=Meaning(
+                    what="建具の数量",
+                    where=f"建具表 {mark} の行",
+                    phase=phase if phase is not None else PHASE_UNKNOWN,
+                    purpose_link=(
+                        PURPOSE_RECEIVED_UNLINKED
+                        if purpose_received
+                        else PURPOSE_UNESTABLISHED
+                    ),
+                ),
             )
         )
     return out

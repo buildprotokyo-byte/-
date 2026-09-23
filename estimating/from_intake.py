@@ -37,7 +37,7 @@ from estimating.decisive import (
     NOT_OBTAINED_SYMBOL,
     NotObtained,
 )
-from estimating.quantities import QuantityItem, split_target
+from estimating.quantities import TARGET_SEPARATOR, QuantityItem, split_target
 
 #: 建具表の行から属性として渡す欄。**印字された文字列のまま渡す。**
 #: 単位が表に書かれていない寸法を mm に直さないのは入口と同じ約束。
@@ -167,7 +167,12 @@ def quantities_from_intake(result) -> tuple[QuantityItem, ...]:
         attributes: dict[str, str] = {}
         notes: list[str] = []
         if kind == DOOR_QUANTITY_KIND and key:
-            attributes, notes_tuple = attributes_for_door_mark(key, door_rows)
+            # 鍵は `WD-01` か `WD-01::現況` である(入口が 2026-09-23 から
+            # 現況/計画ごとに別の対象にしている)。**属性を引くのは建具番号のほう。**
+            # 現況/計画は `Meaning.phase` で運ぶので、ここで切り出した文字は使わない。
+            attributes, notes_tuple = attributes_for_door_mark(
+                key.split(TARGET_SEPARATOR, 1)[0], door_rows
+            )
             notes.extend(notes_tuple)
 
         decision = decisions.get(finding.target)
