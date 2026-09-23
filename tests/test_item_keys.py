@@ -76,3 +76,12 @@ def test_知らない向きはエラーになる() -> None:
 def test_空の鍵はエラーになる() -> None:
     with pytest.raises(ValueError, match="空"):
         normalise_item_key("   ")
+
+
+def test_ひらがなとカタカナのゆれは両方の向きで揃う() -> None:
+    # 34 周目の壊し試験 6 番(ひらがなをカタカナにする処理を消す)が
+    # 落ちなかったので足したテスト。**その処理を確かめるテストが無かった。**
+    # 「とい」(樋)は内訳書標準書式ではひらがなだが、図面や見積では
+    # カタカナで書かれることがある。**同じ行である。**
+    assert same_item_key("とい撤去", "トイ撤去", scope=SCOPE_CONFIRM)
+    assert same_item_key("とい撤去", "トイ撤去", scope=SCOPE_TO_HUMAN)
