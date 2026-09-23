@@ -1,5 +1,7 @@
 # 25周目 報告: 面積の行のための語彙を公の基準から作った(**不採用。ただし、当たらなかったこと自体が答えだった**)
 
+> **注記(2026-09-23、K-07 2 番):** この報告の `explicit_text`(24 行)は、正解データの印を直す前のもの。24 行のうち 9 行は波及の行だった。数字は書き換えていない。`docs/explicit_text_label_correction.md`
+
 2026-09-23。基準は `docs/a2_knowledge_area_vocabulary_criteria.md`(測る前にコミット済み、`3357331`)。
 語彙も測る前にコミットした(`estimating/examples/knowledge_area_vocabulary.json`、35 品目)。
 

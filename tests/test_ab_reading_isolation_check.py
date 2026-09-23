@@ -14,6 +14,8 @@ import pytest
 from benchmarks.ab_reading_isolation_check import (
     ANSWER_LOCATION_TERMS,
     EXPERIMENT_TERMS,
+    SHARED_ROOT_CONTENT_MARKERS,
+    SHARED_ROOT_PEEK_BYTES,
     VERIFIED_VALUE_TERMS,
     check_memory_unchanged,
     format_report,
@@ -163,6 +165,152 @@ def test_unrelated_file_is_not_flagged(tmp_path: pathlib.Path) -> None:
     shared, _, _ = _clean_shared(tmp_path)
     (shared / "段階A実装検証報告書.md").write_text("報告\n", encoding="utf-8")
     assert scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME]) == []
+
+
+# ---------------------------------------------------------------------------
+# 経路 3: 入れ子のフォルダの中まで見る
+# ---------------------------------------------------------------------------
+# 2026-09-22 の実行中ずっと、正解ファイルは共有フォルダの `uploads/hearth/` の下に
+# 置かれていた。**名前は拡張子の無い UUID** で、名前には何の手がかりも無い。
+# 検査は直下の名前しか見ていなかったので、2 つの理由で素通りしていた。
+#   (1) 入れ子の中を見ていなかった
+#   (2) 名前しか見ていなかった（UUID の名前は何も語らない）
+# 以下のデータはすべてテストのために作った架空のもの。
+
+# 架空の UUID（実物の正解ファイルの名前ではない）
+_FAKE_UUID = "00000000-1111-4222-8333-444444444444"
+_FAKE_ANSWER_JSON = (
+    '{\n  "benchmark_id": "synthetic-000",\n'
+    '  "expected_items": [\n'
+    '    {"name": "架空の項目A", "quantity": 1.0, "unit": "式"},\n'
+    '    {"name": "架空の項目B", "quantity": 2.0, "unit": "m"}\n'
+    "  ]\n}\n"
+)
+
+
+def test_nested_file_named_with_term_is_caught(tmp_path: pathlib.Path) -> None:
+    """(1) 入れ子の中の名前も見る。直下だけ見ていたときは素通りしていた。"""
+    shared, _, _ = _clean_shared(tmp_path)
+    hearth = shared / "uploads" / "hearth"
+    hearth.mkdir(parents=True)
+    (hearth / "renovation-golden-001.json").write_text("{}\n", encoding="utf-8")
+    findings = scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME])
+    assert [f.where for f in findings] == ["uploads/hearth/renovation-golden-001.json"]
+    assert "renovation-golden-001" in findings[0].detail
+
+
+def test_nested_uuid_answer_file_is_caught_by_content(tmp_path: pathlib.Path) -> None:
+    """(2) 名前が UUID で何も語らなくても、中身の目印で正解ファイルだと分かる。"""
+    shared, _, _ = _clean_shared(tmp_path)
+    hearth = shared / "uploads" / "hearth"
+    hearth.mkdir(parents=True)
+    (hearth / _FAKE_UUID).write_text(_FAKE_ANSWER_JSON, encoding="utf-8")
+    findings = scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME])
+    assert [f.where for f in findings] == [f"uploads/hearth/{_FAKE_UUID}"]
+    assert "expected_items" in findings[0].detail
+
+
+def test_deeply_nested_files_are_caught(tmp_path: pathlib.Path) -> None:
+    """3 段より深くても見る。名前の手がかりと中身の目印の両方。"""
+    shared, _, _ = _clean_shared(tmp_path)
+    deep = shared / "a" / "b" / "c" / "d"
+    deep.mkdir(parents=True)
+    (deep / "ab_reading_answers.md").write_text("メモ\n", encoding="utf-8")
+    (deep / _FAKE_UUID).write_text(_FAKE_ANSWER_JSON, encoding="utf-8")
+    findings = scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME])
+    assert sorted(f.where for f in findings) == sorted(
+        [f"a/b/c/d/{_FAKE_UUID}", "a/b/c/d/ab_reading_answers.md"]
+    )
+
+
+def test_nested_folder_named_with_term_is_reported_once(tmp_path: pathlib.Path) -> None:
+    """名前に手がかりのあるフォルダは、そのフォルダ 1 件として挙がる（中の無害なファイルまで重ねて挙げない）。"""
+    shared, _, _ = _clean_shared(tmp_path)
+    folder = shared / "uploads" / "ab_reading_answers"
+    folder.mkdir(parents=True)
+    (folder / "memo.md").write_text("メモ\n", encoding="utf-8")
+    findings = scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME])
+    assert [f.where for f in findings] == ["uploads/ab_reading_answers"]
+
+
+def test_allowed_subtree_is_not_walked(tmp_path: pathlib.Path) -> None:
+    """否定対照: 許可した名前の下は、入れ子の中も含めて挙げない。"""
+    shared, package, runs = _clean_shared(tmp_path)
+    nested = package / "sub" / "deeper"
+    nested.mkdir(parents=True)
+    (nested / "ab_reading_notes.md").write_text("メモ\n", encoding="utf-8")
+    (nested / _FAKE_UUID).write_text(_FAKE_ANSWER_JSON, encoding="utf-8")
+    (runs / "ab_reading_draft.md").write_text("下書き\n", encoding="utf-8")
+    assert scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME]) == []
+
+
+def test_unrelated_nested_files_are_not_flagged(tmp_path: pathlib.Path) -> None:
+    """否定対照: 入れ子の中でも、手がかりの無い名前と中身なら挙げない。"""
+    shared, _, _ = _clean_shared(tmp_path)
+    hearth = shared / "uploads" / "hearth"
+    hearth.mkdir(parents=True)
+    (hearth / _FAKE_UUID).write_text(
+        '{"title": "打合せメモ", "items": ["床", "壁"]}\n', encoding="utf-8"
+    )
+    notes = shared / "notes" / "2026"
+    notes.mkdir(parents=True)
+    (notes / "打合せメモ.md").write_text("来週の予定。\n", encoding="utf-8")
+    assert scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME]) == []
+
+
+def test_binary_nested_file_does_not_crash(tmp_path: pathlib.Path) -> None:
+    """PDF などの中身が文字でないファイルでも止まらない。"""
+    shared, _, _ = _clean_shared(tmp_path)
+    hearth = shared / "uploads" / "hearth"
+    hearth.mkdir(parents=True)
+    (hearth / _FAKE_UUID).write_bytes(b"%PDF-1.7\n\xff\xfe\x00\x81\x9f binary \x00\xff\n")
+    assert scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME]) == []
+
+
+def test_marker_beyond_peek_limit_is_a_known_blind_spot(tmp_path: pathlib.Path) -> None:
+    """既知の見落とし: 中身は先頭だけ覗く。目印がそれより後ろにあると見えない。
+
+    大きなファイルを丸ごと読まないための割り切り。正解ファイルは JSON で、
+    目印のキーは先頭近くに来る。
+    """
+    shared, _, _ = _clean_shared(tmp_path)
+    hearth = shared / "uploads" / "hearth"
+    hearth.mkdir(parents=True)
+    padding = "x" * (SHARED_ROOT_PEEK_BYTES + 10)
+    (hearth / "near.txt").write_text('"expected_items"\n' + padding, encoding="utf-8")
+    (hearth / "far.txt").write_text(padding + '"expected_items"\n', encoding="utf-8")
+    findings = scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME])
+    assert [f.where for f in findings] == ["uploads/hearth/near.txt"]
+
+
+def test_symlink_loop_and_outside_link_are_not_followed(tmp_path: pathlib.Path) -> None:
+    """フォルダへのリンクはたどらない。輪になっていても止まり、外へも出ない。"""
+    shared, _, _ = _clean_shared(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "ab_reading_answers.md").write_text("外\n", encoding="utf-8")
+    sub = shared / "sub"
+    sub.mkdir()
+    try:
+        (sub / "loop").symlink_to(shared, target_is_directory=True)
+        (sub / "link").symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError):  # pragma: no cover - リンクを作れない環境
+        pytest.skip("シンボリックリンクを作れない環境")
+    assert scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME]) == []
+
+
+@pytest.mark.parametrize("marker", SHARED_ROOT_CONTENT_MARKERS)
+def test_every_content_marker_is_actually_checked(
+    marker: str, tmp_path: pathlib.Path
+) -> None:
+    """目印の一覧に足しただけで検査されないことが無いように。"""
+    shared, _, _ = _clean_shared(tmp_path)
+    nested = shared / "uploads" / "hearth"
+    nested.mkdir(parents=True)
+    (nested / _FAKE_UUID).write_text("{" + marker + ": []}\n", encoding="utf-8")
+    findings = scan_shared_root(shared, [PACKAGE_NAME, RUNS_NAME])
+    assert [f.where for f in findings] == [f"uploads/hearth/{_FAKE_UUID}"]
+    assert marker in findings[0].detail
 
 
 # ---------------------------------------------------------------------------
