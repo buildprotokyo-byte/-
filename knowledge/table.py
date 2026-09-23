@@ -12,18 +12,26 @@
 1. **知らない列があったら断る。**黙って読み飛ばすと、半分だけ効いた表になる。
 2. **出どころが無ければ断る。**後から「なぜそう決めたか」を辿れなくなる。
 3. **知らない `kind` は断る。**
-4. **`format_version` が違えば読まない。**
+4. **`format_version` が違えば読まない。**版 1 の表には、足す列を名指しして断る。
+5. **採否の状態(`adoption_status`)は読むだけ。**無ければ断り、既定値で埋めない。
+   `候補` から `採用` / `不採用` に変えるのはおーちゃんだけで、コードは書き換えない
+   (K-04 6 番)。この列も `confidence` も、採否を決める根拠に使わない。
+6. **`数え方` の単位は 1 つだけ。**複合(`個・組` など)は断り、単位ごとに 1 件へ
+   分けてもらう(K-06 1 番)。単位の書き方は自由な言葉のままで、
+   `AxisEvidence.unit` の正規形(`count` / `mm` / `cm2` / `yen`)には直さない。
 """
 
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from datetime import date
 from typing import Any, Mapping, Sequence
 
 #: この読み込みが解釈できる表の版。
-KNOWLEDGE_FORMAT_VERSION = 1
+KNOWLEDGE_FORMAT_VERSION = 2
 
 KIND_COUNTING = "数え方"
 KIND_PROPAGATION = "波及"
@@ -33,12 +41,37 @@ KINDS = (KIND_COUNTING, KIND_PROPAGATION, KIND_QUESTION)
 CONFIDENCES = ("一次資料", "慣行", "見立て")
 SCOPES = ("公共工事", "住宅改修", "自社")
 
+#: 出典の拘束力(`source.binding`)。
+BINDINGS = ("法令", "行政基準", "業界指針", "任意資料")
+
+#: 採否の状態。**読める値の一覧であって、コードが書き込む値ではない。**
+#: 新しく書く知識は `候補`。`採用` / `不採用` に変えるのはおーちゃんだけ。
+ADOPTION_STATUSES = ("候補", "採用", "不採用")
+
 _TABLE_FIELDS = {"format_version", "table_id", "description", "synthetic", "entries"}
 _ENTRY_FIELDS = {
     "entry_id", "kind", "statement", "source", "confidence", "scope",
     "applies_to", "overridden_by", "needs_human_check", "detail", "note",
+    "adoption_status",
 }
-_SOURCE_FIELDS = {"document", "clause", "url", "read_directly"}
+_SOURCE_FIELDS = {
+    "document", "clause", "url", "read_directly",
+    "publisher", "edition", "checked_on", "binding",
+}
+
+#: 版 1 から版 2 で足した列(版 1 の表を断るときに名指しする)。
+_ADDED_IN_V2 = (
+    "source.publisher(発行元)",
+    "source.edition(出典の版・年)",
+    "source.checked_on(確認日、YYYY-MM-DD)",
+    f"source.binding(拘束力: {' / '.join(BINDINGS)})",
+    "adoption_status(採否の状態。新しく書くときは 候補)",
+)
+
+_CHECKED_ON = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
+#: 単位に入っていたら「2 つ以上の単位」とみなす文字。
+_UNIT_SEPARATORS = ("・", "、", ",", ",", "/", "/", "等")
 _APPLIES_FIELDS = {"work_kinds", "parts", "axes"}
 _DETAIL_FIELDS: dict[str, tuple[set[str], set[str]]] = {
     # kind: (必須, 任意)
@@ -58,6 +91,10 @@ class Source:
 
     document: str
     clause: str
+    publisher: str
+    edition: str
+    checked_on: str
+    binding: str
     url: str = ""
     read_directly: bool = False
 
@@ -88,6 +125,7 @@ class KnowledgeEntry:
     applies_to: AppliesTo
     detail: Mapping[str, Any]
     needs_human_check: bool
+    adoption_status: str
     overridden_by: tuple[str, ...] = ()
     note: str = ""
 
@@ -123,6 +161,32 @@ def _string_tuple(value: Any, what: str) -> tuple[str, ...]:
     return tuple(out)
 
 
+def _checked_on(value: Any) -> str:
+    what = "source.checked_on(確認日)"
+    if not isinstance(value, str) or not _CHECKED_ON.fullmatch(value):
+        raise KnowledgeError(
+            f"{what} は YYYY-MM-DD で書いてください(例: 2026-09-23)。いまは {value!r} です"
+        )
+    try:
+        date.fromisoformat(value)
+    except ValueError as exc:
+        raise KnowledgeError(f"{what} が実在しない日付です: {value}") from exc
+    return value
+
+
+def _single_unit(value: Any, what: str) -> str:
+    """単位を 1 つだけ受け取る。**書き方は自由な言葉のまま。正規形には直さない。**"""
+    unit = _require_text(value, what)
+    stripped = unit.strip()
+    if any(sep in stripped for sep in _UNIT_SEPARATORS) or re.search(r"\s", stripped):
+        raise KnowledgeError(
+            f"{what} が {unit!r} です。単位は 1 つだけ書いてください。"
+            "2 つ以上の単位にまたがるなら、単位ごとに 1 件へ分けてください"
+            "(format.md 5節「1 件に 2 つのことを書かない」)"
+        )
+    return unit
+
+
 def _reject_unknown(payload: Mapping[str, Any], allowed: set[str], what: str) -> None:
     unknown = set(payload) - allowed
     if unknown:
@@ -142,9 +206,19 @@ def _parse_source(raw: Any) -> Source:
     url = raw.get("url", "")
     if not isinstance(url, str):
         raise KnowledgeError("source.url は文字列である必要があります")
+    binding = raw.get("binding")
+    if binding not in BINDINGS:
+        raise KnowledgeError(
+            f"source.binding(拘束力)が {binding!r} です。"
+            f"書けるのは {list(BINDINGS)} のどれかです"
+        )
     return Source(
         document=_require_text(raw.get("document"), "source.document"),
         clause=_require_text(raw.get("clause"), "source.clause"),
+        publisher=_require_text(raw.get("publisher"), "source.publisher(発行元)"),
+        edition=_require_text(raw.get("edition"), "source.edition(出典の版・年)"),
+        checked_on=_checked_on(raw.get("checked_on")),
+        binding=binding,
         url=url,
         read_directly=read_directly,
     )
@@ -174,6 +248,11 @@ def _parse_detail(kind: str, raw: Any) -> Mapping[str, Any]:
     missing = required - set(raw)
     if missing:
         raise KnowledgeError(f"detail({kind}) に {sorted(missing)} がありません")
+    if kind == KIND_COUNTING:
+        _single_unit(raw.get("unit"), "detail.unit")
+        threshold = raw.get("threshold")
+        if isinstance(threshold, Mapping) and "unit" in threshold:
+            _single_unit(threshold["unit"], "detail.threshold.unit")
     if kind == KIND_QUESTION:
         options = _string_tuple(raw.get("answer_options"), "detail.answer_options")
         if len(options) < 2:
@@ -185,6 +264,9 @@ def _parse_detail(kind: str, raw: Any) -> Mapping[str, Any]:
         if not isinstance(raw.get("symmetric"), bool):
             raise KnowledgeError("detail.symmetric は true か false で書いてください")
         _string_tuple(raw.get("affected"), "detail.affected")
+        extent = raw.get("extent")
+        if isinstance(extent, Mapping) and "unit" in extent:
+            _single_unit(extent["unit"], "detail.extent.unit")
     return dict(raw)
 
 
@@ -215,6 +297,14 @@ def _parse_entry(raw: Any) -> KnowledgeEntry:
     if not isinstance(note, str):
         raise KnowledgeError("note は文字列である必要があります")
 
+    # 読むだけ。無ければ断り、既定値では埋めない(書く側が 候補 と書く)。
+    adoption_status = raw.get("adoption_status")
+    if adoption_status not in ADOPTION_STATUSES:
+        raise KnowledgeError(
+            f"adoption_status(採否の状態)が {adoption_status!r} です。"
+            f"書けるのは {list(ADOPTION_STATUSES)} のどれかで、新しく書く知識は 候補 です"
+        )
+
     return KnowledgeEntry(
         entry_id=_require_text(raw.get("entry_id"), "entry_id"),
         kind=kind,
@@ -225,6 +315,7 @@ def _parse_entry(raw: Any) -> KnowledgeEntry:
         applies_to=_parse_applies_to(raw.get("applies_to")),
         detail=_parse_detail(kind, raw.get("detail")),
         needs_human_check=needs_human_check,
+        adoption_status=adoption_status,
         overridden_by=_string_tuple(raw.get("overridden_by"), "overridden_by"),
         note=note,
     )
@@ -237,6 +328,13 @@ def parse_knowledge(payload: Any, *, source_path: Path | None = None) -> Knowled
     _reject_unknown(payload, _TABLE_FIELDS, "表")
 
     version = payload.get("format_version")
+    if version == 1:
+        raise KnowledgeError(
+            f"format_version が 1 です。この読み込みが解釈できるのは "
+            f"{KNOWLEDGE_FORMAT_VERSION} だけです。版 1 の表は、各知識に "
+            + "、".join(_ADDED_IN_V2)
+            + f" を足し、format_version を {KNOWLEDGE_FORMAT_VERSION} にしてください"
+        )
     if version != KNOWLEDGE_FORMAT_VERSION:
         raise KnowledgeError(
             f"format_version が {version!r} です。"
