@@ -2,6 +2,7 @@
 
 作成: 2026-09-22 / 現象の確認に使ったコミット: `816e95b`
 **実装済み（2026-09-22、おーちゃんの判断を受けて）。** 実装した内容は7節。
+4-1節の (c)（吸収された群に1問）は 2026-09-23 に足した（10節。PR のまま、マージ待ち）。
 再現テスト: `tests/test_group_total_masking.py`
 実装: `arbitration/group_total.py`、`arbitration/consistency_solver.py`（`Variable.detection_range`）、
 `killer_question/firewall_bridge.py`
@@ -431,3 +432,21 @@ Claude Code では行わない（9節）。
 
 - 並列化の実時間比較（1本 / 2本 / 4本）。**2026-09-22 におーちゃんが
   「今は行わない」と判断済み**（処理速度の改善は後回し）
+
+---
+
+## 10. 4-1節の (c) を足した（2026-09-23、判断の5番）
+
+おーちゃんの判断「#6 が入ってから足す / 吸収と判定された群を人が1問で解けるようになる」を
+受けて、(a) の上に (c) を足した。**(a) はそのまま**（降格の範囲は変えていない）。
+
+- 入口: `KillerQuestionEngine.group_total_question(constraint)`（`killer_question/engine.py`）
+- 群の残差: `group_total_absorption_excess()`（`arbitration/group_total.py`）
+- 選び方の定義・測った結果・見つかった穴は `docs/group_total_question_report.md`
+  （基準は `docs/group_total_question_criteria.md`）
+
+**測って分かった (a) 側の穴**: 吸収の判定は停止した要素ごとに見ているので、
+**停止した要素が2つ以上あると、合計が合わなくても吸収と判定されない**ことがある
+（合成の格子で、±2・±3 の誤りの24群中22群が素通り）。7-2節の「判定の結果は試作と
+一致する」は停止1つの群でしか確かめていなかった。直すと (a) の範囲が変わるので、
+おーちゃんの判断待ち。
