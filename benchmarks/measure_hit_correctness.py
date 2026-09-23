@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import argparse
 import collections
+import random
 from pathlib import Path
 
 from benchmarks.measure_knowledge_vocabulary import KNOWLEDGE_VOCABULARY
@@ -32,6 +33,9 @@ from estimating.symbol_aliases import AliasTable, load_alias_table
 HIT_CORRECT = "正しく当たった"
 HIT_WRONG = "取り違えた"
 HIT_UNKNOWN = "判定できない"
+
+#: 18 周目の対照で回す、でたらめな並べ替えの回数。
+SHUFFLE_ROUNDS = 10
 
 
 def hit_names(table: AliasTable, row: dict) -> tuple[str, ...]:
@@ -57,8 +61,20 @@ def judge(hit: tuple[str, ...], true: tuple[str, ...]) -> str | None:
     return HIT_CORRECT if set(hit) & set(true) else HIT_WRONG
 
 
-def score(table: AliasTable, rows: list[dict], *, shift: int = 0) -> dict[str, int]:
-    """`shift` は対照1(行の入れ替え)。**突き合わせる相手だけをずらす。**"""
+def score(
+    table: AliasTable,
+    rows: list[dict],
+    *,
+    shift: int = 0,
+    pairing: list[int] | None = None,
+) -> dict[str, int]:
+    """突き合わせる相手だけを替える対照。
+
+    - `shift` … 17 周目の対照1。**ずらす数で結果が変わってしまった**
+      (正解ファイルの行が工種の順に並んでいるため、隣は似ている)。
+    - `pairing` … 18 周目の対照。**でたらめな並べ替え。**
+      ずらす数という選択肢が無くなるので、選び方の余地が残らない。
+    """
     counts: collections.Counter[str] = collections.Counter()
     ambiguous = 0
     reached = 0
@@ -69,7 +85,10 @@ def score(table: AliasTable, rows: list[dict], *, shift: int = 0) -> dict[str, i
         reached += 1
         if len(hit) > 1:
             ambiguous += 1
-        partner = rows[(index + shift) % len(rows)]
+        if pairing is not None:
+            partner = rows[pairing[index]]
+        else:
+            partner = rows[(index + shift) % len(rows)]
         verdict = judge(hit, true_names(table, partner))
         if verdict is not None:
             counts[verdict] += 1
@@ -95,6 +114,7 @@ def show(label: str, result: dict[str, int]) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--golden", type=Path, required=True)
+    parser.add_argument("--seed", type=int, default=20260923)
     args = parser.parse_args()
 
     rows = symbol_rows(args.golden)
@@ -125,6 +145,24 @@ def main() -> None:
     show("対照2 無関係な語 7 語 ", score(unrelated, rows))
     repeats = [score(load_alias_table(KNOWLEDGE_VOCABULARY), rows)[HIT_CORRECT] for _ in range(3)]
     print(f"対照3 反復 3 回: 正しく当たった行 {repeats}")
+
+    # ---- 18 周目: でたらめな並べ替えで決着をつける ----
+    print("\n=== 18周目の対照(でたらめな並べ替え) ===")
+    rng = random.Random(args.seed)
+    q0 = main_result[HIT_CORRECT]
+    shuffled: list[int] = []
+    for _ in range(SHUFFLE_ROUNDS):
+        pairing = list(range(len(rows)))
+        rng.shuffle(pairing)
+        shuffled.append(score(knowledge, rows, pairing=pairing)[HIT_CORRECT])
+    average = sum(shuffled) / len(shuffled)
+    at_or_above = sum(1 for value in shuffled if value >= q0)
+    print(f"Q0 本測定            : {q0} / {main_result['届いた']}")
+    print(f"Q1 並べ替え {SHUFFLE_ROUNDS} 回の平均: {average:.2f}  (しきい値 {q0 / 2:.1f} 未満か: "
+          f"{'はい' if average < q0 / 2 else 'いいえ'})")
+    print(f"Q2 最大              : {max(shuffled)}")
+    print(f"Q3 本測定以上になった回数: {at_or_above} / {SHUFFLE_ROUNDS}")
+    print(f"   10 回の中身: {shuffled}")
 
 
 if __name__ == "__main__":
