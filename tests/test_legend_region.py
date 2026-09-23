@@ -190,3 +190,57 @@ def test_手法は未校正で上限はweak():
     policy = DEFAULT_METHOD_POLICIES[METHOD_LEGEND_TABLE]
     assert policy.calibrated is False
     assert policy.max_strength == "weak"
+
+
+# --- 12周目: 凡例の行は「1行に図形が1個」 -----------------------------------
+
+
+def test_1行に図形が2個ある行は丸ごと落とす(tmp_path):
+    """**この周の要点。** 図面が表に化けた行(1行に図形2,429個)を落とす。"""
+    pdf = _page(tmp_path, [(105.0, 105.0), (112.0, 105.0)])
+    table = _legend_table([("", "コンセント")])
+    result = read_legend_in_tables(pdf, 0, SCALE_50, tables=[table])
+    assert result.symbols == ()
+    assert result.dropped_crowded_rows == 1
+    assert result.dropped_in_crowded_rows == 2
+
+
+def test_図形が1個の行だけが残る(tmp_path):
+    """混ざっていても、図形が1個の行だけが凡例になる。"""
+    pdf = _page(tmp_path, [(110.0, 105.0), (105.0, 145.0), (112.0, 145.0)])
+    table = _legend_table([("", "コンセント"), ("", "スイッチ")])
+    result = read_legend_in_tables(pdf, 0, SCALE_50, tables=[table])
+    assert [s.name for s in result.symbols] == ["コンセント"]
+    assert result.dropped_crowded_rows == 1
+
+
+def test_条件を外すと11周目の振る舞いに戻る(tmp_path):
+    """**対照として並べて測るために残してある。** 本番では既定のまま使う。"""
+    pdf = _page(tmp_path, [(105.0, 105.0), (112.0, 105.0)])
+    table = _legend_table([("", "コンセント")])
+    result = read_legend_in_tables(pdf, 0, SCALE_50, tables=[table], max_shapes_per_row=None)
+    assert len(result.symbols) == 2
+    assert result.dropped_crowded_rows == 0
+
+
+def test_1行に許す図形の数は1以上でなければ断る(tmp_path):
+    pdf = _page(tmp_path, [(110.0, 105.0)])
+    with pytest.raises(ValueError):
+        read_legend_in_tables(pdf, 0, SCALE_50, tables=[], max_shapes_per_row=0)
+
+
+def test_落とした行と図形の数が出力に残る(tmp_path):
+    """**「対応が0件」で終わらせない。** 何行・何個落としたかを数で残す。"""
+    pdf = _page(tmp_path, [(105.0, 105.0), (112.0, 105.0), (118.0, 105.0)])
+    table = _legend_table([("", "コンセント")])
+    result = read_legend_in_tables(pdf, 0, SCALE_50, tables=[table])
+    assert result.dropped_in_crowded_rows == 3
+    assert "図形が多すぎる行" in result.summary()
+
+
+def test_許す数を増やせばその行も読む(tmp_path):
+    """1行に記号を2つ並べた凡例は既定では落ちる。**落ちたことを「無い」と読まない。**"""
+    pdf = _page(tmp_path, [(105.0, 105.0), (112.0, 105.0)])
+    table = _legend_table([("", "コンセント")])
+    result = read_legend_in_tables(pdf, 0, SCALE_50, tables=[table], max_shapes_per_row=2)
+    assert len(result.symbols) == 2

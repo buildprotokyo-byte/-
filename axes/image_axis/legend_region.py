@@ -29,7 +29,14 @@
 2. **同じ行に文字が無い図形には名前を付けない。** 名前を作らない。
 3. **同じ行に文字の入ったセルが複数あっても、いちばん近いものを黙って選ばない。**
    近さが同じなら決めない(落とす)。
-4. **この手法も未校正である。** `arbitration/method_policies.py` に
+4. **凡例の行には図形が 1 個しか入らない**(12 周目に足した条件)。
+   「記号」の欄に記号が 1 つ、「名称」の欄に名前が 1 つ、という並びだからである。
+   **1 行に図形が 2 個以上ある行は、凡例の行ではない**ので丸ごと落とす。
+   11 周目にこの条件が無かったとき、図面が表に化けた行(1 行に図形 2,429 個)が
+   そのまま通り、**その行の図形が全部同じ名前になった。**
+   1 行に記号を 2 つ並べた凡例はこの条件で落ちる。実在しうる書き方なので、
+   **落ちたことを「凡例が無い」と読まない。** 落とした数は出力に残す。
+5. **この手法も未校正である。** `arbitration/method_policies.py` に
    `calibrated=False` / 上限 `weak` で登録する。
    凡例が読めても、名前が正しいことの校正にはならない。
 """
@@ -72,13 +79,20 @@ class LegendReadResult:
     dropped_outside_tables: int = 0
     """表の外にあったので凡例として読まなかった図形の数。"""
 
+    dropped_crowded_rows: int = 0
+    """図形が 2 個以上あったので丸ごと落とした行の数。"""
+
+    dropped_in_crowded_rows: int = 0
+    """その行に入っていて落とした図形の数。**1 行に 2,429 個ということがある。**"""
+
     def summary(self) -> str:
         return (
             f"凡例として読めた対応 {len(self.symbols)} 件 / "
             f"表 {self.tables_seen} 個 / 表の中の図形 {self.shapes_in_tables} 個 / "
             f"落とした: 同じ行に文字が無い {self.dropped_no_text_in_row}・"
             f"決められない {self.dropped_ambiguous}・"
-            f"表の外 {self.dropped_outside_tables}"
+            f"表の外 {self.dropped_outside_tables}・"
+            f"図形が多すぎる行 {self.dropped_crowded_rows}行({self.dropped_in_crowded_rows}個)"
         )
 
 
@@ -90,11 +104,17 @@ def read_legend_in_tables(
     min_mm: float = SYMBOL_MIN_MM,
     max_mm: float = SYMBOL_MAX_MM,
     tables: list[TableRegion] | None = None,
+    max_shapes_per_row: int | None = 1,
 ) -> LegendReadResult:
     """罫線の表の升目の中だけを凡例として読む。
 
     ``tables`` を渡さなければ `find_tables()` で取る
     (試験で表を手で組むために外から渡せるようにしてある)。
+
+    ``max_shapes_per_row`` は 1 行に許す図形の数。既定の 1 が
+    「凡例の行には図形が 1 個しか入らない」という条件である。
+    ``None`` にすると 11 周目の振る舞い(条件なし)に戻る。
+    **対照として並べて測るために残してある。本番では既定のまま使う。**
     """
     if min_mm <= 0 or max_mm <= min_mm:
         raise ValueError("大きさの窓が不正です")
@@ -106,15 +126,33 @@ def read_legend_in_tables(
         if min_mm <= shape.size_mm <= max_mm
     ]
 
+    if max_shapes_per_row is not None and max_shapes_per_row < 1:
+        raise ValueError("1 行に許す図形の数は 1 以上にしてください")
+
     symbols: list[LegendSymbol] = []
     no_text = ambiguous = outside = 0
 
+    # **行ごとに数えてから読む。** 1 行に図形が 2 個以上あれば、その行は
+    # 凡例の行ではない(図面が表に見えているだけ)ので丸ごと落とす。
+    placed: list[tuple[object, tuple[object, int, int]]] = []
     for shape in shapes:
         cell = _cell_containing(regions, shape.center_pt)
         if cell is None:
             outside += 1
             continue
-        table, row_index, col_index = cell
+        placed.append((shape, cell))
+
+    per_row: dict[tuple[int, int], int] = {}
+    for _, (table, row_index, _col) in placed:
+        per_row[(id(table), row_index)] = per_row.get((id(table), row_index), 0) + 1
+
+    crowded = {key for key, count in per_row.items()
+               if max_shapes_per_row is not None and count > max_shapes_per_row}
+    crowded_shapes = sum(count for key, count in per_row.items() if key in crowded)
+
+    for shape, (table, row_index, col_index) in placed:
+        if (id(table), row_index) in crowded:
+            continue
         name_cell = _name_cell_in_row(table, row_index, col_index)
         if name_cell is None:
             no_text += 1
@@ -141,6 +179,8 @@ def read_legend_in_tables(
         dropped_no_text_in_row=no_text,
         dropped_ambiguous=ambiguous,
         dropped_outside_tables=outside,
+        dropped_crowded_rows=len(crowded),
+        dropped_in_crowded_rows=crowded_shapes,
     )
 
 
