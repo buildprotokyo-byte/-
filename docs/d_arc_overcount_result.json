@@ -1,0 +1,23 @@
+{
+  "round": 52,
+  "page_1_based": 8,
+  "U1_found": 7,
+  "U2_reference": 5,
+  "U3_ratio": 1.4,
+  "U4_total": 90,
+  "U4_pages_with_arcs": 5,
+  "scale_read_on_reference_page": true,
+  "controls": {
+    "1_same_sheet": false,
+    "1_markers_found": [
+      false,
+      true
+    ],
+    "2_total_matches_round_35": true,
+    "3_repeat": [
+      7,
+      7,
+      7
+    ]
+  }
+}

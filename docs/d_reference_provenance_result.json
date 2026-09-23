@@ -1,0 +1,109 @@
+{
+  "round": 54,
+  "criteria_commit": "2787ffb",
+  "criteria_file": "docs/d_reference_provenance_criteria.md",
+  "benchmark": "benchmarks/measure_reference_provenance.py",
+  "dpi": 200,
+  "crop": [
+    0.03,
+    0.85,
+    0.18,
+    0.75
+  ],
+  "reference_boxes": 5,
+  "files": {
+    "古いほう": {
+      "page_count": 34,
+      "fits_1_based": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        32,
+        33,
+        34
+      ],
+      "Y1": 32,
+      "misses": 2,
+      "crop_sizes": [
+        [
+          3704,
+          3766
+        ],
+        [
+          3704,
+          3768
+        ],
+        [
+          5237,
+          5329
+        ],
+        [
+          5240,
+          5329
+        ]
+      ],
+      "Y2_first_fitting_page": 0.1376
+    },
+    "匿名化v2": {
+      "page_count": 34,
+      "fits_1_based": [],
+      "Y1": 0,
+      "misses": 34,
+      "crop_sizes": [
+        [
+          1333,
+          1356
+        ],
+        [
+          1885,
+          1918
+        ],
+        [
+          1886,
+          1918
+        ]
+      ],
+      "Y2_first_fitting_page": null
+    }
+  },
+  "controls": {
+    "1_both_have_8_pages": true,
+    "2_some_page_does_not_fit": true,
+    "2_miss_count": 36,
+    "3_repeat": [
+      32,
+      32,
+      32
+    ],
+    "4_boxes_sane": true
+  },
+  "verdict": "old_file_page_ambiguous",
+  "implementation_changed": false,
+  "rasterized": false
+}
