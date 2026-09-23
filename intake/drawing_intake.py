@@ -384,6 +384,11 @@ class DrawingFinding:
 
     derivation: str = "read"
     derivation_basis: tuple[str, ...] = ()
+    #: **同じものを見ている読みをまとめる名前。**空なら指紋で数える。
+    #:
+    #: 基準寸法の 3 つの読みは 2 点の座標を共有しているので、ここに同じ名前を
+    #: 入れて 1 つのデータ源として数えさせる(2026-09-23 おーちゃんの判断)。
+    independence_group: str = ""
     provenance: dict[str, Any] = field(default_factory=dict)
     """ページ番号・座標・元の文字列。**仲裁層まで一緒に運ぶ。**"""
 
@@ -1486,6 +1491,9 @@ def _reference_dimension_findings(
     その但し書きは `provenance` に残す。
     """
     out: list[DrawingFinding] = []
+    # **この但し書きは、2026-09-23 まで provenance に残るだけで判定を動かして
+    # いなかった**(`docs/d_independence_note_report.md`)。
+    # いまは `independence_group` として効かせている。
     shared_note = (
         "この読みと相手の読みは2点の座標を共有している。"
         "独立なのは縮尺の部分だけで、座標の取り違えは両方に同じように効く"
@@ -1505,6 +1513,7 @@ def _reference_dimension_findings(
                 value_range=_mm_range(point.actual_length_mm),
                 unit=LENGTH_UNIT,
                 method_id=METHOD_HUMAN_REFERENCE_POINT,
+                independence_group=target,
                 source_kind="start_kit",
                 provenance={
                     **base_provenance,
@@ -1522,6 +1531,7 @@ def _reference_dimension_findings(
                     value_range=_mm_range(from_print),
                     unit=LENGTH_UNIT,
                     method_id=METHOD_TEXT_SCALE,
+                    independence_group=target,
                     derivation="derived",
                     derivation_basis=("read",),
                     provenance={
@@ -1540,6 +1550,7 @@ def _reference_dimension_findings(
                     value_range=_mm_range(from_dimensions),
                     unit=LENGTH_UNIT,
                     method_id=METHOD_DIMENSION_SCALE,
+                    independence_group=target,
                     derivation="derived",
                     derivation_basis=("read",),
                     provenance={
@@ -1973,6 +1984,8 @@ def to_orchestrator_request(
             "derivation": finding.derivation,
             "provenance": finding.provenance,
         }
+        if finding.independence_group:
+            entry["independence_group"] = finding.independence_group
         if finding.derivation == "derived":
             entry["derivation_basis"] = list(finding.derivation_basis)
         evidence.append(entry)
