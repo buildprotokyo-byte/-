@@ -1,0 +1,35 @@
+{
+  "round": 53,
+  "criteria_commit": "d64437f",
+  "criteria_file": "docs/d_arc_overcount_v2_criteria.md",
+  "benchmark": "benchmarks/measure_arc_overcount_v2.py",
+  "page_count": 34,
+  "V0_sheet": {
+    "page_1_based": 1,
+    "hits": 9,
+    "runner_up_page_1_based": 8,
+    "runner_up_hits": 9,
+    "twice_as_many": false,
+    "has_sheet_name": true,
+    "identified": false
+  },
+  "V1_found": 0,
+  "V2_reference": 5,
+  "V3_ratio": 0.0,
+  "V4_total": 90,
+  "V4_pages_with_arcs": 5,
+  "scale_read_on_sheet": false,
+  "controls": {
+    "1_total_matches_round_35": true,
+    "2_sheet_name_present": true,
+    "3_repeat": [
+      0,
+      0,
+      0
+    ],
+    "4_index_page_not_top": false,
+    "4_index_page_hits": 9
+  },
+  "verdict": "controls_failed",
+  "implementation_changed": false
+}

@@ -1,0 +1,95 @@
+{
+  "round": 47,
+  "conditions": {
+    "G0": {
+      "Z1_targets": 7,
+      "Z2_sources": 1,
+      "Z3_tier1": 0,
+      "Z4_tier2": 0,
+      "Z4_tier3": 7,
+      "Z5_targets_with_two_sources": 0,
+      "Z5_shapes": [],
+      "Z6_tier1_shapes": [],
+      "Z6_reasons": []
+    },
+    "G1": {
+      "Z1_targets": 8,
+      "Z2_sources": 2,
+      "Z3_tier1": 0,
+      "Z4_tier2": 0,
+      "Z4_tier3": 8,
+      "Z5_targets_with_two_sources": 1,
+      "Z5_shapes": [
+        "基準寸法"
+      ],
+      "Z6_tier1_shapes": [],
+      "Z6_reasons": []
+    },
+    "G2": {
+      "Z1_targets": 8,
+      "Z2_sources": 2,
+      "Z3_tier1": 1,
+      "Z4_tier2": 0,
+      "Z4_tier3": 7,
+      "Z5_targets_with_two_sources": 1,
+      "Z5_shapes": [
+        "基準寸法"
+      ],
+      "Z6_tier1_shapes": [
+        "基準寸法"
+      ],
+      "Z6_reasons": [
+        "実測校正済みの独立した強いデータ源が2つ以上一致"
+      ]
+    }
+  },
+  "synthetic_start_kit": "ページ 7 の印字された縮尺に合わせた基準点 1 つ",
+  "controls": {
+    "1_g0_tier1_is_zero": true,
+    "2_restored": true,
+    "3_repeat": [
+      1,
+      1,
+      1
+    ],
+    "4_synthetic_reaches_tier1": true,
+    "4_synthetic_tier1_count": 1,
+    "4_synthetic_shapes": [
+      "基準寸法"
+    ]
+  },
+  "trial": "キラークエスチョン",
+  "title": "この図面で自動確定が1件でも出る道はあるのか",
+  "date": "2026-09-23",
+  "criteria_commit": "5c1e169",
+  "criteria_file": "docs/d_tier1_reachability_criteria.md",
+  "benchmark": "benchmarks/measure_tier1_reachability.py",
+  "why_now": "36〜46周の11周つづけて、目標の数字(自動確定の件数)が1件も動いていなかった。個々の周は正しく回っているのに前に進まない。それが鈍化。",
+  "verdict": {
+    "branch": "Z3(G2) = 1 ≧ 1",
+    "literal": "校正が本当の壁で、その大きさは1件。",
+    "Z6_check": "通った1件は『基準寸法』。人が入れた基準点と印字された縮尺が出会う対象で、仮の人の入力は印字された縮尺から逆算して作ったので合うのは当たり前。",
+    "as_written_in_criteria": "Z6がその形なので、改善の見込みとして数えない。改善の見込み0件、危険1件。",
+    "killer_question_answer": "積算したい数量については、自動確定へ届く道は無い。理由は校正ではなく独立性。校正を全部済ませても8対象のうち7対象はデータ源が1つのままで、階層1は独立したデータ源2つを要求するため永久に届かない。",
+    "danger_reproduced": "記憶が『危ない裏返し』として名指ししていた形が実図面で再現した。human_reference_point と pdf_text_scale を校正済みにすると、人が1回入れた値と印字の一致だけで階層1へ到達する。これは校正してはならない理由の実測。"
+  },
+  "one_sided_only": {
+    "can_say": "人が基準点を1つ入れただけでは、積算したい数量に2つ目のデータ源は1件も付かない。",
+    "cannot_say": [
+      "人がどれだけ入れても付かない、とは言っていない(そこは測っていない)",
+      "1件の図面での測定である"
+    ]
+  },
+  "implementation_changed": {
+    "judgement_logic": false,
+    "thresholds": false,
+    "production_code": false,
+    "note": "反実仮想は測定プロセスの中だけ。コミットする変更は無い。"
+  },
+  "next_round": {
+    "question": "人がどこまで入れれば、積算したい数量に2つ目のデータ源が付くのか",
+    "how": "仮の人の入力を段階的に増やし、2つ以上のデータ源が主張する対象の数(Z5)がどこで増えるかを数える",
+    "why_Z5_not_Z3": "Z3は校正済みを仮定しないと動かず、校正はおーちゃんの判断が要るため",
+    "needs_nothing_new": true
+  }
+}
