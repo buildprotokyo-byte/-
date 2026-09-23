@@ -98,6 +98,15 @@ from axes.image_axis.ocr_text import (
     OcrPage,
     recognize_page,
 )
+from axes.image_axis.pdf_dimensions import (
+    METHOD_DIMENSION_SCALE,
+    METHOD_DIMENSION_TEXT,
+    DimensionPage,
+    DimensionReading,
+    DimensionScale,
+    page_scale_from_dimensions,
+    read_dimensions,
+)
 from axes.image_axis.pdf_pages import ContentKind, rasterize
 from axes.image_axis.pdf_vector_symbols import (
     METHOD_DOOR_ARC,
@@ -117,6 +126,7 @@ from axes.image_axis.schedule_tables import (
     read_door_schedules,
     read_finish_schedules,
 )
+from axes.reading.meaning import Meaning
 from intake.case_answers import (
     AREA_BASIS_DEPENDENT_ITEMS,
     AREA_BASIS_OPTIONS,
@@ -127,7 +137,7 @@ from intake.case_answers import (
 )
 from axes.reading.meaning import PHASE_UNKNOWN, PURPOSE_UNESTABLISHED, Meaning
 from intake.start_kit import (
-    DOOR_ARC_PAGE_KINDS,
+    DOOR_ARC_EXPECTED_PAGE_KINDS,
     PageDeclaration,
     PagePairing,
     ReferencePoint,
@@ -151,6 +161,37 @@ TARGET_WORK_FLOOR_AREA = "施工対象床面積"
 
 #: 長さの単位表記。`arbitration/units.py` が mm の整数へ正規化する。
 LENGTH_UNIT = "mm"
+
+#: 縮尺の読みの出どころの名前。**判断待ちの記録と警告の文がこれを使う**ので、
+#: 文字列を直接書かずにここから参照する。
+ORIGIN_PRINTED_SCALE = "表題欄の印字"
+ORIGIN_DIMENSION_TEXT = "図面に記入された寸法"
+
+#: 判断待ちの種類。
+KIND_SCALE_DISAGREEMENT = "scale_disagreement"
+
+#: 人が入れた基準点と、図面に記入された寸法が食い違ったこと。
+#:
+#: 原則3-1の最後の1行「人のクリックや入力も間違う前提とし、図面に書かれた
+#: 寸法の数字と突き合わせて検算し、合わなければ警告する」がこれである。
+#: **`scale_disagreement` と分けてあるのは、人に伝える中身が違うから。**
+#: 表題欄との食い違いは「印刷のときに拡大縮小されたかもしれない」だが、
+#: 寸法との食い違いは「指した2点か入れた長さが違うかもしれない」である。
+KIND_HUMAN_VS_DIMENSION = "human_input_vs_dimension_disagreement"
+
+#: 図面に記入された寸法の対象名の頭。
+#:
+#: **ページと座標で名前を作る。** 連番にすると、読める寸法が1件増えただけで
+#: 別の寸法の名前がずれる。
+TARGET_DIMENSION_PREFIX = "寸法::"
+
+#: 人が宣言したページの種類と、実際に読めた中身が食い違ったときの
+#: `PendingDecision.kind`。
+#:
+#: **食い違っても読み取りは止めない。** 止めるかわりに、読みを「仮説に
+#: 基づく」側へ落として(由来を ``assumed`` にして)自動確定から外し、
+#: この記録で人の判断へ回す(原則4の条件3・原則5)。
+PAGE_KIND_DISAGREEMENT = "page_kind_disagreement"
 
 #: 建具表から読んだ数量の対象名の頭。建具番号ごとに 1 つの対象にする。
 #:
@@ -212,19 +253,36 @@ class OcrSettings:
     `backends` に 2 つ以上のエンジンを渡すと、**両方が同じに読んだ語だけ**が
     通る(`axes/image_axis/ocr_text.recognize_page`)。実測では、中国語・英語の
     モデルが数字に強くて日本語の語を化けさせ、日本語のモデルはその逆だった
-    (`docs/ocr_scanned_pages_report.md`)。1 つだけ渡すこともできるが、
+    (`docs/ocr_scanned_pages_report.md`)。
+
+    **2026-09-23、おーちゃんの判断で「2 つが同じに読んだ語だけを通す」が既定になった。**
+    2 つ一致に絞ると実測で誤りは 0 件だが、29 語のうち 7〜8 語しか通らない。
+    **それでも、文字化けを数量側へ持ち込まないほうを既定に置く。**
+
+    **1 つだけで読む道は塞いでいない。**(塞ぐと、片方のエンジンしか入らない
+    環境で何も読めなくなる。)`allow_single_backend=True` と**はっきり書けば**通り、
     その読みは突き合わせを通っていないことが証拠に残る。
     """
 
     backends: tuple[OcrBackend, ...] = ()
     dpi: int = OCR_DPI
     min_confidence: float = DEFAULT_MIN_CONFIDENCE
+    #: **エンジン 1 つだけの読みを受け入れるか。**既定は受け入れない。
+    #: 突き合わせを通っていない読みを、黙って数量側へ入れないためである。
+    allow_single_backend: bool = False
 
     def __post_init__(self) -> None:
         if not self.backends:
             raise IntakeError(
                 "OcrSettings にエンジンが 1 つも入っていません。"
                 "OCR を使わないなら IntakeConfig.ocr を None のままにしてください"
+            )
+        if len(self.backends) < 2 and not self.allow_single_backend:
+            raise IntakeError(
+                "OcrSettings のエンジンが 1 つだけです。"
+                "既定では、2 つのエンジンが同じに読んだ語だけを通します"
+                "(突き合わせを通っていない読みを黙って入れないため)。"
+                "1 つだけで読むなら allow_single_backend=True と明示してください"
             )
 
 
@@ -278,13 +336,17 @@ class ScaleReading:
 
     is_human_input: bool = False
 
+    #: 図面に記入された寸法から求めた読みか。人の入力との食い違いを
+    #: 「検算で合わなかった」として区別するために持つ。
+    is_from_dimensions: bool = False
+
 
 @dataclass(frozen=True)
 class PendingDecision:
     """人の判断を待つことになった食い違い。**黙って片方を採らない。**"""
 
     kind: str
-    """``scale_disagreement`` / ``area_basis_conflict``。"""
+    """``scale_disagreement`` / ``area_basis_conflict`` / ``page_kind_disagreement``。"""
 
     detail: str
     observed: tuple[tuple[str, float], ...] = ()
@@ -307,8 +369,21 @@ class PageOutcome:
     scale_readings: tuple[ScaleReading, ...] = ()
     #: 人が宣言したページの種類と現況/計画/解体の区別(宣言が無ければ None)。
     declaration: PageDeclaration | None = None
+    #: そのページで読めた、記入された寸法。**読めなかったページは空。**
+    dimension_readings: tuple[DimensionReading, ...] = ()
+    #: 記入された寸法どうしの一致から求めた縮尺。出なければ None。
+    dimension_scale: DimensionScale | None = None
     #: 起きたことの記録(縮尺が読めない、ラスターの中身は読んでいない、など)。
     notes: tuple[str, ...] = ()
+    #: **このページで試すことすらできなかった手法の id。**
+    #:
+    #: 「探したが 0 件だった」と「そもそも探せなかった」は、出力される数量が
+    #: どちらも 0 件なので区別が付かない。**人が読む要約に理由を載せるための欄**
+    #: である(`docs/d_summary_distinguishes_report.md`)。
+    #:
+    #: **人が「建具表のページだ」と宣言したので探さなかった場合は入れない。**
+    #: それは人が自分で決めたことなので、知らないうちに抜けたのとは違う。
+    unattempted_methods: tuple[str, ...] = ()
 
     @property
     def processed(self) -> bool:
@@ -335,15 +410,21 @@ class DrawingFinding:
 
     derivation: str = "read"
     derivation_basis: tuple[str, ...] = ()
+    #: **同じものを見ている読みをまとめる名前。**空なら指紋で数える。
+    #:
+    #: 基準寸法の 3 つの読みは 2 点の座標を共有しているので、ここに同じ名前を
+    #: 入れて 1 つのデータ源として数えさせる(2026-09-23 おーちゃんの判断)。
+    independence_group: str = ""
     provenance: dict[str, Any] = field(default_factory=dict)
     """ページ番号・座標・元の文字列。**仲裁層まで一緒に運ぶ。**"""
 
     meaning: Meaning | None = None
     """この値の意味の 4 欄(`axes/reading/meaning.py`)。
 
-    **新しく書いた経路(OCR)では必ず入る**(おーちゃんの回答9、2026-09-22)。
-    既存の経路(埋め込み文字・建具表・開き戸)はまだ None で、修正のついでに
-    順に入れていく。**None は「意味が無い」ではなく「まだ付けていない」。**
+    **新しく書いた経路(OCR・記入された寸法)では必ず入る**
+    (おーちゃんの回答9、2026-09-22)。既存の経路(埋め込み文字の面積・
+    建具表・開き戸)はまだ None で、修正のついでに順に入れていく。
+    **None は「意味が無い」ではなく「まだ付けていない」。**
     """
 
 
@@ -361,6 +442,24 @@ class TargetDecision:
     reasons: tuple[str, ...]
     reason_codes: tuple[str, ...]
     is_invalid: bool
+
+    # -- **何が効いたかを、畳んだ後も残す。** ----------------------------------
+    # 仲裁層の `FirewallDecision` はどの読みが効いたかまで持っているのに、
+    # ここで人が読む形に畳むときに落ちていた。見積の行から「複数の経路が
+    # 一致したのか」を辿れないのはそのためである(66周目)。
+    # **判定には使わない。記録だけ。**
+
+    hard_evidence_ids: tuple[str, ...] = ()
+    """ハード制約として効いた読み。`source_id::axis_id::method_id::target`。"""
+
+    advisory_evidence_ids: tuple[str, ...] = ()
+    """参考情報に落ちた読み。**未校正の手法はここに来る。**"""
+
+    independent_strong_source_count: int = 0
+    independent_advisory_source_count: int = 0
+    method_count: int = 0
+    solve_is_consistent: bool = False
+    """読み同士に矛盾が無かったか。**「一致した」と言えるのはこれが真のときだけ。**"""
 
     @property
     def confirmed(self) -> bool:
@@ -437,6 +536,18 @@ class IntakeResult:
         return tuple(item.target for item in self.decisions if item.confirmed)
 
     @property
+    def pages_with_unattempted_methods(self) -> tuple[int, ...]:
+        """**試すことすらできなかった手法があるページ番号**(1 始まり)。
+
+        未対応のページ(スキャン・空)はここに入らない。あちらは
+        `unsupported_pages` として別に数えている。ここに入るのは
+        **抽出に回したのに、ある手法だけ試せなかったページ**である。
+        """
+        return tuple(
+            page.page_number for page in self.pages if page.unattempted_methods
+        )
+
+    @property
     def unsupported_pages(self) -> tuple[int, ...]:
         """未対応として記録したページ番号(1 始まり)。"""
         return tuple(page.page_number for page in self.pages if not page.processed)
@@ -475,6 +586,10 @@ class IntakeResult:
             f"ページ: 全 {len(self.pages)} / 抽出に回した {sum(1 for p in self.pages if p.processed)}"
             f" / 未対応 {len(self.unsupported_pages)}",
             f"読めた数量: {len(self.findings)} 件",
+            # **「探したが 0 件」と「探せなかった」は、数量の上では同じ 0 件になる。**
+            # 理由を人に渡すための 1 行(`docs/d_summary_distinguishes_report.md`)。
+            f"試せなかった手法があるページ: "
+            f"{len(self.pages_with_unattempted_methods)} 件",
             f"自動確定: {len(self.confirmed_targets)} 件",
             f"人への質問: {len(self.pending_questions)} 件",
             f"判断待ち: {len(self.pending_decisions)} 件",
@@ -908,29 +1023,70 @@ def _extract(
 
         printed = extract_scale(pdf_path, index)
         reference_points = start_kit.reference_points_for(page_number)
+
+        # 図面に記入された寸法を読む。**表題欄の縮尺を一度も使わない**経路で、
+        # 原則3-1「図面に書かれた縮尺の表記は当てにしない」に対する
+        # 長さの出どころになる。表と同じく縮尺に依存しないので、縮尺が
+        # 読めないページでも読める。
+        dimension_page = read_dimensions(
+            pdf_path,
+            index,
+            phase=declaration.phase if declaration is not None else "不明",
+            purpose_received=start_kit.purpose is not None,
+        )
+        dimension_scale = page_scale_from_dimensions(
+            dimension_page, tolerance=float(scale_tolerance)
+        )
+        if dimension_page.readings and dimension_scale is None:
+            notes.append(
+                f"記入された寸法を {len(dimension_page.readings)} 件読んだが、"
+                "互いに一致しないので縮尺は出していない(平均は取らない)"
+            )
+        if dimension_page.skipped:
+            notes.append(
+                f"数字として読めたが寸法にしなかったものが "
+                f"{len(dimension_page.skipped)} 件ある"
+                "(寸法線との対応が取れない、単位が決まらない)"
+            )
+
         scale, readings, disagreement = _resolve_scale(
             page_number=page_number,
             printed=printed,
             reference_points=reference_points,
             tolerance=scale_tolerance,
+            dimensions=dimension_scale,
         )
+        unattempted: list[str] = []
         if disagreement is not None:
             pending.append(disagreement)
             notes.append(
                 "縮尺の読みが食い違ったため、このページでは実寸に依存する抽出を行わない"
             )
+            unattempted.append(METHOD_DOOR_ARC)
         elif scale is None:
             notes.append("縮尺が読めないため、実寸に依存する抽出(開き戸)は行わない")
+            unattempted.append(METHOD_DOOR_ARC)
         elif any(reading.is_human_input for reading in readings):
             notes.append("人が入れた基準点から求めた縮尺を使った")
+            if dimension_scale is not None:
+                notes.append(
+                    "人が入れた基準点を、図面に記入された寸法で検算して一致した"
+                )
+        elif any(reading.is_from_dimensions for reading in readings):
+            notes.append(
+                "図面に記入された寸法から求めた縮尺を使った(表題欄の印字は使っていない)"
+            )
 
         findings.extend(
-            _reference_dimension_findings(reference_points, printed, page_number)
+            _reference_dimension_findings(
+                reference_points, printed, page_number, dimension_scale
+            )
         )
+        findings.extend(_dimension_findings(dimension_page, declaration))
 
         # 表の読み取りは縮尺に依存しない。印字された文字を読むだけなので、
         # 縮尺が読めないページでも、読みが食い違ったページでも表は読める。
-        _read_schedules(
+        door_schedule_count, finish_schedule_count = _read_schedules(
             pdf_path,
             index,
             notes=notes,
@@ -953,18 +1109,22 @@ def _extract(
             )
 
         if scale is not None:
-            if declaration is not None and declaration.kind not in DOOR_ARC_PAGE_KINDS:
-                # 人が「建具表」「仕上表」と宣言したページで円弧を探すと、
-                # 表の罫線や記号を建具として拾いうる。宣言があるなら従う。
-                notes.append(
-                    f"人が「{declaration.kind}」と宣言したページなので開き戸は探さない"
+            # **宣言でページを外さない。** 人が「建具表」と宣言していても
+            # 円弧は探す(原則4の条件3「図面の読み方を縛らない」)。
+            # 宣言と食い違ったときの扱いは `_door_arc_findings` の中。
+            findings.extend(
+                _door_arc_findings(
+                    pdf_path,
+                    index,
+                    page_number,
+                    scale,
+                    declaration,
+                    notes,
+                    pending=pending,
+                    door_schedule_count=door_schedule_count,
+                    finish_schedule_count=finish_schedule_count,
                 )
-            else:
-                findings.extend(
-                    _door_arc_findings(
-                        pdf_path, index, page_number, scale, declaration, notes
-                    )
-                )
+            )
 
         outcomes.append(
             PageOutcome(
@@ -972,8 +1132,11 @@ def _extract(
                 content_kind=page.content_kind,
                 status="processed",
                 scale=scale,
+                unattempted_methods=tuple(unattempted),
                 scale_readings=readings,
                 declaration=declaration,
+                dimension_readings=dimension_page.readings,
+                dimension_scale=dimension_scale,
                 notes=tuple(notes),
             )
         )
@@ -1113,8 +1276,14 @@ def _read_schedules(
     door_rows: list[DoorScheduleRow],
     finish_rows: list[FinishScheduleRow],
     door_quantity_hits: dict[str, list[tuple[float, dict[str, Any]]]],
-) -> None:
-    """1 ページぶんの建具表・内装仕上表を読み、結果を呼び出し側の器に足す。"""
+) -> tuple[int, int]:
+    """1 ページぶんの建具表・内装仕上表を読み、結果を呼び出し側の器に足す。
+
+    返すのは、そのページで**表として読めた**建具表と内装仕上表の数である。
+    人が宣言したページの種類と突き合わせる材料に使う(原則5)。
+    **0 件は「表が無い」ではない。** 罫線で組まれていない表とスキャンの
+    ページは、この経路では読めない。
+    """
     door_schedules = read_door_schedules(pdf_path, index)
     if not door_schedules:
         notes.append(
@@ -1145,6 +1314,8 @@ def _read_schedules(
         )
     for schedule in finish_schedules:
         finish_rows.extend(schedule.rows)
+
+    return len(door_schedules), len(finish_schedules)
 
 
 def _door_quantity_findings(
@@ -1201,20 +1372,29 @@ def _resolve_scale(
     printed: DrawingScale | None,
     reference_points: Sequence[ReferencePoint],
     tolerance: Fraction,
-    printed_origin: str = "表題欄の印字",
+    dimensions: DimensionScale | None = None,
+    printed_origin: str = ORIGIN_PRINTED_SCALE,
 ) -> tuple[DrawingScale | None, tuple[ScaleReading, ...], PendingDecision | None]:
     """このページで使う縮尺を決める。食い違えば**使わずに判断待ちにする。**
 
-    読みは2種類ある。
+    読みは3種類ある。
 
     - 表題欄の印字(`extract_scale`)。**用紙の拡大縮小を保証しない。**
       A3 の図面を A0 で出しても印字は 1/50 のままで、実効の縮尺は約 1/18 になる
       (P011 で実際に起きた。`docs/real_drawing_eval_report.md`)。
     - 人が入れた基準点から求めた比。紙の上の距離と実寸の比なので、
       拡大縮小があっても正しく出る。
+    - **図面に記入された寸法どうしの一致から求めた比**
+      (`axes/image_axis/pdf_dimensions.page_scale_from_dimensions`)。
+      これも紙の上の距離と記入された実寸の比なので、拡大縮小の影響を受けない。
+      原則3-1「図面に書かれた縮尺の表記は当てにしない」に対して、**表記の
+      代わりになる出どころ**であり、同時に人の入力を検算する相手でもある。
 
     食い違ったときに**どちらかを選ばない。** 選べる根拠がこの場に無いし、
     間違ったほうを選ぶと、もっともらしい長さが下流に入る。
+
+    **どれも同じ PDF から読んでいるので、印字と寸法は独立なデータ源ではない**
+    (`source_fingerprint` が同じ)。独立なのは人の入力との間だけである。
     """
     readings: list[ScaleReading] = []
     if printed is not None:
@@ -1223,6 +1403,19 @@ def _resolve_scale(
                 denominator=printed.denominator,
                 origin=printed_origin,
                 detail=printed.source_text,
+            )
+        )
+    if dimensions is not None:
+        readings.append(
+            ScaleReading(
+                denominator=dimensions.denominator,
+                origin=ORIGIN_DIMENSION_TEXT,
+                detail=(
+                    f"記入された寸法 {dimensions.agreeing_count}/"
+                    f"{dimensions.total_count} 件が一致"
+                    f"(採った寸法の表記: {dimensions.source_text})"
+                ),
+                is_from_dimensions=True,
             )
         )
     for point in sorted(reference_points, key=lambda item: item.axis):
@@ -1242,33 +1435,72 @@ def _resolve_scale(
         return None, (), None
 
     if not _all_agree([reading.denominator for reading in readings], tolerance):
-        return (
-            None,
-            tuple(readings),
-            PendingDecision(
-                kind="scale_disagreement",
-                page_number=page_number,
-                detail=(
-                    f"ページ {page_number} の縮尺の読みが"
-                    f"許容差(±{float(tolerance) * 100:.3g}%)を超えて食い違っています。"
-                    "どちらを使うかは人が決める必要があります"
-                ),
-                observed=tuple(
-                    (reading.origin, reading.denominator) for reading in readings
-                ),
-            ),
+        return None, tuple(readings), _scale_disagreement(
+            page_number=page_number, readings=readings, tolerance=tolerance
         )
 
     # 一致しているときは、**人が入れた基準点のほうを使う。** 印字と同じ値を
     # 指しているうえ、用紙の拡大縮小の影響を受けないため。平均は取らない
     # (平均した分母は、どの読みも主張していない数値になる)。
     chosen = next(
-        (reading for reading in readings if reading.is_human_input), readings[0]
+        (reading for reading in readings if reading.is_human_input),
+        next(
+            # 人の入力が無ければ、**図面に記入された寸法**を印字より先に採る。
+            # 印字は用紙の拡大縮小を保証しないが、寸法から求めた比は保証する。
+            (reading for reading in readings if reading.is_from_dimensions),
+            readings[0],
+        ),
     )
     return (
         DrawingScale(denominator=chosen.denominator, source_text=chosen.detail),
         tuple(readings),
         None,
+    )
+
+
+def _scale_disagreement(
+    *,
+    page_number: int,
+    readings: Sequence[ScaleReading],
+    tolerance: Fraction,
+) -> PendingDecision:
+    """食い違いを、**人に伝える中身で2種類に分ける。**
+
+    人が入れた基準点と、図面に記入された寸法が食い違っているときは、
+    原則3-1の最後の1行が言う「人のクリックや入力の誤り」の警告である。
+    そこだけは別の種類にして、何を見直せばよいかを文に入れる。
+    """
+    human = [reading for reading in readings if reading.is_human_input]
+    dimension = [reading for reading in readings if reading.is_from_dimensions]
+    observed = tuple((reading.origin, reading.denominator) for reading in readings)
+    limit = f"±{float(tolerance) * 100:.3g}%"
+
+    if human and dimension and not _all_agree(
+        [human[0].denominator, dimension[0].denominator], tolerance
+    ):
+        return PendingDecision(
+            kind=KIND_HUMAN_VS_DIMENSION,
+            page_number=page_number,
+            detail=(
+                f"ページ {page_number} で、人が入れた基準点から求めた縮尺 "
+                f"1/{human[0].denominator:.4g} と、図面に記入された寸法から求めた縮尺 "
+                f"1/{dimension[0].denominator:.4g} が許容差({limit})を超えて"
+                "食い違っています。人が指した2点の位置か、入れた実際の長さを"
+                "見直してください。どちらも採らないので、このページでは実寸に"
+                "依存する抽出を行いません"
+            ),
+            observed=observed,
+        )
+
+    return PendingDecision(
+        kind=KIND_SCALE_DISAGREEMENT,
+        page_number=page_number,
+        detail=(
+            f"ページ {page_number} の縮尺の読みが"
+            f"許容差({limit})を超えて食い違っています。"
+            "どちらを使うかは人が決める必要があります"
+        ),
+        observed=observed,
     )
 
 
@@ -1305,17 +1537,27 @@ def _reference_dimension_findings(
     reference_points: Sequence[ReferencePoint],
     printed: DrawingScale | None,
     page_number: int,
+    dimensions: DimensionScale | None = None,
 ) -> list[DrawingFinding]:
-    """人が指した2点の間の長さを、2つの読みとして証拠にする。
+    """人が指した2点の間の長さを、3つの読みとして証拠にする。
 
     - 人が入れた実寸(`human_reference_point`)
     - 同じ2点を、**表題欄の印字した縮尺**で実寸に直した値(`pdf_text_scale`)
+    - 同じ2点を、**図面に記入された寸法から求めた縮尺**で実寸に直した値
+      (`pdf_dimension_scale`)
 
-    この2つは、縮尺についてだけ独立している。**2点の座標は共有している**ので、
-    座標の取り違えは両方に同じように効き、この突き合わせでは捕まらない。
+    3つめが原則3-1の最後の1行「図面に書かれた寸法の数字と突き合わせて検算」
+    である。**表題欄の印字とは別の手法**なので、印字が当てにならないページ
+    (用紙が拡大縮小されている)でも検算が効く。
+
+    どれも、縮尺についてだけ独立している。**2点の座標は共有している**ので、
+    座標の取り違えは全部に同じように効き、この突き合わせでは捕まらない。
     その但し書きは `provenance` に残す。
     """
     out: list[DrawingFinding] = []
+    # **この但し書きは、2026-09-23 まで provenance に残るだけで判定を動かして
+    # いなかった**(`docs/d_independence_note_report.md`)。
+    # いまは `independence_group` として効かせている。
     shared_note = (
         "この読みと相手の読みは2点の座標を共有している。"
         "独立なのは縮尺の部分だけで、座標の取り違えは両方に同じように効く"
@@ -1335,6 +1577,7 @@ def _reference_dimension_findings(
                 value_range=_mm_range(point.actual_length_mm),
                 unit=LENGTH_UNIT,
                 method_id=METHOD_HUMAN_REFERENCE_POINT,
+                independence_group=target,
                 source_kind="start_kit",
                 provenance={
                     **base_provenance,
@@ -1352,6 +1595,7 @@ def _reference_dimension_findings(
                     value_range=_mm_range(from_print),
                     unit=LENGTH_UNIT,
                     method_id=METHOD_TEXT_SCALE,
+                    independence_group=target,
                     derivation="derived",
                     derivation_basis=("read",),
                     provenance={
@@ -1362,6 +1606,64 @@ def _reference_dimension_findings(
                     },
                 )
             )
+        if dimensions is not None:
+            from_dimensions = point.paper_distance_pt * dimensions.mm_per_point
+            out.append(
+                DrawingFinding(
+                    target=target,
+                    value_range=_mm_range(from_dimensions),
+                    unit=LENGTH_UNIT,
+                    method_id=METHOD_DIMENSION_SCALE,
+                    independence_group=target,
+                    derivation="derived",
+                    derivation_basis=("read",),
+                    provenance={
+                        **base_provenance,
+                        **dimensions.provenance(),
+                        "computed_length_mm": round(from_dimensions, 3),
+                        "check_note": (
+                            "原則3-1の検算。人が入れた実寸と、図面に記入された"
+                            "寸法から求めた縮尺での長さを突き合わせる"
+                        ),
+                    },
+                )
+            )
+    return out
+
+
+def _dimension_findings(
+    page: DimensionPage, declaration: PageDeclaration | None
+) -> list[DrawingFinding]:
+    """記入された寸法そのものを、意味の4欄つきの数量として出す。
+
+    **止めずに出す**(原則5)。意味の4欄のうち `purpose_link` は結び付けが
+    未実装なので印だけになり、`Meaning.is_complete` は False のままである。
+    そのことは `provenance` に残るので、後から数えられる。
+
+    対象名はページと座標で作る。**連番にしない**(読める寸法が1件増えると
+    他の寸法の名前がずれる)。
+    """
+    out: list[DrawingFinding] = []
+    for reading in page.readings:
+        start, end = reading.start_pt, reading.end_pt
+        target = (
+            f"{TARGET_DIMENSION_PREFIX}ページ{reading.page_number}::"
+            f"{reading.orientation}::"
+            f"({start[0]:.0f},{start[1]:.0f})-({end[0]:.0f},{end[1]:.0f})"
+        )
+        provenance = reading.provenance()
+        if declaration is not None:
+            provenance["declared_page_kind"] = declaration.kind
+        out.append(
+            DrawingFinding(
+                target=target,
+                value_range=_mm_range(reading.value_mm),
+                unit=LENGTH_UNIT,
+                method_id=METHOD_DIMENSION_TEXT,
+                provenance=provenance,
+                meaning=reading.meaning,
+            )
+        )
     return out
 
 
@@ -1372,11 +1674,88 @@ def _door_arc_findings(
     scale: DrawingScale,
     declaration: PageDeclaration | None,
     notes: list[str],
+    *,
+    pending: list[PendingDecision],
+    door_schedule_count: int = 0,
+    finish_schedule_count: int = 0,
 ) -> list[DrawingFinding]:
+    """そのページの開き戸の円弧を数える。**人の宣言では止めない。**
+
+    人が宣言したページの種類は**弱い手がかり**であって、読み取りの範囲では
+    ない(原則4の条件3)。宣言が「平面図」以外でも円弧は探し、出た件数は
+    そのまま出す(原則5「前提が揃うまで止めるのではなく、何に基づくかを
+    区別して出す」)。
+
+    宣言と読み取りが食い違ったとき(「建具表」と宣言されたページで円弧が
+    出たとき)にすることは 3 つある。
+
+    1. **読みを捨てない。** 値は出す。
+    2. 由来を ``assumed`` にする。表の罫線や姿図の記号を開き戸と
+       取り違えているかもしれない、という**仮説の上に乗っている**ため。
+       見積の行では「仮説に基づく」になり、階層1(自動確定)には上がらない。
+    3. 食い違いを `PendingDecision` に残して人へ回す。同じページで建具表が
+       実際に表として読めていれば、それも材料として書く
+       (**人の宣言のほうが正しい場合もある**)。
+
+    円弧が 0 件のときは食い違いを立てない。**捨てられた読みが無い**ので、
+    正しい宣言のたびに人へ質問が飛ぶのを避ける。
+    """
     arcs = find_door_arcs(pdf_path, index, scale)
+    declared_kind = declaration.kind if declaration is not None else None
+    unexpected_here = (
+        declared_kind is not None
+        and declared_kind not in DOOR_ARC_EXPECTED_PAGE_KINDS
+    )
     if not arcs:
         notes.append("開き戸の円弧は 0 件(引戸・折戸はこの手法では拾えない)")
+        if unexpected_here:
+            notes.append(
+                f"人が「{declared_kind}」と宣言したページでも円弧は探した"
+                "(宣言は読み取りの範囲を決めない)。結果は 0 件で、"
+                "宣言と食い違わなかった"
+            )
         return []
+
+    conflict = unexpected_here
+    if conflict:
+        notes.append(
+            f"人が「{declared_kind}」と宣言したページだが、開き戸の円弧が "
+            f"{len(arcs)} 件出た。**宣言を理由に捨てていない。** ただし表の罫線や"
+            "姿図の記号を取り違えている可能性があるので、この値は"
+            "「仮説に基づく」として出し、食い違いを人の判断へ回した"
+        )
+        observed: list[tuple[str, float]] = [("開き戸の円弧", float(len(arcs)))]
+        if door_schedule_count:
+            observed.append(("読めた建具表", float(door_schedule_count)))
+        if finish_schedule_count:
+            observed.append(("読めた内装仕上表", float(finish_schedule_count)))
+        detail = (
+            f"ページ{page_number}は人が「{declared_kind}」と宣言しているが、"
+            f"開き戸の円弧が {len(arcs)} 件読めた。"
+            "宣言が誤っている(実際は平面図、または平面図が同居している)のか、"
+            "表の罫線・姿図の記号を円弧として拾ったのか、"
+            "図面を見て決めてください。"
+        )
+        if door_schedule_count:
+            detail += (
+                f"なお、このページでは建具表も {door_schedule_count} 件"
+                "表として読めている(宣言どおりの可能性がある)。"
+            )
+        else:
+            detail += (
+                "なお、このページでは建具表を表として読めていない"
+                "(**表が無いという意味ではない**。罫線で組まれていない表と"
+                "スキャンのページは、この経路では読めない)。"
+            )
+        pending.append(
+            PendingDecision(
+                kind=PAGE_KIND_DISAGREEMENT,
+                detail=detail,
+                observed=tuple(observed),
+                page_number=page_number,
+            )
+        )
+
     # ページごとに別の対象にする。足すと既存と新設を二重に数えるため。
     # 人が現況/計画/解体を宣言していれば、対象の名前に残す。
     phase = declaration.phase if declaration is not None else None
@@ -1392,11 +1771,17 @@ def _door_arc_findings(
             unit=COUNT_UNIT,
             method_id=METHOD_DOOR_ARC,
             strength="weak",
+            # 宣言と食い違った読みは「仮説に基づく」側に落とす。
+            # `assumed` は `arbitration/` が階層1へ上げない由来である。
+            derivation="assumed" if conflict else "read",
             provenance={
                 "page_number": page_number,
                 "scale": f"1/{scale.denominator:g}",
                 "scale_source_text": scale.source_text,
                 "phase": phase,
+                "declared_page_kind": declared_kind,
+                "declaration_conflict": conflict,
+                "door_schedules_read_on_page": door_schedule_count,
                 "arcs": [
                     {
                         "center_pt": list(arc.center_pt),
@@ -1663,6 +2048,8 @@ def to_orchestrator_request(
             "derivation": finding.derivation,
             "provenance": finding.provenance,
         }
+        if finding.independence_group:
+            entry["independence_group"] = finding.independence_group
         if finding.derivation == "derived":
             entry["derivation_basis"] = list(finding.derivation_basis)
         evidence.append(entry)
@@ -1698,4 +2085,20 @@ def _decide(
         reasons=decision.reasons if decision is not None else (),
         reason_codes=reason_codes,
         is_invalid=result.is_invalid,
+        # **`getattr` で読む。** 試験では判定を差し替えた作り物が来る。
+        # 記録用の欄が無いだけで入口が落ちるのは、追加の代償として重すぎる。
+        hard_evidence_ids=tuple(getattr(decision, "hard_evidence_ids", ()) or ()),
+        advisory_evidence_ids=tuple(
+            getattr(decision, "advisory_evidence_ids", ()) or ()
+        ),
+        independent_strong_source_count=int(
+            getattr(decision, "independent_strong_source_count", 0) or 0
+        ),
+        independent_advisory_source_count=int(
+            getattr(decision, "independent_advisory_source_count", 0) or 0
+        ),
+        method_count=int(getattr(decision, "method_count", 0) or 0),
+        solve_is_consistent=bool(
+            getattr(getattr(decision, "solve_result", None), "is_consistent", False)
+        ),
     )

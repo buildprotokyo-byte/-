@@ -1,0 +1,67 @@
+{
+  "round": 49,
+  "X1_readers": [],
+  "X1_count": 0,
+  "X3_note_in_reasons": false,
+  "X3_tier1_count": 1,
+  "X3_tier1_heads": [
+    "基準寸法"
+  ],
+  "X3_tier1_reasons": [
+    "実測校正済みの独立した強いデータ源が2つ以上一致"
+  ],
+  "X4_decision_unchanged_without_note": true,
+  "X5_source_keys": [
+    "human_reference_point → 61fcbfc3",
+    "pdf_text_scale → 17ff7343"
+  ],
+  "X5_distinct": true,
+  "controls": {
+    "1_matches_round_47": true,
+    "2_break_fails_suite": true,
+    "2_detail": "FAILED tests/test_intake_start_kit.py::test_the_shared_coordinates_caveat_is_carried_in_the_evidence / 1 failed, 574 passed in 41.05s",
+    "3_repeat": [
+      true,
+      true,
+      true
+    ]
+  },
+  "title": "基準寸法の「独立していない」という但し書きは判定に効いているのか",
+  "date": "2026-09-23",
+  "criteria_commit": "9470b00",
+  "criteria_file": "docs/d_independence_note_criteria.md",
+  "benchmark": "benchmarks/measure_independence_note.py",
+  "verdict": {
+    "branch": "X1 = 0 かつ X4 = 変わらない",
+    "conclusion": "但し書きは判定に効いていない。記録もされ、固定もされているのに、読む側がいない。「書いてあるだけの安全」。",
+    "differs_from_round_45": "45周目は『正しいのに固定するテストが無い』だった。こちらは記録も固定もあるが読む側がいない。足りないのは読む側。",
+    "heavier_than_round_45": "45周目は順番が偶然正しかっただけで実害は出ていなかった。こちらは危険が現に通る経路の上にある。",
+    "mechanism": "2つの読みは紙の上の同じ2点から出ている(paper_distance_pt が共有)。それでも independence_key が違うのでファイアウォールは2つの独立したデータ源として数える。座標の取り違えは両方に同じように効くので突き合わせでは捕まらない。",
+    "why_no_harm_today": "4手法とも calibrated=False だから。校正した瞬間にこの経路は開く(47周目の実測)。"
+  },
+  "pending_decision_added": {
+    "question": "基準寸法の一致を、独立した2つのデータ源として数えないようにするか",
+    "if_yes": "この経路で階層1へ通ることは無くなる。危険は閉じる。",
+    "if_no": "将来 human_reference_point か pdf_text_scale を校正済みにしたときに、作り込んだ一致でも自動確定が通る。",
+    "urgency": "急ぎではない。いま4手法とも未校正なので今日この瞬間に誤りが通ることはない。校正を検討するときに必ずセットで決める必要がある。"
+  },
+  "implementation_changed": {
+    "judgement_logic": false,
+    "thresholds": false,
+    "production_code": false,
+    "tests_added": []
+  },
+  "one_sided_only": {
+    "can_say": "但し書きは判定を1ミリも動かしていない(4つの測り方すべてで一致)。",
+    "cannot_say": [
+      "基準寸法以外の対象で同じ形があるかは測っていない",
+      "1件の図面での測定である(ただし X1 と X4 は図面に依存しない)"
+    ]
+  },
+  "three_reasons_so_far": [
+    "47周目: 独立したデータ源が1つしかない",
+    "48周目: 人の入力は数量を主張できない",
+    "49周目: 唯一2つになる対象は、独立していないのに独立として数えられている"
+  ],
+  "next_round": "判断を待つあいだの確認: 基準寸法以外に『座標を共有しているのに別データ源』の形が無いか。あれば判断待ちの重さが変わり、無ければ1件に限られると言える。"
+}
