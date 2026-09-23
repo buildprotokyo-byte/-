@@ -248,6 +248,30 @@ def test_a_null_checked_on_is_read_as_unknown() -> None:
     assert table.entries[1].source.checked_on == "2026-09-23", "ほかの件は日付のまま"
 
 
+@pytest.mark.parametrize("status", ["採用", "不採用"])
+def test_an_unknown_checked_on_cannot_go_on_to_an_adoption_decision(status: str) -> None:
+    """**確認日が空欄(null)の知識は、採用の判断に進めない**(おーちゃんの K-07 5 番)。
+
+    「空欄可。ただし空欄なら、その知識は採用の判断に進めない」。確認日が不明な
+    知識は `候補` のままでしか読めない。
+    """
+    payload = _payload()
+    payload["entries"][0]["source"]["checked_on"] = None
+    payload["entries"][0]["adoption_status"] = status
+
+    with pytest.raises(KnowledgeError, match="checked_on"):
+        parse_knowledge(payload)
+
+
+def test_an_unknown_checked_on_is_still_readable_as_a_candidate() -> None:
+    """空欄でも `候補` としては読める(候補から先へ進めないだけ)。"""
+    payload = _payload()
+    payload["entries"][0]["source"]["checked_on"] = None
+    payload["entries"][0]["adoption_status"] = "候補"
+
+    assert parse_knowledge(payload).entries[0].source.checked_on is None
+
+
 def test_a_missing_checked_on_is_still_refused_even_though_null_is_allowed() -> None:
     """**列そのものは必須のまま。**不明なら null と書く。列を消すのとは違う。"""
     payload = _payload()

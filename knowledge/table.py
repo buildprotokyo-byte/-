@@ -318,11 +318,21 @@ def _parse_entry(raw: Any) -> KnowledgeEntry:
             f"書けるのは {list(ADOPTION_STATUSES)} のどれかで、新しく書く知識は 候補 です"
         )
 
+    # 確認日が空欄(null)の知識は、採用の判断に進めない(おーちゃんの K-07 5 番)。
+    # 候補としては読めるが、候補から先の状態は断る。
+    source = _parse_source(raw.get("source"))
+    if source.checked_on is None and adoption_status != "候補":
+        raise KnowledgeError(
+            f"source.checked_on(確認日)が null(不明)なのに adoption_status が "
+            f"{adoption_status!r} です。確認日が分からない知識は採用の判断に進めません。"
+            "候補 のままにするか、確認した日を書いてください"
+        )
+
     return KnowledgeEntry(
         entry_id=_require_text(raw.get("entry_id"), "entry_id"),
         kind=kind,
         statement=_require_text(raw.get("statement"), "statement"),
-        source=_parse_source(raw.get("source")),
+        source=source,
         confidence=confidence,
         scope=scope,
         applies_to=_parse_applies_to(raw.get("applies_to")),
