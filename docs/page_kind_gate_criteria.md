@@ -68,7 +68,10 @@ K-04 の 5(おーちゃん、2026-09-23)。
 6. 仲裁層の判定で**階層1になったもの・自動確定したもの**の数(全対象と、室・記号だけ)
 7. 見積の数量(`quantities_from_intake`)の室・記号の行の数を、根拠の区分ごとに
 8. 見積の下書き(`build_estimate_draft`、規則は合成の
-   `estimating/examples/synthetic_standing_rules.json`)の**確定した行**の数と候補の行の数
+   `estimating/examples/synthetic_standing_rules.json`)の**確定した行**の数と候補の行の数。
+   **追記(直す前と後を 1 回ずつ回したあと)**: この規則には室・記号に当たる規則が無いと分かったので、
+   合成の `synthetic_room_rules.json` と `synthetic_symbol_rules.json` も回し、
+   室・記号の読みが当たった行の数も数える。合否の基準(G5)は変えていない
 9. 時間: 全 15 通り(5 ページ × 3 条件)の `read_drawing` の合計秒数。3 回回して中央値
 
 ## 4. 合否の基準(測る前に決める)

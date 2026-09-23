@@ -43,7 +43,12 @@ CONDITIONS: dict[str, dict[str, str | None]] = {
 }
 
 SYMBOL_TRUTH = {"埋込コンセント": 12, "片切スイッチ": 9, "引掛シーリング": 5, "TEL引出口": 3}
-RULES = "estimating/examples/synthetic_standing_rules.json"
+#: 合成の規則だけを使う。室・記号の読みがどこかの行に当たるかを見るため 3 つとも回す。
+RULES = (
+    "estimating/examples/synthetic_standing_rules.json",
+    "estimating/examples/synthetic_room_rules.json",
+    "estimating/examples/synthetic_symbol_rules.json",
+)
 REPEATS = 3
 
 
@@ -148,7 +153,7 @@ def measure(code_root: Path, label: str) -> dict:
 
     di.find_room_outlines = counting_rooms
     di.find_repeated_symbols = counting_symbols
-    ruleset = load_rules(code_root / RULES)
+    rulesets = [load_rules(code_root / path) for path in RULES]
 
     rows: list[dict] = []
     timings: list[float] = []
@@ -185,7 +190,14 @@ def measure(code_root: Path, label: str) -> dict:
                     quantities = [
                         q for q in quantities_from_intake(result) if q.target in room_or_symbol
                     ]
-                    draft = build_estimate_draft(result, ruleset)
+                    drafts = [build_estimate_draft(result, ruleset) for ruleset in rulesets]
+                    room_symbol_lines = sum(
+                        len(mapping.lines)
+                        for draft in drafts
+                        for mapping in draft.mapping.mappings
+                        if mapping.quantity.target in room_or_symbol
+                        and mapping.status != "unmapped"
+                    )
                     rows.append(
                         {
                             "条件": condition,
@@ -218,14 +230,27 @@ def measure(code_root: Path, label: str) -> dict:
                                 1 for d in decisions if d.target in room_or_symbol and d.confirmed
                             ),
                             "数量_室と記号_根拠別": dict(Counter(q.basis for q in quantities)),
-                            "見積_確定した行": len(draft.settled_lines),
-                            "見積_候補の行": len(draft.candidate_lines),
+                            "見積_確定した行": sum(len(d.settled_lines) for d in drafts),
+                            "見積_候補の行": sum(len(d.candidate_lines) for d in drafts),
+                            "見積_室と記号が当たった行": room_symbol_lines,
                         }
                     )
             timings.append(round(elapsed, 3))
+    import subprocess
+
+    commit = subprocess.run(
+        ["git", "-C", str(code_root), "rev-parse", "--short", "HEAD"],
+        capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    dirty = bool(
+        subprocess.run(
+            ["git", "-C", str(code_root), "status", "--porcelain", "--", "intake", "axes", "arbitration", "estimating"],
+            capture_output=True, text=True, check=False,
+        ).stdout.strip()
+    )
     return {
         "label": label,
-        "code_root": str(code_root),
+        "code_root": f"{commit}{'(未コミットの変更あり)' if dirty else ''}",
         "行": rows,
         "時間_秒_各回": timings,
         "時間_秒_中央値": round(statistics.median(timings), 3),
@@ -274,6 +299,8 @@ def combine(before_path: Path, after_path: Path) -> dict:
                 "自動確定_全対象": total(side, "自動確定_全対象", condition),
                 "階層1_室と記号": total(side, "階層1_室と記号", condition),
                 "見積_確定した行": total(side, "見積_確定した行", condition),
+                "見積_候補の行": total(side, "見積_候補の行", condition),
+                "見積_室と記号が当たった行": total(side, "見積_室と記号が当たった行", condition),
             }
             for side_name, side in (("直す前", before), ("直した後", after))
         }
