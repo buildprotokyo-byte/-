@@ -1,0 +1,34 @@
+{
+  "round": 55,
+  "criteria_commit": "1b0c7e6",
+  "criteria_file": "docs/d_vector_path_on_reference_sheet_criteria.md",
+  "benchmark": "benchmarks/measure_vector_path_on_reference_sheet.py",
+  "old_file": {
+    "page_count": 34,
+    "chars": 0,
+    "pages_with_vectors": 0,
+    "pages_with_scale": 0,
+    "arcs": 0,
+    "pages_with_arcs": 0
+  },
+  "v2_file": {
+    "page_count": 34,
+    "chars": 29039,
+    "pages_with_vectors": 34,
+    "pages_with_scale": 20,
+    "arcs": 90,
+    "pages_with_arcs": 5
+  },
+  "controls": {
+    "1_v2_matches_round_35": true,
+    "2_old_has_34_pages": true,
+    "3_repeat": [
+      0,
+      0,
+      0
+    ]
+  },
+  "verdict": "cannot_measure",
+  "reason": "no_vectors",
+  "implementation_changed": false
+}

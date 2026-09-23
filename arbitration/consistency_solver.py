@@ -49,7 +49,7 @@ OR-Tools(CP-SAT)・Z3-solver はどちらも PyPI から問題なくインスト
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Literal, Sequence, Union
 
 import z3
@@ -117,6 +117,15 @@ class Variable:
     #: (2026-09-21 実測。`docs/trial789_reproduction_report.md` 4節)。
     #: 空文字のときは ``axis`` を出どころとして扱う。
     source_axis: str = ""
+
+    #: **この値を、いくつの独立したデータ源が言っているか。**
+    #:
+    #: 問いの質を分けるために使う(2026-09-23 おーちゃんの判断)。
+    #: 2 以上なら、人の答えが間違っていれば突き合わせで出る。
+    #: **0 は「分からない」で、検算できないものとして扱う。**
+    #: 数え方は `arbitration/axis_quality_firewall.AxisEvidence.independence_key`
+    #: と同じで、ここで新しい数え方を作らない。
+    independent_sources: int = 0
 
     @property
     def error_rate_axis(self) -> str:
@@ -239,6 +248,7 @@ class ConsistencySolver:
         requires_confirmation: bool = False,
         unit: str = "",
         source_axis: str = "",
+        independent_sources: int = 0,
     ) -> None:
         """下限・上限を直接指定して、ハードな制約に使う変数を登録する。
 
@@ -256,7 +266,7 @@ class ConsistencySolver:
         self._variables[name] = Variable(
             name, lower, upper, axis, strength, dict(evidence or {}),
             unit=unit, requires_confirmation=requires_confirmation,
-            source_axis=source_axis,
+            source_axis=source_axis, independent_sources=independent_sources,
         )
 
     def add_variable_from_reading(
@@ -347,6 +357,16 @@ class ConsistencySolver:
         """
         return self._variables[name].error_rate_axis
 
+    def independent_sources(self, name: str) -> int:
+        """その変数を、いくつの独立したデータ源が言っているか。
+
+        **0 は「分からない」。**登録時に渡されなければ 0 のままで、
+        問いの質の分け方では「検算できない」側として扱う
+        (`killer_question/engine.py` の `Question.grade`)。
+        """
+        variable = self._variables.get(name)
+        return variable.independent_sources if variable else 0
+
     def requires_confirmation(self, name: str) -> bool:
         """その変数が、レンジ幅に関わらず人の確認を要するか(階層3かどうか)。"""
         variable = self._variables.get(name)
@@ -367,12 +387,10 @@ class ConsistencySolver:
         variable = self._variables.get(name)
         if variable is None or not variable.requires_confirmation:
             return
-        self._variables[name] = Variable(
-            variable.name, variable.lower, variable.upper, variable.axis,
-            variable.strength, dict(variable.evidence),
-            unit=variable.unit, requires_confirmation=False,
-            source_axis=variable.source_axis,
-        )
+        # **欄を並べ直さない。** 手で書き写すと、後から足した欄を
+        # 写し忘れて既定値に戻る(2026-09-23、`independent_sources` で現に起きた。
+        # 確認した要素の「何個のデータ源が言っていたか」が 0 に戻っていた)。
+        self._variables[name] = replace(variable, requires_confirmation=False)
 
     def constraint_names(self) -> tuple[str, ...]:
         """登録済みの制約名の一覧(``add_relation`` / ``add_constraint`` で

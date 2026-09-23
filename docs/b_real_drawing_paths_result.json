@@ -1,0 +1,66 @@
+{
+  "round": 35,
+  "trial": "B",
+  "title": "突き合わせを実図面で測る",
+  "date": "2026-09-23",
+  "criteria_commit": "781ed54",
+  "criteria_file": "docs/b_real_drawing_paths_criteria.md",
+  "benchmark": "benchmarks/measure_real_drawing_paths.py",
+  "target": {
+    "drawing": "匿名化v2",
+    "pages": 34,
+    "fingerprint": "17ff73434fd9",
+    "note": "パスは引数で渡す。中身はこのファイルに書かない。"
+  },
+  "D1_paths": {
+    "P1 建具表":      {"keys": 0,  "pages": 0},
+    "P2 内装仕上表":  {"keys": 52, "pages": 2,
+                       "note": "59行のうち部位が入っていた52行。残り7行は部位が空で鍵にならない。"},
+    "P3 開き戸の円弧": {"keys": 90, "pages": 5,
+                       "note": "P5で縮尺が読めた20ページでしか走っていない。残り14ページは未探索。"},
+    "P4 面積の記載":  {"keys": 2,  "pages": 1},
+    "P5 縮尺の印字":  {"keys": 20, "pages": 20}
+  },
+  "D2_broken_paths": {"count": 1, "names": ["P1 建具表"]},
+  "D3_key_overlap": {
+    "確定(狭い)": {"keys": 59, "shared_by_2_or_more": 0},
+    "人へ(広い)": {"keys": 58, "shared_by_2_or_more": 0}
+  },
+  "D4_independent_sources": {"working_paths": 4, "distinct_fingerprints": 1},
+  "D5_single_path_only": {"count": 59, "of": 59},
+  "predictions_written_before": [
+    {"id": 1, "text": "D2 は 1 以上になる", "held": true,  "observed": "1本(P1 建具表)"},
+    {"id": 2, "text": "D4 はすべて 1 になる", "held": true, "observed": "指紋 1 個"},
+    {"id": 3, "text": "D3 の重なりはほとんど無い", "held": true, "observed": "0 個(「ほとんど」ではなく 0)"}
+  ],
+  "controls": {
+    "1_same_pdf_twice": {"agreed": 59, "of": 59, "independent_sources": 1, "passed": true},
+    "2_deliberately_changed_copy": {"differing": 59, "passed": true},
+    "3_repeat_3_times": {"P2_counts": [52, 52, 52], "passed": true}
+  },
+  "verdict": {
+    "branch": "D2 ≧ 1 または D3 の重なりが無い",
+    "conclusion": "実図面では、突き合わせの前に経路が足りない。",
+    "reasons": [
+      "1本は折れている(P1 建具表が0件)",
+      "動いている4本は種類が違うので鍵が1つも重ならない(59/59が片方にしか無い)",
+      "仮に重なっても指紋は1個なので独立した証言は1つ"
+    ],
+    "retracts": "合成案件の『5経路で合わせて18/18』は分担であって裏取りではない。実図面では再現しない。",
+    "mechanism_itself": "対照1が全件一致で通ったので、突き合わせの仕組み自体は動いている。足りないのは相手。"
+  },
+  "not_measured": [
+    "P3は縮尺が読めた20ページでしか走らないので、残り14ページに開き戸があるかは不明",
+    "値が合っているかは見ていない(鍵が重なるかだけ)",
+    "1案件のみ"
+  ],
+  "next_round": {
+    "target": "P1 建具表がなぜ0件なのかを測る",
+    "note": "①罫線の表として引かれていない ②表はあるが取り方が合わない ③別の形(画像・別紙) のどれかで直し方が変わる。当てずっぽうで実装を触らない。",
+    "then": "P3がP5に縛られている件(14ページ未探索)"
+  },
+  "implementation_changed": false,
+  "pending_decisions": 5,
+  "asks": 1,
+  "full_suite": "977 passed, 1 skipped (200.10s), exit 0"
+}

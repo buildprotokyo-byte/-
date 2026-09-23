@@ -312,11 +312,19 @@ def test_isolated_variable_is_never_asked_and_remains_unresolved() -> None:
     assert session.remaining_unresolved == ("isolated",)
 
 
-def test_run_rejects_an_answer_outside_the_candidate_range() -> None:
+def test_run_keeps_an_answer_outside_the_candidate_range_as_a_disagreement() -> None:
+    """候補の外の答えは**突き返さない**(2026-09-23 おーちゃんの判断)。
+
+    候補の一覧は読み取りから作った予想でしかなく、人が現場で正しく測った値が
+    その外にあることは現に起きる(60 周目、ずらしが効いた 7 組のうち 6 組)。
+    どちらも選ばず、**食い違いとして人に示す。**
+    """
     solver = _build_star()
     engine = KillerQuestionEngine(solver)
 
-    import pytest
+    session = engine.run(lambda q: 999)
 
-    with pytest.raises(ValueError):
-        engine.run(lambda q: 999)
+    assert session.disagreements, "食い違いが残っていない"
+    assert all(d.answer == 999 for d in session.disagreements)
+    # 値にはしていない。
+    assert 999 not in [a.answer for a in session.answered]

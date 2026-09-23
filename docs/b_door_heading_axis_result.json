@@ -1,0 +1,57 @@
+{
+  "round": 41,
+  "trial": "B",
+  "kind": "キラークエスチョン",
+  "title": "建具表の見出しは本当に行にあるのか",
+  "date": "2026-09-23",
+  "criteria_commit": "0a50df7",
+  "criteria_file": "docs/b_door_heading_axis_criteria.md",
+  "benchmark": "benchmarks/measure_door_heading_axis.py",
+  "hypothesis_written_before": "見出しは列にある(建具1本を1列に立てる姿図つき建具表の形)。",
+  "hypothesis_held": false,
+  "transposed": {
+    "K0 完全一致":        {"N1": 0, "N2": 0, "N3": null, "N4": 0,  "N6": 0, "N7": 0,
+                           "N5": {"種別": 1}},
+    "K1 含み一致":        {"N1": 1, "N2": 3, "N3": 3.0,  "N4": 13, "N6": 1, "N7": 3,
+                           "N5": {"幅": 14, "種別": 6, "高さ": 4, "数量": 2}},
+    "K2a 後方一致":       {"N1": 0, "N2": 0, "N3": null, "N4": 0,  "N6": 0, "N7": 2,
+                           "N5": {"種別": 4, "数量": 2, "高さ": 1}},
+    "K2b 区切って完全一致": {"N1": 1, "N2": 2, "N3": 2.0,  "N4": 6,  "N6": 0, "N7": 1,
+                           "N5": {"種別": 1, "数量": 1, "高さ": 1}}
+  },
+  "controls": {
+    "1_synthetic_transposed": {"all_zero": true, "ok": true,
+                                "why_it_matters": "見出しが行にある合成の建具表は転置すると4通りとも0になった。転置はちゃんと効いている。実図面で通らないのは転置が空振りしたからではない。"},
+    "2_synthetic_plain": {"all_passed": true, "ok": true},
+    "3_reproduces_round_40": {"K0": 0, "K1": 1, "K2a": 0, "K2b": 0, "ok": true},
+    "4_repeat_3_times": {"transposed_K2b": [1, 1, 1], "ok": true}
+  },
+  "decision_lines": {
+    "reach": {"rule": "N1 ≧ 2", "best_observed": 1, "met": false},
+    "misfire": {"rule": "N3 < 0.5", "best_observed": 2.0, "met": false},
+    "ambiguity": {"rule": "N4 = 0", "observed_on_reaching_ways": [13, 6], "met": false}
+  },
+  "answer": "いいえ。見出しは列にもない。転置すると誤爆と取り違えだけが増え(K1は誤爆1→3、取り違え7→13)、当たりは増えない。向きを変えるのはこの図面では悪くする方向にしか働かない。",
+  "ruled_out_so_far": [
+    {"n": 1, "suspect": "罫線の表が無い", "result": "違う(28ページに107個、36周目)"},
+    {"n": 2, "suspect": "升目に文字が無い", "result": "違う(107個すべてに文字、36周目)"},
+    {"n": 3, "suspect": "言い換えの語が足りない", "result": "違う(4通りで最大1/47、39・40周目)"},
+    {"n": 4, "suspect": "当て方の形が悪い", "result": "違う(後方一致は当たりも誤爆も0、40周目)"},
+    {"n": 5, "suspect": "見出しが列にある", "result": "違う(転置しても最大1、41周目)"}
+  ],
+  "remaining_hypothesis": {
+    "what": "表の升目の取り方そのもの。1つの建具表が複数の表に割れている。",
+    "evidence": "どの向きで見ても建具番号と付き添いが同じ表の中で出会わない。36周目は建具番号を持つ5表がすべて付き添い0、40周目は種別3表・数量2表が当たるのに通った表は0、41周目は転置しても種別4表・数量2表・高さ1表が当たるのに0。",
+    "scale_hint": "10ページに表が47個で、1ページに5個の勘定。建具表のページに本当に5つ別の表があるのか、1つの表が罫線の途切れで5つに割れているのか。割れているなら番号の列と寸法の列は別々の破片に入り、ここまでの数字が全部そろって説明がつく。"
+  },
+  "next_round": {
+    "target": "隣り合っている(枠が接している・重なっている)表をくっつけてから同じ当て方を当てる",
+    "decision": "くっつけて通るなら、割れているのが原因。",
+    "lines": "39〜41周目と同じ3つ",
+    "implementation_changes": false
+  },
+  "implementation_changed": false,
+  "full_suite": "977 passed, 1 skipped (37周目から変わらず)",
+  "pending_decisions": 5,
+  "asks": 1
+}
