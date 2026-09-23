@@ -77,11 +77,26 @@ def _abstained(source: str = "mlit") -> AxisEvidence:
 # =====================================================================
 
 
-def test_bug1_no_strong_axis_does_not_create_a_hard_variable() -> None:
-    """強い軸が1つも無いとき、和集合のハード変数を作らず階層3へ落とす。
+def test_bug1_no_strong_axis_never_narrows_anything() -> None:
+    """実測校正を通った強い軸が1つも無い読みに、他を狭める力を与えない。
 
-    修正前はここで ``lower=0 upper=246`` の ``strength="strong"`` 変数が
-    登録されていた。
+    修正前(commit e0bef62)はここで ``lower=0 upper=246`` の
+    ``strength="strong"`` 変数が登録されていた。棄権軸の番兵値が下限を 0 に、
+    単位違いの弱い軸が上限を 246 にしていた。**その範囲がハード制約として
+    他の要素を狭めるのが実害だった。**
+
+    **2026-09-22 に主張を2回変えたので、経緯を残す。**
+
+    1. 元は「変数を作らないこと」を主張していた。しかし変数が無いと
+       **その要素を参照する群合計制約が書けず、同じ群の他の要素の矛盾検出が
+       まとめて消えていた**(`docs/group_total_masking_design.md`)。
+    2. そこで「読み取り値が支持する狭い範囲で登録する」ことにしたが、実測で
+       **停止した要素の誤った読みがクラスタの等式を通って伝播し、他の要素を
+       誤った値に確定させた**(19要素のシナリオで精度 0.8947 → 0.6842)。
+
+    いまは方向で分けている。**矛盾を見つける方向**(外れたら人に回る)には
+    読み取り値の狭い範囲を使い、**他を狭める方向**(黙って確定する)には
+    何も主張させない。このテストはその両方を押さえる。
     """
     decision = AxisQualityFirewall().assess([
         _weak((3, 5), source="自社実績DB"),
@@ -94,6 +109,72 @@ def test_bug1_no_strong_axis_does_not_create_a_hard_variable() -> None:
     result = add_target_to_joint_solver(
         solver, TARGET, decision, [_weak((3, 5), source="自社実績DB"), _abstained()]
     )
+
+    assert result.registered is True, "群合計制約を書けるよう、変数自体は作る"
+    assert result.escalated_to_review is True, "確認待ちであることは変わらない"
+    assert result.requires_confirmation is True
+
+    # 矛盾を見つける方向: 読み取り値の狭い範囲。棄権の番兵値も単位違いも入らない。
+    detection = solver.variable_detection_range(TARGET)
+    assert detection == (3, 5), f"棄権した証拠や単位違いの軸が混ざった: {detection}"
+    assert detection[0] != 0, "番兵値 (0,0) が下限を 0 まで引き下げている"
+    assert detection[1] != 246, "単位違いの弱い軸が上限を書き換えている"
+
+    # 他を狭める方向: 何も排除しない。等式で結んだ相手の範囲が変わらないこと
+    # で確かめる(範囲の数字そのものではなく、**力を持たないこと**が要件)。
+    solver.add_variable("other", 3, 9, axis="image", unit="count")
+    solver.add_relation("same_count", TARGET, "==", "other")
+    solved = solver.solve().variables["other"].solved_range
+    assert solved == (3, 9), (
+        f"校正を通っていない読みが、他の要素の範囲を狭めた: {solved}"
+    )
+
+
+def test_bug1_no_strong_axis_still_detects_a_contradiction() -> None:
+    """ただし矛盾は見つけられること。狭める力を外しても検出力は残す。
+
+    ``detection_range`` は読み取り値の狭い範囲なので、等式で結んだ相手が
+    その範囲とまったく重ならなければ unsat になる。**外れたら人に回る方向**
+    にだけ効かせる、という設計の確認。
+    """
+    decision = AxisQualityFirewall().assess([
+        _weak((3, 5), source="自社実績DB"),
+        _abstained(),
+    ])
+    solver = ConsistencySolver()
+    add_target_to_joint_solver(
+        solver, TARGET, decision, [_weak((3, 5), source="自社実績DB"), _abstained()]
+    )
+    solver.add_variable("other", 20, 22, axis="image", unit="count")
+    solver.add_relation("same_count", TARGET, "==", "other")
+
+    assert solver.solve().status == "sat", "狭める方向には効かせない"
+    assert solver.solve(use_detection_ranges=True).status == "unsat", (
+        "矛盾を見つける方向には効かせる"
+    )
+
+
+def test_bug1_mixed_units_still_create_no_hard_variable() -> None:
+    """単位が混在した証拠からは、いまも変数を作らない。
+
+    違う物差しの数字を重ねた範囲はハード制約にできない(v8 3-2節)。
+    バグ①の上限 246 は、まさに金額のレンジが個数に混ざったものだった。
+    """
+    evidences = [
+        _strong((4, 5)),
+        AxisEvidence(
+            derivation="read", unit="yen",
+            target=TARGET, count_range=(30_000, 2_460_000), source_id="mlit-survey",
+            axis_id="rules", method_id="industry_statistics",
+            strength="weak", calibrated=True,
+        ),
+    ]
+    decision = AxisQualityFirewall().assess(evidences)
+    assert decision.escalation is not None
+    assert decision.escalation.failure_type == "unit_mismatch"
+
+    solver = ConsistencySolver()
+    result = add_target_to_joint_solver(solver, TARGET, decision, evidences)
 
     assert result.registered is False
     assert result.escalated_to_review is True
@@ -299,6 +380,7 @@ def test_the_bridge_refuses_an_inconsistent_decision() -> None:
         action = "auto_confirm"
         tier = 1
         confirmed_range = None
+        escalation = None
 
     with pytest.raises(ValueError):
         add_target_to_joint_solver(
