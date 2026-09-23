@@ -1,0 +1,72 @@
+{
+  "synthetic": {
+    "rows": 8,
+    "counts_by_reading": {
+      "工事なし": 3,
+      "仕上だけやり替え": 1,
+      "撤去して新設": 1,
+      "下地からやり替え": 1,
+      "問い": 2
+    },
+    "counts_by_work_kind": {
+      "既存のまま": 3,
+      "改修": 3,
+      "区分未定": 2
+    },
+    "questions": 2,
+    "unassigned": 0,
+    "quantities": 0,
+    "with_page_and_row": 8
+  },
+  "real_drawing": {
+    "rows": 69,
+    "counts_by_reading": {
+      "工事なし": 16,
+      "仕上だけやり替え": 12,
+      "撤去して新設": 8,
+      "下地からやり替え": 17,
+      "問い": 16
+    },
+    "counts_by_work_kind": {
+      "既存のまま": 16,
+      "改修": 37,
+      "区分未定": 16
+    },
+    "questions": 16,
+    "unassigned": 0,
+    "quantities": 0,
+    "with_evidence": 69,
+    "per_page": [
+      {
+        "page_number": 3,
+        "rows": 34,
+        "base_columns": [
+          2,
+          3
+        ],
+        "counts_by_reading": {
+          "工事なし": 10,
+          "仕上だけやり替え": 6,
+          "撤去して新設": 3,
+          "下地からやり替え": 8,
+          "問い": 7
+        }
+      },
+      {
+        "page_number": 4,
+        "rows": 35,
+        "base_columns": [
+          2,
+          3
+        ],
+        "counts_by_reading": {
+          "工事なし": 6,
+          "仕上だけやり替え": 6,
+          "撤去して新設": 5,
+          "下地からやり替え": 9,
+          "問い": 9
+        }
+      }
+    ]
+  }
+}
