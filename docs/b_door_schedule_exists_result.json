@@ -1,0 +1,42 @@
+{
+  "round": 38,
+  "trial": "B",
+  "title": "建具表はこの図面にあるのか無いのか",
+  "date": "2026-09-23",
+  "criteria_commit": "6150e4a",
+  "criteria_file": "docs/b_door_schedule_exists_criteria.md",
+  "benchmark": "benchmarks/measure_door_schedule_exists.py",
+  "target": {"drawing": "匿名化v2", "pages": 34},
+  "door": {"G1_pages_with_word": 10, "of": 34, "G2_pages_with_tables": 10,
+           "G3_tables": 47, "G4_header_cells": 296, "G4_unmatched": 294, "G4_ratio": 0.993},
+  "finish_G5_control1": {"G1_pages_with_word": 8, "of": 34, "G2_pages_with_tables": 8,
+                          "G3_tables": 29, "G4_header_cells": 244, "G4_unmatched": 238,
+                          "G4_ratio": 0.975},
+  "controls": {
+    "1_finish_word": {"passed": true},
+    "2_impossible_word": {"pages": 0, "passed": true},
+    "3_repeat_3_times": {"G1": [10, 10, 10], "passed": true}
+  },
+  "G4_decides_nothing": "先に基準でそう書いた。どちらのページでも表のほとんどはその表ではない(凡例・記事欄・面積表が同じページに並ぶ)ので、当たらない升目が9割を超えるのは当たり前。0.993と0.975の差に意味は無い。",
+  "verdict": {
+    "branch": "G1 ≧ 1 かつ G2 ≧ 1",
+    "conclusion": "(い)。建具表はこの図面にある。落ちどころは列の見出しの当て方。",
+    "evidence": "建具の語が10ページにあり、その10ページ全部に罫線の表がある(47個)。それでも read_door_schedules は0件。",
+    "mechanism": "_role_of は升目の文字全体と言い換えの完全一致。『巾 W』『寸法』『W×H』は当たらない。37周目の『幅・高さ・数量が107個の表で0個』は、その3語が図面に無いのではなく升目の文字がその3語ちょうどではない、で説明がつく。",
+    "vindicates_round_37": "37周目に(あ)を名指ししなかったのは正しかった。名指ししていたら、実際にある表を『無い』として別の探し方を作る周に進んでいた。"
+  },
+  "fix_candidates_not_implemented": {
+    "案1": "完全一致をやめて含み一致にする。ただし幅は全幅・幅木に含まれ、数は係数・本数に含まれる。取りこぼしを減らすと誤爆が増える形で、27〜31周目の面積の語と同じ構図。",
+    "案2": "完全一致のまま言い換えを増やす。ただし図面から語を拾って足すとこの1案件に合わせ込むことになる。",
+    "both_wait_as_pr": "どちらも判定のしかたに触るので、実装してもPRのまま待つ。"
+  },
+  "next_round": {
+    "target": "入れる前に上限を測る。案1を当てたときの当たり(建具表として通る表の増分)と誤爆(建具表でない表が通る数)を、誤爆÷当たりで見る。",
+    "note": "採否の線は次の周の基準に先に書く。",
+    "implementation_changes": false
+  },
+  "implementation_changed": false,
+  "full_suite": "977 passed, 1 skipped (37周目から変わらず)",
+  "pending_decisions": 5,
+  "asks": 1
+}

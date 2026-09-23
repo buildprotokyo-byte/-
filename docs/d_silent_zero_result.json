@@ -1,0 +1,45 @@
+{
+  "round": 56,
+  "criteria_commit": "d116b4f",
+  "criteria_file": "docs/d_silent_zero_criteria.md",
+  "benchmark": "benchmarks/measure_silent_zero.py",
+  "v1_scanned": {
+    "page_count": 34,
+    "statuses": {
+      "unsupported_raster": 34
+    },
+    "notes": {
+      "スキャンなので読めない": 34
+    },
+    "notes_total": 34,
+    "findings_total": 0,
+    "door_findings": 0
+  },
+  "v2": {
+    "page_count": 34,
+    "statuses": {
+      "processed": 34
+    },
+    "notes": {
+      "その他(分類に無い記録)": 95,
+      "縮尺が読めないので開き戸を探さない": 14,
+      "開き戸の円弧が0件": 15
+    },
+    "notes_total": 124,
+    "findings_total": 7,
+    "door_findings": 5
+  },
+  "B1_unavailable_notes_v1": 34,
+  "B1_has_separate_zero_note": true,
+  "controls": {
+    "1_v2_produced_findings": true,
+    "2_v1_has_34_pages": true,
+    "3_repeat": [
+      34,
+      34,
+      34
+    ]
+  },
+  "verdict": "distinguished",
+  "implementation_changed": false
+}
