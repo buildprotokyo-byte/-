@@ -1,5 +1,9 @@
 # A-1 繰り返す記号の読み取り — 1 周目の報告
 
+> **判定の変更(2026-09-23、おーちゃんの決定 K-03 の 11 番):** この周の判定は
+> 「保留」から**「不採用」**に変わった。根拠は 10 周目の実図面での測定
+> (`docs/a1_real_drawing_symbol_report.md`)。**実装は本線に残す。**
+
 2026-09-22。実装 `axes/image_axis/pdf_repeated_symbols.py`、測定
 `benchmarks/run_repeated_symbol_eval.py`、生データ `docs/a1_repeated_symbol_result.json`。
 採否の基準は測る前に `docs/a1_repeated_symbol_criteria.md` に置いてある。
