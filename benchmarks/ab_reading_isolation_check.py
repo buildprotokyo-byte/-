@@ -12,6 +12,11 @@
    確認済みの面積 2 値**が書かれていた。
 
 どちらも「指示で禁止する」では防げない。**毎回、機械で確かめる。**
+
+あとから、3 つ目の穴も分かった。実行中ずっと、**正解ファイルが共有フォルダの
+`uploads/hearth/` の下に、拡張子の無い UUID の名前で置かれていた。**共有フォルダの
+検査は直下の名前しか見ていなかったので素通りしていた。いまは入れ子のフォルダの中まで、
+名前と中身の目印の両方を見る（`scan_shared_root`）。
 決まりと手順は `docs/experiments/ab_reading/isolation_checklist.md`。
 
 **使い方**
@@ -37,6 +42,7 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import hashlib
+import os
 import pathlib
 import re
 import sys
@@ -200,6 +206,22 @@ OUTSIDE_PATH_PATTERNS: tuple[str, ...] = (
 
 TEXT_SUFFIXES = {".md", ".txt", ".json", ".py", ".csv", ".yaml", ".yml"}
 
+# 共有フォルダの入れ子の中で、正解ファイルだと分かる中身の目印。
+#
+# **名前だけでは足りなかった。** 2026-09-22 の実行中ずっと、正解ファイルは
+# `uploads/hearth/` の下に**拡張子の無い UUID の名前**で置かれていた。名前は何も語らない。
+# 正解ファイルの JSON が持つキーのうち、図面の読み取り結果や報告書には出てこない
+# ものだけを、JSON のキーの形（引用符つき）で並べる。
+SHARED_ROOT_CONTENT_MARKERS: tuple[str, ...] = (
+    '"expected_items"',
+    '"source_of_truth"',
+    '"usage_policy"',
+)
+
+# 中身は先頭のこの長さだけ覗く。大きなファイル（図面の PDF など）を丸ごと読まない。
+# 目印のキーは JSON の先頭近くに来る。これより後ろにしか無い目印は見えない（既知の見落とし）。
+SHARED_ROOT_PEEK_BYTES = 64 * 1024
+
 
 @dataclasses.dataclass(frozen=True)
 class Finding:
@@ -277,35 +299,104 @@ def scan_runs_dir(runs_dir: pathlib.Path) -> list[Finding]:
 
 
 # ---------------------------------------------------------------------------
-# 経路 3: 共有フォルダのファイル名の一覧
+# 経路 3: 共有フォルダのファイル名の一覧（入れ子の中と、中身の目印も）
 # ---------------------------------------------------------------------------
 def scan_shared_root(
     shared_root: pathlib.Path, allowed_names: Sequence[str]
 ) -> list[Finding]:
-    """共有フォルダの直下に、渡すもの以外の実験関連の名前が無いか。
+    """共有フォルダの中に、渡すもの以外の実験関連のものが無いか。
 
     ファイル名の一覧はハーネスが自動で文脈に入れるので、**名前だけで手がかりになる。**
+
+    **入れ子のフォルダの中まで、名前と中身の両方を見る。** 以前は直下の名前しか
+    見ていなかった。2026-09-22 の実行中ずっと、正解ファイルは `uploads/hearth/` の下に
+    拡張子の無い UUID の名前で置かれていたが、次の 2 つの理由で素通りしていた。
+
+    1. 入れ子の中を見ていなかった（直下の `uploads` しか見ていなかった）
+    2. 名前しか見ていなかった（UUID の名前は何も語らない）
+
+    見方:
+
+    - 直下で ``allowed_names`` に入っている名前は、その下を丸ごと見ない
+      （渡すフォルダと答案の置き場。中身は ``scan_package`` / ``scan_runs_dir`` が見る）。
+    - それ以外は、どの深さでも**名前 1 つずつ**を ``EXPERIMENT_TERMS`` と
+      ``ANSWER_LOCATION_TERMS`` に照らす。名前で挙がったフォルダはそのフォルダ 1 件として
+      挙げ、下へは降りない（中の無害なファイルまで重ねて挙げない）。
+    - 名前で挙がらなかった普通のファイルは、先頭 ``SHARED_ROOT_PEEK_BYTES`` だけ覗いて
+      ``SHARED_ROOT_CONTENT_MARKERS``（正解ファイルの JSON のキー）を探す。
+      PDF など文字でない中身は、読めない部分を捨てて照らすだけで止まらない。
+    - フォルダへのシンボリックリンクはたどらない（輪になっても止まり、外へも出ない）。
+    - 中を見られなかったフォルダは、見落としを隠さないように 1 件として挙げる。
+
+    挙げる場所（``Finding.where``）は、共有フォルダからの相対パス（``/`` 区切り）。
+    ``ANSWER_LOCATION_TERMS`` のうち ``/`` を含む語（``uploads/hearth``）は、名前 1 つには
+    現れないので、ここでは効かない。その置き場の中身は、上の目印で見る。
     """
     if not shared_root.exists():
         return [Finding("ファイル名の一覧", str(shared_root), "フォルダが無い")]
 
     allowed = set(allowed_names)
     findings: list[Finding] = []
-    for entry in sorted(shared_root.iterdir()):
-        if entry.name in allowed:
-            continue
-        lowered = entry.name.lower()
+
+    def name_hint(name: str) -> str | None:
+        lowered = name.lower()
         for term in EXPERIMENT_TERMS + ANSWER_LOCATION_TERMS:
             if term.lower() in lowered:
+                return term
+        return None
+
+    def walk(directory: pathlib.Path, rel_parts: tuple[str, ...]) -> None:
+        try:
+            with os.scandir(directory) as it:
+                entries = sorted(it, key=lambda e: e.name)
+        except OSError as exc:
+            where = "/".join(rel_parts) if rel_parts else str(directory)
+            findings.append(
+                Finding("ファイル名の一覧", where, f"中を見られなかった: {exc.strerror}")
+            )
+            return
+        for entry in entries:
+            if not rel_parts and entry.name in allowed:
+                continue
+            rel = "/".join(rel_parts + (entry.name,))
+            term = name_hint(entry.name)
+            if term is not None:
                 findings.append(
-                    Finding(
-                        "ファイル名の一覧",
-                        entry.name,
-                        f"名前が手がかりになる: {term}",
-                    )
+                    Finding("ファイル名の一覧", rel, f"名前が手がかりになる: {term}")
                 )
-                break
+                continue
+            if entry.is_dir(follow_symlinks=False):
+                walk(pathlib.Path(entry.path), rel_parts + (entry.name,))
+                continue
+            if entry.is_symlink() and entry.is_dir():
+                continue  # フォルダへのリンクはたどらない
+            if entry.is_file():
+                marker = _peek_content_marker(pathlib.Path(entry.path))
+                if marker is not None:
+                    findings.append(
+                        Finding(
+                            "ファイル名の一覧",
+                            rel,
+                            f"中身が正解ファイルの目印を含む: {marker}",
+                        )
+                    )
+
+    walk(shared_root, ())
     return findings
+
+
+def _peek_content_marker(path: pathlib.Path) -> str | None:
+    """先頭 ``SHARED_ROOT_PEEK_BYTES`` だけ読み、正解ファイルの目印があれば返す。"""
+    try:
+        with path.open("rb") as fh:
+            head = fh.read(SHARED_ROOT_PEEK_BYTES)
+    except OSError:
+        return None
+    text = head.decode("utf-8", errors="ignore")
+    for marker in SHARED_ROOT_CONTENT_MARKERS:
+        if marker in text:
+            return marker
+    return None
 
 
 # ---------------------------------------------------------------------------
