@@ -44,6 +44,7 @@ from axes.image_axis.ocr_readings import (
     METHOD_OCR_TEXT_AREA,
     METHOD_OCR_TEXT_SCALE,
 )
+from axes.image_axis.pdf_room_outlines import METHOD_ROOM_OUTLINE
 from axes.image_axis.pdf_repeated_symbols import (
     METHOD_LEGEND_SYMBOL,
     METHOD_REPEATED_SYMBOL,
@@ -141,6 +142,16 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #:   対応(`read_legend_symbols`)。名前が付いても**同じ 1 つの PDF の中の
 #:   一致**なので、独立した 2 つ目の軸ではない(原則 3 節)。
 #:   だから上限は ``weak`` のままにしてある。
+#: - ``pdf_vector_room_outline`` … 図面の線を平面グラフに直し、線で囲まれた
+#:   最小の領域を室の候補として取り出す
+#:   (`axes/image_axis/pdf_room_outlines.find_room_outlines`)。
+#:   **``calibrated=False`` / 上限 ``weak``。** 理由は 4 つ。
+#:   ①面積が**内法か壁芯か図形からは決まらない**ので、面積の値は
+#:   「どちらとして数えるか」が決まるまで数量として確定できない。
+#:   ②建具の開口を**こちらの都合で仮に閉じている**ことがある
+#:   (``virtual_edges`` に残る)。③面積の窓(0.5〜200㎡)と最小の幅(400mm)は
+#:   実図面で校正していない暫定値である。④開口が広すぎて閉じられない室は
+#:   輪郭が漏れて落ちるので、**出た室の数は常に下限**である。
 DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_WALL_LINEWORK: MethodPolicy(calibrated=True, max_strength="strong"),
     METHOD_FLOOR_AREA: MethodPolicy(calibrated=False, max_strength="weak"),
@@ -154,6 +165,7 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_OCR_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_REPEATED_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_LEGEND_SYMBOL: MethodPolicy(calibrated=False, max_strength="weak"),
+    METHOD_ROOM_OUTLINE: MethodPolicy(calibrated=False, max_strength="weak"),
 }
 
 

@@ -99,6 +99,11 @@ from axes.image_axis.ocr_text import (
     recognize_page,
 )
 from axes.image_axis.pdf_pages import ContentKind, rasterize
+from axes.image_axis.pdf_room_outlines import (
+    METHOD_ROOM_OUTLINE,
+    RoomOutline,
+    find_room_outlines,
+)
 from axes.image_axis.pdf_repeated_symbols import (
     METHOD_REPEATED_SYMBOL,
     LegendSymbol,
@@ -138,6 +143,7 @@ from intake.start_kit import (
     DOOR_ARC_PAGE_KINDS,
     LEGEND_PAGE_KINDS,
     REPEATED_SYMBOL_PAGE_KINDS,
+    ROOM_OUTLINE_PAGE_KINDS,
     PageDeclaration,
     PagePairing,
     ReferencePoint,
@@ -981,6 +987,12 @@ def _extract(
                     )
                 )
 
+            findings.extend(
+                _room_outline_findings(
+                    pdf_path, index, page_number, scale, declaration, notes
+                )
+            )
+
             _collect_symbols(
                 pdf_path,
                 index,
@@ -1439,6 +1451,66 @@ def _door_arc_findings(
             },
         )
     ]
+
+
+def _room_outline_findings(
+    pdf_path: Path,
+    index: int,
+    page_number: int,
+    scale: DrawingScale,
+    declaration: PageDeclaration | None,
+    notes: list[str],
+) -> list[DrawingFinding]:
+    """室の輪郭を、根拠付きの面積の証拠に直す。
+
+    **面積が内法か壁芯かは決めない。** ``area_basis`` をそのまま
+    provenance に残し、下流が片方に決め打ちできないようにする。
+    こちらの都合で開口を閉じた室は ``virtual_edges`` が 0 より大きくなる。
+    """
+    kind = declaration.kind if declaration is not None else None
+    if kind is not None and kind not in ROOM_OUTLINE_PAGE_KINDS:
+        notes.append(f"人が「{kind}」と宣言したページなので室の輪郭は探さない")
+        return []
+
+    rooms = find_room_outlines(pdf_path, index, scale)
+    if not rooms:
+        notes.append(
+            "室の輪郭は 0 件"
+            "(開口が広くて閉じられない室は漏れて落ちる。0 件は「室が無い」ではない)"
+        )
+        return []
+    phase = declaration.phase if declaration is not None else None
+    out: list[DrawingFinding] = []
+    for order, room in enumerate(rooms, start=1):
+        label = room.name if room.name is not None else f"名前不明{order}"
+        target = (
+            f"室::{label}::{phase}::ページ{page_number}"
+            if phase is not None and phase != "不明"
+            else f"室::{label}::ページ{page_number}"
+        )
+        out.append(
+            DrawingFinding(
+                target=target,
+                value_range=room.area_range_sqm,
+                unit=AREA_UNIT,
+                method_id=METHOD_ROOM_OUTLINE,
+                strength="weak",
+                provenance={
+                    "page_number": page_number,
+                    "phase": phase,
+                    "room_name": room.name,
+                    "area_sqm_unrounded": room.area_sqm,
+                    "name_basis": room.name_basis,
+                    "area_basis": room.area_basis,
+                    "min_width_mm": round(room.min_width_mm, 1),
+                    "perimeter_mm": round(room.perimeter_mm, 1),
+                    "virtual_edges": room.virtual_edges,
+                    "polygon_pt": [list(p) for p in room.polygon_pt],
+                    "limitation": room.limitation,
+                },
+            )
+        )
+    return out
 
 
 def _collect_symbols(
