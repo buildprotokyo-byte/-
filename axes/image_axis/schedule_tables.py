@@ -78,6 +78,7 @@ FINISH_COLUMN_SYNONYMS: dict[str, frozenset[str]] = {
     "室名": frozenset({"室名", "部屋名", "室", "部屋"}),
     "部位": frozenset({"部位", "箇所", "部分"}),
     "仕上": frozenset({"仕上", "仕上げ", "仕上材", "仕上げ材", "仕様"}),
+    "下地": frozenset({"下地", "下地類", "下地材", "下地種別", "下地仕様", "素地"}),
 }
 
 #: 部位が列になっている書き方(こちらのほうが図面では多い)のときの、
@@ -439,6 +440,28 @@ class FinishScheduleRow:
     room: str | None
     part: str | None
     finish: str | None
+    base: str | None = None
+    """下地の欄。**表に下地の列が無ければ None。**
+
+    「下地類」が複数の列にまたがって書かれている表(見出しが横に結合されて
+    いて、右側の列の見出しが空)では、**いちばん右の列**をこの欄にする。
+    左側の列は `base_extra` に入る。工法(``軸組新設`` など)が左、材料や
+    状態(``既存`` ``交換`` ``合板12mm``)が右に来る書き方が実図面にあった。
+    **この左右の決め方は 1 つの案件でしか確かめていない。**
+    """
+
+    base_extra: tuple[str, ...] = ()
+    """下地の欄が複数列にまたがるときの、**いちばん右より左の列**の文字。"""
+
+    row_texts: tuple[str, ...] = ()
+    """その行の升目の文字を、**左から順に、空でないものだけ**並べたもの。
+
+    役割を決めた列(室名・部位・下地・仕上)だけでは足りない場面があるため。
+    実図面の内装仕上表では、同じ部位の続きの行の材料名が、メーカー名や
+    品番の欄にだけ書かれていることがある。**列の役割を増やして推測する
+    かわりに、印字されたまま並べて人に見せる。**
+    """
+
     room_source: RoomSource = "cell"
     """室名をどこから取ったか。
 
@@ -462,6 +485,8 @@ class FinishScheduleRow:
             "caption": self.caption,
             "row_index": self.row_index,
             "room_source": self.room_source,
+            "base": self.base,
+            "base_extra": list(self.base_extra),
             "cells": {role: cell.as_dict() for role, cell in self.cells.items()},
             "notes": list(self.notes),
         }
@@ -480,6 +505,12 @@ class FinishSchedule:
     rows: tuple[FinishScheduleRow, ...]
     skipped_rows: tuple[SkippedRow, ...] = ()
     caption: str | None = None
+    base_columns: tuple[int, ...] = ()
+    """下地の欄に当たる列の番号を、左から右の順で全部。
+
+    見出しが横に結合されている表では 2 つ以上になる。`columns["下地"]` は
+    そのいちばん右で、**区分の判定に使うのはそちら**(`FinishScheduleRow.base`)。
+    """
 
     @property
     def page_number(self) -> int:
@@ -531,6 +562,32 @@ def _as_finish_schedule(table: TableRegion) -> FinishSchedule | None:
     return None
 
 
+def _base_column_group(
+    table: TableRegion, header_row: int, columns: dict[str, int]
+) -> tuple[int, ...]:
+    """下地の欄に当たる列を、左から右の順で返す。無ければ空。
+
+    **見出しが空の列を、すぐ左の「下地」の続きとみなす。** 実図面の内装仕上表
+    には「下 地 類」の見出しが 2 列にまたがって書かれているものがあり、
+    そこを 1 列だけ読むと、区分の決め手になる ``既存`` ``交換`` の欄を
+    丸ごと落とす。**広げるのは見出しが空の列だけ**で、ほかの役割に当たった
+    列や、文字のある見出しの列では止める。
+    """
+    if "下地" not in columns:
+        return ()
+    taken = set(columns.values())
+    group = [columns["下地"]]
+    index = columns["下地"] + 1
+    while index < table.col_count:
+        if index in taken:
+            break
+        if _normalize(table.rows[header_row][index].text):
+            break
+        group.append(index)
+        index += 1
+    return tuple(group)
+
+
 def _long_finish_schedule(
     table: TableRegion, header_row: int, columns: dict[str, int]
 ) -> FinishSchedule:
@@ -539,10 +596,19 @@ def _long_finish_schedule(
     carried: ScheduleCell | None = None
     page_number = table.page_index + 1
 
+    base_columns = _base_column_group(table, header_row, columns)
+    if base_columns:
+        # **判定に使うのはいちばん右。** 工法が左、材料や状態が右に来る。
+        columns = dict(columns) | {"下地": base_columns[-1]}
+
     for row_index in range(header_row + 1, table.row_count):
         cells = table.rows[row_index]
         part = cells[columns["部位"]].text.strip() or None
         finish = cells[columns["仕上"]].text.strip() or None
+        base = cells[base_columns[-1]].text.strip() or None if base_columns else None
+        base_extra = tuple(
+            cells[index].text.strip() for index in base_columns[:-1]
+        ) if base_columns else ()
         room_cell = cells[columns["室名"]]
         room, room_source, carried, notes = _resolve_room(
             room_cell, carried, page_number
@@ -565,12 +631,19 @@ def _long_finish_schedule(
             refs["部位"] = _ref(cells[columns["部位"]], page_number, part)
         if finish is not None:
             refs["仕上"] = _ref(cells[columns["仕上"]], page_number, finish)
+        if base is not None:
+            refs["下地"] = _ref(cells[columns["下地"]], page_number, base)
 
         rows.append(
             FinishScheduleRow(
                 room=room,
                 part=part,
                 finish=finish,
+                base=base,
+                base_extra=base_extra,
+                row_texts=tuple(
+                    cell.text.strip() for cell in cells if cell.text.strip()
+                ),
                 room_source=room_source,
                 page_number=page_number,
                 cells=refs,
@@ -589,6 +662,7 @@ def _long_finish_schedule(
         rows=tuple(rows),
         skipped_rows=tuple(skipped),
         caption=table.caption,
+        base_columns=base_columns,
     )
 
 
@@ -628,6 +702,9 @@ def _wide_finish_schedule(
                     room=room,
                     part=part_columns[column_index],
                     finish=finish,
+                    row_texts=tuple(
+                        cell.text.strip() for cell in cells if cell.text.strip()
+                    ),
                     room_source=room_source,
                     page_number=page_number,
                     cells=refs,
