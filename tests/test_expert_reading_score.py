@@ -8,9 +8,13 @@ from __future__ import annotations
 import pytest
 
 from benchmarks.measure_expert_reading import (
+    NAMED,
+    QUESTION,
     UNKNOWN,
+    UNREADABLE,
     eye_verdicts_needed,
     normalize,
+    rule_split,
     tally,
 )
 
@@ -54,11 +58,11 @@ class TestTally:
         assert counts["群A 文字あり"]["完全一致"] == 1
         assert counts["群B 図形だけ"]["完全一致"] == 1
 
-    def test_不明を数える(self):
+    def test_読めないを数える(self):
         counts = tally(_key(), {row["id"]: {"name": UNKNOWN} for row in _key()})
-        assert counts["群A 文字あり"]["不明"] == 2
-        assert counts["群B 図形だけ"]["不明"] == 2
-        assert counts["群A 文字あり"]["答えた"] == 0
+        assert counts["群A 文字あり"]["読めない"] == 2
+        assert counts["群B 図形だけ"]["読めない"] == 2
+        assert counts["群A 文字あり"]["名前を言えた"] == 0
 
     def test_一致しない答えは要目視になる(self):
         """**機械が勝手に「違う」と決めない。**目で見るまで判定を出さない。"""
@@ -78,9 +82,15 @@ class TestTally:
         counts = tally(_key(), {})
         assert counts["群A 文字あり"]["答えなかった"] == 2
 
-    def test_空文字は不明として扱う(self):
+    def test_空文字は読めないとして扱う(self):
         counts = tally(_key(), {"S-001": {"name": "   "}})
-        assert counts["群A 文字あり"]["不明"] == 1
+        assert counts["群A 文字あり"]["読めない"] == 1
+
+    def test_名前を言えたと書いてあっても名前が無ければ読めない(self):
+        """**区分の札と中身が食い違ったら、中身を採る。**"""
+        counts = tally(_key(), {"S-001": {"answer": NAMED, "name": UNKNOWN}})
+        assert counts["群A 文字あり"]["読めない"] == 1
+        assert counts["群A 文字あり"]["名前を言えた"] == 0
 
     def test_目で見た判定を入れると要目視から移る(self):
         counts = tally(
@@ -119,3 +129,55 @@ class TestSuperordinate:
         )
         assert counts["群B 図形だけ"]["目で見て合っている"] == 1
         assert counts["群B 図形だけ"]["上位語"] == 1
+
+
+class TestQuestion:
+    """**質疑にあたる**は「読めない」と別に数える(基準の追記 4)。"""
+
+    def test_質疑は読めないに入らない(self):
+        counts = tally(
+            _key(),
+            {"S-001": {"answer": QUESTION, "name": "", "reason": "発注者に確認"}},
+        )
+        assert counts["群A 文字あり"]["質疑にあたる"] == 1
+        assert counts["群A 文字あり"]["読めない"] == 0
+        assert counts["群A 文字あり"]["名前を言えた"] == 0
+
+    def test_囮を質疑と答えたのは捏造にしない(self):
+        counts = tally(_key(), {"S-005": {"answer": QUESTION, "name": ""}})
+        assert counts["囮 空の升目"]["囮に質疑"] == 1
+        assert counts["囮 空の升目"]["囮に名前"] == 0
+
+    def test_囮に名前を言い切ったら捏造(self):
+        counts = tally(_key(), {"S-005": {"answer": NAMED, "name": "たち"}})
+        assert counts["囮 空の升目"]["囮に名前"] == 1
+
+    def test_質疑は目で見る一覧に入らない(self):
+        needed = eye_verdicts_needed(
+            _key(), {"S-003": {"answer": QUESTION, "name": "さし"}}
+        )
+        assert needed == []
+
+
+class TestRuleSplit:
+    def test_札を群ごとに数える(self):
+        counts = rule_split(
+            _key(),
+            {
+                "S-001": {"name": "あい", "rule": "一般的な決まり"},
+                "S-002": {"name": "うえ", "rule": "この図面の癖"},
+                "S-003": {"name": "かき", "rule": "一般的な決まり"},
+            },
+        )
+        assert counts["群A 文字あり"]["一般的な決まり"] == 1
+        assert counts["群A 文字あり"]["この図面の癖"] == 1
+        assert counts["群B 図形だけ"]["一般的な決まり"] == 1
+
+    def test_札が無い答えは札なしとして数える(self):
+        """**黙って落とさない。**札を付け忘れたことが見えるようにする。"""
+        counts = rule_split(_key(), {"S-001": {"name": "あい"}})
+        assert counts["群A 文字あり"]["札なし"] == 1
+
+    def test_知らない札も札なしに入れる(self):
+        counts = rule_split(_key(), {"S-001": {"name": "あい", "rule": "なんとなく"}})
+        assert counts["群A 文字あり"]["札なし"] == 1

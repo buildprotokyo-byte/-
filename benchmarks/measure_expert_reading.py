@@ -39,6 +39,13 @@ from axes.image_axis.legend_lookup import LegendTable, match_marks
 #: 「分からない」の書き方。**答えなかったことと区別する。**
 UNKNOWN = "不明"
 
+#: 答えの 3 つの区分(基準の追記 4)。**質疑を「読めない」に混ぜない。**
+NAMED, QUESTION, UNREADABLE = "名前を言えた", "質疑にあたる", "読めない"
+ANSWER_KINDS = (NAMED, QUESTION, UNREADABLE)
+
+#: 「一般的な決まりか、この図面の癖か」の札。**読み手の自己申告**である。
+RULE_TAGS = ("一般的な決まり", "この図面の癖", "判断できない")
+
 #: 目で見た判定に使ってよい語。**これ以外は撥ねる。**
 #: ``合っている(上位語)`` は合っている側に数えるが、**別にも数える**。
 EYE_VERDICTS = ("合っている", "合っている(上位語)", "違う", "どちらとも言えない")
@@ -46,8 +53,9 @@ EYE_VERDICTS = ("合っている", "合っている(上位語)", "違う", "ど�
 #: 数える順。報告の表の列の順でもある。
 COLUMNS = (
     "件数",
-    "答えた",
-    "不明",
+    "名前を言えた",
+    "質疑にあたる",
+    "読めない",
     "答えなかった",
     "完全一致",
     "要目視",
@@ -56,6 +64,7 @@ COLUMNS = (
     "目で見て違う",
     "目で見てどちらとも言えない",
     "囮に名前",
+    "囮に質疑",
 )
 
 
@@ -65,12 +74,21 @@ def normalize(text: str) -> str:
     return "".join(body.split()).replace("・", "")
 
 
-def _given(response: dict[str, Any] | None) -> str | None:
-    """答えを取り出す。``None`` は「答えなかった」、``""`` は「不明」。"""
+def _answer(response: dict[str, Any] | None) -> tuple[str | None, str]:
+    """答えを ``(区分, 名前)`` で返す。``区分`` が ``None`` なら答えが返ってこなかった。
+
+    ``answer`` の欄が無い答えは、**名前が「不明」かどうかで区分を決める。**
+    古い形の答えを黙って落とさないため。
+    """
     if response is None:
-        return None
+        return None, ""
     name = str(response.get("name", "")).strip()
-    return UNKNOWN if not name else name
+    kind = str(response.get("answer", "")).strip()
+    if kind not in ANSWER_KINDS:
+        kind = UNREADABLE if (not name or name == UNKNOWN) else NAMED
+    if kind == NAMED and (not name or name == UNKNOWN):
+        kind = UNREADABLE
+    return kind, name
 
 
 def eye_verdicts_needed(
@@ -79,8 +97,8 @@ def eye_verdicts_needed(
     """**目で見ないと判定できない番号**を、正解表の順で返す。"""
     needed: list[str] = []
     for row in key:
-        given = _given(responses.get(row["id"]))
-        if given is None or given == UNKNOWN:
+        kind, given = _answer(responses.get(row["id"]))
+        if kind != NAMED:
             continue
         expected = row.get("name")
         if expected is None:
@@ -107,15 +125,20 @@ def tally(
     for row in key:
         bucket = counts.setdefault(row["kind"], Counter())
         bucket["件数"] += 1
-        given = _given(responses.get(row["id"]))
-        if given is None:
+        kind, given = _answer(responses.get(row["id"]))
+        if kind is None:
             bucket["答えなかった"] += 1
             continue
-        if given == UNKNOWN:
-            bucket["不明"] += 1
+        if kind == UNREADABLE:
+            bucket["読めない"] += 1
             continue
-        bucket["答えた"] += 1
         expected = row.get("name")
+        if kind == QUESTION:
+            bucket["質疑にあたる"] += 1
+            if expected is None:
+                bucket["囮に質疑"] += 1
+            continue
+        bucket["名前を言えた"] += 1
         if expected is None:
             bucket["囮に名前"] += 1
             continue
@@ -136,6 +159,25 @@ def tally(
     return counts
 
 
+def rule_split(
+    key: list[dict[str, Any]], responses: dict[str, Any]
+) -> dict[str, Counter]:
+    """「一般的な決まり / この図面の癖」の札を群ごとに数える。
+
+    **札は読み手の自己申告**であって、正解と突き合わせる手立ては無い。
+    """
+    counts: dict[str, Counter] = {}
+    for row in key:
+        response = responses.get(row["id"])
+        if response is None:
+            continue
+        tag = str(response.get("rule", "")).strip()
+        counts.setdefault(row["kind"], Counter())[
+            tag if tag in RULE_TAGS else "札なし"
+        ] += 1
+    return counts
+
+
 def legend_only(key: list[dict[str, Any]], table_path: Path) -> dict[str, Any]:
     """**条件 1「凡例だけ」**を機械で出す。升目に刷られた文字だけを引き当てる。
 
@@ -146,11 +188,16 @@ def legend_only(key: list[dict[str, Any]], table_path: Path) -> dict[str, Any]:
     for row in key:
         code = str(row.get("code") or "").strip()
         if not code:
-            responses[row["id"]] = {"name": UNKNOWN, "confidence": UNKNOWN}
+            responses[row["id"]] = {
+                "answer": UNREADABLE,
+                "name": UNKNOWN,
+                "confidence": UNKNOWN,
+            }
             continue
         match = match_marks([code], table)[0]
         value = match.meaning or match.name
         responses[row["id"]] = {
+            "answer": NAMED if match.matched else UNREADABLE,
             "name": value if match.matched else UNKNOWN,
             "confidence": "確信" if match.matched else UNKNOWN,
         }
@@ -194,6 +241,10 @@ def main(argv: list[str] | None = None) -> int:
     needed: dict[str, list[str]] = {}
     for name, responses in conditions:
         _print(name, tally(key, responses, eye.get(name)))
+        tags = rule_split(key, responses)
+        for kind in sorted(tags):
+            printable = ", ".join(f"{tag} {count}" for tag, count in sorted(tags[kind].items()))
+            print(f"札 {kind}: {printable}")
         needed[name] = eye_verdicts_needed(key, responses)
         print(f"目で見るべき件数: {len(needed[name])}")
 
