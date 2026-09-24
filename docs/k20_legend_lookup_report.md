@@ -451,10 +451,11 @@ K-20 の「迷ったら推奨付きで記録して推奨で進める」に従い
 
 | もの | 置き場所 |
 |---|---|
-| 凡例から対照表を写す道具 | `benchmarks/build_legend_lookup.py` |
+| 凡例から対照表を写す道具 | `benchmarks/build_legend_lookup.py`(`--symbol-route tables` が既定) |
 | 対照表で引き当てる仕組み | `axes/image_axis/legend_lookup.py` |
 | 件数を数える道具 | `benchmarks/measure_legend_lookup.py` |
 | 形の重なりを測る道具(**採用していない**) | `benchmarks/measure_legend_shape_overlap.py` |
+| 記号の塊の上にあるかを測る道具(**採用していない**) | `benchmarks/measure_legend_symbol_position.py` |
 | テスト(**全部合成データ**) | `tests/test_legend_lookup.py` 25 件 / `tests/test_legend_table_copy.py` 9 件 |
 | 拘束力 `案件の凡例` | `knowledge/table.py` の `BINDINGS`(K-20 2 番) |
 | **対照表の中身** | **共有フォルダのみ**(`knowledge/p011_legend_lookup.json`) |
