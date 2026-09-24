@@ -34,6 +34,7 @@ import pymupdf
 import pytest
 
 from axes.image_axis.schedule_tables import DoorScheduleRow, ScheduleCell
+from axes.reading.meaning import PURPOSE_UNESTABLISHED, Meaning
 from estimating.from_intake import quantities_from_intake
 from estimating.mapping import map_quantities
 from estimating.quantities import QuantityError, QuantityItem, split_target
@@ -619,3 +620,83 @@ def test_a_line_carries_what_produced_it() -> None:
         payload = line.as_dict()
         for field_name in ("rule_id", "method_id", "axis_id", "tier", "action"):
             assert field_name in payload, f"{field_name} が as_dict に無い"
+
+
+# ---------------------------------------------------------------------------
+# 8. 規則が現況/計画を条件にできる(版 3、2026-09-23)
+# ---------------------------------------------------------------------------
+#
+# それまで現況/計画は対象名(`開き戸::現況::ページ1`)の中にしか無く、
+# `kind` が `::` の手前しか見ないので**規則からは見えなかった**
+# (`docs/principles/scope_of_work_diff.md` 3-2)。意味の4欄へ移したので
+# 条件にできる。**意味が付いていない数量と、`不明` のままの数量には当てない。**
+
+
+def _phase_quantity(phase: str | None) -> QuantityItem:
+    meaning = (
+        Meaning(
+            what="建具の数量",
+            where="建具表 AW-1 の行",
+            phase=phase,
+            purpose_link=PURPOSE_UNESTABLISHED,
+        )
+        if phase is not None
+        else None
+    )
+    return QuantityItem(
+        target="建具数量::AW-1",
+        value_range=(3.0, 3.0),
+        unit="箇所",
+        method_id="pdf_table_door_schedule",
+        tier=3,
+        action="requires_review",
+        meaning=meaning,
+    )
+
+
+def test_a_rule_can_require_a_phase() -> None:
+    ruleset = parse_rules(_ruleset_payload([_door_rule(phase=["計画"])]))
+
+    (mapping,) = map_quantities([_phase_quantity("計画")], ruleset).mappings
+    assert [line.rule_id for line in mapping.lines] == ["door-install"] * 2
+
+
+def test_a_rule_that_requires_a_phase_misses_the_other_phase() -> None:
+    ruleset = parse_rules(_ruleset_payload([_door_rule(phase=["計画"])]))
+
+    (mapping,) = map_quantities([_phase_quantity("現況")], ruleset).mappings
+    assert not mapping.lines
+    assert any("現況" in reason for reason in mapping.reasons)
+
+
+def test_a_rule_that_requires_a_phase_misses_a_quantity_without_a_meaning() -> None:
+    """**意味が付いていないことを「不明」と読み替えない。**
+
+    読めなかった属性で行を決めない約束(`attributes`)と同じ向きである。
+    """
+    ruleset = parse_rules(_ruleset_payload([_door_rule(phase=["計画"])]))
+
+    (mapping,) = map_quantities([_phase_quantity(None)], ruleset).mappings
+    assert not mapping.lines
+
+
+def test_a_rule_that_requires_a_phase_misses_an_unknown_phase() -> None:
+    """`不明` のままの数量に、現況/計画の規則を当てない。"""
+    ruleset = parse_rules(_ruleset_payload([_door_rule(phase=["計画"])]))
+
+    (mapping,) = map_quantities([_phase_quantity("不明")], ruleset).mappings
+    assert not mapping.lines
+
+
+def test_a_rule_cannot_require_an_unknown_phase() -> None:
+    """規則の条件に `不明` は書けない。決まっていないことで行を立てない。"""
+    with pytest.raises(RuleError):
+        parse_rules(_ruleset_payload([_door_rule(phase=["不明"])]))
+
+
+def test_an_older_ruleset_cannot_use_the_phase_condition() -> None:
+    """版を上げずに新しい項目を書いたファイルは断る(約束 7 と同じ)。"""
+    payload = _ruleset_payload([_door_rule(phase=["計画"])])
+    payload["format_version"] = 2
+    with pytest.raises(RuleError):
+        parse_rules(payload)
