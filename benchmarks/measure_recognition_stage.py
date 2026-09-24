@@ -35,8 +35,10 @@ from axes.image_axis.pdf_room_outlines import build_plan_graph, find_room_outlin
 from axes.image_axis.pdf_tables import find_tables
 from axes.image_axis.pdf_vector_symbols import extract_scale, find_door_arcs
 
-#: 表題欄はこれより左。事務所名・個人名・登録番号が入るので**範囲に入れない**。
-TITLE_BLOCK_X = 75.0
+#: 表題欄は**表示の向きで**紙の下端にある。ページの高さのこの割合より下は**範囲に入れない**
+#: (事務所名・個人名・登録番号が入る)。K-24 2 番で、回転前の x で線を引くと
+#: **回転していないページでは図面の左端を捨ててしまう**と分かったので、割合に変えた。
+TITLE_BLOCK_BOTTOM = 0.88
 
 #: 選んだ面の外接矩形に足す余白(pt)。基準に先に書いた値。
 PADDING = 20.0
@@ -48,10 +50,13 @@ SHIFT = 50.0
 SEGMENT_KINDS = ("l", "re", "qu")
 
 
-def frame_centre(page: pymupdf.Page, title_block_x: float = TITLE_BLOCK_X) -> tuple[float, float]:
-    """**表題欄を外した図枠**の中心。"""
+def frame_centre(
+    page: pymupdf.Page, title_block_bottom: float = TITLE_BLOCK_BOTTOM
+) -> tuple[float, float]:
+    """**表題欄を外した図枠**の中心(表示の向き)。"""
     rect = page.rect
-    return ((rect.x0 + title_block_x + rect.x1) / 2.0, (rect.y0 + rect.y1) / 2.0)
+    cut = rect.y0 + (rect.y1 - rect.y0) * title_block_bottom
+    return ((rect.x0 + rect.x1) / 2.0, (rect.y0 + cut) / 2.0)
 
 
 def _bbox(face: Any) -> pymupdf.Rect:

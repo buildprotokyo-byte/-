@@ -26,11 +26,11 @@ class _Face:
 class TestFrameCentre:
     def test_表題欄を外した図枠の中心を返す(self):
         page = pymupdf.open().new_page(width=1000, height=800)
-        assert frame_centre(page, title_block_x=100.0) == pytest.approx((550.0, 400.0))
+        assert frame_centre(page, title_block_bottom=0.5) == pytest.approx((500.0, 200.0))
 
     def test_表題欄が無ければ紙の中心(self):
         page = pymupdf.open().new_page(width=1000, height=800)
-        assert frame_centre(page, title_block_x=0.0) == pytest.approx((500.0, 400.0))
+        assert frame_centre(page, title_block_bottom=1.0) == pytest.approx((500.0, 400.0))
 
 
 class TestChooseFace:

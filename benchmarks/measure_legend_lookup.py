@@ -37,21 +37,46 @@ from axes.image_axis.legend_lookup import (
     summarize,
 )
 
-#: 表題欄はこれより左。事務所名・個人名・登録番号が入るので**数にも入れない。**
-TITLE_BLOCK_X = 75.0
+#: 表題欄は**表示の向きで**紙の下端にある。ページの高さのこの割合より下を表題欄とする。
+#: 事務所名・個人名・登録番号が入るので**数にも入れない。**
+TITLE_BLOCK_BOTTOM = 0.88
+
+
+def title_block_top(page: pymupdf.Page) -> float:
+    """表題欄の上端(**表示の向きの y**)。
+
+    K-24 2 番。**以前は「回転前の x が 75pt より左」を表題欄としていた。**
+    回転しているページ(270 度)ではそれが表示の向きの下端に当たるので合っていたが、
+    **回転していないページでは、表題欄ではなく図面の左端の帯を捨てていた。**
+    そのぶん表題欄の文字は照合の対象に入ったままだった。
+    ``page.rotation_matrix`` で表示の向きに直してから線を引けば、回転の有無に
+    かかわらず同じ規則で扱える。
+    """
+    return page.rect.height * TITLE_BLOCK_BOTTOM
+
+
+def _shown(page: pymupdf.Page, bbox) -> pymupdf.Rect:
+    """回転前の矩形を**表示の向き**に直す。"""
+    return pymupdf.Rect(bbox) * page.rotation_matrix
 
 
 def _words(page: pymupdf.Page) -> list[str]:
-    return [w[4] for w in page.get_text("words") if w[0] >= TITLE_BLOCK_X and normalize(w[4])]
+    cut = title_block_top(page)
+    return [
+        w[4]
+        for w in page.get_text("words")
+        if _shown(page, w[:4]).y0 < cut and normalize(w[4])
+    ]
 
 
 def _coloured_words(page: pymupdf.Page) -> list[tuple[str, tuple[float, ...]]]:
     """文字とその色。**記号が凡例と同じ色で刷られているか**を見るために使う。"""
+    cut = title_block_top(page)
     out: list[tuple[str, tuple[float, ...]]] = []
     for block in page.get_text("dict")["blocks"]:
         for line in block.get("lines", ()):
             for span in line["spans"]:
-                if span["bbox"][0] < TITLE_BLOCK_X or not normalize(span["text"]):
+                if _shown(page, span["bbox"]).y0 >= cut or not normalize(span["text"]):
                     continue
                 packed = int(span["color"])
                 out.append(
