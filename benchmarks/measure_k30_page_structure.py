@@ -69,6 +69,10 @@ KINDS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("仕上表", re.compile(r"仕上表|仕上げ表")),
     ("建具表", re.compile(r"建具表")),
     ("図面リスト", re.compile(r"図面リスト|図面目録|図面一覧")),
+    # 追記 2 のあと、**この案件の図面から作り直して足した 2 つ**。
+    # 先に並べた一覧に当たらなかった 7 件を見たら、3 件がこの 2 種類だった。
+    ("撤去図", re.compile(r"撤去|解体")),
+    ("設備図", re.compile(r"電気|設備|配線|給排水|空調|換気")),
 )
 
 
@@ -292,6 +296,9 @@ def measure(pdf_path: str | Path) -> dict:
                 row["枠"] = False
             current = read_title_block(words, LedgerSettings())
             row["名前(いまの帯)"] = current.drawing_name is not None
+            # 追記 2: 名前をどこから取るかは未決のまま、**取れた名前が種類に振り分くか**
+            # だけを測る。枠の道が止まっていても測れる。
+            row["種類(いまの帯)"] = classify(current.drawing_name)
             pages.append(row)
     return {"pages": pages, "summary": summarize(pages)}
 
@@ -307,6 +314,10 @@ def summarize(pages: list[dict]) -> dict:
     kinds: dict[str, int] = {}
     for page in named:
         kinds[page["種類"]] = kinds.get(page["種類"], 0) + 1
+    named_band = [p for p in pages if p["名前(いまの帯)"]]
+    band_kinds: dict[str, int] = {}
+    for page in named_band:
+        band_kinds[page["種類(いまの帯)"]] = band_kinds.get(page["種類(いまの帯)"], 0) + 1
     return {
         "ページ数": len(pages),
         "図形あり": len(vector),
@@ -320,6 +331,10 @@ def summarize(pages: list[dict]) -> dict:
         "名前が読めた(いまの帯)": sum(1 for p in pages if p["名前(いまの帯)"]),
         "種類の内訳": kinds,
         "その他": kinds.get("その他", 0),
+        "種類の内訳(いまの帯)": band_kinds,
+        "線6(いまの帯で読めた名前のうち種類が付いた割合)": (
+            round(1 - band_kinds.get("その他", 0) / len(named_band), 4) if named_band else None
+        ),
         "線5(名前のうち種類が付いた割合)": (
             round(1 - kinds.get("その他", 0) / len(named), 4) if named else None
         ),
