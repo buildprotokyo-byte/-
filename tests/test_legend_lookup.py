@@ -23,6 +23,7 @@ from axes.image_axis.legend_lookup import (
     REASON_AMBIGUOUS,
     REASON_NOT_IN_TABLE,
     REASON_NO_SAMPLE,
+    REASON_UNDISTINGUISHABLE,
     UNKNOWN,
     LegendTable,
     match_line_colors,
@@ -216,3 +217,55 @@ def test_binding_must_say_the_table_is_this_case_only() -> None:
     """この対照表は**この案件限り**で、ほかの案件には使えない。"""
     with pytest.raises(ValueError, match="案件の凡例"):
         LegendTable.from_payload({"binding": "業界指針", "work_marks": []})
+
+
+def _weak_table() -> LegendTable:
+    """見分けの付かない形の記号だけを入れた合成の対照表。"""
+    return LegendTable.from_payload(
+        {
+            "binding": "案件の凡例",
+            "work_marks": [
+                {"code": "ア", "meaning": "合成の意味・その一", "source_page": 6}
+            ],
+            "symbols": [
+                {"code": "Q", "name": "合成の器具(丁)", "group": "", "source_page": 22},
+                {"code": "907", "name": "合成の器具(戊)", "group": "", "source_page": 22},
+                {"code": "Q7", "name": "合成の器具(己)", "group": "", "source_page": 22},
+            ],
+        }
+    )
+
+
+def test_a_one_letter_equipment_code_is_not_a_symbol() -> None:
+    """**仮の判断。**設備の記号は図面では「描かれた形」で、文字はその付け札にすぎない。
+    1 文字の語は室番号や符号としても出るので、文字だけでは見分けが付かない。
+    """
+    (match,) = match_marks(["Q"], _weak_table())
+    assert match.display_name == UNKNOWN
+    assert match.reason == REASON_UNDISTINGUISHABLE
+
+
+def test_a_digits_only_equipment_code_is_not_a_symbol() -> None:
+    """**仮の判断。**数字だけの語は寸法としても出るので、文字だけでは見分けが付かない。"""
+    (match,) = match_marks(["907"], _weak_table())
+    assert match.display_name == UNKNOWN
+    assert match.reason == REASON_UNDISTINGUISHABLE
+
+
+def test_a_two_character_code_with_a_letter_still_matches() -> None:
+    (match,) = match_marks(["Q7"], _weak_table())
+    assert match.name == "合成の器具(己)"
+
+
+def test_a_short_work_mark_still_matches() -> None:
+    """**工事の区分は事情が違う。**凡例が「語をそのまま書く」と決めている印なので、
+    1 文字でも落とさない。
+    """
+    (match,) = match_marks(["ア"], _weak_table())
+    assert match.meaning == "合成の意味・その一"
+
+
+def test_the_provisional_filter_can_be_turned_off() -> None:
+    """**仮の判断なので、外して測り直せる形にしておく。**"""
+    (match,) = match_marks(["Q"], _weak_table(), strict_equipment_codes=False)
+    assert match.name == "合成の器具(丁)"

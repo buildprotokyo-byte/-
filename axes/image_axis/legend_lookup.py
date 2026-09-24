@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 import json
+import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
@@ -44,6 +45,7 @@ UNKNOWN = "不明"
 REASON_NOT_IN_TABLE = "対照表に無い"
 REASON_AMBIGUOUS = "対照表で1つに決まらない"
 REASON_NO_SAMPLE = "凡例に見本が無い"
+REASON_UNDISTINGUISHABLE = "記号として見分けが付かない形"
 
 KIND_WORK = "工事の区分"
 KIND_EQUIPMENT = "設備"
@@ -58,6 +60,21 @@ RATIO_TOLERANCE = 0.1
 
 #: 色が同じとみなすずれ(0〜1 の各成分)。
 COLOR_TOLERANCE = 0.02
+
+#: **仮の判断(K-20、おーちゃんの判断待ち)。**設備の記号は図面では「描かれた形」で、
+#: 文字はその付け札にすぎない。1 文字の語は室番号や符号としても、数字だけの語は寸法としても
+#: 出るので、**文字だけでは記号と見分けが付かない。**そういう語は「不明」にする。
+#: **工事の区分は事情が違う**(凡例が「語をそのまま書く」と決めている印)ので落とさない。
+#: `strict_equipment_codes=False` で外して測り直せる。
+MIN_EQUIPMENT_CODE_LENGTH = 2
+
+_HAS_NON_DIGIT = re.compile(r"[^0-9]")
+
+
+def distinguishable(code: str) -> bool:
+    """その語が、図面の中で記号として見分けが付く形か。"""
+    body = normalize(code)
+    return len(body) >= MIN_EQUIPMENT_CODE_LENGTH and bool(_HAS_NON_DIGIT.search(body))
 
 
 def normalize(text: str) -> str:
@@ -152,8 +169,17 @@ def _collapse(hits: list[dict[str, Any]], name_key: str) -> tuple[str | None, tu
     return names.pop(), pages
 
 
-def match_marks(texts: Iterable[str], table: LegendTable) -> tuple[LegendMatch, ...]:
-    """図面から拾った文字を、対照表に**完全一致で**引き当てる。"""
+def match_marks(
+    texts: Iterable[str],
+    table: LegendTable,
+    *,
+    strict_equipment_codes: bool = True,
+) -> tuple[LegendMatch, ...]:
+    """図面から拾った文字を、対照表に**完全一致で**引き当てる。
+
+    `strict_equipment_codes` は上の `MIN_EQUIPMENT_CODE_LENGTH` の**仮の判断**を
+    効かせるかどうか。既定は効かせる。
+    """
     out: list[LegendMatch] = []
     for text in texts:
         for rows, name_key, kind in (
@@ -163,6 +189,17 @@ def match_marks(texts: Iterable[str], table: LegendTable) -> tuple[LegendMatch, 
             hits = _lookup(text, rows, name_key)
             if not hits:
                 continue
+            if (
+                kind == KIND_EQUIPMENT
+                and strict_equipment_codes
+                and not distinguishable(text)
+            ):
+                out.append(
+                    LegendMatch(
+                        text=text, kind=kind, reason=REASON_UNDISTINGUISHABLE
+                    )
+                )
+                break
             value, pages = _collapse(hits, name_key)
             if value is None:
                 out.append(

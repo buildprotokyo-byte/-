@@ -76,6 +76,11 @@ def main() -> None:
         default=(),
         help="**凡例が色の意味を使うと書いたページ**(この図面では電気位置図)",
     )
+    parser.add_argument(
+        "--loose",
+        action="store_true",
+        help="**仮の判断(見分けの付かない形の記号を落とす)を外して数える**",
+    )
     args = parser.parse_args()
 
     table = LegendTable.load(args.table)
@@ -94,8 +99,11 @@ def main() -> None:
         per_page[number] = words
         texts.extend(words)
 
-    matches = match_marks(texts, table)
+    matches = match_marks(texts, table, strict_equipment_codes=not args.loose)
     counts = summarize(matches)
+    loose_named = summarize(
+        match_marks(texts, table, strict_equipment_codes=False)
+    ).named
     named = [m for m in matches if m.matched]
     bad = _fabrication_check(matches, table)
 
@@ -141,6 +149,7 @@ def main() -> None:
         },
         "照合の結果": {
             "名前が付いた件数": counts.named,
+            "仮の判断を外したときの名前が付いた件数": loose_named,
             "不明の件数": counts.unknown,
             "捏造の件数": len(bad),
             "不明の内訳": counts.by_reason,
