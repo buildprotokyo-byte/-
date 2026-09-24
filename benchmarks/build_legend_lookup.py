@@ -342,27 +342,26 @@ def _name_without_note(text: str) -> str:
     return re.split(r"[※]", text, maxsplit=1)[0].replace("\n", " ").strip()
 
 
-def symbol_rules_from_tables(
+def symbol_rows_from_tables(
     pdf_path: Path | str, page_number: int
-) -> list[dict[str, Any]]:
-    """「名称」「記号」の表を、**罫線の升目のまま**写す。
+) -> tuple[list[dict[str, Any]], Counter]:
+    """:func:`symbol_rules_from_tables` と同じ写し方で、**写さなかった行も数えて返す。**
 
-    はじめの写し方(:func:`symbol_rules`)は文字の x と y の並びから行と列を
-    組み直していた。そのため **記号の升目の中に空白があると、そこで切れて
-    行ごと落ちていた。**罫線から升目を組む
-    :func:`axes.image_axis.pdf_tables.find_tables` に任せると、升目の中の
-    空白は升目の中に留まる。
+    **「66 件写した」とだけ書くと、写せなかった行が見えなくなる。**
+    名前の行が全部で何行あり、そのうち何行が写せて、何行がなぜ写せなかったのかを
+    並べて出せるようにする。
 
-    この関数が守ること:
+    数える区分:
 
-    1. **記号の升目に文字が無い行は写さない。**丸や四角だけで描かれた記号は
-       文字で引き当てられない。**それらしい名前を当てない。**
-    2. **記号の升目が 1 つに決まらない行も写さない。**升目が複数行に
-       またがっていたり、長すぎて注記に見えるものは、どれを記号とするか
-       選んだ時点で推し量りになる。
-    3. **群の見出し(〈…〉)は、その下の行に付ける。**
+    - ``名前の行`` … 群の見出しと見出し行を除いた、名前の書かれている行の数
+    - ``写した``
+    - ``図形だけ`` … **記号の升目に文字が無い**(丸・四角・線だけで描かれた記号)。
+      **文字で引き当てる道では原理的に取れない。**
+    - ``記号が1つに決まらない`` … 升目が複数行にまたがる、長すぎて注記に見える、など
+    - ``名前が注記`` … 名前の升目が説明文で、記号の対ではない
     """
     rules: list[dict[str, Any]] = []
+    counts: Counter = Counter()
     for region in find_tables(pdf_path, page_number - 1):
         texts = region.texts()
         head = next(
@@ -385,10 +384,19 @@ def symbol_rules_from_tables(
             if heading:
                 group = heading.group(1).strip()
                 continue
+            counts["名前の行"] += 1
             code = next((cell for cell in row[name_column + 1 :] if cell.strip()), "")
             name = _name_without_note(raw_name)
-            if not code or not _usable_code(code) or not _usable_name(name):
+            if not code:
+                counts["図形だけ"] += 1
                 continue
+            if not _usable_name(name):
+                counts["名前が注記"] += 1
+                continue
+            if not _usable_code(code):
+                counts["記号が1つに決まらない"] += 1
+                continue
+            counts["写した"] += 1
             rules.append(
                 {
                     "code": code.strip(),
@@ -397,7 +405,30 @@ def symbol_rules_from_tables(
                     "source_page": page_number,
                 }
             )
-    return rules
+    return rules, counts
+
+
+def symbol_rules_from_tables(
+    pdf_path: Path | str, page_number: int
+) -> list[dict[str, Any]]:
+    """「名称」「記号」の表を、**罫線の升目のまま**写す。
+
+    はじめの写し方(:func:`symbol_rules`)は文字の x と y の並びから行と列を
+    組み直していた。そのため **記号の升目の中に空白があると、そこで切れて
+    行ごと落ちていた。**罫線から升目を組む
+    :func:`axes.image_axis.pdf_tables.find_tables` に任せると、升目の中の
+    空白は升目の中に留まる。
+
+    この関数が守ること:
+
+    1. **記号の升目に文字が無い行は写さない。**丸や四角だけで描かれた記号は
+       文字で引き当てられない。**それらしい名前を当てない。**
+    2. **記号の升目が 1 つに決まらない行も写さない。**升目が複数行に
+       またがっていたり、長すぎて注記に見えるものは、どれを記号とするか
+       選んだ時点で推し量りになる。
+    3. **群の見出し(〈…〉)は、その下の行に付ける。**
+    """
+    return symbol_rows_from_tables(pdf_path, page_number)[0]
 
 
 def line_style_rules(page: pymupdf.Page, page_number: int) -> list[dict[str, Any]]:
@@ -462,9 +493,12 @@ def main() -> None:
         table["line_colors"] += colour_rules(doc[number - 1], number)
     for number in args.mark_pages:
         table["work_marks"] += mark_rules(doc[number - 1], number)
+    skipped: Counter = Counter()
     for number in args.symbol_pages:
         if args.symbol_route == "tables":
-            table["symbols"] += symbol_rules_from_tables(args.pdf, number)
+            rules, counts = symbol_rows_from_tables(args.pdf, number)
+            table["symbols"] += rules
+            skipped += counts
         else:
             table["symbols"] += symbol_rules(doc[number - 1], number)
     for number in args.line_pages:
@@ -479,6 +513,9 @@ def main() -> None:
         f"記号(工事の区分) {len(table['work_marks'])}件 / "
         f"記号(設備) {len(table['symbols'])}件 → {args.out}"
     )
+    if skipped:
+        # **「何件写した」だけ出すと、写せなかった行が見えなくなる。**
+        print("凡例の名前の行の内訳:", dict(skipped))
 
 
 if __name__ == "__main__":
