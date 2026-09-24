@@ -351,14 +351,16 @@ def test_a_declaration_with_no_arcs_raises_no_disagreement(tmp_path: Path) -> No
 # ---------------------------------------------------------------------------
 
 
-def test_the_phase_declaration_still_reaches_the_target_name(
+def test_the_phase_declaration_still_reaches_the_reading(
     schedule_with_an_arc: Path, tmp_path: Path
 ) -> None:
-    """**この修正は種類(kind)だけを扱う。** 現況/計画(phase)は変えていない。
+    """**この修正は種類(kind)だけを扱う。** 現況/計画(phase)の宣言は届き続ける。
 
-    phase を突き合わせなしに対象名へ入れている点
-    (`docs/principles/principle_conformance_review.md` の 10)は、
-    この修正の対象外で、まだ残っている。
+    **確かめ方を 2026-09-23 に変えた。** 元は
+    `assert ... .target == "開き戸::現況::ページ1"` で、phase が対象名に
+    入っていることを固定していた。phase は意味の4欄(`Meaning.phase`)へ移したので、
+    **届くことを確かめる先をそちらに変える。狙いは変えない**
+    (`docs/principles/scope_of_work_diff.md` 3-2、3-3)。
     """
     result = read_drawing(
         _config(
@@ -372,4 +374,7 @@ def test_the_phase_declaration_still_reaches_the_target_name(
         )
     )
 
-    assert _door_arc_findings(result)[0].target == "開き戸::現況::ページ1"
+    finding = _door_arc_findings(result)[0]
+    assert finding.target == "開き戸::ページ1"
+    assert finding.meaning is not None
+    assert finding.meaning.phase == "現況"

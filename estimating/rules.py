@@ -31,6 +31,8 @@
 - `kind` … 対象名の `::` より前(`建具数量`)。**全文には当てない。**
 - `attributes` … 属性名 → 許す値の並び。**書いた属性が数量に無ければ
   当たらない。** 読めなかった属性で行を決めてしまわないため。
+- `phase`(版 3)… 現況/計画/解体の条件。**意味の4欄からだけ読む。**
+  意味が付いていない数量にも、`不明` のままの数量にも当たらない。
 - `line_items` … 1 つの規則が当たったときに**同時に**作る行。取付費と
   材料費のように、1 つの数量が複数の行になるのはあいまいさではない。
 - `knowledge_rule_ids` … **どの知識のルールで数えているか**(知識の表の
@@ -58,6 +60,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from arbitration.units import UNIT_SPECS, UnitError, canonical_unit
+from axes.reading.meaning import PHASE_UNKNOWN, PHASES
 from estimating.quantities import QuantityItem, normalise_text
 
 #: この読み込みが解釈できる規則ファイルの版。
@@ -75,9 +78,14 @@ SUPPORTED_RULES_FORMAT_VERSIONS: tuple[int, ...] = (1, 2, 3)
 #: 版 2 で足した項目。版 1 のファイルにこれがあれば断る。
 _VERSION2_ONLY_FIELDS = frozenset({"standing_lines"})
 
-#: 版 3 で足した項目(K-11 の 1 番)。**規則 1 つ・行 1 つの中に書く。**
-#: 版 2 以下のファイルにこれがあれば断る。
-_VERSION3_ONLY_FIELDS = frozenset({"knowledge_rule_ids"})
+#: 版 3 で足した項目(K-11 の 1 番と、現況/計画の条件)。
+#: **規則 1 つ・行 1 つの中に書く。** 版 2 以下のファイルにこれがあれば断る。
+#:
+#: `phase` は現況/計画/解体の条件である。それまで `phase` は対象名の中
+#: (`開き戸::現況::ページ1`)にしか無く、`kind` が `::` の手前しか見ないので
+#: **規則からは見えなかった**(`docs/principles/scope_of_work_diff.md` 3-2)。
+#: 意味の4欄(`Meaning.phase`)に移したことで条件にできるようになった。
+_VERSION3_ONLY_FIELDS = frozenset({"knowledge_rule_ids", "phase"})
 
 #: 図面からは決まらない行の基準の種類。
 STANDING_BASIS_KINDS: tuple[str, ...] = ("一式", "数量参照")
@@ -112,6 +120,7 @@ _RULE_FIELDS = frozenset(
         "kind",
         "unit_dimension",
         "attributes",
+        "phase",
         "line_items",
         "description",
         "knowledge_rule_ids",
@@ -162,6 +171,13 @@ class MappingRule:
     """数量の単位がこの次元(`count` `area` `length` `money`)であることを要求する。"""
 
     attributes: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    phase: tuple[str, ...] = ()
+    """この規則が当たる現況/計画/解体(版 3 で追加)。**空なら問わない。**
+
+    **`不明` は書けない。** 「現況か計画か決まっていない数量に当てる規則」は、
+    決まっていないことを根拠に行を立てることになる(原則2)。
+    """
+
     description: str | None = None
 
     knowledge_rule_ids: tuple[str, ...] = ()
@@ -201,6 +217,29 @@ class MappingRule:
             if normalise_text(actual) not in {normalise_text(v) for v in allowed}:
                 reasons.append(
                     f"属性 {name} の値 {actual} が規則 {self.rule_id} の条件に無い"
+                )
+
+        # 現況/計画は**意味の4欄からだけ**読む(`QuantityItem.phase`)。
+        # 対象名から切り出さない。**意味が付いていない数量には当てない。**
+        # 読めなかった属性で行を決めない約束(上の `attributes`)と同じ向きで、
+        # 「まだ付けていない」を「現況だろう」で埋めない。
+        if self.phase:
+            actual_phase = quantity.phase
+            if actual_phase is None:
+                reasons.append(
+                    f"規則 {self.rule_id} が現況/計画を条件にしているが、"
+                    "この数量には意味の4欄が付いていない"
+                    "(付いていないことを「不明」と読み替えない)"
+                )
+            elif actual_phase == PHASE_UNKNOWN:
+                reasons.append(
+                    f"規則 {self.rule_id} が現況/計画を条件にしているが、"
+                    "この数量の現況/計画は「不明」のままである"
+                )
+            elif actual_phase not in self.phase:
+                reasons.append(
+                    f"この数量は「{actual_phase}」で、"
+                    f"規則 {self.rule_id} の条件 {list(self.phase)} に無い"
                 )
 
         # 行の単位は、数量の単位と**同じ正規形**でなければならない。
@@ -521,6 +560,9 @@ def _parse_rule(raw: Any) -> MappingRule:
             f"規則に知らない項目があります: {sorted(unknown)}。"
             "読み飛ばすと半分だけ効いた規則になるので受け付けません"
         )
+    # 版 3 の項目を版 2 以下のファイルが書いていたときに断るのは、
+    # `_reject_version3_fields` が規則と行の両方をまとめて見ている。
+    # **ここで二重に見ない**(どちらかだけ直したときにずれる)。
 
     rule_id = raw.get("rule_id")
     if not isinstance(rule_id, str) or not rule_id:
@@ -539,6 +581,7 @@ def _parse_rule(raw: Any) -> MappingRule:
             )
 
     attributes = _parse_attributes(rule_id, raw.get("attributes"))
+    phase = _parse_phase(rule_id, raw.get("phase"))
     line_items = _parse_line_items(rule_id, raw.get("line_items"))
 
     description = raw.get("description")
@@ -551,11 +594,37 @@ def _parse_rule(raw: Any) -> MappingRule:
         line_items=line_items,
         unit_dimension=unit_dimension,
         attributes=attributes,
+        phase=phase,
         description=description,
         knowledge_rule_ids=_parse_knowledge_rule_ids(
             raw.get("knowledge_rule_ids"), what=f"規則 {rule_id}"
         ),
     )
+
+
+def _parse_phase(rule_id: str, raw: Any) -> tuple[str, ...]:
+    """規則の現況/計画の条件を読む。**`不明` は書かせない。**"""
+    if raw is None:
+        return ()
+    if isinstance(raw, str) or not isinstance(raw, Sequence) or not raw:
+        raise RuleError(
+            f"規則 {rule_id} の phase は、許す値の並び(空でないリスト)"
+            "である必要があります"
+        )
+    out: list[str] = []
+    for value in raw:
+        if not isinstance(value, str) or value not in PHASES:
+            raise RuleError(
+                f"規則 {rule_id} の phase に知らない値があります: {value!r}"
+                f"(使えるのは {sorted(PHASES - {PHASE_UNKNOWN})})"
+            )
+        if value == PHASE_UNKNOWN:
+            raise RuleError(
+                f"規則 {rule_id} の phase に「{PHASE_UNKNOWN}」は書けません。"
+                "決まっていないことを根拠に見積の行を立てることになります"
+            )
+        out.append(value)
+    return tuple(out)
 
 
 def _parse_attributes(rule_id: str, raw: Any) -> Mapping[str, tuple[str, ...]]:
