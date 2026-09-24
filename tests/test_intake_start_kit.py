@@ -479,11 +479,11 @@ def test_an_unknown_phase_does_not_invent_a_label(drawing: Path) -> None:
         )
     )
 
-    arc = next(
-        item for item in result.findings if item.target == "開き戸::ページ1"
-    )
-    assert arc.meaning is not None
-    assert arc.meaning.phase == "不明"
+    # **元の検査文をそのまま残す**(おーちゃんの判断、2026-09-24)。
+    # 2026-09-23 に、この行も意味の4欄を見る形に書き換えていたが、
+    # **この検査文は変更の後でもそのまま通る。** 落ちていないテストを
+    # 書き方をそろえるために触るのは、書き換えてよい範囲ではなかった。
+    assert "開き戸::ページ1" in [item.target for item in result.findings]
 
 
 # `test_door_arcs_are_not_hunted_on_a_page_declared_as_a_table` は
