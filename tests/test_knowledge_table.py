@@ -28,6 +28,7 @@ from pathlib import Path
 import pytest
 
 from knowledge.table import (
+    BINDINGS,
     KNOWLEDGE_FORMAT_VERSION,
     KnowledgeError,
     load_knowledge,
@@ -53,7 +54,7 @@ def test_the_shipped_example_loads_and_says_it_is_synthetic() -> None:
         assert entry.adoption_status == "候補", "見本は候補のまま。採否はおーちゃんが決める"
         assert entry.source.publisher and entry.source.edition
         assert entry.source.checked_on == "2026-09-23"
-        assert entry.source.binding in ("法令", "行政基準", "業界指針", "任意資料")
+        assert entry.source.binding in BINDINGS
 
 
 def test_an_unknown_column_is_refused_not_ignored() -> None:
@@ -186,7 +187,33 @@ def test_an_entry_without_adoption_status_is_refused_not_filled_in() -> None:
         parse_knowledge(payload)
 
 
-@pytest.mark.parametrize("value", ["公共基準", "業界GL", "", "法令・行政基準"])
+def test_in_house_judgement_is_a_binding_value() -> None:
+    """K-10 5 番: 社内で案件の突き合わせなどから起こした見立ては `社内見立て` と書く。
+
+    `任意資料` と混ぜると一覧で見分けられないので、別の値にする。
+    """
+    payload = _payload()
+    payload["entries"][0]["source"]["binding"] = "社内見立て"
+
+    table = parse_knowledge(payload)
+
+    assert table.entries[0].source.binding == "社内見立て"
+
+
+@pytest.mark.parametrize("value", BINDINGS)
+def test_every_listed_binding_is_accepted(value: str) -> None:
+    """**値を足すのは `BINDINGS` の 1 か所だけ**で、読み込みもそれに付いてくる。"""
+    payload = _payload()
+    payload["entries"][0]["source"]["binding"] = value
+
+    assert parse_knowledge(payload).entries[0].source.binding == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    # `社内規程` は K-10 5 番で「今は採らない」(会社として決めたものが出てきてから分ける)。
+    ["公共基準", "業界GL", "", "法令・行政基準", "社内規程", "社内"],
+)
 def test_an_unknown_binding_is_refused(value: str) -> None:
     payload = _payload()
     payload["entries"][0]["source"]["binding"] = value
@@ -246,6 +273,30 @@ def test_a_null_checked_on_is_read_as_unknown() -> None:
 
     assert table.entries[0].source.checked_on is None
     assert table.entries[1].source.checked_on == "2026-09-23", "ほかの件は日付のまま"
+
+
+@pytest.mark.parametrize("status", ["採用", "不採用"])
+def test_an_unknown_checked_on_cannot_go_on_to_an_adoption_decision(status: str) -> None:
+    """**確認日が空欄(null)の知識は、採用の判断に進めない**(おーちゃんの K-07 5 番)。
+
+    「空欄可。ただし空欄なら、その知識は採用の判断に進めない」。確認日が不明な
+    知識は `候補` のままでしか読めない。
+    """
+    payload = _payload()
+    payload["entries"][0]["source"]["checked_on"] = None
+    payload["entries"][0]["adoption_status"] = status
+
+    with pytest.raises(KnowledgeError, match="checked_on"):
+        parse_knowledge(payload)
+
+
+def test_an_unknown_checked_on_is_still_readable_as_a_candidate() -> None:
+    """空欄でも `候補` としては読める(候補から先へ進めないだけ)。"""
+    payload = _payload()
+    payload["entries"][0]["source"]["checked_on"] = None
+    payload["entries"][0]["adoption_status"] = "候補"
+
+    assert parse_knowledge(payload).entries[0].source.checked_on is None
 
 
 def test_a_missing_checked_on_is_still_refused_even_though_null_is_allowed() -> None:

@@ -1,0 +1,223 @@
+{
+  "format_version": 3,
+  "ruleset_id": "synthetic-knowledge-linked-v3",
+  "description": "**架空の見本。**実在の会社の積算ルールでも、実案件の見積明細から作ったものでもない。`synthetic_rules.json` の規則と `synthetic_standing_rules.json` の行をそのまま集め、knowledge_rule_ids(どの知識のルールで数えたか)を書き足した版 3 の見本である(K-11 の 1 番)。引用している ID は `benchmarks/fixtures/knowledge_candidates_encoded.json`(公共建築数量積算基準からの候補)の entry_id で、**どれも 候補 であって採用済みではない。**採否を決めるのはおーちゃんだけである。**引用を書いていない行をわざと残してある**(仮設水道料・小運搬費など)。公開の基準に当たる文がまだ無い行で、決め手が空のまま残ることを見るためである。率・係数・単価はここにも下流にも無い。",
+  "rules": [
+    {
+      "rule_id": "sliding-door-from-schedule",
+      "kind": "建具数量",
+      "unit_dimension": "count",
+      "description": "建具表の種別が引戸系のとき。円弧では拾えない建具がここに来る。",
+      "attributes": {
+        "種別": [
+          "引戸",
+          "片引戸",
+          "引違戸",
+          "引違い戸",
+          "折戸",
+          "折れ戸"
+        ]
+      },
+      "line_items": [
+        {
+          "code": "EX-D-110",
+          "work_item": "引戸・折戸 取付費",
+          "major_category": "木工事",
+          "unit": "箇所"
+        },
+        {
+          "code": "EX-D-210",
+          "work_item": "引戸・折戸 材料費",
+          "major_category": "木工事",
+          "unit": "箇所"
+        }
+      ],
+      "knowledge_rule_ids": [
+        "A-5"
+      ]
+    },
+    {
+      "rule_id": "swing-door-from-schedule",
+      "kind": "建具数量",
+      "unit_dimension": "count",
+      "description": "建具表の種別が開き戸系のとき。",
+      "attributes": {
+        "種別": [
+          "開き戸",
+          "片開き戸",
+          "両開き戸",
+          "開戸"
+        ]
+      },
+      "line_items": [
+        {
+          "code": "EX-D-120",
+          "work_item": "開き戸 取付費",
+          "major_category": "木工事",
+          "unit": "箇所"
+        },
+        {
+          "code": "EX-D-220",
+          "work_item": "開き戸 材料費",
+          "major_category": "木工事",
+          "unit": "箇所"
+        }
+      ],
+      "knowledge_rule_ids": [
+        "A-5"
+      ]
+    },
+    {
+      "rule_id": "swing-door-from-arcs",
+      "kind": "開き戸",
+      "unit_dimension": "count",
+      "description": "平面図の円弧から数えた開き戸。ページごとの数なので、既存平面図と新設平面図の両方が読めると同じ行にぶつかる。そのときは足さず衝突として人へ回る。",
+      "line_items": [
+        {
+          "code": "EX-D-120",
+          "work_item": "開き戸 取付費",
+          "major_category": "木工事",
+          "unit": "箇所",
+          "note": "ページごとの数。建具表から来た同じ行とぶつかることがある"
+        }
+      ],
+      "knowledge_rule_ids": [
+        "A-5"
+      ]
+    },
+    {
+      "rule_id": "floor-finish-from-work-area",
+      "kind": "施工対象床面積",
+      "unit_dimension": "area",
+      "description": "面積の選択に人が答えたあとに出る対象。答えが無いあいだは入口がこの数量を出さない。",
+      "line_items": [
+        {
+          "code": "EX-F-110",
+          "work_item": "床仕上 撤去",
+          "major_category": "内装工事",
+          "unit": "㎡"
+        },
+        {
+          "code": "EX-F-210",
+          "work_item": "床仕上 新設",
+          "major_category": "内装工事",
+          "unit": "㎡"
+        }
+      ],
+      "knowledge_rule_ids": [
+        "A-4",
+        "B-1"
+      ]
+    }
+  ],
+  "standing_lines": [
+    {
+      "standing_id": "karisetsu-suido",
+      "work_item": "仮設水道料",
+      "major_category": "仮設工事",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空。数量の決め方は未定"
+    },
+    {
+      "standing_id": "karisetsu-denki",
+      "work_item": "仮設電気料",
+      "major_category": "仮設工事",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空。数量の決め方は未定"
+    },
+    {
+      "standing_id": "shou-unpan",
+      "work_item": "小運搬費",
+      "major_category": "現場管理・諸経費",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空"
+    },
+    {
+      "standing_id": "niage",
+      "work_item": "荷上費",
+      "major_category": "現場管理・諸経費",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空。階数とエレベーターの有無で変わるはずだが、その規則は未定"
+    },
+    {
+      "standing_id": "sumidashi",
+      "work_item": "墨出し",
+      "major_category": "仮設工事",
+      "unit": "㎡",
+      "basis": {
+        "kind": "数量参照",
+        "target_kind": "施工床面積",
+        "per_unit": null
+      },
+      "note": "架空。1㎡ あたりの値は未定のため null"
+    },
+    {
+      "standing_id": "shunko-seiso",
+      "work_item": "竣工時清掃",
+      "major_category": "現場管理・諸経費",
+      "unit": "㎡",
+      "basis": {
+        "kind": "数量参照",
+        "target_kind": "施工床面積",
+        "per_unit": null
+      },
+      "note": "架空。1㎡ あたりの値は未定のため null"
+    },
+    {
+      "standing_id": "chushajo",
+      "work_item": "駐車場代",
+      "major_category": "現場管理・諸経費",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "note": "架空。工期と台数で変わるはずだが、その規則は未定"
+    },
+    {
+      "standing_id": "shiage-ashiba",
+      "work_item": "内部仕上足場",
+      "major_category": "仮設工事",
+      "unit": "㎡",
+      "basis": {
+        "kind": "数量参照",
+        "target_kind": "施工対象床面積",
+        "per_unit": null
+      },
+      "knowledge_rule_ids": [
+        "A-6"
+      ],
+      "note": "架空の見本。1 単位あたりの値は**わざと空**(まだ決まっていない、1 ではない)"
+    },
+    {
+      "standing_id": "hasseizai-shobun",
+      "work_item": "発生材処分",
+      "major_category": "解体・撤去工事",
+      "unit": "式",
+      "basis": {
+        "kind": "一式",
+        "quantity": 1
+      },
+      "knowledge_rule_ids": [
+        "A-7"
+      ],
+      "note": "架空の見本。撤去数量をそのまま使う、という候補の知識を引いている"
+    }
+  ]
+}

@@ -41,12 +41,20 @@ KINDS = (KIND_COUNTING, KIND_PROPAGATION, KIND_QUESTION)
 CONFIDENCES = ("一次資料", "慣行", "見立て")
 SCOPES = ("公共工事", "住宅改修", "自社")
 
-#: 出典の拘束力(`source.binding`)。
-BINDINGS = ("法令", "行政基準", "業界指針", "任意資料")
+#: 出典の拘束力(`source.binding`)。強いものから順に並べる。
+#: **値を足すときはここだけを変える**(読み込みの検査・断るときの案内・テストはこの一覧に付いてくる)。
+#: `社内見立て` は、公開の基準でも社外の資料でもなく、社内で案件の突き合わせなどから
+#: 起こした見立て(K-10 5 番)。会社として決めたもの(社内規程)が出てきたら、値を足して分ける。
+BINDINGS = ("法令", "行政基準", "業界指針", "任意資料", "社内見立て")
 
 #: 採否の状態。**読める値の一覧であって、コードが書き込む値ではない。**
 #: 新しく書く知識は `候補`。`採用` / `不採用` に変えるのはおーちゃんだけ。
 ADOPTION_STATUSES = ("候補", "採用", "不採用")
+
+#: 上の 3 つを名前で指すためのもの。**この 3 行が値を作るのではなく、
+#: 読める値の一覧から取り出しているだけ**である(値を 2 か所に書かない)。
+#: ほかの層はこの名前で比べる。**列の名前を口にするのは、この読み込みだけ。**
+STATUS_CANDIDATE, STATUS_ADOPTED, STATUS_REJECTED = ADOPTION_STATUSES
 
 _TABLE_FIELDS = {"format_version", "table_id", "description", "synthetic", "entries"}
 _ENTRY_FIELDS = {
@@ -129,6 +137,28 @@ class KnowledgeEntry:
     adoption_status: str
     overridden_by: tuple[str, ...] = ()
     note: str = ""
+
+    # -- 採否を**読むだけ**の窓 ----------------------------------------------
+    # ほかの層がこの列の名前を書かずに読めるようにしてある(K-04 6 番
+    # 「採否を AI が変えないでください」を、読み手を増やしても崩さないため)。
+    # **書き換える窓はここにも作らない。**
+
+    @property
+    def adoption(self) -> str:
+        """採否の状態(読むだけ)。"""
+        return self.adoption_status
+
+    @property
+    def is_candidate(self) -> bool:
+        return self.adoption == STATUS_CANDIDATE
+
+    @property
+    def is_adopted(self) -> bool:
+        return self.adoption == STATUS_ADOPTED
+
+    @property
+    def is_rejected(self) -> bool:
+        return self.adoption == STATUS_REJECTED
 
 
 @dataclass(frozen=True)
@@ -318,11 +348,21 @@ def _parse_entry(raw: Any) -> KnowledgeEntry:
             f"書けるのは {list(ADOPTION_STATUSES)} のどれかで、新しく書く知識は 候補 です"
         )
 
+    # 確認日が空欄(null)の知識は、採用の判断に進めない(おーちゃんの K-07 5 番)。
+    # 候補としては読めるが、候補から先の状態は断る。
+    source = _parse_source(raw.get("source"))
+    if source.checked_on is None and adoption_status != "候補":
+        raise KnowledgeError(
+            f"source.checked_on(確認日)が null(不明)なのに adoption_status が "
+            f"{adoption_status!r} です。確認日が分からない知識は採用の判断に進めません。"
+            "候補 のままにするか、確認した日を書いてください"
+        )
+
     return KnowledgeEntry(
         entry_id=_require_text(raw.get("entry_id"), "entry_id"),
         kind=kind,
         statement=_require_text(raw.get("statement"), "statement"),
-        source=_parse_source(raw.get("source")),
+        source=source,
         confidence=confidence,
         scope=scope,
         applies_to=_parse_applies_to(raw.get("applies_to")),
