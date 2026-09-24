@@ -27,7 +27,7 @@ from axes.image_axis.legend_lookup import (
     KIND_EQUIPMENT,
     KIND_WORK,
     LegendTable,
-    advise_line_colors,
+    match_line_colors,
     match_line_styles,
     match_marks,
     normalize,
@@ -69,6 +69,13 @@ def main() -> None:
     parser.add_argument("--pdf", type=Path, required=True)
     parser.add_argument("--table", type=Path, required=True)
     parser.add_argument("--legend-pages", type=int, nargs="*", default=())
+    parser.add_argument(
+        "--color-scope-pages",
+        type=int,
+        nargs="*",
+        default=(),
+        help="**凡例が色の意味を使うと書いたページ**(この図面では電気位置図)",
+    )
     args = parser.parse_args()
 
     table = LegendTable.load(args.table)
@@ -93,14 +100,23 @@ def main() -> None:
     bad = _fabrication_check(matches, table)
 
     strokes: list[tuple[float, ...]] = []
+    scoped_strokes: list[tuple[float, ...]] = []
     for number in range(1, len(doc) + 1):
         if number in legend:
             continue
         for drawing in doc[number - 1].get_drawings():
             colour = drawing.get("color")
             if colour:
-                strokes.append(tuple(round(float(c), 4) for c in colour))
-    advice = advise_line_colors(strokes, table)
+                value = tuple(round(float(c), 4) for c in colour)
+                strokes.append(value)
+                if number in set(args.color_scope_pages):
+                    scoped_strokes.append(value)
+    colour_matches = match_line_colors(strokes, table)
+    colour_counts = summarize(colour_matches)
+    scoped = summarize(match_line_colors(scoped_strokes, table))
+    scoped_named = Counter(
+        m.name for m in match_line_colors(scoped_strokes, table) if m.matched
+    )
     dash_patterns = [
         d.get("dashes")
         for number in range(1, len(doc) + 1)
@@ -140,8 +156,18 @@ def main() -> None:
             "線の総数": len(strokes),
             "刻みのある線": len(real_dashes),
             "線種で名前が付いた件数": sum(1 for m in style_matches if m.matched),
-            "色が凡例と一致した件数(参考)": len(advice),
-            "色の内訳(参考)": dict(Counter(n.label for n in advice)),
+            "色が凡例と一致した件数(全ページ)": colour_counts.named,
+            "色が凡例と合わなかった件数(全ページ)": colour_counts.unknown,
+            "色の内訳(全ページ)": dict(
+                Counter(m.name for m in colour_matches if m.matched)
+            ),
+            "凡例が効くと書いたページだけ": {
+                "ページ": list(args.color_scope_pages),
+                "線の総数": scoped.total,
+                "一致": scoped.named,
+                "不明": scoped.unknown,
+                "内訳": dict(scoped_named),
+            },
         },
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))

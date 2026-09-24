@@ -16,10 +16,17 @@
 `binding` は `案件の凡例` でなければ読み込まない。**表の中身はここに書かない。**
 読み込む先は引数で渡す。
 
-色の扱い(K-20 4 番、おーちゃんの決め)
--------------------------------------
-線の太さと色は印刷の都合で変わるので、**一致の判断には使わず参考にとどめる。**
-線種は**刻みの比率**が凡例の見本と合うものだけを一致とする。
+線の扱い(おーちゃんの決め、2026-09-24 01:12 に置き換わった)
+------------------------------------------------------------
+はじめの決め(K-20 4 番)は「**刻みの比率**が凡例の見本と合うものだけを一致とし、
+太さと色は参考にとどめる」だった。**これは、この図面が色で描き分けていると分かる前の
+決めである。**凡例が自分で「配線・シンボル色」として色の意味を書いていることが分かり、
+おーちゃんが札で「**色で見てよい**」を選んだので、そちらに置き換える。
+
+**凡例が名乗っている色と図面の線の色が合うものだけに意味を付け、合わない色は「不明」。**
+色の値は凡例から読む。**こちらで「赤はふつう撤去だろう」と決めない。**
+刻みの比率で引き当てる道(`match_line_styles`)は残してあるが、この図面には
+線種の見本が無いので 0 件である。
 """
 
 from __future__ import annotations
@@ -41,6 +48,7 @@ REASON_NO_SAMPLE = "凡例に見本が無い"
 KIND_WORK = "工事の区分"
 KIND_EQUIPMENT = "設備"
 KIND_LINE_STYLE = "線種"
+KIND_LINE_COLOR = "線の色"
 
 #: 読み込んでよい拘束力。**この案件限りの知識**であることを表す。
 BINDING_CASE_LEGEND = "案件の凡例"
@@ -80,16 +88,6 @@ class LegendMatch:
     @property
     def source_page(self) -> int | None:
         return self.source_pages[0] if self.source_pages else None
-
-
-@dataclass(frozen=True)
-class ColourNote:
-    """線の色から分かること。**参考であって、名前ではない。**"""
-
-    label: str
-    meaning: str
-    source_pages: tuple[int, ...] = ()
-    advisory: bool = True
 
 
 @dataclass(frozen=True)
@@ -231,25 +229,51 @@ def match_line_styles(
     return tuple(out)
 
 
-def advise_line_colors(
+def match_line_colors(
     colors: Iterable[Sequence[float]], table: LegendTable
-) -> tuple[ColourNote, ...]:
-    """色から分かることを**参考として**返す。名前は決めない(K-20 4 番)。"""
-    out: list[ColourNote] = []
+) -> tuple[LegendMatch, ...]:
+    """線の色を、凡例が名乗っている色に引き当てる。
+
+    **合わない色は「不明」。**近い色に寄せない(`COLOR_TOLERANCE` は、同じ色が
+    刷りの都合でわずかにずれる分だけ)。
+    """
+    out: list[LegendMatch] = []
     for colour in colors:
+        text = ",".join(str(round(float(c), 4)) for c in colour)
         hits = [
             row
             for row in table.line_colors
             if len(row["color"]) == len(colour)
-            and all(abs(float(a) - float(b)) <= COLOR_TOLERANCE for a, b in zip(row["color"], colour))
+            and all(
+                abs(float(a) - float(b)) <= COLOR_TOLERANCE
+                for a, b in zip(row["color"], colour)
+            )
         ]
         meanings = {str(hit["meaning"]) for hit in hits}
         labels = {str(hit.get("label", "")) for hit in hits}
-        if len(meanings) != 1 or len(labels) != 1:
+        if not hits:
+            out.append(
+                LegendMatch(
+                    text=text, kind=KIND_LINE_COLOR, reason=REASON_NOT_IN_TABLE
+                )
+            )
             continue
-        pages = tuple(sorted({int(hit["source_page"]) for hit in hits if "source_page" in hit}))
+        if len(meanings) != 1 or len(labels) != 1:
+            out.append(
+                LegendMatch(text=text, kind=KIND_LINE_COLOR, reason=REASON_AMBIGUOUS)
+            )
+            continue
+        pages = tuple(
+            sorted({int(hit["source_page"]) for hit in hits if "source_page" in hit})
+        )
         out.append(
-            ColourNote(label=labels.pop(), meaning=meanings.pop(), source_pages=pages)
+            LegendMatch(
+                text=text,
+                kind=KIND_LINE_COLOR,
+                name=labels.pop(),
+                meaning=meanings.pop(),
+                source_pages=pages,
+            )
         )
     return tuple(out)
 

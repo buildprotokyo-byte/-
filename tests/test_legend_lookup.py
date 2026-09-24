@@ -16,6 +16,7 @@ import pytest
 
 from axes.image_axis.legend_lookup import (
     KIND_EQUIPMENT,
+    KIND_LINE_COLOR,
     KIND_LINE_STYLE,
     KIND_WORK,
     REASON_AMBIGUOUS,
@@ -23,7 +24,7 @@ from axes.image_axis.legend_lookup import (
     REASON_NO_SAMPLE,
     UNKNOWN,
     LegendTable,
-    advise_line_colors,
+    match_line_colors,
     match_line_styles,
     match_marks,
     summarize,
@@ -165,16 +166,27 @@ def test_line_style_matches_only_when_the_ratio_agrees() -> None:
     assert other_ratio.display_name == UNKNOWN
 
 
-def test_line_colour_is_advice_and_never_a_name() -> None:
-    """おーちゃんの決め(K-20 4 番): **色は参考にとどめる。**"""
-    (note,) = advise_line_colors([(1.0, 0.0, 0.0)], _table())
-    assert note.label == "赤色"
-    assert note.meaning == "交換・新設を表す"
-    assert note.advisory is True
+def test_line_colour_gets_the_meaning_the_legend_declares() -> None:
+    """おーちゃんの決め(2026-09-24 01:12): **この図面は色で描き分けているので、
+    線の一致は色で見てよい。**意味は凡例が書いているものをそのまま返す。
+    """
+    (match,) = match_line_colors([(1.0, 0.0, 0.0)], _table())
+    assert match.name == "赤色"
+    assert match.meaning == "交換・新設を表す"
+    assert match.kind == KIND_LINE_COLOR
 
 
-def test_a_colour_outside_the_table_is_not_advised() -> None:
-    assert advise_line_colors([(0.5, 0.5, 0.5)], _table()) == ()
+def test_a_colour_outside_the_table_is_unknown() -> None:
+    """**合わない色は近い色に寄せない。**"""
+    (match,) = match_line_colors([(0.5, 0.5, 0.5)], _table())
+    assert match.display_name == UNKNOWN
+    assert match.reason == REASON_NOT_IN_TABLE
+
+
+def test_a_colour_is_not_rounded_to_the_nearest_legend_colour() -> None:
+    """赤に近い暗い赤は「赤色」にしない。"""
+    (match,) = match_line_colors([(0.8, 0.0, 0.0)], _table())
+    assert match.name is None
 
 
 def test_table_is_loaded_from_a_path(tmp_path) -> None:
