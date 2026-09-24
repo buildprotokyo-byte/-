@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import unicodedata
 from collections import Counter
 from pathlib import Path
@@ -86,6 +87,72 @@ def _fabrication_check(matches, table: LegendTable) -> list[str]:
         if value not in allowed.get(key, set()):
             bad.append(f"{match.text} → {value}")
     return bad
+
+
+#: 図面の語は空白で切って拾うので、**中に空白のある記号は 1 語と一致しようがない。**
+_HAS_SPACE = re.compile(r"\s")
+
+#: 括弧の中が空欄の記号(図面では数や機種名が入る)も、そのままでは一致しない。
+_EMPTY_BRACKET = re.compile(r"[(（][\s　]*[)）]")
+
+
+def _table_side_counts(
+    table: LegendTable, texts: list[str], loose: bool, named_keys: set[tuple[str, str]]
+) -> dict[str, Any]:
+    """**対照表の側から**、行ごとに図面で当たったかを数える(M9)。
+
+    数えるだけで、ここで行を削ったりはしない。0 件の行は
+    **記号の書き方だけで**理由を分ける(図面を見て推し量らない)。
+    """
+    seen = Counter(normalize(t) for t in texts)
+    code_names: dict[str, set[str]] = {}
+    for row in table.symbols:
+        code_names.setdefault(normalize(str(row["code"])), set()).add(str(row["name"]))
+    for row in table.work_marks:
+        code_names.setdefault(normalize(str(row["code"])), set()).add(str(row["meaning"]))
+
+    out: dict[str, dict[str, int]] = {}
+    for kind, rows, match_kind in (
+        ("設備の記号", table.symbols, KIND_EQUIPMENT),
+        ("工事の区分", table.work_marks, KIND_WORK),
+    ):
+        hit = 0
+        named_rows = 0
+        reasons: Counter = Counter()
+        silent: Counter = Counter()
+        for row in rows:
+            raw = str(row["code"])
+            key = normalize(raw)
+            if (match_kind, key) in named_keys:
+                named_rows += 1
+            if seen.get(key):
+                hit += 1
+                if (match_kind, key) not in named_keys:
+                    if kind == "設備の記号" and not loose and not distinguishable(raw):
+                        silent["仮の判断で落ちた形"] += 1
+                    elif len(code_names.get(key, ())) > 1:
+                        silent["1つに決まらない"] += 1
+                    else:
+                        silent["そのほか"] += 1
+                continue
+            if _HAS_SPACE.search(raw) or _EMPTY_BRACKET.search(raw):
+                reasons["完全一致しようがない形"] += 1
+            elif kind == "設備の記号" and not loose and not distinguishable(raw):
+                reasons["仮の判断で落ちた形"] += 1
+            elif len(code_names.get(key, ())) > 1:
+                reasons["1つに決まらない"] += 1
+            else:
+                reasons["図面に出なかった"] += 1
+        out[kind] = {
+            "対照表の行": len(rows),
+            "記号の文字が図面に出た行": hit,
+            "**その行から名前が付いた行**": named_rows,
+            "文字は出たが名前が付かなかった行": hit - named_rows,
+            "名前が付かなかった理由": dict(silent),
+            "文字が1回も出なかった行": len(rows) - hit,
+            "出なかった理由": dict(reasons),
+        }
+    return out
 
 
 def main() -> None:
@@ -220,6 +287,12 @@ def main() -> None:
             "名前が付いた内訳": dict(Counter(m.name for m in named)),
             "区分別": dict(Counter(m.kind for m in named)),
         },
+        "対照表の行が図面で当たったか": _table_side_counts(
+            table,
+            texts,
+            args.loose,
+            {(m.kind, normalize(m.text)) for m in named},
+        ),
         "工事の区分が凡例と同じ色で刷られているか": colour_agreement,
         "設備の記号の色から工事の区分が読めた件数": {
             "全ページ": dict(symbol_meaning),
