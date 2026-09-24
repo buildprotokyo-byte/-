@@ -1,6 +1,7 @@
 """凡例の対照表で**照合する**部品のテスト(K-20)。
 
-ここで使う対照表は**全部その場で作った合成データ**である。実図面から写した表は
+ここで使う対照表は**全部その場で作った合成データ**である。記号も名前も意味も、
+**実図面の凡例には無い、この試験のためだけの語**にしてある。実図面から写した表は
 共有フォルダにあり、リポジトリには入れない。
 
 このテストが守らせたいことは 1 つだけ。**名前を作らないこと。**11 周目は 1 つの
@@ -32,25 +33,26 @@ from axes.image_axis.legend_lookup import (
 
 
 def _table(**overrides) -> LegendTable:
+    """**合成の対照表。**語はすべてこの試験のための作り物である。"""
     payload = {
         "binding": "案件の凡例",
         "work_marks": [
-            {"code": "撤去", "meaning": "既存を取り除く", "source_page": 6},
-            {"code": "新設", "meaning": "新しいものを設置", "source_page": 6},
+            {"code": "ア", "meaning": "合成の意味・その一", "source_page": 6},
+            {"code": "イ", "meaning": "合成の意味・その二", "source_page": 6},
         ],
         "symbols": [
             {
-                "code": "WPE",
-                "name": "防雨型コンセント",
-                "group": "スイッチ",
+                "code": "XQ7",
+                "name": "合成の器具(甲)",
+                "group": "合成の群",
                 "source_page": 22,
             }
         ],
         "line_colors": [
             {
-                "color": [1.0, 0.0, 0.0],
-                "label": "赤色",
-                "meaning": "交換・新設を表す",
+                "color": [0.0, 1.0, 0.0],
+                "label": "緑色",
+                "meaning": "合成の線の意味",
                 "source_page": 6,
             }
         ],
@@ -62,37 +64,37 @@ def _table(**overrides) -> LegendTable:
 
 def test_exact_text_gets_the_legend_meaning() -> None:
     """凡例が自分で書いている対だけを、そのまま返す。"""
-    (match,) = match_marks(["撤去"], _table())
-    assert match.name == "撤去"
-    assert match.meaning == "既存を取り除く"
+    (match,) = match_marks(["ア"], _table())
+    assert match.name == "ア"
+    assert match.meaning == "合成の意味・その一"
     assert match.kind == KIND_WORK
     assert match.source_page == 6
 
 
 def test_equipment_symbol_keeps_its_group() -> None:
     """凡例の小見出し(どの設備か)も落とさない。"""
-    (match,) = match_marks(["WPE"], _table())
+    (match,) = match_marks(["XQ7"], _table())
     assert (match.name, match.group, match.kind) == (
-        "防雨型コンセント",
-        "スイッチ",
+        "合成の器具(甲)",
+        "合成の群",
         KIND_EQUIPMENT,
     )
 
 
 def test_partial_text_is_not_a_match() -> None:
-    """**壊し試験の的。**「新設建具」は「新設」に当たらない。
+    """**壊し試験の的。**「アイウ」は「ア」に当たらない。
 
     引き当てを部分一致に緩めると、ここが当たってしまう。11 周目の壊れ方そのもの
     なので、緩めたら落ちる形で固定しておく。
     """
-    (match,) = match_marks(["新設建具"], _table())
+    (match,) = match_marks(["アイウ"], _table())
     assert match.name is None
     assert match.display_name == UNKNOWN
     assert match.reason == REASON_NOT_IN_TABLE
 
 
 def test_text_missing_from_the_table_is_unknown() -> None:
-    (match,) = match_marks(["ZZZ"], _table())
+    (match,) = match_marks(["ヲヲヲ"], _table())
     assert match.display_name == UNKNOWN
     assert match.reason == REASON_NOT_IN_TABLE
 
@@ -101,11 +103,11 @@ def test_one_code_with_two_names_is_unknown() -> None:
     """同じ記号が 2 つの名前を指すなら、どちらを選んでも捏造になる。"""
     table = _table(
         symbols=[
-            {"code": "E", "name": "接地コンセント", "group": "", "source_page": 22},
-            {"code": "E", "name": "床用コンセント", "group": "", "source_page": 22},
+            {"code": "ZZ", "name": "合成の器具(乙)", "group": "", "source_page": 22},
+            {"code": "ZZ", "name": "合成の器具(丙)", "group": "", "source_page": 22},
         ]
     )
-    (match,) = match_marks(["E"], table)
+    (match,) = match_marks(["ZZ"], table)
     assert match.display_name == UNKNOWN
     assert match.reason == REASON_AMBIGUOUS
 
@@ -115,30 +117,30 @@ def test_the_same_pair_on_two_pages_is_one_entry() -> None:
     table = _table(
         line_colors=[],
         work_marks=[
-            {"code": "撤去", "meaning": "既存を取り除く", "source_page": 6},
-            {"code": "撤去", "meaning": "既存を取り除く", "source_page": 22},
+            {"code": "ア", "meaning": "合成の意味・その一", "source_page": 6},
+            {"code": "ア", "meaning": "合成の意味・その一", "source_page": 22},
         ],
     )
-    (match,) = match_marks(["撤去"], table)
-    assert match.name == "撤去"
+    (match,) = match_marks(["ア"], table)
+    assert match.name == "ア"
     assert match.source_pages == (6, 22)
 
 
 def test_width_and_spacing_do_not_change_the_answer() -> None:
     """全角・半角と空白のゆれだけは同じとみなす(NFKC)。**語の中身は変えない。**"""
-    (match,) = match_marks(["ＷＰＥ"], _table())
-    assert match.name == "防雨型コンセント"
+    (match,) = match_marks(["ＸＱ７"], _table())
+    assert match.name == "合成の器具(甲)"
 
 
 def test_an_empty_table_names_nothing() -> None:
     """対照表を空にしたら 1 件も名前が付かない(C3 の対照)。"""
     table = _table(work_marks=[], symbols=[], line_colors=[], line_styles=[])
-    matches = match_marks(["撤去", "WPE"], table)
+    matches = match_marks(["ア", "XQ7"], table)
     assert [m.name for m in matches] == [None, None]
 
 
 def test_summarize_counts_what_the_report_needs() -> None:
-    matches = match_marks(["撤去", "WPE", "ZZZ", "新設建具"], _table())
+    matches = match_marks(["ア", "XQ7", "ヲヲヲ", "アイウ"], _table())
     counts = summarize(matches)
     assert counts.total == 4
     assert counts.named == 2
@@ -158,11 +160,11 @@ def test_line_style_matches_only_when_the_ratio_agrees() -> None:
     """おーちゃんの決め(K-20 4 番): **刻みの比率が合うものだけ**を一致とする。"""
     table = _table(
         line_styles=[
-            {"label": "破線", "dashes": [4.0, 2.0], "source_page": 6},
+            {"label": "合成の線種", "dashes": [4.0, 2.0], "source_page": 6},
         ]
     )
     same_ratio, other_ratio = match_line_styles([(8.0, 4.0), (4.0, 4.0)], table)
-    assert same_ratio.name == "破線"
+    assert same_ratio.name == "合成の線種"
     assert other_ratio.display_name == UNKNOWN
 
 
@@ -170,9 +172,9 @@ def test_line_colour_gets_the_meaning_the_legend_declares() -> None:
     """おーちゃんの決め(2026-09-24 01:12): **この図面は色で描き分けているので、
     線の一致は色で見てよい。**意味は凡例が書いているものをそのまま返す。
     """
-    (match,) = match_line_colors([(1.0, 0.0, 0.0)], _table())
-    assert match.name == "赤色"
-    assert match.meaning == "交換・新設を表す"
+    (match,) = match_line_colors([(0.0, 1.0, 0.0)], _table())
+    assert match.name == "緑色"
+    assert match.meaning == "合成の線の意味"
     assert match.kind == KIND_LINE_COLOR
 
 
@@ -184,8 +186,8 @@ def test_a_colour_outside_the_table_is_unknown() -> None:
 
 
 def test_a_colour_is_not_rounded_to_the_nearest_legend_colour() -> None:
-    """赤に近い暗い赤は「赤色」にしない。"""
-    (match,) = match_line_colors([(0.8, 0.0, 0.0)], _table())
+    """緑に近い暗い緑は「緑色」にしない。"""
+    (match,) = match_line_colors([(0.0, 0.8, 0.0)], _table())
     assert match.name is None
 
 
@@ -197,7 +199,7 @@ def test_table_is_loaded_from_a_path(tmp_path) -> None:
             {
                 "binding": "案件の凡例",
                 "work_marks": [
-                    {"code": "既存", "meaning": "そのまま", "source_page": 6}
+                    {"code": "ウ", "meaning": "合成の意味・その三", "source_page": 6}
                 ],
             },
             ensure_ascii=False,
@@ -206,8 +208,8 @@ def test_table_is_loaded_from_a_path(tmp_path) -> None:
     )
     table = LegendTable.load(path)
     assert table.binding == "案件の凡例"
-    (match,) = match_marks(["既存"], table)
-    assert match.meaning == "そのまま"
+    (match,) = match_marks(["ウ"], table)
+    assert match.meaning == "合成の意味・その三"
 
 
 def test_binding_must_say_the_table_is_this_case_only() -> None:
