@@ -56,8 +56,8 @@ def summarize(ledger) -> list[dict]:
                     }
                     for kind, c in page.counts.items()
                 },
-                "dropped_specks": page.dropped_specks,
-                "duplicate_lines": page.duplicate_lines,
+                "dropped": page.dropped,
+                "title_conflicts": [c.kind for c in page.title_conflicts],
                 "gate": page.gate.status,
                 "reasons": list(page.gate.reasons),
                 "error": page.error is not None,
@@ -76,16 +76,28 @@ def summarize(ledger) -> list[dict]:
     return out
 
 
-def one_run(pdf: str) -> None:
-    """子プロセスとして 1 回処理し、要約を標準出力に JSON で出す。"""
+def one_run(pdf: str, legacy_caps: bool = False) -> None:
+    """子プロセスとして 1 回処理し、要約を標準出力に JSON で出す。
+
+    ``legacy_caps`` は K-23 の上限(線 1,800・閉領域 300・小輪郭 600)で処理する。
+    上限を上げたときに時間と大きさがどう変わるかを比べるため。
+    """
+    settings = LEGACY_CAPS if legacy_caps else LedgerSettings()
     started = time.perf_counter()
-    ledger = build_ledger(pdf)
-    print(json.dumps({"seconds": time.perf_counter() - started, "pages": summarize(ledger)}))
+    ledger = build_ledger(pdf, settings=settings)
+    seconds = time.perf_counter() - started
+    size = len(
+        json.dumps([p.to_dict() for p in ledger.pages], ensure_ascii=False).encode("utf-8")
+    )
+    print(json.dumps({"seconds": seconds, "json_bytes": size, "pages": summarize(ledger)}))
 
 
-def run_in_subprocess(pdf: str) -> dict:
+LEGACY_CAPS = replace(LedgerSettings(), max_lines=1800, max_regions=300, max_small=600)
+
+
+def run_in_subprocess(pdf: str, legacy_caps: bool = False) -> dict:
     result = subprocess.run(
-        [sys.executable, __file__, "--one-run", pdf],
+        [sys.executable, __file__, "--one-run", pdf] + (["--legacy-caps"] if legacy_caps else []),
         check=True,
         capture_output=True,
         text=True,
@@ -105,10 +117,19 @@ def stability(pdf: str, label: str, runs: int = 3) -> dict:
         ]
         if len(set(views)) != 1:
             mismatched.append(pages[index]["page"])
+    legacy = run_in_subprocess(pdf, legacy_caps=True)
     return {
         "file": label,
         "runs": runs,
         "seconds": [round(r["seconds"], 1) for r in results],
+        "json_bytes": [r["json_bytes"] for r in results],
+        "legacy_caps": {
+            "seconds": round(legacy["seconds"], 1),
+            "json_bytes": legacy["json_bytes"],
+            "cap_hit_pages": sum(
+                1 for p in legacy["pages"] if any(c["cap_hit"] for c in p["counts"].values())
+            ),
+        },
         "pages": pages,
         "mismatched_pages": mismatched,
     }
@@ -136,7 +157,16 @@ def aggregate(pages: list[dict]) -> dict:
     distinct = {
         kind: len({p["counts"][kind]["found"] for p in pages}) for kind in ("lines", "regions", "small")
     }
+    dropped = Counter()
+    for p in pages:
+        dropped.update(p["dropped"])
+    conflicts = Counter(k for p in pages for k in p["title_conflicts"])
     return {
+        "dropped": dict(dropped),
+        "title_conflicts": dict(conflicts),
+        "title_conflict_pages": {
+            k: [p["page"] for p in pages if k in p["title_conflicts"]] for k in conflicts
+        },
         "gate": dict(gate),
         "reasons": dict(reasons),
         "cap_hit_pages": caps,
@@ -187,58 +217,16 @@ def old_path(pdf: str, runs: int = 3) -> list[dict]:
     return out
 
 
-def drawing_list_check(pdf: str, list_page: int) -> list[dict]:
-    """表題欄から読んだ名称・図番が、図面リストのページの文字の中にあるか(真偽だけ)。
-
-    **正しさの測定ではない。** 図面リストも同じ PDF の中の文字なので、
-    両方が同じように間違っていれば一致する。表記のゆれ(「・」の有無など)でも外れる。
-    """
-    import re
-    import unicodedata
-
-    import pymupdf
-
-    def norm(text: str) -> str:
-        return re.sub(r"\s+", "", unicodedata.normalize("NFKC", text or ""))
-
-    def loose(text: str) -> str:
-        return re.sub(r"[・、,()（）\-ー‐－]", "", norm(text))
-
-    with pymupdf.open(pdf) as doc:
-        listing = doc.load_page(list_page - 1).get_text("text")
-    strict_all, loose_all = norm(listing), loose(listing)
-    out = []
-    for page in build_ledger(pdf).pages:
-        title = page.title
-        if title is None or not (title.drawing_name or title.drawing_number):
-            continue
-        out.append(
-            {
-                "page": page.page_index + 1,
-                "name": bool(title.drawing_name),
-                "name_in_list": bool(title.drawing_name) and norm(title.drawing_name) in strict_all,
-                "name_in_list_loose": bool(title.drawing_name)
-                and loose(title.drawing_name) in loose_all,
-                "number": bool(title.drawing_number),
-                "number_in_list": bool(title.drawing_number)
-                and norm(title.drawing_number) in strict_all,
-                "number_in_list_loose": bool(title.drawing_number)
-                and loose(title.drawing_number) in loose_all,
-            }
-        )
-    return out
-
-
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--one-run")
+    parser.add_argument("--legacy-caps", action="store_true")
     parser.add_argument("--v2")
     parser.add_argument("--v1")
     parser.add_argument("--out")
-    parser.add_argument("--list-page", type=int, help="v2 の図面リストのページ(1 始まり)")
     args = parser.parse_args()
     if args.one_run:
-        one_run(args.one_run)
+        one_run(args.one_run, legacy_caps=args.legacy_caps)
         return
 
     report: dict = {}
@@ -252,8 +240,6 @@ def main() -> None:
         print(label, "食い違ったページ", stab["mismatched_pages"], stab["aggregate"]["gate"], file=sys.stderr)
     if args.v2:
         report["old_path_v2"] = old_path(args.v2)
-        if args.list_page:
-            report["drawing_list_check_v2"] = drawing_list_check(args.v2, args.list_page)
     Path(args.out).write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
 
 

@@ -417,3 +417,131 @@ def test_ledger_is_not_imported_by_production_paths():
                 if any("candidate_ledger" in n for n in names):
                     offenders.append(str(path.relative_to(ROOT)))
     assert offenders == []
+
+
+# ---------------------------------------------------------------------------
+# K-24: 上限ではなく理由で捨てる
+# ---------------------------------------------------------------------------
+
+
+def test_default_caps_are_safety_valves_not_filters():
+    settings = LedgerSettings()
+    assert settings.max_small >= 10000
+    assert settings.max_lines >= 10000
+    assert settings.max_regions >= 10000
+
+
+def test_drop_reasons_are_recorded(tmp_path):
+    path = tmp_path / "d.pdf"
+    doc = pymupdf.open()
+    page = doc.new_page(width=W, height=H)
+    _body(page)
+    _title(page)
+    shape = page.new_shape()
+    shape.draw_rect(pymupdf.Rect(900, 100, 900.5, 100.5))  # 点の汚れ
+    shape.finish(color=(0, 0, 0), width=0.2)
+    # 大きな図形の中の短い辺: 細長い長方形の短辺(5pt ≒ 6 単位)は短すぎる線として落ちる
+    shape.draw_rect(pymupdf.Rect(100, 650, 700, 655))
+    shape.finish(color=(0, 0, 0), width=0.5)
+    shape.commit()
+    doc.save(path)
+    doc.close()
+    ledger_page = build_ledger(path).pages[0]
+    assert ledger_page.dropped.get(cl.DROP_SPECK) == 1
+    assert ledger_page.dropped.get(cl.DROP_SHORT_LINE) == 2
+    assert cl.DROP_CAP not in ledger_page.dropped
+
+
+def test_cap_drops_are_counted_as_a_reason(tmp_path):
+    settings = replace(LedgerSettings(), max_lines=2)
+    page = build_ledger(_vector_pdf(tmp_path / "v.pdf"), settings=settings).pages[0]
+    assert page.dropped[cl.DROP_CAP] == 10
+
+
+def test_closed_line_back_stroke_is_counted_as_duplicate(tmp_path):
+    a = build_ledger(_vector_pdf(tmp_path / "a.pdf", extra_line=True)).pages[0]
+    assert a.dropped.get(cl.DROP_DUPLICATE_LINE, 0) >= 1
+
+
+# ---------------------------------------------------------------------------
+# K-24: 表題欄と図面リストの食い違いを、両方の値で人に見せる
+# ---------------------------------------------------------------------------
+
+
+def _list_row(page, y, sheet, number, name):
+    page.insert_text(pymupdf.Point(60, y), sheet, fontname="japan", fontsize=9)
+    page.insert_text(pymupdf.Point(100, y), number, fontname="japan", fontsize=9)
+    page.insert_text(pymupdf.Point(160, y), name, fontname="japan", fontsize=9)
+
+
+def _listed_pdf(path: Path, rows: list[tuple[str, str, str]], title_number: str = "A-3") -> Path:
+    doc = pymupdf.open()
+    listing = doc.new_page(width=W, height=H)
+    for i, (sheet, number, name) in enumerate(rows):
+        _list_row(listing, 100 + 20 * i, sheet, number, name)
+    page = doc.new_page(width=W, height=H)
+    _body(page)
+    _title(page, number=title_number)
+    doc.save(path)
+    doc.close()
+    return path
+
+
+_FILLER = [("3", "A-4", "架空断面図"), ("4", "A-5", "架空立面図"), ("5", "A-6", "架空詳細図"), ("6", "A-7", "架空展開図")]
+
+
+def test_list_rows_are_read_with_sheet_and_name(tmp_path):
+    pdf = _listed_pdf(tmp_path / "l.pdf", [("2", "A-3", "架空平面図"), *_FILLER])
+    with pymupdf.open(pdf) as doc:
+        entries = cl.read_drawing_list(doc[0])
+        assert cl.find_drawing_list_page(doc) == 0
+    assert entries[0] == cl.DrawingListEntry("A-3", "架空平面図", 2)
+
+
+def test_matching_list_gives_no_conflict(tmp_path):
+    pdf = _listed_pdf(tmp_path / "l.pdf", [("2", "A-3", "架空平面図"), *_FILLER])
+    page = build_ledger(pdf).pages[1]
+    assert page.title_conflicts == ()
+    assert page.gate.status == "passed"
+
+
+def test_different_name_is_shown_with_both_values_and_not_resolved(tmp_path):
+    pdf = _listed_pdf(tmp_path / "l.pdf", [("2", "A-3", "架空配置図"), *_FILLER])
+    page = build_ledger(pdf).pages[1]
+    (conflict,) = page.title_conflicts
+    assert conflict.kind == cl.CONFLICT_NAME_WORDS
+    assert conflict.title_value == "架空平面図"
+    assert conflict.list_value == "架空配置図"
+    # どちらかを選んで表題欄を書き換えない。
+    assert page.title.drawing_name == "架空平面図"
+    assert page.gate.status == "needs_review"
+    assert cl.REASON_TITLE_CONFLICT in page.gate.reasons
+
+
+def test_notation_only_difference_is_recorded_but_does_not_gate(tmp_path):
+    pdf = _listed_pdf(tmp_path / "l.pdf", [("2", "Aー3", "架空・平面図"), *_FILLER])
+    page = build_ledger(pdf).pages[1]
+    kinds = {c.kind for c in page.title_conflicts}
+    assert kinds == {cl.CONFLICT_NUMBER_NOTATION, cl.CONFLICT_NAME_NOTATION}
+    assert page.gate.status == "passed"
+
+
+def test_sheet_and_missing_number_conflicts(tmp_path):
+    wrong_sheet = build_ledger(
+        _listed_pdf(tmp_path / "s.pdf", [("7", "A-3", "架空平面図"), *_FILLER])
+    ).pages[1]
+    assert [c.kind for c in wrong_sheet.title_conflicts] == [cl.CONFLICT_SHEET]
+    missing = build_ledger(
+        _listed_pdf(tmp_path / "m.pdf", [("2", "A-9", "架空平面図"), *_FILLER])
+    ).pages[1]
+    assert [c.kind for c in missing.title_conflicts] == [cl.CONFLICT_NUMBER_MISSING]
+    assert missing.gate.status == "needs_review"
+
+
+def test_conflicts_survive_the_cache(tmp_path):
+    pdf = _listed_pdf(tmp_path / "l.pdf", [("2", "A-3", "架空配置図"), *_FILLER])
+    cache = LedgerCache(tmp_path / "c")
+    build_ledger(pdf, cache=cache)
+    again = build_ledger(pdf, cache=cache).pages[1]
+    assert again.from_cache
+    assert [c.kind for c in again.title_conflicts] == [cl.CONFLICT_NAME_WORDS]
