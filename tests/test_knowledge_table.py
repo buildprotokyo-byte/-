@@ -466,3 +466,11 @@ def test_every_knowledge_file_in_the_repo_stays_a_candidate() -> None:
                 )
 
     assert checked >= 3, "見本の 3 件すら見つかっていません"
+
+
+def test_case_legend_binding_is_readable() -> None:
+    """K-20 2 番: その案件の図面が自分で名乗っている意味は `案件の凡例` と書く。
+
+    確かさは高いが**ほかの案件には使えない**ので、強さの順ではいちばん後ろに置く。
+    """
+    assert BINDINGS[-1] == "案件の凡例"
