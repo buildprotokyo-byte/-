@@ -65,6 +65,9 @@ SAME_COLUMN_Y = 6.0
 #: 名前の列の y のずれ(pt)。名前は左そろえなので、ほぼ 1 つの値に揃う。
 NAME_ROW_Y = 1.5
 
+#: 見出しの文字は升目の中ほどに置かれるので、記号が見出しより少し上から始まることがある。
+HEADER_SLACK_Y = 3.0
+
 #: 記号として長すぎる字数。これを超えたら注記とみなす。
 MAX_CODE_LENGTH = 8
 
@@ -266,7 +269,10 @@ def symbol_rules(page: pymupdf.Page, page_number: int) -> list[dict[str, Any]]:
             and w[0] < head_x - SAME_ROW_X
             and not w[4].startswith("〈")
         ]
-        above = [w for w in body if w[1] < mark[1]]
+        # 見出しの文字は升目の中で中ほどに置かれるので、**記号が見出しより少し上から
+        # 始まることがある。**その分だけ境を上げる。
+        split = mark[1] - HEADER_SLACK_Y
+        above = [w for w in body if w[1] < split]
         if not above:
             continue
         # 小見出し(`〈…〉`)は表の中にも並ぶ。**行の x で、どの小見出しの下かが決まる。**
@@ -287,7 +293,7 @@ def symbol_rules(page: pymupdf.Page, page_number: int) -> list[dict[str, Any]]:
             w for w in above if abs(w[1] - row_y) <= NAME_ROW_Y and _usable_name(w[4])
         ]
         codes = _first_cluster(
-            [w for w in body if w[1] >= mark[1]],
+            [w for w in body if w[1] >= split],
             key=lambda w: w[1],
             gap=SAME_COLUMN_Y,
         )

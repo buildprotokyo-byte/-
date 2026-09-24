@@ -156,6 +156,23 @@ def main() -> None:
             "名前が付いた内訳": dict(Counter(m.name for m in named)),
             "区分別": dict(Counter(m.kind for m in named)),
         },
+        "工事の区分がどのページに出たか": {
+            name: {
+                str(number): sum(
+                    1
+                    for m in match_marks(words, table)
+                    if m.matched and m.kind == KIND_WORK and m.name == name
+                )
+                for number, words in per_page.items()
+                if any(
+                    m.matched and m.kind == KIND_WORK and m.name == name
+                    for m in match_marks(words, table)
+                )
+            }
+            for name in sorted(
+                {m.name for m in matches if m.matched and m.kind == KIND_WORK}
+            )
+        },
         "ページごとに名前が付いた件数": {
             str(number): summarize(match_marks(words, table)).named
             for number, words in per_page.items()
