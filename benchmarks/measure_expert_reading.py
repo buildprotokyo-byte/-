@@ -204,6 +204,40 @@ def legend_only(key: list[dict[str, Any]], table_path: Path) -> dict[str, Any]:
     return responses
 
 
+def rows_table(
+    key: list[dict[str, Any]],
+    conditions: list[tuple[str, dict[str, Any]]],
+    kind: str,
+    eye: dict[str, dict[str, str]] | None = None,
+) -> str:
+    """ある群を **1 件ずつの表**にする。**共有フォルダに置くこと**(図面の中身なので)。"""
+    eye = eye or {}
+    header = ["番号", "凡例の名前", *[name for name, _ in conditions]]
+    lines = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+    for row in key:
+        if row["kind"] != kind:
+            continue
+        cells = [row["id"], str(row.get("name") or "(凡例に無い)")]
+        for name, responses in conditions:
+            answer, given = _answer(responses.get(row["id"]))
+            verdict = eye.get(name, {}).get(row["id"])
+            if answer is None:
+                cells.append("答えなかった")
+            elif answer == QUESTION:
+                reason = str((responses.get(row["id"]) or {}).get("reason", "")).strip()
+                cells.append(f"質疑: {reason}" if reason else "質疑")
+            elif answer == UNREADABLE:
+                cells.append("読めない")
+            else:
+                mark = "◯" if normalize(given) == normalize(str(row.get("name") or "")) else (
+                    {"合っている": "◯", "合っている(上位語)": "△上位語", "違う": "×",
+                     "どちらとも言えない": "?"}.get(verdict or "", "(未判定)")
+                )
+                cells.append(f"{given} {mark}")
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
 def _print(title: str, counts: dict[str, Counter]) -> None:
     print(f"\n## {title}")
     header = ["群", *COLUMNS]
@@ -226,6 +260,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--legend-only", type=Path, help="対照表。条件「凡例だけ」を機械で出す")
     parser.add_argument("--eye", type=Path, help="目で見た判定(番号 → 判定の語)")
     parser.add_argument("--needed-out", type=Path, help="目で見るべき番号の一覧を書き出す")
+    parser.add_argument(
+        "--rows-out", type=Path, help="1 件ずつの表を書き出す。**共有フォルダのパスを渡すこと**"
+    )
+    parser.add_argument("--rows-kind", default="群B 図形だけ", help="1 件ずつの表にする群")
     args = parser.parse_args(argv)
 
     key = json.loads(args.answers.read_text(encoding="utf-8"))["answers"]
@@ -247,6 +285,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"札 {kind}: {printable}")
         needed[name] = eye_verdicts_needed(key, responses)
         print(f"目で見るべき件数: {len(needed[name])}")
+
+    if args.rows_out:
+        args.rows_out.parent.mkdir(parents=True, exist_ok=True)
+        args.rows_out.write_text(
+            rows_table(key, conditions, args.rows_kind, eye), encoding="utf-8"
+        )
+        print(f"\n{args.rows_kind} の 1 件ずつの表 -> {args.rows_out}")
 
     if args.needed_out:
         args.needed_out.write_text(

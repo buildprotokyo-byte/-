@@ -14,6 +14,7 @@ from benchmarks.measure_expert_reading import (
     UNREADABLE,
     eye_verdicts_needed,
     normalize,
+    rows_table,
     rule_split,
     tally,
 )
@@ -181,3 +182,39 @@ class TestRuleSplit:
     def test_知らない札も札なしに入れる(self):
         counts = rule_split(_key(), {"S-001": {"name": "あい", "rule": "なんとなく"}})
         assert counts["群A 文字あり"]["札なし"] == 1
+
+
+class TestRowsTable:
+    def test_選んだ群の行だけを表にする(self):
+        table = rows_table(
+            _key(),
+            [("甲", {"S-003": {"answer": NAMED, "name": "かき"}})],
+            "群B 図形だけ",
+        )
+        assert "S-003" in table
+        assert "S-001" not in table
+
+    def test_完全一致は丸が付く(self):
+        table = rows_table(
+            _key(), [("甲", {"S-003": {"answer": NAMED, "name": "かき"}})], "群B 図形だけ"
+        )
+        assert "かき ◯" in table
+
+    def test_目で見ていない答えは未判定と書く(self):
+        """**機械が黙って丸も罰も付けない。**"""
+        table = rows_table(
+            _key(), [("甲", {"S-003": {"answer": NAMED, "name": "さし"}})], "群B 図形だけ"
+        )
+        assert "(未判定)" in table
+
+    def test_質疑は理由まで書く(self):
+        table = rows_table(
+            _key(),
+            [("甲", {"S-003": {"answer": QUESTION, "name": "", "reason": "発注者に確認"}})],
+            "群B 図形だけ",
+        )
+        assert "質疑: 発注者に確認" in table
+
+    def test_答えが無い番号は答えなかったと書く(self):
+        table = rows_table(_key(), [("甲", {})], "群B 図形だけ")
+        assert "答えなかった" in table
