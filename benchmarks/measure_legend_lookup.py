@@ -76,6 +76,7 @@ def main() -> None:
     legend = set(args.legend_pages)
 
     texts: list[str] = []
+    per_page: dict[int, list[str]] = {}
     pages_with_text = 0
     for number in range(1, len(doc) + 1):
         if number in legend:
@@ -83,6 +84,7 @@ def main() -> None:
         words = _words(doc[number - 1])
         if words:
             pages_with_text += 1
+        per_page[number] = words
         texts.extend(words)
 
     matches = match_marks(texts, table)
@@ -128,6 +130,11 @@ def main() -> None:
             "不明の内訳": counts.by_reason,
             "名前が付いた内訳": dict(Counter(m.name for m in named)),
             "区分別": dict(Counter(m.kind for m in named)),
+        },
+        "ページごとに名前が付いた件数": {
+            str(number): summarize(match_marks(words, table)).named
+            for number, words in per_page.items()
+            if summarize(match_marks(words, table)).named
         },
         "線": {
             "線の総数": len(strokes),
