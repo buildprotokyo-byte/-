@@ -270,12 +270,13 @@ def symbol_rules(page: pymupdf.Page, page_number: int) -> list[dict[str, Any]]:
         if not above:
             continue
         # 小見出し(`〈…〉`)は表の中にも並ぶ。**行の x で、どの小見出しの下かが決まる。**
+        # **同じ y にあるものだけを見る。**帯で拾うと次の表の小見出しまで混ざる。
         groups = sorted(
             (
                 w
                 for w in words
                 if w[4].startswith("〈")
-                and top - SAME_COLUMN_Y <= w[1] < bottom
+                and abs(w[1] - top) <= SAME_COLUMN_Y
                 and w[0] < head_x - SAME_ROW_X
             ),
             key=lambda w: w[0],
