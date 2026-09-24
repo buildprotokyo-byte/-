@@ -27,6 +27,7 @@ from axes.image_axis.legend_lookup import (
     KIND_EQUIPMENT,
     KIND_WORK,
     LegendTable,
+    mark_colour_agreement,
     match_line_colors,
     match_line_styles,
     match_marks,
@@ -40,6 +41,28 @@ TITLE_BLOCK_X = 75.0
 
 def _words(page: pymupdf.Page) -> list[str]:
     return [w[4] for w in page.get_text("words") if w[0] >= TITLE_BLOCK_X and normalize(w[4])]
+
+
+def _coloured_words(page: pymupdf.Page) -> list[tuple[str, tuple[float, ...]]]:
+    """文字とその色。**記号が凡例と同じ色で刷られているか**を見るために使う。"""
+    out: list[tuple[str, tuple[float, ...]]] = []
+    for block in page.get_text("dict")["blocks"]:
+        for line in block.get("lines", ()):
+            for span in line["spans"]:
+                if span["bbox"][0] < TITLE_BLOCK_X or not normalize(span["text"]):
+                    continue
+                packed = int(span["color"])
+                out.append(
+                    (
+                        span["text"],
+                        (
+                            round(((packed >> 16) & 0xFF) / 255.0, 4),
+                            round(((packed >> 8) & 0xFF) / 255.0, 4),
+                            round((packed & 0xFF) / 255.0, 4),
+                        ),
+                    )
+                )
+    return out
 
 
 def _fabrication_check(matches, table: LegendTable) -> list[str]:
@@ -99,6 +122,23 @@ def main() -> None:
         per_page[number] = words
         texts.extend(words)
 
+    coloured: list[tuple[str, tuple[float, ...]]] = []
+    for number in range(1, len(doc) + 1):
+        if number in legend:
+            continue
+        coloured.extend(_coloured_words(doc[number - 1]))
+    colour_agreement = mark_colour_agreement(
+        [
+            (text, colour)
+            for text, colour in coloured
+            if any(
+                normalize(str(row["code"])) == normalize(text)
+                for row in table.work_marks
+            )
+        ],
+        table,
+    )
+
     matches = match_marks(texts, table, strict_equipment_codes=not args.loose)
     counts = summarize(matches)
     loose_named = summarize(
@@ -156,6 +196,7 @@ def main() -> None:
             "名前が付いた内訳": dict(Counter(m.name for m in named)),
             "区分別": dict(Counter(m.kind for m in named)),
         },
+        "工事の区分が凡例と同じ色で刷られているか": colour_agreement,
         "工事の区分がどのページに出たか": {
             name: {
                 str(number): sum(

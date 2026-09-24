@@ -16,6 +16,10 @@ import json
 import pytest
 
 from axes.image_axis.legend_lookup import (
+    COLOUR_AGREES,
+    COLOUR_CODE_NOT_IN_TABLE,
+    COLOUR_DIFFERS,
+    COLOUR_NOT_IN_LEGEND,
     KIND_EQUIPMENT,
     KIND_LINE_COLOR,
     KIND_LINE_STYLE,
@@ -26,6 +30,7 @@ from axes.image_axis.legend_lookup import (
     REASON_UNDISTINGUISHABLE,
     UNKNOWN,
     LegendTable,
+    mark_colour_agreement,
     match_line_colors,
     match_line_styles,
     match_marks,
@@ -269,3 +274,43 @@ def test_the_provisional_filter_can_be_turned_off() -> None:
     """**仮の判断なので、外して測り直せる形にしておく。**"""
     (match,) = match_marks(["Q"], _weak_table(), strict_equipment_codes=False)
     assert match.name == "合成の器具(丁)"
+
+
+def _colour_table() -> LegendTable:
+    return LegendTable.from_payload(
+        {
+            "binding": "案件の凡例",
+            "work_marks": [
+                {
+                    "code": "ア",
+                    "meaning": "合成の意味・その一",
+                    "color": [1.0, 0.0, 0.0],
+                    "source_page": 6,
+                },
+                {"code": "イ", "meaning": "合成の意味・その二", "source_page": 6},
+            ],
+        }
+    )
+
+
+def test_a_mark_printed_in_the_legend_colour_agrees() -> None:
+    """**凡例が同じ記号を刷っている色**と比べる。こちらの推し量りは入れない。"""
+    counts = mark_colour_agreement([("ア", (1.0, 0.0, 0.0))], _colour_table())
+    assert counts[COLOUR_AGREES] == 1
+    assert counts[COLOUR_DIFFERS] == 0
+
+
+def test_a_mark_printed_in_another_colour_differs() -> None:
+    counts = mark_colour_agreement([("ア", (0.0, 0.0, 0.0))], _colour_table())
+    assert counts[COLOUR_DIFFERS] == 1
+
+
+def test_a_mark_the_legend_prints_without_colour_is_counted_apart() -> None:
+    """色を持たない記号を「違う」に数えない。**分からないことは分からないと数える。**"""
+    counts = mark_colour_agreement([("イ", (1.0, 0.0, 0.0))], _colour_table())
+    assert counts[COLOUR_NOT_IN_LEGEND] == 1
+
+
+def test_a_mark_outside_the_table_is_counted_apart() -> None:
+    counts = mark_colour_agreement([("ヲ", (1.0, 0.0, 0.0))], _colour_table())
+    assert counts[COLOUR_CODE_NOT_IN_TABLE] == 1

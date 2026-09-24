@@ -217,18 +217,28 @@ def mark_rules(page: pymupdf.Page, page_number: int) -> list[dict[str, Any]]:
             if left - SAME_ROW_X <= w[0] <= head[0] and w[1] > floor + 1
         ]
         meanings = _first_cluster(below, key=lambda w: w[1], gap=SAME_COLUMN_Y)
+        spans = _spans(page)
         for code in codes:
             cell = [m for m in meanings if abs(m[0] - code[0]) <= EXPLAIN_X]
             if not cell:
                 continue
             cell.sort(key=lambda w: -w[0])
-            rules.append(
-                {
-                    "code": code[4].strip(),
-                    "meaning": "".join(w[4].strip() for w in cell),
-                    "source_page": page_number,
-                }
-            )
+            rule = {
+                "code": code[4].strip(),
+                "meaning": "".join(w[4].strip() for w in cell),
+                "source_page": page_number,
+            }
+            # **凡例がその記号を何色で刷っているか。**図面の同じ記号と突き合わせる相手。
+            colours = {
+                span["color"]
+                for span in spans
+                if _norm(span["text"]) == _norm(code[4])
+                and abs(span["x"] - code[0]) <= SAME_ROW_X
+                and abs(span["y"] - code[1]) <= SAME_COLUMN_Y
+            }
+            if len(colours) == 1:
+                rule["color"] = _rgb(colours.pop())
+            rules.append(rule)
     return rules
 
 

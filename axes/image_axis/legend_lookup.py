@@ -315,6 +315,51 @@ def match_line_colors(
     return tuple(out)
 
 
+#: 色の突き合わせの結果の呼び名。
+COLOUR_AGREES = "凡例と同じ色"
+COLOUR_DIFFERS = "凡例と違う色"
+COLOUR_NOT_IN_LEGEND = "凡例にその記号の色が無い"
+COLOUR_CODE_NOT_IN_TABLE = "対照表に無い記号"
+
+
+def mark_colour_agreement(
+    items: Iterable[tuple[str, Sequence[float]]], table: LegendTable
+) -> dict[str, int]:
+    """図面でその記号が刷られている色が、**凡例が同じ記号を刷っている色**と同じか。
+
+    凡例の 2 つの表(記号の表と色の表)を突き合わせるのではなく、**同じ記号の色どうし**を
+    比べる。**こちらの推し量りが 1 つも入らない**のが要点である。
+
+    独立した 2 つ目のデータ源にはならない(同じ PDF の同じ文字)。**手がかりが 2 つ
+    揃っているだけ**で、証言が 2 つになったわけではない。
+    """
+    counts = {
+        COLOUR_AGREES: 0,
+        COLOUR_DIFFERS: 0,
+        COLOUR_NOT_IN_LEGEND: 0,
+        COLOUR_CODE_NOT_IN_TABLE: 0,
+    }
+    for text, colour in items:
+        rows = _lookup(text, table.work_marks, "meaning")
+        if not rows:
+            counts[COLOUR_CODE_NOT_IN_TABLE] += 1
+            continue
+        wanted = [row["color"] for row in rows if row.get("color")]
+        if not wanted:
+            counts[COLOUR_NOT_IN_LEGEND] += 1
+            continue
+        same = any(
+            len(value) == len(colour)
+            and all(
+                abs(float(a) - float(b)) <= COLOR_TOLERANCE
+                for a, b in zip(value, colour)
+            )
+            for value in wanted
+        )
+        counts[COLOUR_AGREES if same else COLOUR_DIFFERS] += 1
+    return counts
+
+
 def summarize(matches: Iterable[LegendMatch]) -> LegendCounts:
     """報告に要る数だけを返す。**名前が付かなかった数も同じだけ大事。**"""
     rows = list(matches)
