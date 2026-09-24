@@ -37,14 +37,17 @@ import numpy as np
 import pymupdf
 from numpy.lib.stride_tricks import sliding_window_view
 
+from benchmarks.page_geometry import in_drawing
+
 #: 画の細かさ(1pt あたりの画素)。
 ZOOM = 3.0
 
 #: 文字のまわりを探す幅(pt)。
 SEARCH = 13.0
 
-#: 表題欄はこれより左。**数にも入れない。**
-TITLE_BLOCK_X = 75.0
+#: 表題欄を外す線引きは **`benchmarks/page_geometry` に集めてある。**
+#: K-26 2 番。以前はこのファイルにも ``TITLE_BLOCK_X = 75.0``(**回転前の x**)を
+#: 写していたが、**回転していないページでは表題欄ではなく図面の左端の帯を捨てていた。**
 
 #: 凡例(22 ページ)の記号の列の y の帯。
 CODE_BANDS = ((198.0, 224.0), (462.0, 492.0), (736.0, 762.0))
@@ -162,7 +165,7 @@ def main() -> None:
             continue
         page = doc[number - 1]
         for word in page.get_text("words"):
-            if word[0] < TITLE_BLOCK_X:
+            if not in_drawing(page, word[:4]):
                 continue
             key = _norm(word[4])
             if key not in samples:

@@ -35,9 +35,11 @@ from pathlib import Path
 import pymupdf
 
 from axes.image_axis.legend_lookup import LegendTable, match_marks, normalize
+from benchmarks.page_geometry import in_drawing
 
-#: 表題欄はこれより左。**見本にも選ばない。**
-TITLE_BLOCK_X = 75.0
+#: 表題欄を外す線引きは **`benchmarks/page_geometry` に集めてある。**
+#: K-26 2 番。以前はこのファイルにも ``TITLE_BLOCK_X = 75.0``(**回転前の x**)を
+#: 写していたが、**回転していないページでは表題欄ではなく図面の左端の帯を捨てていた。**
 
 #: 切り出す余白(pt)。記号 1 個が 10pt ほどなので、そのまわりが見える大きさ。
 MARGIN_X, MARGIN_Y = 40.0, 26.0
@@ -77,7 +79,7 @@ def main() -> None:
         words = [
             w
             for w in page.get_text("words")
-            if w[0] >= TITLE_BLOCK_X and normalize(w[4])
+            if in_drawing(page, w[:4]) and normalize(w[4])
         ]
         if not words:
             continue

@@ -31,6 +31,8 @@ from typing import Any, Iterable
 
 import pymupdf
 
+from benchmarks import page_geometry
+
 from axes.image_axis.pdf_room_outlines import build_plan_graph, find_room_outlines
 from axes.image_axis.pdf_tables import find_tables
 from axes.image_axis.pdf_vector_symbols import extract_scale, find_door_arcs
@@ -38,7 +40,7 @@ from axes.image_axis.pdf_vector_symbols import extract_scale, find_door_arcs
 #: 表題欄は**表示の向きで**紙の下端にある。ページの高さのこの割合より下は**範囲に入れない**
 #: (事務所名・個人名・登録番号が入る)。K-24 2 番で、回転前の x で線を引くと
 #: **回転していないページでは図面の左端を捨ててしまう**と分かったので、割合に変えた。
-TITLE_BLOCK_BOTTOM = 0.88
+TITLE_BLOCK_BOTTOM = page_geometry.TITLE_BLOCK_BOTTOM
 
 #: 選んだ面の外接矩形に足す余白(pt)。基準に先に書いた値。
 PADDING = 20.0

@@ -47,10 +47,10 @@ from typing import Any
 import pymupdf
 
 from axes.image_axis.pdf_tables import find_tables
+from benchmarks import page_geometry
 
-#: 表題欄は**表示の向きで**紙の下端にある。ページの高さのこの割合より下が表題欄。
-#: 事務所名・個人名・登録番号が入るので**対照表にも入れない。**
-TITLE_BLOCK_BOTTOM = 0.88
+#: 表題欄を外す線引きは **`benchmarks/page_geometry` に集めてある**(K-26 2 番)。
+TITLE_BLOCK_BOTTOM = page_geometry.TITLE_BLOCK_BOTTOM
 
 #: 同じ行とみなす x のずれ(pt)。凡例の文字は 90 度回転して入っているので、
 #: **1 行が「同じ x の縦並び」**になる。
@@ -118,7 +118,7 @@ def _in_drawing(page: pymupdf.Page, bbox) -> bool:
     図面の左端の帯を捨てる。**この道具は 270 度回転した凡例のページしか読まないので
     影響は出ていなかったが、**同じ誤りを残さない。**
     """
-    return (pymupdf.Rect(bbox) * page.rotation_matrix).y0 < page.rect.height * TITLE_BLOCK_BOTTOM
+    return page_geometry.in_drawing(page, bbox)
 
 
 def _words(page: pymupdf.Page) -> list[tuple[float, float, float, float, str]]:
