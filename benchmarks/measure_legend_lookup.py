@@ -27,6 +27,7 @@ from axes.image_axis.legend_lookup import (
     KIND_EQUIPMENT,
     KIND_WORK,
     LegendTable,
+    distinguishable,
     mark_colour_agreement,
     match_line_colors,
     match_line_styles,
@@ -123,10 +124,13 @@ def main() -> None:
         texts.extend(words)
 
     coloured: list[tuple[str, tuple[float, ...]]] = []
+    coloured_pages: list[tuple[int, str, tuple[float, ...]]] = []
     for number in range(1, len(doc) + 1):
         if number in legend:
             continue
-        coloured.extend(_coloured_words(doc[number - 1]))
+        for text, colour in _coloured_words(doc[number - 1]):
+            coloured.append((text, colour))
+            coloured_pages.append((number, text, colour))
     colour_agreement = mark_colour_agreement(
         [
             (text, colour)
@@ -138,6 +142,26 @@ def main() -> None:
         ],
         table,
     )
+
+    # **設備の記号の色から、その 1 個の工事の区分が読めるか。**
+    # 凡例は「配線・シンボル色」として、記号にも同じ色の決まりを書いている。
+    scope = set(args.color_scope_pages)
+    symbol_codes = {normalize(str(row["code"])) for row in table.symbols}
+    symbol_colours: list[tuple[int, tuple[float, ...]]] = [
+        (number, colour)
+        for number, text, colour in coloured_pages
+        if normalize(text) in symbol_codes
+        and (args.loose or distinguishable(text))
+    ]
+    symbol_meaning = Counter()
+    symbol_meaning_in_scope = Counter()
+    for (number, colour), match in zip(
+        symbol_colours, match_line_colors([c for _, c in symbol_colours], table)
+    ):
+        key = match.meaning if match.matched else "凡例に無い色"
+        symbol_meaning[key] += 1
+        if number in scope:
+            symbol_meaning_in_scope[key] += 1
 
     matches = match_marks(texts, table, strict_equipment_codes=not args.loose)
     counts = summarize(matches)
@@ -197,6 +221,10 @@ def main() -> None:
             "区分別": dict(Counter(m.kind for m in named)),
         },
         "工事の区分が凡例と同じ色で刷られているか": colour_agreement,
+        "設備の記号の色から工事の区分が読めた件数": {
+            "全ページ": dict(symbol_meaning),
+            "凡例が「使用する」と書いたページだけ": dict(symbol_meaning_in_scope),
+        },
         "工事の区分がどのページに出たか": {
             name: {
                 str(number): sum(
