@@ -6,7 +6,7 @@
 使う規則はリポジトリの外に置き、パスを設定で渡す。実案件の見積明細から
 作った規則はコミットしない。
 
-書式(format_version 1)
+書式(format_version 3)
 ----------------------
 ```json
 {
@@ -19,6 +19,7 @@
       "kind": "建具数量",
       "unit_dimension": "count",
       "attributes": {"種別": ["引戸", "片引戸"]},
+      "knowledge_rule_ids": ["A-5"],
       "line_items": [
         {"code": "...", "work_item": "...", "major_category": "...", "unit": "箇所"}
       ]
@@ -32,6 +33,11 @@
   当たらない。** 読めなかった属性で行を決めてしまわないため。
 - `line_items` … 1 つの規則が当たったときに**同時に**作る行。取付費と
   材料費のように、1 つの数量が複数の行になるのはあいまいさではない。
+- `knowledge_rule_ids` … **どの知識のルールで数えているか**(知識の表の
+  `entry_id`。版 3 で追加、K-11 の 1 番)。この規則が当たった行は、決め手に
+  `知識のルール` が付き、ID がそのまま入る。**書かなければ今までどおり。**
+  ID が実在するかの突き合わせは `knowledge/linkage.py` が行う
+  (この層は知識の表を読まない)。
 - 複数の**規則**が同じ数量に当たったときが「一意に決まらない」場合で、
   `estimating/mapping.py` がそれを候補として出し、確定させない。
 
@@ -59,15 +65,19 @@ from estimating.quantities import QuantityItem, normalise_text
 #: Codex 側の仕様が届いたら、この数字を上げた新しい読み込みを足す。
 #: **古い版の読み込みで新しいファイルを読ませない**ので、書式が変わった
 #: ことに気づかないまま半分だけ当たる、という事故が起きない。
-RULES_FORMAT_VERSION = 2
+RULES_FORMAT_VERSION = 3
 
 #: 読める版。**古い版のファイルはそのまま読める**(図面からは決まらない行が
 #: 無いだけ)。新しい項目を書いたのに版を上げていないファイルは断る。
 #: 半分だけ効いた規則がいちばん危ないという約束は変えていない。
-SUPPORTED_RULES_FORMAT_VERSIONS: tuple[int, ...] = (1, 2)
+SUPPORTED_RULES_FORMAT_VERSIONS: tuple[int, ...] = (1, 2, 3)
 
 #: 版 2 で足した項目。版 1 のファイルにこれがあれば断る。
 _VERSION2_ONLY_FIELDS = frozenset({"standing_lines"})
+
+#: 版 3 で足した項目(K-11 の 1 番)。**規則 1 つ・行 1 つの中に書く。**
+#: 版 2 以下のファイルにこれがあれば断る。
+_VERSION3_ONLY_FIELDS = frozenset({"knowledge_rule_ids"})
 
 #: 図面からは決まらない行の基準の種類。
 STANDING_BASIS_KINDS: tuple[str, ...] = ("一式", "数量参照")
@@ -85,11 +95,27 @@ _RULESET_FIELDS = frozenset(
     {"format_version", "ruleset_id", "description", "rules", "standing_lines"}
 )
 _STANDING_FIELDS = frozenset(
-    {"standing_id", "work_item", "major_category", "unit", "basis", "note"}
+    {
+        "standing_id",
+        "work_item",
+        "major_category",
+        "unit",
+        "basis",
+        "note",
+        "knowledge_rule_ids",
+    }
 )
 _STANDING_BASIS_FIELDS = frozenset({"kind", "quantity", "target_kind", "per_unit"})
 _RULE_FIELDS = frozenset(
-    {"rule_id", "kind", "unit_dimension", "attributes", "line_items", "description"}
+    {
+        "rule_id",
+        "kind",
+        "unit_dimension",
+        "attributes",
+        "line_items",
+        "description",
+        "knowledge_rule_ids",
+    }
 )
 _LINE_FIELDS = frozenset({"code", "work_item", "major_category", "unit", "note"})
 
@@ -137,6 +163,19 @@ class MappingRule:
 
     attributes: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     description: str | None = None
+
+    knowledge_rule_ids: tuple[str, ...] = ()
+    """**この規則がどの知識のルールで数えているか**(知識の表の `entry_id`)。
+
+    版 3 で足した(K-11 の 1 番)。空は「引用が無い」であって
+    「知識に基づかない」ではない。**空のまま札を付けない**ので、
+    引用が無ければ行の決め手は今までどおりになる。
+
+    ここは**文字列のまま運ぶだけ**で、知識の表は読まない。実在の ID かどうかの
+    突き合わせは `knowledge/linkage.py` が行う。判定の側から
+    `knowledge/` を import しないという約束(`tests/test_knowledge_table.py`)を
+    崩さないためである。
+    """
 
     def match(self, quantity: QuantityItem) -> MatchResult:
         """この規則が当たるか。**当たらなかった理由を必ず返す。**"""
@@ -210,6 +249,14 @@ class StandingLineSpec:
 
     note: str | None = None
 
+    knowledge_rule_ids: tuple[str, ...] = ()
+    """**この行がどの知識のルールで立っているか**(知識の表の `entry_id`)。
+
+    版 3 で足した(K-11 の 1 番)。この種類の行は**知識だけで立つ行**なので、
+    引用があれば決め手は `知識のルール` になる。**引用が無ければ決め手は空**で、
+    `観測` には化けさせない(図面を読んで出た行ではない)。
+    """
+
 
 @dataclass(frozen=True)
 class RuleSet:
@@ -266,6 +313,7 @@ def parse_rules(payload: Any, *, source_path: Path | None = None) -> RuleSet:
             f"format_version {version} のファイルに版 2 の項目があります: {sorted(too_new)}。"
             "版を上げずに新しい項目を書くと、半分だけ効いた規則になるので受け付けません"
         )
+    _reject_version3_fields(payload, version)
 
     ruleset_id = payload.get("ruleset_id")
     if not isinstance(ruleset_id, str) or not ruleset_id:
@@ -304,6 +352,65 @@ def parse_rules(payload: Any, *, source_path: Path | None = None) -> RuleSet:
         description=description,
         source_path=source_path,
     )
+
+
+def _reject_version3_fields(payload: Mapping[str, Any], version: int) -> None:
+    """版 3 の項目を、版 2 以下のファイルが書いていたら断る。
+
+    **黙って読み飛ばすと、引用を書いたつもりで効いていない規則になる。**
+    どこに書いてあるかまで名指しする(規則の中・行の中の両方を見る)。
+    """
+    if version >= 3:
+        return
+    places: list[str] = []
+    for key in ("rules", "standing_lines"):
+        items = payload.get(key)
+        if not isinstance(items, Sequence) or isinstance(items, (str, bytes)):
+            continue
+        for item in items:
+            if not isinstance(item, Mapping):
+                continue
+            found = _VERSION3_ONLY_FIELDS & set(item)
+            if found:
+                name = item.get("rule_id") or item.get("standing_id") or "(名前なし)"
+                places.append(f"{key} の {name}: {sorted(found)}")
+    if places:
+        raise RuleError(
+            f"format_version {version} のファイルに版 3 の項目があります"
+            f"({RULES_FORMAT_VERSION} に上げてください): "
+            + " / ".join(places)
+            + "。版を上げずに新しい項目を書くと、半分だけ効いた規則になるので受け付けません"
+        )
+
+
+def _parse_knowledge_rule_ids(raw: Any, *, what: str) -> tuple[str, ...]:
+    """引用した知識のルールの ID を読む。
+
+    **書いたのに空は断る。**あるように見えて効かない引用がいちばん危ない。
+    重複も断る(同じ知識を 2 回数えた件数にしないため)。
+    """
+    if raw is None:
+        return ()
+    if isinstance(raw, (str, bytes)) or not isinstance(raw, Sequence):
+        raise RuleError(
+            f"{what}: knowledge_rule_ids は ID の並びである必要があります"
+        )
+    if not raw:
+        raise RuleError(
+            f"{what}: knowledge_rule_ids が空です。"
+            "引用が無いなら欄そのものを書かないでください"
+            "(空の引用は、あるように見えて効きません)"
+        )
+    out: list[str] = []
+    for value in raw:
+        if not isinstance(value, str) or not value.strip():
+            raise RuleError(f"{what}: knowledge_rule_ids に空の ID があります")
+        if value in out:
+            raise RuleError(
+                f"{what}: knowledge_rule_ids に同じ ID が 2 回あります: {value}"
+            )
+        out.append(value)
+    return tuple(out)
 
 
 def _parse_standing_lines(raw: Any) -> tuple[StandingLineSpec, ...]:
@@ -396,6 +503,10 @@ def _parse_standing_lines(raw: Any) -> tuple[StandingLineSpec, ...]:
                 target_kind=target_kind,
                 per_unit=per_unit,
                 note=note,
+                knowledge_rule_ids=_parse_knowledge_rule_ids(
+                    item.get("knowledge_rule_ids"),
+                    what=f"standing_lines の {standing_id}",
+                ),
             )
         )
     return tuple(out)
@@ -441,6 +552,9 @@ def _parse_rule(raw: Any) -> MappingRule:
         unit_dimension=unit_dimension,
         attributes=attributes,
         description=description,
+        knowledge_rule_ids=_parse_knowledge_rule_ids(
+            raw.get("knowledge_rule_ids"), what=f"規則 {rule_id}"
+        ),
     )
 
 

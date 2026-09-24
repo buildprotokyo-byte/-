@@ -33,6 +33,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
+from estimating.decisive import DecisiveReason, decisive_reasons_for
 from estimating.quantities import QuantityItem, split_target
 from estimating.rules import RuleSet, StandingLineSpec
 
@@ -76,6 +77,17 @@ class StandingLine:
 
     requires_human_confirmation: bool = True
     note: str | None = None
+
+    decisive: tuple[DecisiveReason, ...] = ()
+    """**この行が立った決め手**(`estimating/decisive.py` の 5 種類)。
+
+    この種類の行は**知識だけで立つ行**なので、規則が知識を引用していれば
+    `知識のルール` になる(K-11 の 1 番)。
+
+    **引用が無ければ空。**空は「決め手が無い」であって「観測だけで出た」ではない。
+    図面を読んで出た行ではないので、`観測` には決してならない。
+    埋めずに `lines_without_reason()` で名指しする。
+    """
 
 
 @dataclass(frozen=True)
@@ -151,6 +163,7 @@ def apply_standing_lines(
                 quantity_range=quantity_range,
                 source_targets=targets,
                 note=spec.note,
+                decisive=_decisive_for(spec),
             )
         )
     return StandingResult(
@@ -158,6 +171,20 @@ def apply_standing_lines(
         has_standing_rules=True,
         lines=tuple(lines),
         gaps=tuple(gaps),
+    )
+
+
+def _decisive_for(spec: StandingLineSpec) -> tuple[DecisiveReason, ...]:
+    """この行の決め手。**証拠を渡すだけで、札はここで作らない。**
+
+    札の作り方は `estimating/decisive.py` の 1 か所にあり、そこが証拠の足りない
+    札を断る。**引用が無ければ空が返る**(`source_kind` が図面ではないので
+    `観測` は名乗れない)。
+    """
+    return decisive_reasons_for(
+        effective_derivation="assumed",
+        source_kind="company_rule",
+        knowledge_rule_ids=spec.knowledge_rule_ids,
     )
 
 
