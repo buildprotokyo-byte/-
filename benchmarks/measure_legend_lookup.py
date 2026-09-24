@@ -34,6 +34,7 @@ from axes.image_axis.legend_lookup import (
     match_line_styles,
     match_marks,
     normalize,
+    needs_knowledge,
     summarize,
 )
 
@@ -311,6 +312,20 @@ def main() -> None:
             "不明の内訳": counts.by_reason,
             "名前が付いた内訳": dict(Counter(m.name for m in named)),
             "区分別": dict(Counter(m.kind for m in named)),
+            # K-22 判断 1。**名前の出どころを分けて見せる。**ここが
+            # {"対照表": n} だけなら、知識の道はまだ 1 件も名前を出していない。
+            "名前の出どころ": counts.by_source,
+            # K-22 判断 3。**決めてはいけない**(名前が 2 つ)件数。
+            "質疑へ回す件数": counts.questions,
+        },
+        # K-22 判断 1・2。**知識の道へ回してよい箇所**の数。
+        # **これは「知識が答えられる数」ではない。**回してよい入口の数である。
+        "知識の道へ回す箇所": {
+            "件数": sum(1 for m in matches if needs_knowledge(m)),
+            "理由別": dict(
+                Counter(m.reason for m in matches if needs_knowledge(m))
+            ),
+            "語の種類": len({m.text for m in matches if needs_knowledge(m)}),
         },
         "対照表の行が図面で当たったか": _table_side_counts(
             table,

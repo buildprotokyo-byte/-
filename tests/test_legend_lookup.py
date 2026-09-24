@@ -28,12 +28,17 @@ from axes.image_axis.legend_lookup import (
     REASON_NOT_IN_TABLE,
     REASON_NO_SAMPLE,
     REASON_UNDISTINGUISHABLE,
+    SOURCE_KNOWLEDGE,
+    SOURCE_TABLE,
     UNKNOWN,
     LegendTable,
+    apply_knowledge,
     mark_colour_agreement,
     match_line_colors,
     match_line_styles,
     match_marks,
+    needs_knowledge,
+    questions,
     summarize,
 )
 
@@ -314,3 +319,147 @@ def test_a_mark_the_legend_prints_without_colour_is_counted_apart() -> None:
 def test_a_mark_outside_the_table_is_counted_apart() -> None:
     counts = mark_colour_agreement([("ヲ", (1.0, 0.0, 0.0))], _colour_table())
     assert counts[COLOUR_CODE_NOT_IN_TABLE] == 1
+
+
+# ---------------------------------------------------------------------------
+# K-22 の 3 つの判断(おーちゃん、2026年9月24日)
+#
+# 1. 知識の道は、**引き当てが「不明」と言った箇所にだけ**使う。出した名前には
+#    「知識から出した」印を必ず付け、人には別扱いで見せる。
+# 2. 1 文字・数字だけを落とす**仮の判断はそのまま残す**。ただし落ちたものは
+#    知識の道へ回す。
+# 3. **名前が 2 つ出る行は決めてはいけない。**質疑へ回す。
+#
+# ここでも対照表は全部合成である。
+# ---------------------------------------------------------------------------
+
+
+class Test名前が2つある行は質疑へ:
+    """判断 3。**2 つ出たら選ばない。**選ばずに人へ聞く。"""
+
+    def _両名の表(self) -> LegendTable:
+        return _table(
+            symbols=[
+                {"code": "XQ7", "name": "合成の器具(甲)", "source_page": 22},
+                {"code": "XQ7", "name": "合成の器具(乙)", "source_page": 30},
+            ]
+        )
+
+    def test_名前が2つある行は決めてはいけないと印が付く(self) -> None:
+        (match,) = match_marks(["XQ7"], self._両名の表())
+        assert match.name is None
+        assert match.reason == REASON_AMBIGUOUS
+        assert match.to_question is True
+
+    def test_質疑へ回す行だけを取り出せる(self) -> None:
+        matches = match_marks(["XQ7", "ア", "まったく無い語"], self._両名の表())
+        assert [m.text for m in questions(matches)] == ["XQ7"]
+
+    def test_名前が1つなら質疑にしない(self) -> None:
+        (match,) = match_marks(["ア"], _table())
+        assert match.to_question is False
+
+    def test_色が2つに割れた行も質疑へ回す(self) -> None:
+        table = _table(
+            line_colors=[
+                {
+                    "color": [0.0, 1.0, 0.0],
+                    "label": "緑色",
+                    "meaning": "合成の線の意味・その一",
+                    "source_page": 6,
+                },
+                {
+                    "color": [0.0, 1.0, 0.0],
+                    "label": "緑色",
+                    "meaning": "合成の線の意味・その二",
+                    "source_page": 6,
+                },
+            ]
+        )
+        (match,) = match_line_colors([[0.0, 1.0, 0.0]], table)
+        assert match.reason == REASON_AMBIGUOUS
+        assert match.to_question is True
+
+
+class Test知識の道へ回す箇所:
+    """判断 1 と 2。**回してよいのは、対照表が「不明」と言った箇所だけ。**"""
+
+    def test_名前が付いた箇所は回さない(self) -> None:
+        (match,) = match_marks(["ア"], _table())
+        assert needs_knowledge(match) is False
+
+    def test_対照表に無い語は回す(self) -> None:
+        (match,) = match_marks(["まったく無い語"], _table())
+        assert needs_knowledge(match) is True
+
+    def test_仮の判断で落ちた語も回す(self) -> None:
+        """判断 2。**落とすのは落としたまま**にして、行き先だけ作る。"""
+        table = _table(symbols=[{"code": "A", "name": "合成の器具(丙)", "source_page": 22}])
+        (match,) = match_marks(["A"], table)
+        assert match.name is None
+        assert match.reason == REASON_UNDISTINGUISHABLE
+        assert needs_knowledge(match) is True
+
+    def test_質疑へ回す行は知識の道へ回さない(self) -> None:
+        """判断 3 が判断 1 より強い。**決めてはいけないものを知識で決めない。**"""
+        table = _table(
+            symbols=[
+                {"code": "XQ7", "name": "合成の器具(甲)", "source_page": 22},
+                {"code": "XQ7", "name": "合成の器具(乙)", "source_page": 30},
+            ]
+        )
+        (match,) = match_marks(["XQ7"], table)
+        assert needs_knowledge(match) is False
+
+
+class Test知識から出した名前:
+    """判断 1。**印が付かない名前は入れない。**"""
+
+    def test_不明だった箇所に名前が入り印が付く(self) -> None:
+        matches = match_marks(["まったく無い語"], _table())
+        (out,) = apply_knowledge(matches, {"まったく無い語": "知識が言った名前"})
+        assert out.name == "知識が言った名前"
+        assert out.source == SOURCE_KNOWLEDGE
+        assert out.matched is True
+
+    def test_対照表が言った名前を知識で上書きしない(self) -> None:
+        matches = match_marks(["ア"], _table())
+        (out,) = apply_knowledge(matches, {"ア": "知識が言った別の名前"})
+        assert out.name == "ア"
+        assert out.meaning == "合成の意味・その一"
+        assert out.source == SOURCE_TABLE
+
+    def test_質疑へ回す行を知識で埋めない(self) -> None:
+        table = _table(
+            symbols=[
+                {"code": "XQ7", "name": "合成の器具(甲)", "source_page": 22},
+                {"code": "XQ7", "name": "合成の器具(乙)", "source_page": 30},
+            ]
+        )
+        matches = match_marks(["XQ7"], table)
+        (out,) = apply_knowledge(matches, {"XQ7": "知識が言った名前"})
+        assert out.name is None
+        assert out.to_question is True
+
+    def test_知識が不明と言ったら不明のまま(self) -> None:
+        matches = match_marks(["まったく無い語"], _table())
+        (out,) = apply_knowledge(matches, {"まったく無い語": UNKNOWN})
+        assert out.name is None
+        assert out.source == SOURCE_TABLE
+
+    def test_対照表が黙った理由は残る(self) -> None:
+        """人が見るとき、**なぜ対照表が言えなかったか**も一緒に見えるようにする。"""
+        table = _table(symbols=[{"code": "A", "name": "合成の器具(丙)", "source_page": 22}])
+        matches = match_marks(["A"], table)
+        (out,) = apply_knowledge(matches, {"A": "知識が言った名前"})
+        assert out.reason == REASON_UNDISTINGUISHABLE
+        assert out.source == SOURCE_KNOWLEDGE
+
+    def test_数えるときに出どころで分ける(self) -> None:
+        """**人の目には別扱いで見せる**ので、数も分けて出す。"""
+        matches = match_marks(["ア", "まったく無い語", "べつに無い語"], _table())
+        out = apply_knowledge(matches, {"まったく無い語": "知識が言った名前"})
+        counts = summarize(out)
+        assert counts.named == 2
+        assert counts.by_source == {SOURCE_TABLE: 1, SOURCE_KNOWLEDGE: 1}
+        assert counts.unknown == 1
