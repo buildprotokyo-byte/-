@@ -43,9 +43,11 @@ from pathlib import Path
 import pymupdf
 
 from axes.image_axis.legend_lookup import distinguishable, normalize
+from benchmarks.page_geometry import in_drawing
 
-#: 表題欄はこれより左。事務所名・個人名・登録番号が入るので**数にも入れない。**
-TITLE_BLOCK_X = 75.0
+#: 表題欄を外す線引きは **`benchmarks/page_geometry` に集めてある。**
+#: K-26 2 番。以前はこのファイルにも ``TITLE_BLOCK_X = 75.0``(**回転前の x**)を
+#: 写していたが、**回転していないページでは表題欄ではなく図面の左端の帯を捨てていた。**
 
 #: 繋がりを見るときの粗さ(pt)。これより近い図形どうしを 1 つの塊にする。
 CELL = 3.0
@@ -146,7 +148,7 @@ def main() -> None:
             words = [
                 w
                 for w in page.get_text("words")
-                if w[0] >= TITLE_BLOCK_X and normalize(w[4]) in names
+                if in_drawing(page, w[:4]) and normalize(w[4]) in names
             ]
             if not words:
                 continue

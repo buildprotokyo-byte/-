@@ -42,16 +42,18 @@ from axes.image_axis.legend_lookup import (
     match_line_colors,
     normalize,
 )
+from benchmarks.page_geometry import in_drawing
 
-#: 表題欄はこれより左。**数にも入れない。**
-TITLE_BLOCK_X = 75.0
+#: 表題欄を外す線引きは **`benchmarks/page_geometry` に集めてある。**
+#: K-26 2 番。以前はこのファイルにも ``TITLE_BLOCK_X = 75.0``(**回転前の x**)を
+#: 写していたが、**回転していないページでは表題欄ではなく図面の左端の帯を捨てていた。**
 
 
 def _coloured(page: pymupdf.Page):
     for block in page.get_text("dict")["blocks"]:
         for line in block.get("lines", ()):
             for span in line["spans"]:
-                if span["bbox"][0] < TITLE_BLOCK_X or not normalize(span["text"]):
+                if not in_drawing(page, span["bbox"]) or not normalize(span["text"]):
                     continue
                 packed = int(span["color"])
                 yield span["text"], (

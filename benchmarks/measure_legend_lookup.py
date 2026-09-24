@@ -24,6 +24,8 @@ from typing import Any
 
 import pymupdf
 
+from benchmarks import page_geometry
+
 from axes.image_axis.legend_lookup import (
     KIND_EQUIPMENT,
     KIND_WORK,
@@ -38,27 +40,11 @@ from axes.image_axis.legend_lookup import (
     summarize,
 )
 
-#: 表題欄は**表示の向きで**紙の下端にある。ページの高さのこの割合より下を表題欄とする。
-#: 事務所名・個人名・登録番号が入るので**数にも入れない。**
-TITLE_BLOCK_BOTTOM = 0.88
-
-
-def title_block_top(page: pymupdf.Page) -> float:
-    """表題欄の上端(**表示の向きの y**)。
-
-    K-24 2 番。**以前は「回転前の x が 75pt より左」を表題欄としていた。**
-    回転しているページ(270 度)ではそれが表示の向きの下端に当たるので合っていたが、
-    **回転していないページでは、表題欄ではなく図面の左端の帯を捨てていた。**
-    そのぶん表題欄の文字は照合の対象に入ったままだった。
-    ``page.rotation_matrix`` で表示の向きに直してから線を引けば、回転の有無に
-    かかわらず同じ規則で扱える。
-    """
-    return page.rect.height * TITLE_BLOCK_BOTTOM
-
-
-def _shown(page: pymupdf.Page, bbox) -> pymupdf.Rect:
-    """回転前の矩形を**表示の向き**に直す。"""
-    return pymupdf.Rect(bbox) * page.rotation_matrix
+#: 表題欄を外す線引きは **`benchmarks/page_geometry` に集めてある**(K-26 2 番)。
+#: 同じ規則が 8 つのファイルに写し取られていて、5 つが回転前の座標のまま残っていた。
+TITLE_BLOCK_BOTTOM = page_geometry.TITLE_BLOCK_BOTTOM
+title_block_top = page_geometry.title_block_top
+_shown = page_geometry.shown
 
 
 def _words(page: pymupdf.Page) -> list[str]:
