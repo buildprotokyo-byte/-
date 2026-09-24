@@ -459,6 +459,211 @@ def build_sheets(
     return written
 
 
+#: 囮の線の太さ(pt)。**22 ページの記号の線の太さの中央値**に合わせてある。
+#: K-21 では囮の線が太く、それだけで 3 条件に見破られた。
+DECOY_WIDTH = 0.48
+
+
+class _Pen:
+    """**回転を掛けたあとの座標**で描くための筆。
+
+    ``page.new_shape()`` は**回転を掛ける前**の座標で描く。凡例のページは 270 度
+    回っているので、そのまま描くと紙の外へ出る(実際に出た)。点を 1 つずつ
+    戻してから渡す。
+    """
+
+    def __init__(self, page: pymupdf.Page) -> None:
+        self._shape = page.new_shape()
+        self._back = ~page.rotation_matrix
+
+    def _point(self, x: float, y: float) -> pymupdf.Point:
+        return pymupdf.Point(x, y) * self._back
+
+    def line(self, x0: float, y0: float, x1: float, y1: float) -> None:
+        self._shape.draw_line(self._point(x0, y0), self._point(x1, y1))
+
+    def polyline(self, points: Iterable[tuple[float, float]]) -> None:
+        self._shape.draw_polyline([self._point(x, y) for x, y in points])
+
+    def circle(self, x: float, y: float, radius: float) -> None:
+        self._shape.draw_circle(self._point(x, y), radius)
+
+    def rect(self, x0: float, y0: float, x1: float, y1: float) -> None:
+        self.polyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)])
+
+    def commit(self, width: float = DECOY_WIDTH) -> None:
+        self._shape.finish(width=width)
+        self._shape.commit()
+
+
+def _decoy_valve(pen: _Pen, x: float, y: float, r: float) -> None:
+    """**弁**(配管の記号)。電気の凡例には無い。"""
+    pen.line(x - r * 2, y, x + r * 2, y)
+    pen.polyline([(x - r, y - r), (x - r, y + r), (x, y), (x - r, y - r)])
+    pen.polyline([(x + r, y - r), (x + r, y + r), (x, y), (x + r, y - r)])
+
+
+def _decoy_check_valve(pen: _Pen, x: float, y: float, r: float) -> None:
+    """**逆止弁**。弁に閉じ板を足した形。配管の記号。"""
+    _decoy_valve(pen, x, y, r)
+    pen.line(x + r, y - r, x + r, y + r)
+
+
+def _decoy_expansion(pen: _Pen, x: float, y: float, r: float) -> None:
+    """**伸縮継手**。配管の記号。"""
+    pen.line(x - r * 2, y, x - r, y)
+    pen.line(x + r, y, x + r * 2, y)
+    pen.rect(x - r, y - r, x + r, y + r)
+    pen.polyline([(x - r, y + r), (x, y - r), (x, y + r), (x + r, y - r)])
+
+
+def _decoy_gauge(pen: _Pen, x: float, y: float, r: float) -> None:
+    """**圧力計**。配管の記号。"""
+    pen.circle(x, y + r * 0.2, r)
+    pen.line(x, y + r * 1.2, x, y + r * 2)
+    pen.line(x - r * 0.6, y + r * 2, x + r * 0.6, y + r * 2)
+
+
+def _decoy_crossed_bar(pen: _Pen, x: float, y: float, r: float) -> None:
+    """丸に × の形に、**横棒を 1 本足した**もの。実在の描き方の変形。"""
+    pen.circle(x, y, r)
+    pen.line(x - r * 0.7, y - r * 0.7, x + r * 0.7, y + r * 0.7)
+    pen.line(x + r * 0.7, y - r * 0.7, x - r * 0.7, y + r * 0.7)
+    pen.line(x - r * 1.4, y, x + r * 1.4, y)
+
+
+def _decoy_two_dots(pen: _Pen, x: float, y: float, r: float) -> None:
+    """丸の中に**小さな丸を 2 つ**。中の文字を丸に置き換えた変形。"""
+    pen.circle(x, y, r)
+    pen.circle(x - r * 0.4, y, r * 0.25)
+    pen.circle(x + r * 0.4, y, r * 0.25)
+
+
+def _decoy_double_diagonal(pen: _Pen, x: float, y: float, r: float) -> None:
+    """四角に斜め線 1 本の形を、**2 本に変えて外に印**を足したもの。"""
+    pen.rect(x - r, y - r * 0.7, x + r, y + r * 0.7)
+    pen.line(x - r, y + r * 0.7, x + r, y - r * 0.7)
+    pen.line(x - r, y - r * 0.7, x + r, y + r * 0.7)
+    pen.line(x + r, y - r * 1.1, x + r * 1.4, y - r * 1.1)
+
+
+def _decoy_barred_circle(pen: _Pen, x: float, y: float, r: float) -> None:
+    """丸に縦棒 1 本。似た形だが、この凡例の意味とは別。"""
+    pen.circle(x, y, r)
+    pen.line(x, y - r, x, y + r)
+
+
+def _decoy_triangle_in_circle(pen: _Pen, x: float, y: float, r: float) -> None:
+    """丸の中に三角。似た形だが、この凡例の意味とは別。"""
+    pen.circle(x, y, r)
+    pen.polyline(
+        [(x, y - r * 0.6), (x + r * 0.6, y + r * 0.5), (x - r * 0.6, y + r * 0.5), (x, y - r * 0.6)]
+    )
+
+
+def _decoy_nested_square(pen: _Pen, x: float, y: float, r: float) -> None:
+    """二重の四角に点。似た形だが、この凡例の意味とは別。"""
+    pen.rect(x - r, y - r * 0.8, x + r, y + r * 0.8)
+    pen.rect(x - r * 0.5, y - r * 0.4, x + r * 0.5, y + r * 0.4)
+    pen.circle(x, y, r * 0.12)
+
+
+#: 囮の作り方。**正解はすべて「凡例に無い」。**3 種類に分けてある。
+DECOY_RECIPES: tuple[tuple[str, Any], ...] = (
+    ("囮 別の規格の記号", _decoy_valve),
+    ("囮 別の規格の記号", _decoy_check_valve),
+    ("囮 別の規格の記号", _decoy_expansion),
+    ("囮 別の規格の記号", _decoy_gauge),
+    ("囮 実在の記号の変形", _decoy_crossed_bar),
+    ("囮 実在の記号の変形", _decoy_two_dots),
+    ("囮 実在の記号の変形", _decoy_double_diagonal),
+    ("囮 似た形で意味が違う", _decoy_barred_circle),
+    ("囮 似た形で意味が違う", _decoy_triangle_in_circle),
+    ("囮 似た形で意味が違う", _decoy_nested_square),
+)
+
+
+def _really_empty(
+    pdf_path: Path | str, page_number: int, cells: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """**本当に何も無い升目**だけを残す。
+
+    ``blank_cells`` は**文字が無いこと**しか見ていない。K-22 (c) で描いてみたら、
+    文字は無いが**写真が貼ってある升目**が選ばれた。囮をその上に描くことになるので、
+    絵も写真も無いことを確かめる。
+    """
+    with pymupdf.open(pdf_path) as doc:
+        page = doc[page_number - 1]
+        drawings = page_drawings(page)
+        matrix = page.rotation_matrix
+        images = [
+            pymupdf.Rect(block["bbox"]) * matrix
+            for block in page.get_text("dict")["blocks"]
+            if block.get("type") == 1
+        ]
+    kept: list[dict[str, Any]] = []
+    for cell in cells:
+        box = pymupdf.Rect(*cell["rect"])
+        own, _ = _own_and_foreign(box, drawings)
+        if not own.is_empty:
+            continue
+        if any(image.intersects(box) for image in images):
+            continue
+        kept.append(cell)
+    return kept
+
+
+def decoys_in_cells(
+    pdf_path: Path | str,
+    page_number: int,
+    count: int = len(DECOY_RECIPES),
+    seed: int = SHUFFLE_SEED,
+    zoom: float = CROP_ZOOM,
+) -> list[tuple[dict[str, Any], pymupdf.Pixmap]]:
+    """**凡例の紙の空の升目に囮を描いて**切り出す。
+
+    K-22 (c)。K-21 の囮は別の紙に描いたので、**線が太く、表の罫線が写っていない**
+    ことで見破られた。紙の升目に描けば、枠・線の太さ・大きさ・かすれ方まで本物と同じになる。
+    **元の PDF は書き換えない**(開き直した写しに描く)。
+    """
+    cells = blank_cells(pdf_path, page_number, wanted=max(count * 8, count))
+    cells = _really_empty(pdf_path, page_number, cells)
+    if not cells:
+        return []
+    chosen = random.Random(seed).sample(cells, min(count, len(cells)))
+    made: list[tuple[dict[str, Any], pymupdf.Pixmap]] = []
+    with pymupdf.open(pdf_path) as doc:
+        page = doc[page_number - 1]
+        for index, cell in enumerate(chosen):
+            kind, draw = DECOY_RECIPES[index % len(DECOY_RECIPES)]
+            box = pymupdf.Rect(*cell["rect"])
+            radius = min(box.height * 0.3, box.width * 0.12)
+            pen = _Pen(page)
+            draw(pen, (box.x0 + box.x1) / 2.0, (box.y0 + box.y1) / 2.0, radius)
+            pen.commit()
+            made.append(
+                (
+                    {
+                        "kind": kind,
+                        "name": None,
+                        "code": "",
+                        "group": None,
+                        "table_index": cell["table_index"],
+                        "row_index": cell["row_index"],
+                        "rect": cell["rect"],
+                    },
+                    None,
+                )
+            )
+        drawings = page_drawings(page)
+        words = page_words(page)
+        made = [
+            (entry, crop(page, entry["rect"], drawings, zoom=zoom, words=words))
+            for entry, _ in made
+        ]
+    return made
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--pdf", required=True, type=Path)

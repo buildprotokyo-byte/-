@@ -10,6 +10,7 @@ from benchmarks.build_legend_symbol_images import (
     build_sheets,
     crop,
     crop_rect,
+    decoys_in_cells,
     drawn_decoys,
     name_rows,
     page_drawings,
@@ -256,3 +257,56 @@ class TestSymbolColumn:
         for row in rows:
             assert row["rect"][0] >= 160.0 - 0.5, row
             assert row["rect"][2] <= 220.0 + 0.5, row
+
+
+class TestDecoysInCells:
+    """K-22 (c)。**囮を、凡例の紙の空の升目に描く。**
+
+    K-21 では囮を別の紙に描いて並べたので、**線が太く、表の罫線が写っていない**ことで
+    4 条件のうち 3 条件に見破られた。紙の升目に描けば、枠も線の太さも本物と同じになる。
+    """
+
+    def test_頼んだ数だけ返り正解は持たない(self, legend_pdf):
+        found = decoys_in_cells(legend_pdf, 1, count=3, seed=1)
+        assert len(found) == 3
+        assert all(entry["name"] is None for entry, _ in found)
+        assert all(entry["kind"].startswith("囮") for entry, _ in found)
+
+    def test_同じ種なら同じものになる(self, legend_pdf):
+        first = [entry["rect"] for entry, _ in decoys_in_cells(legend_pdf, 1, count=3, seed=7)]
+        second = [entry["rect"] for entry, _ in decoys_in_cells(legend_pdf, 1, count=3, seed=7)]
+        assert first == second
+
+    def test_升目に絵が描かれている(self, legend_pdf):
+        """**空の升目のままなら囮にならない。**枠のほかに黒い点があること。"""
+        for _, pixmap in decoys_in_cells(legend_pdf, 1, count=3, seed=1):
+            middle = [
+                pixmap.pixel(x, y)[0]
+                for y in range(pixmap.height // 4, pixmap.height * 3 // 4)
+                for x in range(pixmap.width // 4, pixmap.width * 3 // 4)
+            ]
+            assert any(value < 128 for value in middle), "升目の真ん中に何も描かれていない"
+
+    def test_元のPDFを書き換えない(self, legend_pdf):
+        before = legend_pdf.read_bytes()
+        decoys_in_cells(legend_pdf, 1, count=2, seed=1)
+        assert legend_pdf.read_bytes() == before
+
+    def test_すでに何か描いてある升目は選ばない(self, tmp_path):
+        """**文字が無い = 空、ではない。**写真や絵が入っている升目がある。"""
+        doc = pymupdf.open()
+        page = doc.new_page(width=400, height=300)
+        draw_table(
+            page,
+            origin=(40.0, 40.0),
+            col_widths=(120.0, 80.0, 60.0),
+            row_height=20.0,
+            rows=(("名称", "記号", ""), ("あいう", "ア", ""), ("かきく", "イ", "")),
+        )
+        # 3 列目(空の列)の 1 行目に、すでに絵がある。
+        page.draw_circle(pymupdf.Point(270.0, 70.0), 5.0, width=0.8)
+        path = tmp_path / "busy.pdf"
+        doc.save(path)
+        doc.close()
+        for entry, _ in decoys_in_cells(path, 1, count=2, seed=1):
+            assert not (60.0 <= entry["rect"][1] <= 62.0), entry
