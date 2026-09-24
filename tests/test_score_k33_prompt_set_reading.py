@@ -13,6 +13,7 @@ import pytest
 from benchmarks.score_k33_prompt_set_reading import (
     CONTAIN_MIN_RATIO,
     is_correct,
+    is_near,
     load_runs,
     normalize,
     score_run,
@@ -149,3 +150,63 @@ class Test読み込み:
 @pytest.mark.parametrize("given,truth", [("いぬ", "いぬ"), ("イヌ", "イヌ")])
 def test_同じ文字列は必ず正しい(given: str, truth: str) -> None:
     assert is_correct(given, truth)
+
+
+# ---------------------------------------------------------------------------
+# 追記2 の「近い」(2-gram の Dice 係数 0.5 以上)
+# ---------------------------------------------------------------------------
+
+
+def test_近いは完全一致を必ず含む() -> None:
+    assert is_near("いぬ", "いぬ")
+    assert is_near("しろいいぬ", "しろいいぬ")
+
+
+def test_近いは送り仮名が1文字違うだけを当てる() -> None:
+    # 「引掛ローゼット」と「引掛けローゼット」と同じ形。
+    assert is_near("あかいいぬごや", "あかいおおいぬごや") is True
+    assert is_correct("あかいいぬごや", "あかいおおいぬごや") is False
+
+
+def test_近いは語順が入れ替わっただけを当てる() -> None:
+    # 「2口コンセント」と「コンセント(2口)」と同じ形。
+    assert is_near("にひきいぬ", "いぬにひき") is True
+    assert is_correct("にひきいぬ", "いぬにひき") is False
+
+
+def test_近いは別のものを当てない() -> None:
+    assert is_near("いぬ", "うさぎ") is False
+    assert is_near("しろいいぬ", "きつねのこども") is False
+
+
+def test_近いは言い換えを当てない() -> None:
+    # 文字が重ならない同義語は、この当て方では当たらない(基準の追記2 に明記)。
+    assert is_near("いぬ", "けん") is False
+
+
+def test_近いは短すぎる答えを当てない() -> None:
+    assert is_near("いぬ", "しろいいぬごや") is False
+
+
+def test_近いは空を当てない() -> None:
+    assert is_near("", "いぬ") is False
+    assert is_near("いぬ", "") is False
+
+
+def test_採点は正しいを近いにも数える() -> None:
+    answers = [{"id": "S-001", "kind": "群A 文字あり", "name": "いぬ"}]
+    rows = {"S-001": {"id": "S-001", "name": "いぬ"}}
+    tally = score_run(rows, answers)
+    assert tally["群"]["群A 文字あり"]["正しい"] == 1
+    assert tally["群"]["群A 文字あり"]["近い(追記2)"] == 1
+    assert tally["群"]["群A 文字あり"]["外れ"] == 0
+
+
+def test_採点は近いだけのものを外れにも数える() -> None:
+    # **追記2 は補助の数字なので、「外れ」の件数は追記1 のままでなければならない。**
+    answers = [{"id": "S-001", "kind": "群A 文字あり", "name": "いぬにひき"}]
+    rows = {"S-001": {"id": "S-001", "name": "にひきいぬ"}}
+    tally = score_run(rows, answers)
+    assert tally["群"]["群A 文字あり"]["正しい"] == 0
+    assert tally["群"]["群A 文字あり"]["近い(追記2)"] == 1
+    assert tally["群"]["群A 文字あり"]["外れ"] == 1

@@ -49,6 +49,35 @@ def is_correct(given: str, truth: str) -> bool:
     return False
 
 
+#: 追記2 の「近い」のしきい。2-gram の Dice 係数がこれ以上なら近いとする。
+NEAR_MIN_DICE = 0.5
+
+
+def _bigrams(text: str) -> set[str]:
+    """そろえたあとの文字列の 2 文字ずつの集合。1 文字のときはその 1 文字。"""
+    if len(text) < 2:
+        return {text} if text else set()
+    return {text[i : i + 2] for i in range(len(text) - 1)}
+
+
+def is_near(given: str, truth: str) -> bool:
+    """追記2 の補助の判定。**結果を見てから足したので、線の判定には使わない。**
+
+    送り仮名が 1 文字違うだけ、語順が入れ替わっているだけ、を当てるための
+    当て方。完全一致は Dice = 1.0 なので、`is_correct` が真なら必ず真になる。
+    **言い換え(別の言葉で同じものを指す)は文字が重ならないので当たらない。**
+    """
+    a, b = normalize(given), normalize(truth)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    ga, gb = _bigrams(a), _bigrams(b)
+    if not ga or not gb:
+        return False
+    return 2 * len(ga & gb) / (len(ga) + len(gb)) >= NEAR_MIN_DICE
+
+
 def load_runs(paths: list[Path]) -> dict[str, dict[str, dict[str, Any]]]:
     runs: dict[str, dict[str, dict[str, Any]]] = {}
     for path in paths:
@@ -71,7 +100,9 @@ def score_run(
     for entry in answers:
         cell_id = entry["id"]
         kind = entry["kind"]
-        bucket = tally["群"].setdefault(kind, {"正しい": 0, "外れ": 0, "読めなかった": 0})
+        bucket = tally["群"].setdefault(
+            kind, {"正しい": 0, "近い(追記2)": 0, "外れ": 0, "読めなかった": 0}
+        )
         row = rows.get(cell_id)
         if row is None:
             tally["欠けた件数"] += 1
@@ -95,6 +126,11 @@ def score_run(
         truth = entry.get("name")
         if truth and is_correct(name, truth):
             bucket["正しい"] += 1
+            bucket["近い(追記2)"] += 1
+        elif truth and is_near(name, truth):
+            # **追記2 の補助の数字。**「正しい」は必ずここにも入る。
+            bucket["近い(追記2)"] += 1
+            bucket["外れ"] += 1
         else:
             bucket["外れ"] += 1
     return tally
@@ -119,6 +155,10 @@ def summarize(scored: dict[str, dict[str, Any]], prefix: str) -> dict[str, Any]:
         "捏造": spread(values(lambda v: v["捏造"])),
         "群ごとの正しい件数": {
             g: spread(values(lambda v, g=g: v["群"].get(g, {}).get("正しい", 0))) for g in groups
+        },
+        "群ごとの近い件数(追記2)": {
+            g: spread(values(lambda v, g=g: v["群"].get(g, {}).get("近い(追記2)", 0)))
+            for g in groups
         },
         "群ごとの読めなかった件数": {
             g: spread(values(lambda v, g=g: v["群"].get(g, {}).get("読めなかった", 0))) for g in groups
