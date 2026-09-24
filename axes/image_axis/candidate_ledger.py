@@ -16,8 +16,10 @@
 - **座標はページ全体を 0〜1000 に揃える。** ベクターとラスターで同じ形式。
   横と縦で 1 単位の長さは違う(A3 横なら横 1 単位 ≒ 1.19pt、縦 1 単位 ≒ 0.84pt)。
   元に戻すための紙の大きさはページの記録に残す。
-- **上限**(線 1,800・閉領域 300・小輪郭 600)を超えたら決まった順で残し、
-  **上限に当たったことを必ず記録する。**
+- **捨てるのは理由で**(小さすぎる・短すぎる・重複など。理由ごとの数を残す)。
+  上限(既定は各 10,000)は安全弁で、超えたら決まった順で残し、**当たったことを必ず記録する。**
+  (K-23 では SUGORAKU の 1,800・300・600 を使い、電気のページで小輪郭の 9 割以上を捨てていた。K-24)
+- **表題欄を図面リストと突き合わせ**、食い違いを両方の値で残す(どちらが正しいかは決めない)。
 - **表題欄を本文より先に読む**(`read_title_block`)。
 - **品質ゲート**(`gate_page`)が passed / needs_review / blocked を付ける。
   読めなかったページを「候補 0 個」と書かない。
@@ -45,7 +47,9 @@ import hashlib
 import json
 import math
 import re
-from dataclasses import asdict, dataclass, field
+import unicodedata
+from collections import Counter
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Literal
 
@@ -56,13 +60,21 @@ import pymupdf
 from axes.image_axis.pdf_vector_symbols import parse_scale_text
 
 #: 台帳の作り方を変えたら上げる。キャッシュの鍵に入るので、古い結果が使い回されない。
-LEDGER_VERSION = "k23-1"
+LEDGER_VERSION = "k24-1"
 
 #: 座標を揃える幅。ページ全体が 0〜NORM になる。
 NORM = 1000.0
 
 Source = Literal["vector", "raster", "none"]
 GateStatus = Literal["passed", "needs_review", "blocked"]
+
+#: 捨てた理由。**上限ではなく理由で捨てる**(K-24)。ページごとに数を残す。
+DROP_SPECK = "小さすぎる(点の汚れ)"
+DROP_SHORT_LINE = "短すぎる線"
+DROP_DUPLICATE_LINE = "座標まで同じ線の重複"
+DROP_SMALL_REGION = "面積が小さすぎる閉領域"
+DROP_OUTER_OUTLINE = "線の塊の外形(線として持っている)"
+DROP_CAP = "上限を超えた"
 
 
 @dataclass(frozen=True)
@@ -73,9 +85,13 @@ class LedgerSettings:
     こちらで具体化したもの。**実図面で校正した値ではない。**
     """
 
-    max_lines: int = 1800
-    max_regions: int = 300
-    max_small: int = 600
+    #: 上限。K-23 では SUGORAKU の値(線 1,800・閉領域 300・小輪郭 600)を使ったが、
+    #: P011 匿名化v2 の電気・設備のページで小輪郭の 9 割以上を捨てていた。K-24 で
+    #: 「上限ではなく理由で捨てる」と決まったので、上限は**安全弁**として大きく取る。
+    #: 当たったらページに記録し、品質ゲートで needs_review にする。
+    max_lines: int = 10000
+    max_regions: int = 10000
+    max_small: int = 10000
 
     #: ラスターは長いほうの辺をこの画素数に揃えてから処理する(紙の大きさで結果が変わらないように)。
     raster_long_side_px: int = 3000
@@ -162,6 +178,16 @@ class TitleBlock:
 
 
 @dataclass(frozen=True)
+class TitleConflict:
+    """表題欄と図面リストの食い違い。**どちらが正しいかは決めない。両方の値を並べて人に見せる。**"""
+
+    kind: str
+    title_value: str | None
+    list_value: str | None
+    list_page_index: int
+
+
+@dataclass(frozen=True)
 class PageGate:
     status: GateStatus
     reasons: tuple[str, ...]
@@ -185,12 +211,11 @@ class PageLedger:
     regions: tuple[BoxCandidate, ...]
     small: tuple[BoxCandidate, ...]
     counts: dict[str, KindCount]
-    dropped_specks: int
-    """小さすぎて点の汚れとして落とした数。"""
-    duplicate_lines: int
-    """座標まで同じ線を 1 本にまとめたときに減らした数(閉じた線の戻り、重ね描き)。"""
+    dropped: dict[str, int]
+    """捨てた理由ごとの数(`DROP_*`)。0 の理由は入れない。"""
     error: str | None
     gate: PageGate
+    title_conflicts: tuple[TitleConflict, ...] = ()
     cache_key: str | None = None
     from_cache: bool = False
 
@@ -230,10 +255,10 @@ class PageLedger:
             regions=tuple(BoxCandidate(**c) for c in data["regions"]),
             small=tuple(BoxCandidate(**c) for c in data["small"]),
             counts={k: KindCount(**v) for k, v in data["counts"].items()},
-            dropped_specks=data["dropped_specks"],
-            duplicate_lines=data["duplicate_lines"],
+            dropped=dict(data["dropped"]),
             error=data["error"],
             gate=PageGate(data["gate"]["status"], tuple(data["gate"]["reasons"])),
+            title_conflicts=tuple(TitleConflict(**c) for c in data.get("title_conflicts", ())),
             cache_key=data.get("cache_key"),
             from_cache=data.get("from_cache", False),
         )
@@ -264,6 +289,17 @@ REASON_NO_TITLE = "表題欄から図面名称も図番も取れていない"
 REASON_CAP = "上限に当たった(台帳に入っていない候補がある)"
 REASON_ZERO = "候補が0件"
 REASON_UNPROCESSED_IMAGES = "台帳に入っていない画像がある"
+REASON_TITLE_CONFLICT = "表題欄と図面リストが食い違う(どちらが正しいかは決めていない)"
+
+CONFLICT_NAME_WORDS = "名称の語が違う"
+CONFLICT_NAME_NOTATION = "名称の表記だけが違う"
+CONFLICT_NUMBER_NOTATION = "図番の表記だけが違う"
+CONFLICT_NUMBER_MISSING = "表題欄の図番が図面リストに無い"
+CONFLICT_SHEET = "図面リストの枚目と、この図番が載っているページが違う"
+
+#: 人が見て決める食い違い。表記だけの違い(「・」の有無、「-」と「ー」)は記録するが、
+#: それだけでは needs_review にしない。
+SUBSTANTIVE_CONFLICTS = (CONFLICT_NAME_WORDS, CONFLICT_NUMBER_MISSING, CONFLICT_SHEET)
 
 
 def gate_page(
@@ -274,6 +310,7 @@ def gate_page(
     title: TitleBlock | None,
     counts: dict[str, KindCount],
     unprocessed_images: bool,
+    title_conflicts: tuple[TitleConflict, ...] = (),
 ) -> PageGate:
     """ページの事実だけから passed / needs_review / blocked を決める。
 
@@ -306,6 +343,8 @@ def gate_page(
         reasons.append(REASON_ZERO)
     if unprocessed_images:
         reasons.append(REASON_UNPROCESSED_IMAGES)
+    if any(c.kind in SUBSTANTIVE_CONFLICTS for c in title_conflicts):
+        reasons.append(REASON_TITLE_CONFLICT)
 
     if not has_text:
         return PageGate("blocked", tuple(reasons))
@@ -515,6 +554,113 @@ def read_title_block(words: list[_Word], settings: LedgerSettings) -> TitleBlock
 
 
 # ---------------------------------------------------------------------------
+# 図面リストとの突き合わせ
+# ---------------------------------------------------------------------------
+
+#: 図番の形: 字 1〜3 つ + 区切り + 数字(「意-6」「設-2」「凡ー2」「A-3」)。
+_NUMBER_WORD_RE = re.compile(r"^[^\s\d]{1,3}\s*[-ー‐－―–]\s*[0-9]{1,3}$")
+_DASHES = re.compile(r"[-ー‐－―–]")
+_NOTATION = re.compile(r"[・、,，()（）\[\]「」\-ー‐－―–]")
+
+
+def _nfkc(text: str | None) -> str:
+    return "".join(unicodedata.normalize("NFKC", text or "").split())
+
+
+def _number_key(text: str | None) -> str:
+    return _DASHES.sub("-", _nfkc(text))
+
+
+@dataclass(frozen=True)
+class DrawingListEntry:
+    number: str
+    name: str | None
+    sheet: int | None
+    """図面リストに書いてある枚目(1 始まり)。書いていなければ None。"""
+
+
+def read_drawing_list(page: pymupdf.Page) -> tuple[DrawingListEntry, ...]:
+    """図面リストのページから「図番・名称・枚目」の行を読む。
+
+    図番の形をした語を行の目印にして、同じ高さの**右**に続く語を名称、**左**のすぐ隣の
+    数字だけの語を枚目とする。名称が 2 列に並ぶリストでも、次の図番や数字の語で止める。
+    """
+    words = [w for w in _page_words(page) if w.text]
+    out: list[DrawingListEntry] = []
+    for word in sorted(words, key=lambda w: (round(w.y0, 1), round(w.x0, 1))):
+        if not _NUMBER_WORD_RE.match(_nfkc(word.text)):
+            continue
+        row = [
+            o
+            for o in words
+            if o is not word and abs(o.cy - word.cy) <= max(o.h, word.h) * 0.5
+        ]
+        parts: list[_Word] = []
+        for o in sorted((o for o in row if o.x0 >= word.x1 - 0.5), key=lambda o: o.x0):
+            body = _nfkc(o.text)
+            if _NUMBER_WORD_RE.match(body) or body.isdigit():
+                break
+            gap = o.x0 - (parts[-1].x1 if parts else word.x1)
+            if gap > 60:
+                break
+            parts.append(o)
+        left = [
+            o
+            for o in row
+            if o.x1 <= word.x0 + 0.5 and word.x0 - o.x1 <= 60 and _nfkc(o.text).isdigit()
+        ]
+        sheet = int(_nfkc(max(left, key=lambda o: o.x1).text)) if left else None
+        name = " ".join(p.text for p in parts) if parts else None
+        out.append(DrawingListEntry(word.text, name, sheet))
+    return tuple(out)
+
+
+def find_drawing_list_page(doc: pymupdf.Document, minimum_rows: int = 5) -> int | None:
+    """図番と名称の行がいちばん多いページ(0 始まり)。``minimum_rows`` 行に満たなければ None。"""
+    best: tuple[int, int] | None = None
+    for index in range(doc.page_count):
+        rows = [e for e in read_drawing_list(doc.load_page(index)) if e.name]
+        if len(rows) >= minimum_rows and (best is None or len(rows) > best[0]):
+            best = (len(rows), index)
+    return None if best is None else best[1]
+
+
+def cross_check_title(
+    title: TitleBlock | None,
+    page_index: int,
+    entries: tuple[DrawingListEntry, ...],
+    list_page_index: int,
+) -> tuple[TitleConflict, ...]:
+    """表題欄を図面リストと突き合わせる。**どちらが正しいかは決めない。**
+
+    図番が無いページは突き合わせられない(食い違いとは書かない)。
+    """
+    if title is None or not title.drawing_number:
+        return ()
+    key = _number_key(title.drawing_number)
+    matches = [e for e in entries if _number_key(e.number) == key]
+    if not matches:
+        return (TitleConflict(CONFLICT_NUMBER_MISSING, title.drawing_number, None, list_page_index),)
+    entry = matches[0]
+    out: list[TitleConflict] = []
+    if _nfkc(entry.number) != _nfkc(title.drawing_number):
+        out.append(
+            TitleConflict(CONFLICT_NUMBER_NOTATION, title.drawing_number, entry.number, list_page_index)
+        )
+    if title.drawing_name and entry.name and _nfkc(title.drawing_name) != _nfkc(entry.name):
+        loose_same = _NOTATION.sub("", _nfkc(title.drawing_name)) == _NOTATION.sub(
+            "", _nfkc(entry.name)
+        )
+        kind = CONFLICT_NAME_NOTATION if loose_same else CONFLICT_NAME_WORDS
+        out.append(TitleConflict(kind, title.drawing_name, entry.name, list_page_index))
+    if entry.sheet is not None and entry.sheet != page_index + 1:
+        out.append(
+            TitleConflict(CONFLICT_SHEET, str(page_index + 1), str(entry.sheet), list_page_index)
+        )
+    return tuple(out)
+
+
+# ---------------------------------------------------------------------------
 # 候補を拾う(ベクター)
 # ---------------------------------------------------------------------------
 
@@ -562,7 +708,7 @@ def _vector_candidates(
     lines: list[LineCandidate] = []
     regions: list[BoxCandidate] = []
     small: list[BoxCandidate] = []
-    specks = 0
+    dropped: Counter[str] = Counter()
     for drawing in page.get_drawings():
         rect = pymupdf.Rect(drawing["rect"]) * matrix
         rect.normalize()
@@ -572,7 +718,7 @@ def _vector_candidates(
         side = max(w, h)
         items = drawing["items"]
         if side < settings.small_min_side:
-            specks += 1
+            dropped[DROP_SPECK] += 1
             continue
         if side <= settings.small_max_side:
             small.append(BoxCandidate(_r(x0), _r(y0), _r(x1), _r(y1), _r(w * h)))
@@ -580,19 +726,23 @@ def _vector_candidates(
         closed = bool(drawing.get("closePath")) or drawing.get("fill") is not None or any(
             item[0] in ("re", "qu") for item in items
         )
-        if closed and w * h >= settings.region_min_area:
-            regions.append(BoxCandidate(_r(x0), _r(y0), _r(x1), _r(y1), _r(w * h)))
+        if closed:
+            if w * h >= settings.region_min_area:
+                regions.append(BoxCandidate(_r(x0), _r(y0), _r(x1), _r(y1), _r(w * h)))
+            else:
+                dropped[DROP_SMALL_REGION] += 1
         for a, b in _straight_edges(items):
             ax, ay = norm(a)
             bx, by = norm(b)
             length = math.hypot(bx - ax, by - ay)
             if length < settings.min_line_length:
+                dropped[DROP_SHORT_LINE] += 1
                 continue
             # 向きを揃える(同じ線を逆向きに描いても同じ候補になるように)。
             if (bx, by) < (ax, ay):
                 ax, ay, bx, by = bx, by, ax, ay
             lines.append(LineCandidate(_r(ax), _r(ay), _r(bx), _r(by), _r(length)))
-    return lines, regions, small, specks
+    return lines, regions, small, dropped
 
 
 # ---------------------------------------------------------------------------
@@ -611,7 +761,7 @@ def render_gray(page: pymupdf.Page, long_side_px: int) -> np.ndarray:
 
 def raster_candidates(
     gray: np.ndarray, settings: LedgerSettings
-) -> tuple[list[LineCandidate], list[BoxCandidate], list[BoxCandidate], int]:
+) -> tuple[list[LineCandidate], list[BoxCandidate], list[BoxCandidate], Counter[str]]:
     """グレースケール → CLAHE → Canny → HoughLinesP → 輪郭抽出。意味は当てない。"""
     height, width = gray.shape
     sx = NORM / width
@@ -633,11 +783,13 @@ def raster_candidates(
         maxLineGap=settings.hough_max_gap_px,
     )
     lines: list[LineCandidate] = []
+    dropped: Counter[str] = Counter()
     if segments is not None:
         for ax, ay, bx, by in np.asarray(segments).reshape(-1, 4):
             ax, ay, bx, by = ax * sx, ay * sy, bx * sx, by * sy
             length = math.hypot(bx - ax, by - ay)
             if length < settings.min_line_length:
+                dropped[DROP_SHORT_LINE] += 1
                 continue
             if (bx, by) < (ax, ay):
                 ax, ay, bx, by = bx, by, ax, ay
@@ -648,14 +800,13 @@ def raster_candidates(
     contours, hierarchy = cv2.findContours(closed_edges, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
     regions: list[BoxCandidate] = []
     small: list[BoxCandidate] = []
-    specks = 0
     if hierarchy is not None:
         for contour, (_next, _prev, _child, parent) in zip(contours, np.asarray(hierarchy).reshape(-1, 4)):
             x, y, w, h = cv2.boundingRect(contour)
             x0, y0, x1, y1 = x * sx, y * sy, (x + w) * sx, (y + h) * sy
             side = max(x1 - x0, y1 - y0)
             if side < settings.small_min_side:
-                specks += 1
+                dropped[DROP_SPECK] += 1
                 continue
             if parent < 0:
                 # 外側の輪郭(線の塊そのもの)。小さいものだけを小輪郭にする。
@@ -663,12 +814,16 @@ def raster_candidates(
                     small.append(
                         BoxCandidate(_r(x0), _r(y0), _r(x1), _r(y1), _r((x1 - x0) * (y1 - y0)))
                     )
+                else:
+                    dropped[DROP_OUTER_OUTLINE] += 1
                 continue
             # 穴の輪郭 = 線で囲まれた内側。これを閉領域とする。
             area = cv2.contourArea(contour) * sx * sy
             if side > settings.small_max_side and area >= settings.region_min_area:
                 regions.append(BoxCandidate(_r(x0), _r(y0), _r(x1), _r(y1), _r(area)))
-    return lines, regions, small, specks
+            else:
+                dropped[DROP_SMALL_REGION] += 1
+    return lines, regions, small, dropped
 
 
 # ---------------------------------------------------------------------------
@@ -753,7 +908,7 @@ def _build_page(
     lines: list[LineCandidate] = []
     regions: list[BoxCandidate] = []
     small: list[BoxCandidate] = []
-    specks = 0
+    dropped: Counter[str] = Counter()
     source: Source = "none"
     has_text = False
     coverage = 0.0
@@ -777,21 +932,22 @@ def _build_page(
             source = "raster"
 
         if source == "vector":
-            lines, regions, small, specks = _vector_candidates(page, settings)
+            lines, regions, small, dropped = _vector_candidates(page, settings)
         elif source == "raster":
             if gray is None:
                 gray = render_gray(page, settings.raster_long_side_px)
-            lines, regions, small, specks = raster_candidates(gray, settings)
+            lines, regions, small, dropped = raster_candidates(gray, settings)
     except Exception as exc:  # noqa: BLE001  止まったことを記録して次のページへ進む
         error = f"{type(exc).__name__}: {exc}"
         lines, regions, small = [], [], []
 
     unique_lines = sorted(set(lines), key=lambda c: (c.y0, c.x0, c.y1, c.x1))
-    duplicates = len(lines) - len(unique_lines)
+    dropped[DROP_DUPLICATE_LINE] += len(lines) - len(unique_lines)
     kept_lines, line_count = _cap_lines(unique_lines, settings.max_lines)
     kept_regions, region_count = _cap_boxes(regions, settings.max_regions)
     kept_small, small_count = _cap_boxes(small, settings.max_small)
     counts = {"lines": line_count, "regions": region_count, "small": small_count}
+    dropped[DROP_CAP] += sum(c.found - c.kept for c in counts.values())
     gate = gate_page(
         error=error,
         source=source,
@@ -814,8 +970,7 @@ def _build_page(
         regions=kept_regions,
         small=kept_small,
         counts=counts,
-        dropped_specks=specks,
-        duplicate_lines=duplicates,
+        dropped={k: v for k, v in sorted(dropped.items()) if v},
         error=error,
         gate=gate,
     )
@@ -827,11 +982,15 @@ def build_ledger(
     pages: range | list[int] | None = None,
     settings: LedgerSettings | None = None,
     cache: LedgerCache | None = None,
+    drawing_list: str | int | None = "auto",
 ) -> DocumentLedger:
     """PDF の全ページ(または指定ページ)に同じ固定処理を掛けて台帳を作る。
 
     ``cache`` を渡すと、ページごとに鍵を作って使い回す。鍵を作るためにページを
     画像にするので、キャッシュが無いときより 1 ページあたりの前処理は増える。
+
+    ``drawing_list`` は図面リストのページ(0 始まり)。``"auto"`` なら探し、``None`` なら
+    突き合わせない。食い違いはページの ``title_conflicts`` に両方の値で残る。
     """
     settings = settings or LedgerSettings()
     path = Path(pdf_path)
@@ -856,10 +1015,28 @@ def build_ledger(
             built = _replace_cache_fields(_build_page(page, settings, gray), key, False)
             cache.put(key, built)
             out.append(built)
+        list_index = find_drawing_list_page(doc) if drawing_list == "auto" else drawing_list
+        if list_index is not None:
+            entries = read_drawing_list(doc.load_page(int(list_index)))
+            out = [_with_conflicts(p, entries, int(list_index)) for p in out]
     return DocumentLedger(str(path), settings, tuple(out))
 
 
-def _replace_cache_fields(ledger: PageLedger, key: str, from_cache: bool) -> PageLedger:
-    from dataclasses import replace
+def _with_conflicts(
+    page: PageLedger, entries: tuple[DrawingListEntry, ...], list_index: int
+) -> PageLedger:
+    conflicts = cross_check_title(page.title, page.page_index, entries, list_index)
+    gate = gate_page(
+        error=page.error,
+        source=page.source,
+        has_text=page.has_text,
+        title=page.title,
+        counts=page.counts,
+        unprocessed_images=page.unprocessed_images,
+        title_conflicts=conflicts,
+    )
+    return replace(page, title_conflicts=conflicts, gate=gate)
 
+
+def _replace_cache_fields(ledger: PageLedger, key: str, from_cache: bool) -> PageLedger:
     return replace(ledger, cache_key=key, from_cache=from_cache)
