@@ -119,7 +119,7 @@ class QuantityItem:
     # 札は `decisive` が `estimating/decisive.py` の 1 か所で作る。
 
     knowledge_rule_ids: tuple[str, ...] = ()
-    """効いた知識のルール(会社のルール・基準・ガイドライン・波及)。"""
+    """効いた知識のルール(図面に現れない行の決まり・基準・ガイドライン・波及)。"""
 
     agreeing_paths: tuple[str, ...] = ()
     """矛盾なく一致した経路(手法)。**仲裁層の記録から運ぶ。数え直さない。**"""
