@@ -48,8 +48,9 @@ import pymupdf
 
 from axes.image_axis.pdf_tables import find_tables
 
-#: 表題欄はこれより左。事務所名・個人名・登録番号が入るので、**対照表に入れない。**
-TITLE_BLOCK_X = 75.0
+#: 表題欄は**表示の向きで**紙の下端にある。ページの高さのこの割合より下が表題欄。
+#: 事務所名・個人名・登録番号が入るので**対照表にも入れない。**
+TITLE_BLOCK_BOTTOM = 0.88
 
 #: 同じ行とみなす x のずれ(pt)。凡例の文字は 90 度回転して入っているので、
 #: **1 行が「同じ x の縦並び」**になる。
@@ -110,11 +111,22 @@ def _usable_name(text: str) -> bool:
     return len(body) >= 2 and not _NOTE.search(body)
 
 
+def _in_drawing(page: pymupdf.Page, bbox) -> bool:
+    """**表題欄の外か。**表示の向きに直してから紙の下端の帯かどうかを見る。
+
+    K-24 2 番。回転前の x で線を引くと、**回転していないページでは表題欄ではなく
+    図面の左端の帯を捨てる。**この道具は 270 度回転した凡例のページしか読まないので
+    影響は出ていなかったが、**同じ誤りを残さない。**
+    """
+    return (pymupdf.Rect(bbox) * page.rotation_matrix).y0 < page.rect.height * TITLE_BLOCK_BOTTOM
+
+
 def _words(page: pymupdf.Page) -> list[tuple[float, float, float, float, str]]:
+    """**返す座標は回転前のまま**(下流が回転前の x で行をまとめているため)。"""
     return [
         (w[0], w[1], w[2], w[3], w[4])
         for w in page.get_text("words")
-        if w[0] >= TITLE_BLOCK_X and _norm(w[4])
+        if _in_drawing(page, w[:4]) and _norm(w[4])
     ]
 
 
@@ -124,7 +136,7 @@ def _spans(page: pymupdf.Page) -> list[dict[str, Any]]:
     for block in page.get_text("dict")["blocks"]:
         for line in block.get("lines", ()):
             for span in line["spans"]:
-                if span["bbox"][0] < TITLE_BLOCK_X or not _norm(span["text"]):
+                if not _in_drawing(page, span["bbox"]) or not _norm(span["text"]):
                     continue
                 out.append(
                     {
