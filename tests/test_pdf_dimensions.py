@@ -397,3 +397,70 @@ def test_dimension_readings_are_ordered_deterministically(tmp_path: Path) -> Non
     second = [reading.value_mm for reading in read_dimensions(path, 0).readings]
     assert first == second
     assert len(first) == 3
+
+
+def _drawing_frame(page: pymupdf.Page) -> None:
+    """**図面枠**を描く。外枠と、下側の表題欄の罫線だけ。
+
+    これは表ではない。ところが罫線の格子として見ると表に見えるので、
+    **紙の大半を覆う「表」**として拾われる。実図面(P011 匿名化v2)の
+    7・8・33 ページで実際に起きていたことと同じ形である。
+    """
+    shape = page.new_shape()
+    shape.draw_rect(pymupdf.Rect(34, 29, 1141, 816))
+    for y in (760, 780, 800):
+        shape.draw_line(pymupdf.Point(34, y), pymupdf.Point(1141, y))
+    for x in (900, 1000, 1080):
+        shape.draw_line(pymupdf.Point(x, 760), pymupdf.Point(x, 816))
+    shape.finish(color=(0, 0, 0), width=0.5)
+    shape.commit()
+
+
+def test_a_dimension_inside_the_drawing_frame_is_still_read(tmp_path: Path) -> None:
+    """**図面枠の中の寸法を、表の中の数字として捨てない。**
+
+    K-29 で実測したとおり、これを捨てていたせいで P011 匿名化v2 の
+    **34 ページすべてで寸法が 0 件**だった。枠は紙の 86.9% を覆い、
+    升目のほとんどが空である。**本物の表は升目の 3 割以上に文字がある。**
+    """
+    path = tmp_path / "frame.pdf"
+    doc = pymupdf.open()
+    page = _new_page(doc)
+    _drawing_frame(page)
+    width = 3640 * PT_PER_MM_AT_50
+    _h_dimension(page, 200, 200 + width, 150, "3,640")
+    _v_dimension(page, 150, 200, 200 + width, "3,640")
+    doc.save(path)
+    doc.close()
+
+    page_reading = read_dimensions(path, 0)
+
+    assert len(page_reading.readings) == 2
+    assert {reading.printed_text for reading in page_reading.readings} == {"3,640"}
+
+
+def test_a_full_page_table_with_filled_cells_still_hides_its_numbers(tmp_path: Path) -> None:
+    """**本物の表は、紙の大半を覆っていても表のままである。**
+
+    外すのは「紙の大半を覆い、**かつ**升目のほとんどが空」の表だけ。
+    升目に文字が詰まっていれば、どれだけ大きくても表として扱う。
+    """
+    path = tmp_path / "big_table.pdf"
+    doc = pymupdf.open()
+    page = _new_page(doc)
+    rows = tuple(
+        tuple(f"あ{row}{col}" for col in range(6))
+        for row in range(20)
+    )
+    draw_table(
+        page,
+        origin=(40, 40),
+        col_widths=(170.0,) * 6,
+        row_height=37.0,
+        rows=rows,
+    )
+    _h_dimension(page, 200, 200 + 3640 * PT_PER_MM_AT_50, 300, "3,640")
+    doc.save(path)
+    doc.close()
+
+    assert read_dimensions(path, 0).readings == ()
