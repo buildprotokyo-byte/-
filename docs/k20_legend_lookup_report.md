@@ -611,6 +611,7 @@ K-20 の「迷ったら推奨付きで記録して推奨で進める」に従い
 | 記号の塊の上にあるかを測る道具(**採用していない**) | `benchmarks/measure_legend_symbol_position.py` |
 | 色と改装種別の印を並べる道具(**採用していない**) | `benchmarks/measure_symbol_mark_pairing.py` |
 | 記号の語の色をページの群ごとに数える道具 | `benchmarks/measure_legend_code_colors.py`(**対照 C13 を通った**) |
+| 抜き取り検査の見本を選んで図に起こす道具 | `benchmarks/sample_named_matches.py`(**選び方を道具に固定してある**) |
 | テスト(**全部合成データ**) | `tests/test_legend_lookup.py` 25 件 / `tests/test_legend_table_copy.py` 9 件 |
 | 拘束力 `案件の凡例` | `knowledge/table.py` の `BINDINGS`(K-20 2 番) |
 | **対照表の中身** | **共有フォルダのみ**(`knowledge/p011_legend_lookup.json`) |
