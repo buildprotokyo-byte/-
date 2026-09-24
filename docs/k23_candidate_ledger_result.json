@@ -1,0 +1,3697 @@
+{
+ "P011 匿名化v2": {
+  "file": "P011 匿名化v2",
+  "runs": 3,
+  "seconds": [
+   9.2,
+   8.9,
+   9.1
+  ],
+  "pages": [
+   {
+    "page": 1,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 632,
+      "kept": 632,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 3,
+      "kept": 3,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "5991e97dd84ba3beaf241a62394d183d238ffea70c7df7051fcfcc4de711fe0e",
+    "from_cache": false
+   },
+   {
+    "page": 2,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 746,
+      "kept": 746,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 75,
+      "kept": 75,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 2,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "12e206a5b9e548ed838686ac71c05ab92d3c0e0c656a3eb787603206283ce9ae",
+    "from_cache": false
+   },
+   {
+    "page": 3,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 222,
+      "kept": 222,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 2,
+      "kept": 2,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "5778c6f80e36e734d14438416d5a52dbc0f8d295b877fc6412a799523772c6e6",
+    "from_cache": false
+   },
+   {
+    "page": 4,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 220,
+      "kept": 220,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 2,
+      "kept": 2,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "1293c5047fdd43a1d10b0c8d0193996be7219b2924c643d6aa01f1f2cb65354c",
+    "from_cache": false
+   },
+   {
+    "page": 5,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 420,
+      "kept": 420,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 14,
+      "kept": 14,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "ac80d8cec3ee0c577f26b26c452acb5e2646b9def50774551fa5e733e73ef301",
+    "from_cache": false
+   },
+   {
+    "page": 6,
+    "source": "vector",
+    "rotation": 270,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 309,
+      "kept": 309,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 0,
+      "kept": 0,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 955,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 1338,
+    "duplicate_lines": 23,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "3d914f4f668ba66754055c92374ba012193365c6e575a330557148dd91dd574b",
+    "from_cache": false
+   },
+   {
+    "page": 7,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 600,
+      "kept": 600,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 4957,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 7793,
+    "duplicate_lines": 94,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "a22908d10686e180f1ed534703a3ec69cfeec0afe98566070a43dd8b6e0397cf",
+    "from_cache": false
+   },
+   {
+    "page": 8,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 769,
+      "kept": 769,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 39,
+      "kept": 39,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 6654,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 7752,
+    "duplicate_lines": 99,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "d1927d386f28ade6887fdef61aef72614643d19cb116f23485ea76c860c9e7a3",
+    "from_cache": false
+   },
+   {
+    "page": 9,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 542,
+      "kept": 542,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 1,
+      "kept": 1,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1126,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 221,
+    "duplicate_lines": 14,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "5dd309dd2d709d77f2efe28b51ea3d35425c5b55568255a161c962029caed5fb",
+    "from_cache": false
+   },
+   {
+    "page": 10,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 353,
+      "kept": 353,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 7,
+      "kept": 7,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 415,
+      "kept": 415,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 52,
+    "duplicate_lines": 25,
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "60f5ad4bd6997f7634b79eb5ee4c21de9c9e878684a2f5c0efae4c2f46e5cff6",
+    "from_cache": false
+   },
+   {
+    "page": 11,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 489,
+      "kept": 489,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 72,
+      "kept": 72,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 827,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 146,
+    "duplicate_lines": 117,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "026ec3ec6810786e890b9d076bfa73acdf7a04799c45538082e79ecf40dabd71",
+    "from_cache": false
+   },
+   {
+    "page": 12,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 358,
+      "kept": 358,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 1,
+      "kept": 1,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 494,
+      "kept": 494,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 44,
+    "duplicate_lines": 17,
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "5708dd0d94431742d3f785921bbda1f059f74325b68df6b6a4c93512e4abd1d0",
+    "from_cache": false
+   },
+   {
+    "page": 13,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 839,
+      "kept": 839,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 54,
+      "kept": 54,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1051,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 107,
+    "duplicate_lines": 47,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "9de11c4240f0ebc8d9e76bf5d249daf11cd5b3ea7c808f677ea1d43a3727fecb",
+    "from_cache": false
+   },
+   {
+    "page": 14,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 471,
+      "kept": 471,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 42,
+      "kept": 42,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1665,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 222,
+    "duplicate_lines": 121,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "c6a81b7c0b75f2f3c185ef7cd57b484d2437db213cb127eb4a0f715e5a73b4b9",
+    "from_cache": false
+   },
+   {
+    "page": 15,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 453,
+      "kept": 453,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 2,
+      "kept": 2,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1308,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 413,
+    "duplicate_lines": 15,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "ea77afe5dcab71604477acfd5926d74c8d8a3c346e0627b39e8a2f4bf5e87be4",
+    "from_cache": false
+   },
+   {
+    "page": 16,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 503,
+      "kept": 503,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1009,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 12924,
+    "duplicate_lines": 103,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "8143c6becefa49845490d2f29a3772c8effc5a4c2aefc5de814380d2b6013666",
+    "from_cache": false
+   },
+   {
+    "page": 17,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 218,
+      "kept": 218,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 0,
+      "kept": 0,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 401,
+      "kept": 401,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 233,
+    "duplicate_lines": 1,
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "928fc6282ce77d8289d08c59cc2b6ada73fe338bd2c1b08afc88838563348773",
+    "from_cache": false
+   },
+   {
+    "page": 18,
+    "source": "raster",
+    "rotation": 90,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 600,
+      "kept": 600,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 120,
+      "kept": 120,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 436,
+      "kept": 436,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "8fd5e9e39a07b9543f20d480faf1eb34a582fc496511e7da29750b1c2f909bd7",
+    "from_cache": false
+   },
+   {
+    "page": 19,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 383,
+      "kept": 383,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 15,
+      "kept": 15,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 4629,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 1928,
+    "duplicate_lines": 6,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "33fecd9106ac61f674bf509382acaae5c8fef2bb53e5559f18cf87788aeace66",
+    "from_cache": false
+   },
+   {
+    "page": 20,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 297,
+      "kept": 297,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 13,
+      "kept": 13,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 3954,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 484,
+    "duplicate_lines": 3,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "f14a653abccf4f44c1de9b6e68c3cdb413be185854d73438d57baddac24c073e",
+    "from_cache": false
+   },
+   {
+    "page": 21,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 341,
+      "kept": 341,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 13,
+      "kept": 13,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 4306,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 554,
+    "duplicate_lines": 3,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "f559d4c1bc84f4997d02bd046e8b2bf6f69c0383e2f33ffcf6589144f83dfd51",
+    "from_cache": false
+   },
+   {
+    "page": 22,
+    "source": "vector",
+    "rotation": 270,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 341,
+      "kept": 341,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 1,
+      "kept": 1,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1661,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 35625,
+    "duplicate_lines": 43,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "8b6cd7ef84bb6febbd9cb543dbc23f6c6a63cc1a788a2c30a8f0b4b5f0fec13d",
+    "from_cache": false
+   },
+   {
+    "page": 23,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 509,
+      "kept": 509,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 6778,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 9960,
+    "duplicate_lines": 87,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "56bd11ba58950a759705031154ae8fdc8482da921fc6a7daa658b646b55fb35b",
+    "from_cache": false
+   },
+   {
+    "page": 24,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 632,
+      "kept": 632,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 9126,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 9386,
+    "duplicate_lines": 176,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "ee5aca39581effff1b205377e67498fd90e844d4e9afba01e33935eeac063122",
+    "from_cache": false
+   },
+   {
+    "page": 25,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 108,
+      "kept": 108,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 9,
+      "kept": 9,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1,
+      "kept": 1,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "20f0130f31a9bbee42973ab8939fc8d1f922fc38db24b3845da680e1d0c839da",
+    "from_cache": false
+   },
+   {
+    "page": 26,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 116,
+      "kept": 116,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 9,
+      "kept": 9,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "c9be7429243fa541f021705f1b03345740e3dcb81060cc7dcf3d220849936dc0",
+    "from_cache": false
+   },
+   {
+    "page": 27,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 657,
+      "kept": 657,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 53,
+      "kept": 53,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 378,
+      "kept": 378,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 460,
+    "duplicate_lines": 138,
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 20.0,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "15a9954fea283fa47e02dab16cd691dd2c9133a49cb3621b9fce04a84503508c",
+    "from_cache": false
+   },
+   {
+    "page": 28,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 293,
+      "kept": 293,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 29,
+      "kept": 29,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 184,
+      "kept": 184,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 116,
+    "duplicate_lines": 63,
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 20.0,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "fa53c283d4584bbf326554e02a128bd8f3d14c6525affb66c211e0f24e587723",
+    "from_cache": false
+   },
+   {
+    "page": 29,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 389,
+      "kept": 389,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 44,
+      "kept": 44,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 336,
+      "kept": 336,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 226,
+    "duplicate_lines": 84,
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 20.0,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "91ea8d2ca1013732243ccf0260d964910d68eda417e505eb8085c22e635a5087",
+    "from_cache": false
+   },
+   {
+    "page": 30,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 207,
+      "kept": 207,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 23,
+      "kept": 23,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 165,
+      "kept": 165,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 135,
+    "duplicate_lines": 73,
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 20.0,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "94cedc22d53dfcd2593d135f1bef7cf813648853ae8e2afea46d69522854ed92",
+    "from_cache": false
+   },
+   {
+    "page": 31,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 89,
+      "kept": 89,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 20,
+      "kept": 20,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 13,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "ed554603b64ed69ba9b78909490a84a96ab888c0368e260722eddaf282e5566b",
+    "from_cache": false
+   },
+   {
+    "page": 32,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 81,
+      "kept": 81,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 13,
+      "kept": 13,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1,
+      "kept": 1,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "ccbeb56094d8a5b4aee09e743fdabeb4cd0dab1c93cc3478a330b8a1fd904529",
+    "from_cache": false
+   },
+   {
+    "page": 33,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 634,
+      "kept": 634,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 6257,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 6677,
+    "duplicate_lines": 99,
+    "gate": "needs_review",
+    "reasons": [
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "396ad75d560a91f102bbb2e90f6dbc2ad3e0d9dfaf2491ad7ab550d2f548738f",
+    "from_cache": false
+   },
+   {
+    "page": 34,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 119,
+      "kept": 119,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 4,
+      "kept": 4,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 203,
+      "kept": 203,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 20,
+    "duplicate_lines": 21,
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 10.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "3feb1eef97a93239c48c35884643a4bfa940a9715d34786e2828f6ed56ab7c77",
+    "from_cache": false
+   }
+  ],
+  "mismatched_pages": [],
+  "aggregate": {
+   "gate": {
+    "needs_review": 22,
+    "passed": 8,
+    "blocked": 4
+   },
+   "reasons": {
+    "縮尺が取れていない": 14,
+    "表題欄から図面名称も図番も取れていない": 13,
+    "台帳に入っていない画像がある": 9,
+    "上限に当たった(台帳に入っていない候補がある)": 16,
+    "文字が読めない(文字の層が無く、OCRを掛けていない)": 4
+   },
+   "cap_hit_pages": {
+    "lines": [],
+    "regions": [],
+    "small": [
+     6,
+     7,
+     8,
+     9,
+     11,
+     13,
+     14,
+     15,
+     16,
+     19,
+     20,
+     21,
+     22,
+     23,
+     24,
+     33
+    ]
+   },
+   "totals": {
+    "lines": {
+     "found": 13940,
+     "kept": 13940
+    },
+    "regions": {
+     "found": 840,
+     "kept": 840
+    },
+    "small": {
+     "found": 59277,
+     "kept": 12614
+    }
+   },
+   "title_found_pages": {
+    "read": 30,
+    "name": 21,
+    "number": 16,
+    "revision_date": 17,
+    "scale_stated_none": 0,
+    "scale": 20
+   },
+   "distinct_values_across_pages": {
+    "lines": 31,
+    "regions": 22,
+    "small": 27
+   },
+   "sources": {
+    "vector": 33,
+    "raster": 1
+   }
+  },
+  "cache": {
+   "first_run_hits": 0,
+   "second_run_hits": 34,
+   "pages": 34,
+   "second_equals_fresh": true,
+   "changed_setting_hits": 0,
+   "changed_setting_keys_differ": true
+  }
+ },
+ "P011 v1(スキャン)": {
+  "file": "P011 v1(スキャン)",
+  "runs": 3,
+  "seconds": [
+   11.8,
+   12.0,
+   12.0
+  ],
+  "pages": [
+   {
+    "page": 1,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 720,
+      "kept": 720,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 346,
+      "kept": 300,
+      "limit": 300,
+      "cap_hit": true
+     },
+     "small": {
+      "found": 277,
+      "kept": 277,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "23537246848f810f3a188bb5f33a673cf1912b95c7901071b8b0e6e2830bdc76",
+    "from_cache": false
+   },
+   {
+    "page": 2,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1353,
+      "kept": 1353,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 270,
+      "kept": 270,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 401,
+      "kept": 401,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "4d7c7db4ad0335a90fa524cdeb4f6f654c94282b0e48e003da2062f8f8b39d19",
+    "from_cache": false
+   },
+   {
+    "page": 3,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 900,
+      "kept": 900,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 507,
+      "kept": 300,
+      "limit": 300,
+      "cap_hit": true
+     },
+     "small": {
+      "found": 446,
+      "kept": 446,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "7a52c763e272b24693ed071cad6b6f4e8e7504f456dfd20164727f1d8c005f00",
+    "from_cache": false
+   },
+   {
+    "page": 4,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 846,
+      "kept": 846,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 512,
+      "kept": 300,
+      "limit": 300,
+      "cap_hit": true
+     },
+     "small": {
+      "found": 489,
+      "kept": 489,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "14130dfb087112b099ac2090c76d36b9d79052cd296ee1eeca377a6a6362c03d",
+    "from_cache": false
+   },
+   {
+    "page": 5,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1179,
+      "kept": 1179,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 573,
+      "kept": 300,
+      "limit": 300,
+      "cap_hit": true
+     },
+     "small": {
+      "found": 439,
+      "kept": 439,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "64fcf11eca3b6ceabc8e6bd21a94d1262b1b1d025211f58d714c7db7eb4b69e0",
+    "from_cache": false
+   },
+   {
+    "page": 6,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1094,
+      "kept": 1094,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 200,
+      "kept": 200,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 517,
+      "kept": 517,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "f06f0a21ce50cf9617499ea065e39402f305d8d95f7ed3efa83dedb4c6a3e5e8",
+    "from_cache": false
+   },
+   {
+    "page": 7,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1072,
+      "kept": 1072,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 240,
+      "kept": 240,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1150,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "0b04741c027342f566e72bc8851f701e48df7e8108ed34739b3c5c755263f92a",
+    "from_cache": false
+   },
+   {
+    "page": 8,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1524,
+      "kept": 1524,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 290,
+      "kept": 290,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1443,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "e0c2f3bd0b3194d0781430341ba3537c91d7ecf7292ae1c01dcbd17f9ae9a0d0",
+    "from_cache": false
+   },
+   {
+    "page": 9,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 899,
+      "kept": 899,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 112,
+      "kept": 112,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 446,
+      "kept": 446,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "6d872507768a308e1162b2d263c84cd5ec3d63e39ecc9278f0650102b398f2b9",
+    "from_cache": false
+   },
+   {
+    "page": 10,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 406,
+      "kept": 406,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 72,
+      "kept": 72,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 221,
+      "kept": 221,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "c5eb456bf60861fe1428d18a9f93f73ebd5fbb3e836e2c1d2a18980102d0b1a9",
+    "from_cache": false
+   },
+   {
+    "page": 11,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 601,
+      "kept": 601,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 92,
+      "kept": 92,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 395,
+      "kept": 395,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "8be87ef354e62d2d3fcc669bcdc40f782fbfbb8effae07b9ee36ab744ef9193c",
+    "from_cache": false
+   },
+   {
+    "page": 12,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 495,
+      "kept": 495,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 73,
+      "kept": 73,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 306,
+      "kept": 306,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "b7bd23aa79be86f5fbf35f180c19b04725c0142f6b0ca6ea51bedd41e0258110",
+    "from_cache": false
+   },
+   {
+    "page": 13,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 988,
+      "kept": 988,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 247,
+      "kept": 247,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 348,
+      "kept": 348,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "86416dedf9745ceab4349bb88e368d3460581c6859dc36822134e4afd43297c7",
+    "from_cache": false
+   },
+   {
+    "page": 14,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 591,
+      "kept": 591,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 102,
+      "kept": 102,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 936,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "697655b52fe85a8054e2f84154a2678f681460ad2347b41c35ff3ad9190cc43a",
+    "from_cache": false
+   },
+   {
+    "page": 15,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 727,
+      "kept": 727,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 102,
+      "kept": 102,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 936,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "2a1fbc5ce5f8e32a728ba8136d39231c3c85642efb2e653002eabd41d000a60d",
+    "from_cache": false
+   },
+   {
+    "page": 16,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 697,
+      "kept": 697,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 121,
+      "kept": 121,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 374,
+      "kept": 374,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "cdedae2a2f2d84e39476685124418243c8ef080bc4d60e073a802e77d7831c38",
+    "from_cache": false
+   },
+   {
+    "page": 17,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 541,
+      "kept": 541,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 162,
+      "kept": 162,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 223,
+      "kept": 223,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "c02f22772866f298450922faa2108ab0fda19f4f2f4c89c7191e5a492b7a5e54",
+    "from_cache": false
+   },
+   {
+    "page": 18,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 650,
+      "kept": 650,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 105,
+      "kept": 105,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 385,
+      "kept": 385,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "56bb06ce62d4f5dc17648777827222a7b8697dcca958686b33d66b1455bbcf25",
+    "from_cache": false
+   },
+   {
+    "page": 19,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 715,
+      "kept": 715,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 87,
+      "kept": 87,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 675,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "96cf3ddff7396c5c394612cc4175fd4a67f29ff3d76cb9a845ee9066e7c469eb",
+    "from_cache": false
+   },
+   {
+    "page": 20,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 509,
+      "kept": 509,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 99,
+      "kept": 99,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 640,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "45c30acb8edc1f062655cc171bec9adfb31a5353d6c0f8c885a674477d87b43b",
+    "from_cache": false
+   },
+   {
+    "page": 21,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 620,
+      "kept": 620,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 98,
+      "kept": 98,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 717,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "654288403dfd48450bce3265489ebdc33cce83f6e6c1fe246e7a057226234852",
+    "from_cache": false
+   },
+   {
+    "page": 22,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1671,
+      "kept": 1671,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 457,
+      "kept": 300,
+      "limit": 300,
+      "cap_hit": true
+     },
+     "small": {
+      "found": 721,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "8ff687b302a39b7e7e87b88bd9310a077af95af9e8c50c649058367303b3ed33",
+    "from_cache": false
+   },
+   {
+    "page": 23,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1022,
+      "kept": 1022,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 230,
+      "kept": 230,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 935,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "64496b04f3e05dcb21ae69273509938a223bf7b545ecf32b247607e07009b6f2",
+    "from_cache": false
+   },
+   {
+    "page": 24,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1317,
+      "kept": 1317,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 293,
+      "kept": 293,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1183,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "f647947a9d6a12c5b075e2fea1cbdc1769dd2a291de30a46ce70c910e9d70d97",
+    "from_cache": false
+   },
+   {
+    "page": 25,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1312,
+      "kept": 1312,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 101,
+      "kept": 101,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 251,
+      "kept": 251,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "a510a0708fb47967fe3e75e0c86e29bbb0714d26ae0d86536f414e60bb2c183f",
+    "from_cache": false
+   },
+   {
+    "page": 26,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 975,
+      "kept": 975,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 104,
+      "kept": 104,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 194,
+      "kept": 194,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "d4ea4212db0fbb73780ab268117c2599a2a478562ecaedd975f9c8fd8f5c32f5",
+    "from_cache": false
+   },
+   {
+    "page": 27,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1028,
+      "kept": 1028,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 128,
+      "kept": 128,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 579,
+      "kept": 579,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "817da122fc80710d7a3dde2942b78bb5477352acc06f386db3170164e7b7439a",
+    "from_cache": false
+   },
+   {
+    "page": 28,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 477,
+      "kept": 477,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 92,
+      "kept": 92,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 306,
+      "kept": 306,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "2e11056ad726e7e85e682425f7503b94a74c25d445d3b46b8b057a0da7f4158d",
+    "from_cache": false
+   },
+   {
+    "page": 29,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 693,
+      "kept": 693,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 110,
+      "kept": 110,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 517,
+      "kept": 517,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "33ebe48096b6ecefe7a18df93595f57670915a216b587efa2f05bc2627e8c647",
+    "from_cache": false
+   },
+   {
+    "page": 30,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 292,
+      "kept": 292,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 60,
+      "kept": 60,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 211,
+      "kept": 211,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "41d0cd00931dde708ac76996b8dd8d8b7bf2f69200940723ab2a2ac049170d97",
+    "from_cache": false
+   },
+   {
+    "page": 31,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 483,
+      "kept": 483,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 66,
+      "kept": 66,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 458,
+      "kept": 458,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "ef8bb73c609ea8efec471fc3fbbdcf01054fe452fbea2face1b06a2487bf38e5",
+    "from_cache": false
+   },
+   {
+    "page": 32,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 2021,
+      "kept": 1800,
+      "limit": 1800,
+      "cap_hit": true
+     },
+     "regions": {
+      "found": 100,
+      "kept": 100,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 326,
+      "kept": 326,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "e23f77694827a3d351706bf0fce756ecf65062de51db365a67fec70bc8684814",
+    "from_cache": false
+   },
+   {
+    "page": 33,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1384,
+      "kept": 1384,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 402,
+      "kept": 300,
+      "limit": 300,
+      "cap_hit": true
+     },
+     "small": {
+      "found": 1080,
+      "kept": 600,
+      "limit": 600,
+      "cap_hit": true
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "上限に当たった(台帳に入っていない候補がある)"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "cc175eba5eee245f345d8fda4627d50fe08b464a204751b38fbfb20ab51989f0",
+    "from_cache": false
+   },
+   {
+    "page": 34,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 156,
+      "kept": 156,
+      "limit": 1800,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 50,
+      "kept": 50,
+      "limit": 300,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 165,
+      "kept": 165,
+      "limit": 600,
+      "cap_hit": false
+     }
+    },
+    "dropped_specks": 0,
+    "duplicate_lines": 0,
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "f299d5713f4cc21c27a59bf3abe55196534a13940a6788e2b7e6596daa3b98f0",
+    "from_cache": false
+   }
+  ],
+  "mismatched_pages": [],
+  "aggregate": {
+   "gate": {
+    "blocked": 34
+   },
+   "reasons": {
+    "文字が読めない(文字の層が無く、OCRを掛けていない)": 34,
+    "縮尺が取れていない": 34,
+    "表題欄から図面名称も図番も取れていない": 34,
+    "上限に当たった(台帳に入っていない候補がある)": 16
+   },
+   "cap_hit_pages": {
+    "lines": [
+     32
+    ],
+    "regions": [
+     1,
+     3,
+     4,
+     5,
+     22,
+     33
+    ],
+    "small": [
+     7,
+     8,
+     14,
+     15,
+     19,
+     20,
+     21,
+     22,
+     23,
+     24,
+     33
+    ]
+   },
+   "totals": {
+    "lines": {
+     "found": 29958,
+     "kept": 29737
+    },
+    "regions": {
+     "found": 6603,
+     "kept": 5606
+    },
+    "small": {
+     "found": 18690,
+     "kept": 14874
+    }
+   },
+   "title_found_pages": {
+    "read": 0,
+    "name": 0,
+    "number": 0,
+    "revision_date": 0,
+    "scale_stated_none": 0,
+    "scale": 0
+   },
+   "distinct_values_across_pages": {
+    "lines": 34,
+    "regions": 32,
+    "small": 30
+   },
+   "sources": {
+    "raster": 34
+   }
+  },
+  "cache": {
+   "first_run_hits": 0,
+   "second_run_hits": 34,
+   "pages": 34,
+   "second_equals_fresh": true,
+   "changed_setting_hits": 0,
+   "changed_setting_keys_differ": true
+  }
+ },
+ "old_path_v2": [
+  {
+   "page": 1,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 2,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 3,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 4,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 5,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 6,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 7,
+   "scale_read": true,
+   "groups": [
+    244,
+    244,
+    244
+   ]
+  },
+  {
+   "page": 8,
+   "scale_read": true,
+   "groups": [
+    298,
+    298,
+    298
+   ]
+  },
+  {
+   "page": 9,
+   "scale_read": true,
+   "groups": [
+    115,
+    115,
+    115
+   ]
+  },
+  {
+   "page": 10,
+   "scale_read": true,
+   "groups": [
+    73,
+    73,
+    73
+   ]
+  },
+  {
+   "page": 11,
+   "scale_read": true,
+   "groups": [
+    94,
+    94,
+    94
+   ]
+  },
+  {
+   "page": 12,
+   "scale_read": true,
+   "groups": [
+    83,
+    83,
+    83
+   ]
+  },
+  {
+   "page": 13,
+   "scale_read": true,
+   "groups": [
+    106,
+    106,
+    106
+   ]
+  },
+  {
+   "page": 14,
+   "scale_read": true,
+   "groups": [
+    84,
+    84,
+    84
+   ]
+  },
+  {
+   "page": 15,
+   "scale_read": true,
+   "groups": [
+    98,
+    98,
+    98
+   ]
+  },
+  {
+   "page": 16,
+   "scale_read": true,
+   "groups": [
+    125,
+    125,
+    125
+   ]
+  },
+  {
+   "page": 17,
+   "scale_read": true,
+   "groups": [
+    71,
+    71,
+    71
+   ]
+  },
+  {
+   "page": 18,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 19,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 20,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 21,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 22,
+   "scale_read": true,
+   "groups": [
+    108,
+    108,
+    108
+   ]
+  },
+  {
+   "page": 23,
+   "scale_read": true,
+   "groups": [
+    265,
+    265,
+    265
+   ]
+  },
+  {
+   "page": 24,
+   "scale_read": true,
+   "groups": [
+    301,
+    301,
+    301
+   ]
+  },
+  {
+   "page": 25,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 26,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 27,
+   "scale_read": true,
+   "groups": [
+    70,
+    70,
+    70
+   ]
+  },
+  {
+   "page": 28,
+   "scale_read": true,
+   "groups": [
+    21,
+    21,
+    21
+   ]
+  },
+  {
+   "page": 29,
+   "scale_read": true,
+   "groups": [
+    34,
+    34,
+    34
+   ]
+  },
+  {
+   "page": 30,
+   "scale_read": true,
+   "groups": [
+    14,
+    14,
+    14
+   ]
+  },
+  {
+   "page": 31,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 32,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 33,
+   "scale_read": true,
+   "groups": [
+    255,
+    255,
+    255
+   ]
+  },
+  {
+   "page": 34,
+   "scale_read": true,
+   "groups": [
+    29,
+    29,
+    29
+   ]
+  }
+ ],
+ "drawing_list_check_v2": [
+  {
+   "page": 6,
+   "name": true,
+   "name_in_list": false,
+   "name_in_list_loose": false,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 7,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 8,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 9,
+   "name": true,
+   "name_in_list": false,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 10,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 11,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 12,
+   "name": true,
+   "name_in_list": false,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 13,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 14,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 15,
+   "name": true,
+   "name_in_list": false,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 16,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 17,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 22,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": false,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 23,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 24,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 27,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": false,
+   "number_in_list": false,
+   "number_in_list_loose": false
+  },
+  {
+   "page": 28,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": false,
+   "number_in_list": false,
+   "number_in_list_loose": false
+  },
+  {
+   "page": 29,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": false,
+   "number_in_list": false,
+   "number_in_list_loose": false
+  },
+  {
+   "page": 30,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": false,
+   "number_in_list": false,
+   "number_in_list_loose": false
+  },
+  {
+   "page": 33,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": true,
+   "number_in_list": true,
+   "number_in_list_loose": true
+  },
+  {
+   "page": 34,
+   "name": true,
+   "name_in_list": true,
+   "name_in_list_loose": true,
+   "number": false,
+   "number_in_list": false,
+   "number_in_list_loose": false
+  }
+ ]
+}
