@@ -354,7 +354,8 @@ K-27 で「一本通す」まで止めることになったので、実装して
 ## 6. 図面枠を表と見分ける「紙の 60% 以上・文字のある升目 25% 未満」(K-29、2026年9月24日)
 
 **状態: 仮。P011 匿名化v2 の1件だけで決めた。**
-実装は `axes/image_axis/pdf_dimensions.py` の `_looks_like_a_drawing_frame()`
+実装は PR #139(**判断待ち。本線にはまだ入っていない**)の
+`axes/image_axis/pdf_dimensions.py` の `_looks_like_a_drawing_frame()`
 (`FRAME_AREA_RATIO = 0.60`、`FRAME_FILLED_RATIO = 0.25`)。
 
 ### 何を決めたか
