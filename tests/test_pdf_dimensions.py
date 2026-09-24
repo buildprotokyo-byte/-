@@ -436,7 +436,7 @@ def test_a_dimension_inside_the_drawing_frame_is_still_read(tmp_path: Path) -> N
     page_reading = read_dimensions(path, 0)
 
     assert len(page_reading.readings) == 2
-    assert {reading.printed_text for reading in page_reading.readings} == {"3,640"}
+    assert {reading.text for reading in page_reading.readings} == {"3,640"}
 
 
 def test_a_full_page_table_with_filled_cells_still_hides_its_numbers(tmp_path: Path) -> None:
