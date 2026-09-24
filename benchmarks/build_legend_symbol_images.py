@@ -66,6 +66,9 @@ CROP_ZOOM = 8.0
 #: 紙を PNG にするときの拡大率。
 SHEET_ZOOM = 2.0
 
+#: 切り出しに足す余白(pt)。K-22 (a) で足した。線の太さの分だけ外を入れる。
+CROP_MARGIN = 1.0
+
 #: 囮の数(罫線だけの空の升目 / 凡例に無い合成の図形)。
 BLANK_DECOYS, DRAWN_DECOYS = 5, 5
 
@@ -257,15 +260,134 @@ def drawn_decoys(count: int) -> list[tuple[dict[str, Any], pymupdf.Pixmap]]:
     return shapes
 
 
-def _crop(page: pymupdf.Page, rect: tuple[float, float, float, float]) -> pymupdf.Pixmap:
-    """升目を切り出す。
+def page_drawings(page: pymupdf.Page) -> list[pymupdf.Rect]:
+    """そのページの描画命令の外接矩形を、**回転を掛けたあと**の座標で返す。
 
-    ``find_tables`` が返す矩形は**回転を掛けたあと**の座標なので、
-    ``clip`` にそのまま渡す(K-20 で 2 度間違えたところ)。
+    ``page.get_drawings()`` は**回転を掛ける前**の座標を返す。``find_tables`` の
+    升目は**掛けたあと**なので、そろえないと比べられない(K-20 で 2 度間違えた)。
     """
-    return page.get_pixmap(
-        clip=pymupdf.Rect(*rect), matrix=pymupdf.Matrix(CROP_ZOOM, CROP_ZOOM)
+    matrix = page.rotation_matrix
+    return [pymupdf.Rect(drawing["rect"]) * matrix for drawing in page.get_drawings()]
+
+
+def page_words(page: pymupdf.Page) -> list[pymupdf.Rect]:
+    """そのページの**語**の外接矩形を、回転を掛けたあとの座標で返す。
+
+    K-22 (a)。凡例の記号には**線ではなく文字で描かれているもの**がある
+    (S-080 に入り込んでいたのは、となりの行の文字だった)。描画命令だけを見て
+    消すと、文字でできた記号は残ってしまう。
+    """
+    matrix = page.rotation_matrix
+    return [pymupdf.Rect(word[:4]) * matrix for word in page.get_text("words")]
+
+
+def _centre(rect: pymupdf.Rect) -> pymupdf.Point:
+    return pymupdf.Point((rect.x0 + rect.x1) / 2.0, (rect.y0 + rect.y1) / 2.0)
+
+
+def _fits(rect: pymupdf.Rect, cell: pymupdf.Rect, slack: float = 1.5) -> bool:
+    """**その升目の記号と呼べる大きさか。**
+
+    表全体を囲う枠のように、升目よりはるかに大きい命令の中心がたまたま升目に
+    入ることがある。それを「その升目のもの」に入れると、切り出しが表ごと大きくなる。
+    """
+    return rect.width <= cell.width * slack and rect.height <= cell.height * slack
+
+
+def _own_and_foreign(
+    cell: pymupdf.Rect, drawings: Iterable[pymupdf.Rect]
+) -> tuple[pymupdf.Rect, list[pymupdf.Rect]]:
+    """**その升目のもの**と、**よその行のもの**に分ける。
+
+    分ける基準は**外接矩形の中心がその升目の中にあるか**である。中心で分けるので、
+    升目から少しはみ出して描かれた記号は「その升目のもの」に入り(切り落とさない)、
+    となりの行の記号は、この升目に入り込んでいても「よそのもの」に入る(消せる)。
+    """
+    own = pymupdf.Rect()
+    foreign: list[pymupdf.Rect] = []
+    for rect in drawings:
+        if cell.contains(_centre(rect)) and _fits(rect, cell):
+            own |= rect
+        elif rect.intersects(cell):
+            foreign.append(rect)
+    return own, foreign
+
+
+def crop_rect(
+    page: pymupdf.Page,
+    rect: tuple[float, float, float, float],
+    drawings: Iterable[pymupdf.Rect],
+    margin: float = CROP_MARGIN,
+) -> pymupdf.Rect:
+    """切り出す矩形。**升目と、その升目の記号の両方が入る大きさ**にする。
+
+    K-22 (a)。升目の矩形だけで切ると、升目より大きく描かれた記号が欠ける
+    (S-087 は上辺が落ちて、四角ではなく塗りつぶしのくさびに見えていた)。
+    """
+    cell = pymupdf.Rect(*rect)
+    own, _ = _own_and_foreign(cell, drawings)
+    box = cell if own.is_empty else (cell | own)
+    return pymupdf.Rect(box.x0 - margin, box.y0 - margin, box.x1 + margin, box.y1 + margin)
+
+
+def _erasable(rect: pymupdf.Rect, cell: pymupdf.Rect) -> bool:
+    """**消してよい「よそのもの」か。**
+
+    罫線は消さない。枠は読む側の手がかりであり、消すと升目の大きさが分からなくなる。
+    見分け方は**升目より小さいこと**で、表を横断する罫線は升目より長いので残る。
+    """
+    return (
+        0 < rect.width < cell.width
+        and 0 < rect.height < cell.height
+        and rect.get_area() < cell.get_area() * 0.6
     )
+
+
+def crop(
+    page: pymupdf.Page,
+    rect: tuple[float, float, float, float],
+    drawings: Iterable[pymupdf.Rect],
+    margin: float = CROP_MARGIN,
+    zoom: float = CROP_ZOOM,
+    words: Iterable[pymupdf.Rect] | None = None,
+) -> pymupdf.Pixmap:
+    """升目を切り出す。**よその行の記号は白で消す。**
+
+    K-22 (a)。升目の高さが中央値より高い行では、となりの行の記号が入り込む
+    (S-080 で実際に混ざった)。読む側はそれを「1 つの絵」として読んでしまう。
+    """
+    cell = pymupdf.Rect(*rect)
+    drawings = list(drawings)
+    if words is None:
+        words = page_words(page)
+    box = crop_rect(page, rect, drawings, margin)
+    # **よそのものは「升目に掛かるもの」ではなく「切り出しに掛かるもの」で拾う。**
+    # 余白を足したぶん、升目には掛からないがこの絵には写るものが出る。
+    # 丸は何本もの曲線に分かれているので、升目で拾うと一部しか消えない(実際そうなった)。
+    foreign = [
+        other
+        for other in list(drawings) + list(words)
+        if other.intersects(box) and not (cell.contains(_centre(other)) and _fits(other, cell))
+    ]
+    pixmap = page.get_pixmap(clip=box, matrix=pymupdf.Matrix(zoom, zoom))
+    for other in foreign:
+        if not _erasable(other, cell):
+            continue
+        hit = pymupdf.Rect(other) & box
+        if hit.is_empty:
+            continue
+        # ``set_rect`` は**絵の中の座標ではなく紙の上の座標**で受け取る
+        # (``pixmap.x`` / ``pixmap.y`` が原点)。ここを忘れると 1 画素も消えない。
+        pixmap.set_rect(
+            pymupdf.IRect(
+                pixmap.x + max(int((hit.x0 - box.x0) * zoom) - 1, 0),
+                pixmap.y + max(int((hit.y0 - box.y0) * zoom) - 1, 0),
+                pixmap.x + min(int((hit.x1 - box.x0) * zoom) + 2, pixmap.width),
+                pixmap.y + min(int((hit.y1 - box.y0) * zoom) + 2, pixmap.height),
+            ),
+            (255, 255, 255),
+        )
+    return pixmap
 
 
 def build_sheets(
@@ -329,7 +451,9 @@ def main(argv: list[str] | None = None) -> int:
 
     with pymupdf.open(args.pdf) as doc:
         page = doc[args.page - 1]
-        pixmaps = [_crop(page, entry["rect"]) for entry in entries]
+        drawings = page_drawings(page)
+        words = page_words(page)
+        pixmaps = [crop(page, entry["rect"], drawings, words=words) for entry in entries]
     for entry, pixmap in drawn_decoys(DRAWN_DECOYS):
         entries.append(entry)
         pixmaps.append(pixmap)
