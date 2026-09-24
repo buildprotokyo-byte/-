@@ -1,0 +1,3745 @@
+{
+ "P011 匿名化v2": {
+  "file": "P011 匿名化v2",
+  "runs": 3,
+  "seconds": [
+   9.8,
+   9.9,
+   9.9
+  ],
+  "json_bytes": [
+   5046095,
+   5046095,
+   5046095
+  ],
+  "legacy_caps": {
+   "seconds": 9.2,
+   "json_bytes": 1921250,
+   "cap_hit_pages": 16
+  },
+  "pages": [
+   {
+    "page": 1,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 632,
+      "kept": 632,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 3,
+      "kept": 3,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 632
+    },
+    "title_conflicts": [],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "5f12d1314506ee497b4357c7794338e554a7a955de8c6247baeae99d812e0574",
+    "from_cache": false
+   },
+   {
+    "page": 2,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 746,
+      "kept": 746,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 75,
+      "kept": 75,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "座標まで同じ線の重複": 2,
+     "短すぎる線": 464,
+     "面積が小さすぎる閉領域": 4
+    },
+    "title_conflicts": [],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "33dab36fe6e07c304b0bcd4a076a0839b69af038d6c189a660e9a6bf8f2abf9a",
+    "from_cache": false
+   },
+   {
+    "page": 3,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 222,
+      "kept": 222,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 2,
+      "kept": 2,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 222
+    },
+    "title_conflicts": [],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "15d17e91d8ea5e3d00697bd635a3b2b78662b6ba0f9511ea976c93eae478533b",
+    "from_cache": false
+   },
+   {
+    "page": 4,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 220,
+      "kept": 220,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 2,
+      "kept": 2,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 220
+    },
+    "title_conflicts": [],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "75315b1edba4d568f88253d74c7af99b835fff18193856609321e26cb7bf1b18",
+    "from_cache": false
+   },
+   {
+    "page": 5,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 420,
+      "kept": 420,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 14,
+      "kept": 14,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 420
+    },
+    "title_conflicts": [],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "0a89ed7cb833b9b5e79557f406f6e16e2e1e3849fa120fa2868ce9341d97c934",
+    "from_cache": false
+   },
+   {
+    "page": 6,
+    "source": "vector",
+    "rotation": 270,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 309,
+      "kept": 309,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 0,
+      "kept": 0,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 955,
+      "kept": 955,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 1338,
+     "座標まで同じ線の重複": 23,
+     "短すぎる線": 2
+    },
+    "title_conflicts": [
+     "名称の語が違う"
+    ],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄と図面リストが食い違う(どちらが正しいかは決めていない)"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "6d9d636bfee4e6d1e98391d08a68923197a9d3f9dcbc6ce9dac9231887a68bfe",
+    "from_cache": false
+   },
+   {
+    "page": 7,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 600,
+      "kept": 600,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 4957,
+      "kept": 4957,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 7793,
+     "座標まで同じ線の重複": 94,
+     "短すぎる線": 8
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "6a4fbfbf936d45ba36d7ff2d37359473f296eea6a675a58688244ee0b6874bb7",
+    "from_cache": false
+   },
+   {
+    "page": 8,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 769,
+      "kept": 769,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 39,
+      "kept": 39,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 6654,
+      "kept": 6654,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 7752,
+     "座標まで同じ線の重複": 99,
+     "短すぎる線": 27,
+     "面積が小さすぎる閉領域": 4
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "1348a7a764e147a0e3a6c10f3506dd0895057cf52c5f00468684eb5e7346c0f4",
+    "from_cache": false
+   },
+   {
+    "page": 9,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 542,
+      "kept": 542,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 1,
+      "kept": 1,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1126,
+      "kept": 1126,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 221,
+     "座標まで同じ線の重複": 14
+    },
+    "title_conflicts": [
+     "名称の表記だけが違う"
+    ],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "30bfedcc5c072940d27fb2b6a7fbf69dee10637749bd48a77a0bb4b39ea4f828",
+    "from_cache": false
+   },
+   {
+    "page": 10,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 353,
+      "kept": 353,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 7,
+      "kept": 7,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 415,
+      "kept": 415,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 52,
+     "座標まで同じ線の重複": 25,
+     "短すぎる線": 3,
+     "面積が小さすぎる閉領域": 1
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "579831eec77ae8a52e0d57971a0aec7ec6c3a578c52b99d091f6de6672ebd462",
+    "from_cache": false
+   },
+   {
+    "page": 11,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 489,
+      "kept": 489,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 72,
+      "kept": 72,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 827,
+      "kept": 827,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 146,
+     "座標まで同じ線の重複": 117,
+     "短すぎる線": 51,
+     "面積が小さすぎる閉領域": 2
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "9930de1178031b73096a265c00c8c2eca32b19c8d2b099cb5af34d75cca7fd56",
+    "from_cache": false
+   },
+   {
+    "page": 12,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 358,
+      "kept": 358,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 1,
+      "kept": 1,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 494,
+      "kept": 494,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 44,
+     "座標まで同じ線の重複": 17
+    },
+    "title_conflicts": [
+     "名称の表記だけが違う"
+    ],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "a589f1ef164a00a7043f82b58f9d59b9ec67607788b246fcc7b902b6a3fab4e7",
+    "from_cache": false
+   },
+   {
+    "page": 13,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 839,
+      "kept": 839,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 54,
+      "kept": 54,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1051,
+      "kept": 1051,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 107,
+     "座標まで同じ線の重複": 47,
+     "短すぎる線": 1
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "67aecf4dfb3183c8e429bacd04bd1fcff2b7bf3361a4f96370efac07350d63ec",
+    "from_cache": false
+   },
+   {
+    "page": 14,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 471,
+      "kept": 471,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 42,
+      "kept": 42,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1665,
+      "kept": 1665,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 222,
+     "座標まで同じ線の重複": 121,
+     "短すぎる線": 13,
+     "面積が小さすぎる閉領域": 2
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "925387ca6f14b5ac3eb686fdf61c4c810d390601c9c010904ff5395f0faece8c",
+    "from_cache": false
+   },
+   {
+    "page": 15,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 453,
+      "kept": 453,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 2,
+      "kept": 2,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1308,
+      "kept": 1308,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 413,
+     "座標まで同じ線の重複": 15
+    },
+    "title_conflicts": [
+     "名称の表記だけが違う"
+    ],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "b1e1ef9b01b2f8a52781378d5c0fb40e6a4c293ea4828acc9a9efe77f8466a1f",
+    "from_cache": false
+   },
+   {
+    "page": 16,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 503,
+      "kept": 503,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1009,
+      "kept": 1009,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 12924,
+     "座標まで同じ線の重複": 103,
+     "短すぎる線": 24,
+     "面積が小さすぎる閉領域": 8
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 30.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "7a03e939d8ed9c598fb38d517aef09e59261b97c8f816c14d092e369c5e2e605",
+    "from_cache": false
+   },
+   {
+    "page": 17,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 218,
+      "kept": 218,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 0,
+      "kept": 0,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 401,
+      "kept": 401,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 233,
+     "座標まで同じ線の重複": 1
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "67a56a14ee914634c2a507df68af4d3c685ac1186fbc1fb8564e886af79120ed",
+    "from_cache": false
+   },
+   {
+    "page": 18,
+    "source": "raster",
+    "rotation": 90,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 600,
+      "kept": 600,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 120,
+      "kept": 120,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 436,
+      "kept": 436,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 152,
+     "線の塊の外形(線として持っている)": 35,
+     "面積が小さすぎる閉領域": 774
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "d15af5e81bc98c6f593a77c83bd67b4881b7e8e3221db05db5f0d5d02d42fafd",
+    "from_cache": false
+   },
+   {
+    "page": 19,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 383,
+      "kept": 383,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 15,
+      "kept": 15,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 4629,
+      "kept": 4629,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 1928,
+     "座標まで同じ線の重複": 6,
+     "短すぎる線": 91
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "1a66aafb791ca79cc393442887a904e35cec619bb2fac2c4f9cb8d76e1939f5c",
+    "from_cache": false
+   },
+   {
+    "page": 20,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 297,
+      "kept": 297,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 13,
+      "kept": 13,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 3954,
+      "kept": 3954,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 484,
+     "座標まで同じ線の重複": 3,
+     "短すぎる線": 35
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "203e16cd291c7e1349d1e00011db075b6dee5fae3744619be964a79c68aa58e2",
+    "from_cache": false
+   },
+   {
+    "page": 21,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 341,
+      "kept": 341,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 13,
+      "kept": 13,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 4306,
+      "kept": 4306,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 554,
+     "座標まで同じ線の重複": 3,
+     "短すぎる線": 83
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "9d5a7f6853bc9bf67e01477e5cb7c86ba297d0b3b0ff655372fff875870e4f16",
+    "from_cache": false
+   },
+   {
+    "page": 22,
+    "source": "vector",
+    "rotation": 270,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 341,
+      "kept": 341,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 1,
+      "kept": 1,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1661,
+      "kept": 1661,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 35625,
+     "座標まで同じ線の重複": 43
+    },
+    "title_conflicts": [
+     "図番の表記だけが違う"
+    ],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "0bdd5b33a2d221b5b1b8e5e094e0f777baa704833e849ecb94178a08d3e8132b",
+    "from_cache": false
+   },
+   {
+    "page": 23,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 509,
+      "kept": 509,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 6778,
+      "kept": 6778,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 9960,
+     "座標まで同じ線の重複": 87,
+     "短すぎる線": 8
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "51ddc7cb99c60778c70abafddda0daf5f005c1a00c0ab2febcd02c74fa65ae6c",
+    "from_cache": false
+   },
+   {
+    "page": 24,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 632,
+      "kept": 632,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 9126,
+      "kept": 9126,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 9386,
+     "座標まで同じ線の重複": 176,
+     "短すぎる線": 5
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "21d4093c39b9c3dc44e6d0829e964a3bbd775a956465a4e612c912c5a6330bbe",
+    "from_cache": false
+   },
+   {
+    "page": 25,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 108,
+      "kept": 108,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 9,
+      "kept": 9,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1,
+      "kept": 1,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 152
+    },
+    "title_conflicts": [],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "06cae0ec3f524a55a9b4f563d554856e1120a5d91ceb50c2ac1c9377fac9543f",
+    "from_cache": false
+   },
+   {
+    "page": 26,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 116,
+      "kept": 116,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 9,
+      "kept": 9,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 160
+    },
+    "title_conflicts": [],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "ae36482b17457a43362c76ba91446c8929e31da84d5aef8a4e4e54646e89c4ba",
+    "from_cache": false
+   },
+   {
+    "page": 27,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 657,
+      "kept": 657,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 53,
+      "kept": 53,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 378,
+      "kept": 378,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 460,
+     "座標まで同じ線の重複": 138,
+     "短すぎる線": 16726,
+     "面積が小さすぎる閉領域": 10
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 20.0,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "f0248b2fa342179f574b316811a6c97e4a03de21e6c83ac778786b0be3d920c3",
+    "from_cache": false
+   },
+   {
+    "page": 28,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 293,
+      "kept": 293,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 29,
+      "kept": 29,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 184,
+      "kept": 184,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 116,
+     "座標まで同じ線の重複": 63,
+     "短すぎる線": 8841
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 20.0,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "9281d5bc60840838a88ee25987d6558edff5fc0a252774104e58aef2c762a791",
+    "from_cache": false
+   },
+   {
+    "page": 29,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 389,
+      "kept": 389,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 44,
+      "kept": 44,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 336,
+      "kept": 336,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 226,
+     "座標まで同じ線の重複": 84,
+     "短すぎる線": 8993,
+     "面積が小さすぎる閉領域": 5
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 20.0,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "2af6ea3449320ee1c1d71b08adfc950a773184b0b63e56486916d4e069f0efc1",
+    "from_cache": false
+   },
+   {
+    "page": 30,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 207,
+      "kept": 207,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 23,
+      "kept": 23,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 165,
+      "kept": 165,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 135,
+     "座標まで同じ線の重複": 73,
+     "短すぎる線": 5355
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 20.0,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "77d3439df06170a130abb4a8874ce509ae78f0bae0005d597abc9bc1c115e829",
+    "from_cache": false
+   },
+   {
+    "page": 31,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 89,
+      "kept": 89,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 20,
+      "kept": 20,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 0,
+      "kept": 0,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "座標まで同じ線の重複": 13,
+     "短すぎる線": 2
+    },
+    "title_conflicts": [],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "6ff836d1d0cd32e2fa1c888488dc1dd837d778ac8a81cd38b84853e71872c50f",
+    "from_cache": false
+   },
+   {
+    "page": 32,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 81,
+      "kept": 81,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 13,
+      "kept": 13,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1,
+      "kept": 1,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 56,
+     "面積が小さすぎる閉領域": 1
+    },
+    "title_conflicts": [],
+    "gate": "needs_review",
+    "reasons": [
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない",
+     "台帳に入っていない画像がある"
+    ],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "77d05f1eefa315226bd45c9db74678091abd747af9d674242fb4ce78d04c0c87",
+    "from_cache": false
+   },
+   {
+    "page": 33,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 634,
+      "kept": 634,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 32,
+      "kept": 32,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 6257,
+      "kept": 6257,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 6677,
+     "座標まで同じ線の重複": 99,
+     "短すぎる線": 8
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": true,
+     "scale_denominator": 50.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "5922ddefad220a5b9af775d906c03dfe2971039a7cb837deace6a6e08aed755e",
+    "from_cache": false
+   },
+   {
+    "page": 34,
+    "source": "vector",
+    "rotation": 0,
+    "has_text": true,
+    "counts": {
+     "lines": {
+      "found": 119,
+      "kept": 119,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 4,
+      "kept": 4,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 203,
+      "kept": 203,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "小さすぎる(点の汚れ)": 20,
+     "座標まで同じ線の重複": 21
+    },
+    "title_conflicts": [],
+    "gate": "passed",
+    "reasons": [],
+    "error": false,
+    "title": {
+     "read": true,
+     "name": true,
+     "number": false,
+     "scale_denominator": 10.0,
+     "scale_stated_none": false,
+     "revision_date": true
+    },
+    "digest": "c54a15bfb2b231d3403323a2a103f7b89508196a63924b0258084f59040cfb34",
+    "from_cache": false
+   }
+  ],
+  "mismatched_pages": [],
+  "aggregate": {
+   "dropped": {
+    "短すぎる線": 42754,
+    "座標まで同じ線の重複": 1487,
+    "面積が小さすぎる閉領域": 811,
+    "小さすぎる(点の汚れ)": 96816,
+    "線の塊の外形(線として持っている)": 35
+   },
+   "title_conflicts": {
+    "名称の語が違う": 1,
+    "名称の表記だけが違う": 3,
+    "図番の表記だけが違う": 1
+   },
+   "title_conflict_pages": {
+    "名称の語が違う": [
+     6
+    ],
+    "名称の表記だけが違う": [
+     9,
+     12,
+     15
+    ],
+    "図番の表記だけが違う": [
+     22
+    ]
+   },
+   "gate": {
+    "needs_review": 10,
+    "passed": 20,
+    "blocked": 4
+   },
+   "reasons": {
+    "縮尺が取れていない": 14,
+    "表題欄から図面名称も図番も取れていない": 13,
+    "台帳に入っていない画像がある": 9,
+    "表題欄と図面リストが食い違う(どちらが正しいかは決めていない)": 1,
+    "文字が読めない(文字の層が無く、OCRを掛けていない)": 4
+   },
+   "cap_hit_pages": {
+    "lines": [],
+    "regions": [],
+    "small": []
+   },
+   "totals": {
+    "lines": {
+     "found": 13940,
+     "kept": 13940
+    },
+    "regions": {
+     "found": 840,
+     "kept": 840
+    },
+    "small": {
+     "found": 59277,
+     "kept": 59277
+    }
+   },
+   "title_found_pages": {
+    "read": 30,
+    "name": 21,
+    "number": 16,
+    "revision_date": 17,
+    "scale_stated_none": 0,
+    "scale": 20
+   },
+   "distinct_values_across_pages": {
+    "lines": 31,
+    "regions": 22,
+    "small": 27
+   },
+   "sources": {
+    "vector": 33,
+    "raster": 1
+   }
+  },
+  "cache": {
+   "first_run_hits": 0,
+   "second_run_hits": 34,
+   "pages": 34,
+   "second_equals_fresh": true,
+   "changed_setting_hits": 0,
+   "changed_setting_keys_differ": true
+  }
+ },
+ "P011 v1(スキャン)": {
+  "file": "P011 v1(スキャン)",
+  "runs": 3,
+  "seconds": [
+   11.8,
+   12.2,
+   11.9
+  ],
+  "json_bytes": [
+   3854045,
+   3854045,
+   3854045
+  ],
+  "legacy_caps": {
+   "seconds": 12.0,
+   "json_bytes": 3515314,
+   "cap_hit_pages": 16
+  },
+  "pages": [
+   {
+    "page": 1,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 720,
+      "kept": 720,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 346,
+      "kept": 346,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 277,
+      "kept": 277,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 376,
+     "線の塊の外形(線として持っている)": 30,
+     "面積が小さすぎる閉領域": 563
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "ab945e56e1e3032e5da7fd547b78f3a88bc9978b0429245826836d3309c6fd83",
+    "from_cache": false
+   },
+   {
+    "page": 2,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1353,
+      "kept": 1353,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 270,
+      "kept": 270,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 401,
+      "kept": 401,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 942,
+     "線の塊の外形(線として持っている)": 109,
+     "面積が小さすぎる閉領域": 1289
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "4f4c724badf36c376601456e44bceba9d6c6d7be823be281989b837ac54c9f36",
+    "from_cache": false
+   },
+   {
+    "page": 3,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 900,
+      "kept": 900,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 507,
+      "kept": 507,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 446,
+      "kept": 446,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 709,
+     "線の塊の外形(線として持っている)": 29,
+     "面積が小さすぎる閉領域": 1086
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "0f3f4b57bb73545918bf881a2afdf772c4f5c6d8a3d048d0a0a3b00c4dc7cefb",
+    "from_cache": false
+   },
+   {
+    "page": 4,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 846,
+      "kept": 846,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 512,
+      "kept": 512,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 489,
+      "kept": 489,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 687,
+     "線の塊の外形(線として持っている)": 27,
+     "面積が小さすぎる閉領域": 1102
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "4e39c6b68d26da026b3a31c6e975dd574f8cdc60094e33bf5527fdd6db924a9c",
+    "from_cache": false
+   },
+   {
+    "page": 5,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1179,
+      "kept": 1179,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 573,
+      "kept": 573,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 439,
+      "kept": 439,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 673,
+     "線の塊の外形(線として持っている)": 54,
+     "面積が小さすぎる閉領域": 825
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "3228fc3a4932cebccac7f45f16422b2fcdb17a295519486a7837a5713af8960b",
+    "from_cache": false
+   },
+   {
+    "page": 6,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1094,
+      "kept": 1094,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 200,
+      "kept": 200,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 517,
+      "kept": 517,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 797,
+     "線の塊の外形(線として持っている)": 120,
+     "面積が小さすぎる閉領域": 1864
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "42378b84f8cc4766552cb217d2a917738e29a73c575f35895b526a76730bdaa2",
+    "from_cache": false
+   },
+   {
+    "page": 7,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1072,
+      "kept": 1072,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 240,
+      "kept": 240,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1150,
+      "kept": 1150,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 412,
+     "線の塊の外形(線として持っている)": 74,
+     "面積が小さすぎる閉領域": 1455
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "f08bfdd13153ed8e59749bfe80f14fafb487d5cbc17f22662aa6fd90f4abe24d",
+    "from_cache": false
+   },
+   {
+    "page": 8,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1524,
+      "kept": 1524,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 290,
+      "kept": 290,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1443,
+      "kept": 1443,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 767,
+     "線の塊の外形(線として持っている)": 77,
+     "面積が小さすぎる閉領域": 3604
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "392c8149f44479e06fc444e232538b0ca99a84b4a2bb5417ef51158fc05b80c8",
+    "from_cache": false
+   },
+   {
+    "page": 9,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 899,
+      "kept": 899,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 112,
+      "kept": 112,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 446,
+      "kept": 446,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 266,
+     "線の塊の外形(線として持っている)": 118,
+     "面積が小さすぎる閉領域": 788
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "5e862337ac2ec56df6ee9bed98375b91cc65229cbb8f413ac4f1d3cbfa325da7",
+    "from_cache": false
+   },
+   {
+    "page": 10,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 406,
+      "kept": 406,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 72,
+      "kept": 72,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 221,
+      "kept": 221,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 92,
+     "線の塊の外形(線として持っている)": 91,
+     "面積が小さすぎる閉領域": 340
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "ed22027e04feb548e7044c28ceef551957905724c1b96c943d3daae46b8c60b6",
+    "from_cache": false
+   },
+   {
+    "page": 11,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 601,
+      "kept": 601,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 92,
+      "kept": 92,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 395,
+      "kept": 395,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 207,
+     "線の塊の外形(線として持っている)": 112,
+     "面積が小さすぎる閉領域": 592
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "f1206556dd294d70cf12d1e8eb403b395b23fff23e537a91d61d3b11f2bcbb28",
+    "from_cache": false
+   },
+   {
+    "page": 12,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 495,
+      "kept": 495,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 73,
+      "kept": 73,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 306,
+      "kept": 306,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 183,
+     "線の塊の外形(線として持っている)": 95,
+     "面積が小さすぎる閉領域": 514
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "45e72b373460e17a89cd94779c77945980fdec86aa740615838eaf60205213d6",
+    "from_cache": false
+   },
+   {
+    "page": 13,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 988,
+      "kept": 988,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 247,
+      "kept": 247,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 348,
+      "kept": 348,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 378,
+     "線の塊の外形(線として持っている)": 61,
+     "面積が小さすぎる閉領域": 1217
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "d2b6a5a50448ecac291c44eb3aebe819422ce19f2383af7ae4a2f912e54f57c8",
+    "from_cache": false
+   },
+   {
+    "page": 14,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 591,
+      "kept": 591,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 102,
+      "kept": 102,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 936,
+      "kept": 936,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 180,
+     "線の塊の外形(線として持っている)": 74,
+     "面積が小さすぎる閉領域": 593
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "d50028e7b5542e0a2f3671157d656e1b1795a96d8d3dfa536c7d5ed62ef2dc26",
+    "from_cache": false
+   },
+   {
+    "page": 15,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 727,
+      "kept": 727,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 102,
+      "kept": 102,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 936,
+      "kept": 936,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 318,
+     "線の塊の外形(線として持っている)": 91,
+     "面積が小さすぎる閉領域": 724
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "8dae967288f0462ee1be13663de7e98acd9793af2d13cb1a99c0217cd6a1dc43",
+    "from_cache": false
+   },
+   {
+    "page": 16,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 697,
+      "kept": 697,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 121,
+      "kept": 121,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 374,
+      "kept": 374,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 271,
+     "線の塊の外形(線として持っている)": 118,
+     "面積が小さすぎる閉領域": 629
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "8cfac584ac9d1ca60a5b2ccf2e983fcb32fa72b5a4dc9163606cc01e58f51c7b",
+    "from_cache": false
+   },
+   {
+    "page": 17,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 541,
+      "kept": 541,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 162,
+      "kept": 162,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 223,
+      "kept": 223,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 385,
+     "線の塊の外形(線として持っている)": 49,
+     "面積が小さすぎる閉領域": 843
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "8701fcabbc407d626870492b624321391e010e20bceeb5f29b04825e13f1ada2",
+    "from_cache": false
+   },
+   {
+    "page": 18,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 650,
+      "kept": 650,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 105,
+      "kept": 105,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 385,
+      "kept": 385,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 182,
+     "線の塊の外形(線として持っている)": 44,
+     "面積が小さすぎる閉領域": 818
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "2f63a90465e8b0c57dd8164fab20955e58322b0ccb054e4e790f36ba94a56e13",
+    "from_cache": false
+   },
+   {
+    "page": 19,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 715,
+      "kept": 715,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 87,
+      "kept": 87,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 675,
+      "kept": 675,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 205,
+     "線の塊の外形(線として持っている)": 39,
+     "面積が小さすぎる閉領域": 965
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "fc2bc05f8886ff3247ea716b79f3e9eb462961796cad2a7e77b70c94a6e5ec6a",
+    "from_cache": false
+   },
+   {
+    "page": 20,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 509,
+      "kept": 509,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 99,
+      "kept": 99,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 640,
+      "kept": 640,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 133,
+     "線の塊の外形(線として持っている)": 28,
+     "面積が小さすぎる閉領域": 965
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "de23996dc06d573fc354ca787aca7da72577591ad83e423753afcb6acd667b15",
+    "from_cache": false
+   },
+   {
+    "page": 21,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 620,
+      "kept": 620,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 98,
+      "kept": 98,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 717,
+      "kept": 717,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 165,
+     "線の塊の外形(線として持っている)": 34,
+     "面積が小さすぎる閉領域": 932
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "5d003d35b20109cc08597beff89f8b4d2e4951922456630f9ec679cecd6cade3",
+    "from_cache": false
+   },
+   {
+    "page": 22,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1671,
+      "kept": 1671,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 457,
+      "kept": 457,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 721,
+      "kept": 721,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 1181,
+     "線の塊の外形(線として持っている)": 91,
+     "面積が小さすぎる閉領域": 2505
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "d4ee833735bd14718579ae914b6a2f76b302a35ea57a735106342b8ec65fc000",
+    "from_cache": false
+   },
+   {
+    "page": 23,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1022,
+      "kept": 1022,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 230,
+      "kept": 230,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 935,
+      "kept": 935,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 472,
+     "線の塊の外形(線として持っている)": 39,
+     "面積が小さすぎる閉領域": 2065
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "cc4e571f601d04adae63f7452cdd4febe250353cc78ac774f90a1b118aeb9e69",
+    "from_cache": false
+   },
+   {
+    "page": 24,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1317,
+      "kept": 1317,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 293,
+      "kept": 293,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1183,
+      "kept": 1183,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 839,
+     "線の塊の外形(線として持っている)": 57,
+     "面積が小さすぎる閉領域": 3488
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "b231d4bab8bd78c504ed0b9188e635efa85d0922f8cf8e59f54d56c3efd2c7f9",
+    "from_cache": false
+   },
+   {
+    "page": 25,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1312,
+      "kept": 1312,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 101,
+      "kept": 101,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 251,
+      "kept": 251,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 1208,
+     "線の塊の外形(線として持っている)": 139,
+     "面積が小さすぎる閉領域": 3070
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "bd1e587eb26a7372675605064fb19b54a5dda12f716e4994d99e07b20e8f905f",
+    "from_cache": false
+   },
+   {
+    "page": 26,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 975,
+      "kept": 975,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 104,
+      "kept": 104,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 194,
+      "kept": 194,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 640,
+     "線の塊の外形(線として持っている)": 114,
+     "面積が小さすぎる閉領域": 2379
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "d74037aa31c054154c4643c754d7a57fb72bd30564c98687652c521d06508d7e",
+    "from_cache": false
+   },
+   {
+    "page": 27,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1028,
+      "kept": 1028,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 128,
+      "kept": 128,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 579,
+      "kept": 579,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 871,
+     "線の塊の外形(線として持っている)": 65,
+     "面積が小さすぎる閉領域": 2628
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "3e07abf02b3324aeb8b4d4dc642a70b4f87766ed776e67ee8228c39baa9ac20b",
+    "from_cache": false
+   },
+   {
+    "page": 28,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 477,
+      "kept": 477,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 92,
+      "kept": 92,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 306,
+      "kept": 306,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 383,
+     "線の塊の外形(線として持っている)": 32,
+     "面積が小さすぎる閉領域": 852
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "2616beb349e84b6748a7cea2e3f9acc02af9f71921b09f206116e8d1194b396e",
+    "from_cache": false
+   },
+   {
+    "page": 29,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 693,
+      "kept": 693,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 110,
+      "kept": 110,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 517,
+      "kept": 517,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 402,
+     "線の塊の外形(線として持っている)": 48,
+     "面積が小さすぎる閉領域": 1415
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "e80c9a3727352aaaea8f5492e86fa2d47af7b9f4579586165d9f949576fdb1c6",
+    "from_cache": false
+   },
+   {
+    "page": 30,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 292,
+      "kept": 292,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 60,
+      "kept": 60,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 211,
+      "kept": 211,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 227,
+     "線の塊の外形(線として持っている)": 19,
+     "面積が小さすぎる閉領域": 606
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "7082ec381c5a0613e724f3f5349e7bf734824aa75093772eefb55049cb2b74f5",
+    "from_cache": false
+   },
+   {
+    "page": 31,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 483,
+      "kept": 483,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 66,
+      "kept": 66,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 458,
+      "kept": 458,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 448,
+     "線の塊の外形(線として持っている)": 88,
+     "面積が小さすぎる閉領域": 1796
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "c0bf725c52522612fadd926120b03b185c083ff8535e18fddae5834a11ac2626",
+    "from_cache": false
+   },
+   {
+    "page": 32,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 2021,
+      "kept": 2021,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 100,
+      "kept": 100,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 326,
+      "kept": 326,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 1313,
+     "線の塊の外形(線として持っている)": 55,
+     "面積が小さすぎる閉領域": 8294
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "a3763c547ee82f67d544d7087c56406621e85cd85d75435cbd2587545edb011e",
+    "from_cache": false
+   },
+   {
+    "page": 33,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 1384,
+      "kept": 1384,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 402,
+      "kept": 402,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 1080,
+      "kept": 1080,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 740,
+     "線の塊の外形(線として持っている)": 79,
+     "面積が小さすぎる閉領域": 2891
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "9975abb05ddd4d5f3bf6650e59d5e6b47782b67b1447c4ed063e85bb12efb91e",
+    "from_cache": false
+   },
+   {
+    "page": 34,
+    "source": "raster",
+    "rotation": 0,
+    "has_text": false,
+    "counts": {
+     "lines": {
+      "found": 156,
+      "kept": 156,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "regions": {
+      "found": 50,
+      "kept": 50,
+      "limit": 10000,
+      "cap_hit": false
+     },
+     "small": {
+      "found": 165,
+      "kept": 165,
+      "limit": 10000,
+      "cap_hit": false
+     }
+    },
+    "dropped": {
+     "短すぎる線": 66,
+     "線の塊の外形(線として持っている)": 12,
+     "面積が小さすぎる閉領域": 190
+    },
+    "title_conflicts": [],
+    "gate": "blocked",
+    "reasons": [
+     "文字が読めない(文字の層が無く、OCRを掛けていない)",
+     "縮尺が取れていない",
+     "表題欄から図面名称も図番も取れていない"
+    ],
+    "error": false,
+    "title": {
+     "read": false,
+     "name": false,
+     "number": false,
+     "scale_denominator": null,
+     "scale_stated_none": false,
+     "revision_date": false
+    },
+    "digest": "3b45590f930a60522924ce69e9a571583a06ced1d0e81a89cb82eb4f93c48b57",
+    "from_cache": false
+   }
+  ],
+  "mismatched_pages": [],
+  "aggregate": {
+   "dropped": {
+    "短すぎる線": 17118,
+    "線の塊の外形(線として持っている)": 2312,
+    "面積が小さすぎる閉領域": 53887
+   },
+   "title_conflicts": {},
+   "title_conflict_pages": {},
+   "gate": {
+    "blocked": 34
+   },
+   "reasons": {
+    "文字が読めない(文字の層が無く、OCRを掛けていない)": 34,
+    "縮尺が取れていない": 34,
+    "表題欄から図面名称も図番も取れていない": 34
+   },
+   "cap_hit_pages": {
+    "lines": [],
+    "regions": [],
+    "small": []
+   },
+   "totals": {
+    "lines": {
+     "found": 29958,
+     "kept": 29958
+    },
+    "regions": {
+     "found": 6603,
+     "kept": 6603
+    },
+    "small": {
+     "found": 18690,
+     "kept": 18690
+    }
+   },
+   "title_found_pages": {
+    "read": 0,
+    "name": 0,
+    "number": 0,
+    "revision_date": 0,
+    "scale_stated_none": 0,
+    "scale": 0
+   },
+   "distinct_values_across_pages": {
+    "lines": 34,
+    "regions": 32,
+    "small": 30
+   },
+   "sources": {
+    "raster": 34
+   }
+  },
+  "cache": {
+   "first_run_hits": 0,
+   "second_run_hits": 34,
+   "pages": 34,
+   "second_equals_fresh": true,
+   "changed_setting_hits": 0,
+   "changed_setting_keys_differ": true
+  }
+ },
+ "old_path_v2": [
+  {
+   "page": 1,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 2,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 3,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 4,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 5,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 6,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 7,
+   "scale_read": true,
+   "groups": [
+    244,
+    244,
+    244
+   ]
+  },
+  {
+   "page": 8,
+   "scale_read": true,
+   "groups": [
+    298,
+    298,
+    298
+   ]
+  },
+  {
+   "page": 9,
+   "scale_read": true,
+   "groups": [
+    115,
+    115,
+    115
+   ]
+  },
+  {
+   "page": 10,
+   "scale_read": true,
+   "groups": [
+    73,
+    73,
+    73
+   ]
+  },
+  {
+   "page": 11,
+   "scale_read": true,
+   "groups": [
+    94,
+    94,
+    94
+   ]
+  },
+  {
+   "page": 12,
+   "scale_read": true,
+   "groups": [
+    83,
+    83,
+    83
+   ]
+  },
+  {
+   "page": 13,
+   "scale_read": true,
+   "groups": [
+    106,
+    106,
+    106
+   ]
+  },
+  {
+   "page": 14,
+   "scale_read": true,
+   "groups": [
+    84,
+    84,
+    84
+   ]
+  },
+  {
+   "page": 15,
+   "scale_read": true,
+   "groups": [
+    98,
+    98,
+    98
+   ]
+  },
+  {
+   "page": 16,
+   "scale_read": true,
+   "groups": [
+    125,
+    125,
+    125
+   ]
+  },
+  {
+   "page": 17,
+   "scale_read": true,
+   "groups": [
+    71,
+    71,
+    71
+   ]
+  },
+  {
+   "page": 18,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 19,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 20,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 21,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 22,
+   "scale_read": true,
+   "groups": [
+    108,
+    108,
+    108
+   ]
+  },
+  {
+   "page": 23,
+   "scale_read": true,
+   "groups": [
+    265,
+    265,
+    265
+   ]
+  },
+  {
+   "page": 24,
+   "scale_read": true,
+   "groups": [
+    301,
+    301,
+    301
+   ]
+  },
+  {
+   "page": 25,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 26,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 27,
+   "scale_read": true,
+   "groups": [
+    70,
+    70,
+    70
+   ]
+  },
+  {
+   "page": 28,
+   "scale_read": true,
+   "groups": [
+    21,
+    21,
+    21
+   ]
+  },
+  {
+   "page": 29,
+   "scale_read": true,
+   "groups": [
+    34,
+    34,
+    34
+   ]
+  },
+  {
+   "page": 30,
+   "scale_read": true,
+   "groups": [
+    14,
+    14,
+    14
+   ]
+  },
+  {
+   "page": 31,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 32,
+   "scale_read": false,
+   "groups": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "page": 33,
+   "scale_read": true,
+   "groups": [
+    255,
+    255,
+    255
+   ]
+  },
+  {
+   "page": 34,
+   "scale_read": true,
+   "groups": [
+    29,
+    29,
+    29
+   ]
+  }
+ ]
+}
