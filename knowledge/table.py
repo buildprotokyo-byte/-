@@ -51,6 +51,11 @@ BINDINGS = ("法令", "行政基準", "業界指針", "任意資料", "社内見
 #: 新しく書く知識は `候補`。`採用` / `不採用` に変えるのはおーちゃんだけ。
 ADOPTION_STATUSES = ("候補", "採用", "不採用")
 
+#: 上の 3 つを名前で指すためのもの。**この 3 行が値を作るのではなく、
+#: 読める値の一覧から取り出しているだけ**である(値を 2 か所に書かない)。
+#: ほかの層はこの名前で比べる。**列の名前を口にするのは、この読み込みだけ。**
+STATUS_CANDIDATE, STATUS_ADOPTED, STATUS_REJECTED = ADOPTION_STATUSES
+
 _TABLE_FIELDS = {"format_version", "table_id", "description", "synthetic", "entries"}
 _ENTRY_FIELDS = {
     "entry_id", "kind", "statement", "source", "confidence", "scope",
@@ -132,6 +137,28 @@ class KnowledgeEntry:
     adoption_status: str
     overridden_by: tuple[str, ...] = ()
     note: str = ""
+
+    # -- 採否を**読むだけ**の窓 ----------------------------------------------
+    # ほかの層がこの列の名前を書かずに読めるようにしてある(K-04 6 番
+    # 「採否を AI が変えないでください」を、読み手を増やしても崩さないため)。
+    # **書き換える窓はここにも作らない。**
+
+    @property
+    def adoption(self) -> str:
+        """採否の状態(読むだけ)。"""
+        return self.adoption_status
+
+    @property
+    def is_candidate(self) -> bool:
+        return self.adoption == STATUS_CANDIDATE
+
+    @property
+    def is_adopted(self) -> bool:
+        return self.adoption == STATUS_ADOPTED
+
+    @property
+    def is_rejected(self) -> bool:
+        return self.adoption == STATUS_REJECTED
 
 
 @dataclass(frozen=True)
