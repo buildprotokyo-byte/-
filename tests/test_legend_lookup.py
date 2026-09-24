@@ -1,0 +1,204 @@
+"""凡例の対照表で**照合する**部品のテスト(K-20)。
+
+ここで使う対照表は**全部その場で作った合成データ**である。実図面から写した表は
+共有フォルダにあり、リポジトリには入れない。
+
+このテストが守らせたいことは 1 つだけ。**名前を作らないこと。**11 周目は 1 つの
+名前に 474 通りの形を付けた。あれは「近いものを探して当てにいった」結果なので、
+ここでは**完全一致だけを一致とし、決まらないものは「不明」**にする。
+"""
+
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from axes.image_axis.legend_lookup import (
+    KIND_EQUIPMENT,
+    KIND_LINE_STYLE,
+    KIND_WORK,
+    REASON_AMBIGUOUS,
+    REASON_NOT_IN_TABLE,
+    REASON_NO_SAMPLE,
+    UNKNOWN,
+    LegendTable,
+    advise_line_colors,
+    match_line_styles,
+    match_marks,
+    summarize,
+)
+
+
+def _table(**overrides) -> LegendTable:
+    payload = {
+        "binding": "案件の凡例",
+        "work_marks": [
+            {"code": "撤去", "meaning": "既存を取り除く", "source_page": 6},
+            {"code": "新設", "meaning": "新しいものを設置", "source_page": 6},
+        ],
+        "symbols": [
+            {
+                "code": "WPE",
+                "name": "防雨型コンセント",
+                "group": "スイッチ",
+                "source_page": 22,
+            }
+        ],
+        "line_colors": [
+            {
+                "color": [1.0, 0.0, 0.0],
+                "label": "赤色",
+                "meaning": "交換・新設を表す",
+                "source_page": 6,
+            }
+        ],
+        "line_styles": [],
+    }
+    payload.update(overrides)
+    return LegendTable.from_payload(payload)
+
+
+def test_exact_text_gets_the_legend_meaning() -> None:
+    """凡例が自分で書いている対だけを、そのまま返す。"""
+    (match,) = match_marks(["撤去"], _table())
+    assert match.name == "撤去"
+    assert match.meaning == "既存を取り除く"
+    assert match.kind == KIND_WORK
+    assert match.source_page == 6
+
+
+def test_equipment_symbol_keeps_its_group() -> None:
+    """凡例の小見出し(どの設備か)も落とさない。"""
+    (match,) = match_marks(["WPE"], _table())
+    assert (match.name, match.group, match.kind) == (
+        "防雨型コンセント",
+        "スイッチ",
+        KIND_EQUIPMENT,
+    )
+
+
+def test_partial_text_is_not_a_match() -> None:
+    """**壊し試験の的。**「新設建具」は「新設」に当たらない。
+
+    引き当てを部分一致に緩めると、ここが当たってしまう。11 周目の壊れ方そのもの
+    なので、緩めたら落ちる形で固定しておく。
+    """
+    (match,) = match_marks(["新設建具"], _table())
+    assert match.name is None
+    assert match.display_name == UNKNOWN
+    assert match.reason == REASON_NOT_IN_TABLE
+
+
+def test_text_missing_from_the_table_is_unknown() -> None:
+    (match,) = match_marks(["ZZZ"], _table())
+    assert match.display_name == UNKNOWN
+    assert match.reason == REASON_NOT_IN_TABLE
+
+
+def test_one_code_with_two_names_is_unknown() -> None:
+    """同じ記号が 2 つの名前を指すなら、どちらを選んでも捏造になる。"""
+    table = _table(
+        symbols=[
+            {"code": "E", "name": "接地コンセント", "group": "", "source_page": 22},
+            {"code": "E", "name": "床用コンセント", "group": "", "source_page": 22},
+        ]
+    )
+    (match,) = match_marks(["E"], table)
+    assert match.display_name == UNKNOWN
+    assert match.reason == REASON_AMBIGUOUS
+
+
+def test_the_same_pair_on_two_pages_is_one_entry() -> None:
+    """同じ表の同じ対が 2 ページに出ても、**別々の証言として数えない。**"""
+    table = _table(
+        line_colors=[],
+        work_marks=[
+            {"code": "撤去", "meaning": "既存を取り除く", "source_page": 6},
+            {"code": "撤去", "meaning": "既存を取り除く", "source_page": 22},
+        ],
+    )
+    (match,) = match_marks(["撤去"], table)
+    assert match.name == "撤去"
+    assert match.source_pages == (6, 22)
+
+
+def test_width_and_spacing_do_not_change_the_answer() -> None:
+    """全角・半角と空白のゆれだけは同じとみなす(NFKC)。**語の中身は変えない。**"""
+    (match,) = match_marks(["ＷＰＥ"], _table())
+    assert match.name == "防雨型コンセント"
+
+
+def test_an_empty_table_names_nothing() -> None:
+    """対照表を空にしたら 1 件も名前が付かない(C3 の対照)。"""
+    table = _table(work_marks=[], symbols=[], line_colors=[], line_styles=[])
+    matches = match_marks(["撤去", "WPE"], table)
+    assert [m.name for m in matches] == [None, None]
+
+
+def test_summarize_counts_what_the_report_needs() -> None:
+    matches = match_marks(["撤去", "WPE", "ZZZ", "新設建具"], _table())
+    counts = summarize(matches)
+    assert counts.total == 4
+    assert counts.named == 2
+    assert counts.unknown == 2
+    assert counts.by_reason[REASON_NOT_IN_TABLE] == 2
+
+
+def test_line_styles_without_a_sample_are_all_unknown() -> None:
+    """凡例に線種の見本が無ければ、線がいくつ来ても 1 件も名前が付かない。"""
+    matches = match_line_styles([(3.0, 1.5), (1.0, 1.0)], _table())
+    assert [m.display_name for m in matches] == [UNKNOWN, UNKNOWN]
+    assert {m.reason for m in matches} == {REASON_NO_SAMPLE}
+    assert {m.kind for m in matches} == {KIND_LINE_STYLE}
+
+
+def test_line_style_matches_only_when_the_ratio_agrees() -> None:
+    """おーちゃんの決め(K-20 4 番): **刻みの比率が合うものだけ**を一致とする。"""
+    table = _table(
+        line_styles=[
+            {"label": "破線", "dashes": [4.0, 2.0], "source_page": 6},
+        ]
+    )
+    same_ratio, other_ratio = match_line_styles([(8.0, 4.0), (4.0, 4.0)], table)
+    assert same_ratio.name == "破線"
+    assert other_ratio.display_name == UNKNOWN
+
+
+def test_line_colour_is_advice_and_never_a_name() -> None:
+    """おーちゃんの決め(K-20 4 番): **色は参考にとどめる。**"""
+    (note,) = advise_line_colors([(1.0, 0.0, 0.0)], _table())
+    assert note.label == "赤色"
+    assert note.meaning == "交換・新設を表す"
+    assert note.advisory is True
+
+
+def test_a_colour_outside_the_table_is_not_advised() -> None:
+    assert advise_line_colors([(0.5, 0.5, 0.5)], _table()) == ()
+
+
+def test_table_is_loaded_from_a_path(tmp_path) -> None:
+    """**表の中身はコードに書かない。**読み込む先は引数で渡す。"""
+    path = tmp_path / "lookup.json"
+    path.write_text(
+        json.dumps(
+            {
+                "binding": "案件の凡例",
+                "work_marks": [
+                    {"code": "既存", "meaning": "そのまま", "source_page": 6}
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    table = LegendTable.load(path)
+    assert table.binding == "案件の凡例"
+    (match,) = match_marks(["既存"], table)
+    assert match.meaning == "そのまま"
+
+
+def test_binding_must_say_the_table_is_this_case_only() -> None:
+    """この対照表は**この案件限り**で、ほかの案件には使えない。"""
+    with pytest.raises(ValueError, match="案件の凡例"):
+        LegendTable.from_payload({"binding": "業界指針", "work_marks": []})
