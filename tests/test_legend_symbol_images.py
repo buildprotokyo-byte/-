@@ -206,3 +206,53 @@ class TestCropDefects:
             if pixmap.pixel(x, y)[0] < 128
         ]
         assert dark, "升目の下辺が消えている"
+
+
+@pytest.fixture()
+def merged_header_pdf(tmp_path):
+    """**見出しの「記号」の升目だけが、となりの「例」の列とつながっている表。**
+
+    P011 の 22 ページの 3 つ目の表がこの形で、見出しの升目から x を取ると
+    **例の列まで一緒に切り出してしまう**(K-22 (b) で見つけた)。
+    """
+    doc = pymupdf.open()
+    page = doc.new_page(width=400, height=300)
+    left, top, height = 40.0, 40.0, 20.0
+    edges = (40.0, 160.0, 220.0, 300.0)
+    bottom = top + height * 4
+    for x in edges:
+        # 見出しの行(top〜top+height)では、記号と例のあいだの縦線を引かない。
+        start = top + height if x == 220.0 else top
+        page.draw_line(pymupdf.Point(x, start), pymupdf.Point(x, bottom), width=0.6)
+    for index in range(5):
+        y = top + height * index
+        page.draw_line(pymupdf.Point(edges[0], y), pymupdf.Point(edges[-1], y), width=0.6)
+    texts = (
+        ("名称", "記号", ""),
+        ("あいう", "ア", "例ア"),
+        ("かきく", "イ", "例イ"),
+        ("さしす", "ウ", "例ウ"),
+    )
+    for row, cells in enumerate(texts):
+        for column, text in enumerate(cells):
+            if not text:
+                continue
+            page.insert_text(
+                pymupdf.Point(edges[column] + 4.0, top + height * row + 14.0),
+                text,
+                fontsize=9,
+                fontname="japan",
+            )
+    path = tmp_path / "merged.pdf"
+    doc.save(path)
+    doc.close()
+    return path
+
+
+class TestSymbolColumn:
+    def test_見出しがつながっていても例の列まで切り出さない(self, merged_header_pdf):
+        rows = name_rows(merged_header_pdf, 1)
+        assert rows, "行が取れていない"
+        for row in rows:
+            assert row["rect"][0] >= 160.0 - 0.5, row
+            assert row["rect"][2] <= 220.0 + 0.5, row

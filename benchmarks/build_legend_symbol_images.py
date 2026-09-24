@@ -34,6 +34,7 @@ from __future__ import annotations
 import argparse
 import json
 import random
+import statistics
 from pathlib import Path
 from typing import Any
 
@@ -73,6 +74,30 @@ CROP_MARGIN = 1.0
 BLANK_DECOYS, DRAWN_DECOYS = 5, 5
 
 
+def symbol_column(region: Any, head: int, code_column: int) -> tuple[float, float, float, float]:
+    """**記号の列の x の幅**を、見出しの升目ではなく**各行の升目の中央値**から決める。
+
+    K-22 (b)。P011 の 22 ページの 3 つ目の表は、**見出しの「記号」の升目だけが
+    となりの「例」の列とつながっている。**見出しから x を取ると、その表の行は
+    全部**例の列まで一緒に切り出される**(読む側は例に描かれた別の器具を読んでしまう)。
+    中央値なら、つながっている升目が 1 つあっても動かない。
+
+    名前の列に掛からないことは、見出しの「記号」の升目の左端より左へ出さないことで守る。
+    """
+    spans = [
+        region.rows[index][code_column].rect_pt
+        for index in range(head + 1, region.row_count)
+    ]
+    header = region.rows[head][code_column].rect_pt
+    if not spans:
+        return header
+    left = max(statistics.median(span[0] for span in spans), header[0])
+    right = min(statistics.median(span[2] for span in spans), header[2])
+    if right - left < 1.0:
+        return header
+    return (left, header[1], right, header[3])
+
+
 def name_rows(pdf_path: Path | str, page_number: int) -> list[dict[str, Any]]:
     """「名称 / 記号」の表から、**名前の行を 1 行ずつ**返す。
 
@@ -100,7 +125,7 @@ def name_rows(pdf_path: Path | str, page_number: int) -> list[dict[str, Any]]:
         header = [_norm(cell) for cell in texts[head]]
         name_column = header.index("名称")
         code_column = header.index("記号")
-        column = region.rows[head][code_column].rect_pt
+        column = symbol_column(region, head, code_column)
         group: str | None = None
         for row_index in range(head + 1, region.row_count):
             row = region.rows[row_index]
