@@ -46,6 +46,8 @@ from typing import Any
 
 import pymupdf
 
+from axes.image_axis.pdf_tables import find_tables
+
 #: 表題欄はこれより左。事務所名・個人名・登録番号が入るので、**対照表に入れない。**
 TITLE_BLOCK_X = 75.0
 
@@ -73,6 +75,9 @@ MAX_CODE_LENGTH = 8
 
 #: 注記に出てくる語。**記号にも名前にも使わない。**
 _NOTE = re.compile(r"例|記入|表記|確認|※|場合|する")
+
+#: 群の見出し(〈照明器具〉など)。中身をその下の行の群として使う。
+_GROUP_HEADING = re.compile(r"^[〈<](.*)[〉>]$")
 
 #: 記号は少なくとも 1 文字、字か数字を含む。
 _HAS_LETTER = re.compile(r"[0-9A-Za-zぁ-んァ-ヶ一-龥ｦ-ﾟ]")
@@ -327,6 +332,74 @@ def symbol_rules(page: pymupdf.Page, page_number: int) -> list[dict[str, Any]]:
     return rules
 
 
+def _name_without_note(text: str) -> str:
+    """名前の升目から注記を落とす。
+
+    凡例は名前の升目に「※ 〜に設置」のような注記を続けて書くことがある。
+    **注記は名前ではない。**「※」から後ろを落とす。落としても名前が残らない
+    行は、名前の無い行として上流で捨てられる。
+    """
+    return re.split(r"[※]", text, maxsplit=1)[0].replace("\n", " ").strip()
+
+
+def symbol_rules_from_tables(
+    pdf_path: Path | str, page_number: int
+) -> list[dict[str, Any]]:
+    """「名称」「記号」の表を、**罫線の升目のまま**写す。
+
+    はじめの写し方(:func:`symbol_rules`)は文字の x と y の並びから行と列を
+    組み直していた。そのため **記号の升目の中に空白があると、そこで切れて
+    行ごと落ちていた。**罫線から升目を組む
+    :func:`axes.image_axis.pdf_tables.find_tables` に任せると、升目の中の
+    空白は升目の中に留まる。
+
+    この関数が守ること:
+
+    1. **記号の升目に文字が無い行は写さない。**丸や四角だけで描かれた記号は
+       文字で引き当てられない。**それらしい名前を当てない。**
+    2. **記号の升目が 1 つに決まらない行も写さない。**升目が複数行に
+       またがっていたり、長すぎて注記に見えるものは、どれを記号とするか
+       選んだ時点で推し量りになる。
+    3. **群の見出し(〈…〉)は、その下の行に付ける。**
+    """
+    rules: list[dict[str, Any]] = []
+    for region in find_tables(pdf_path, page_number - 1):
+        texts = region.texts()
+        head = next(
+            (
+                index
+                for index, row in enumerate(texts[:2])
+                if {"名称", "記号"} <= {_norm(cell) for cell in row}
+            ),
+            None,
+        )
+        if head is None:
+            continue
+        name_column = [_norm(cell) for cell in texts[head]].index("名称")
+        group: str | None = None
+        for row in texts[head + 1 :]:
+            raw_name = row[name_column].strip()
+            if not raw_name:
+                continue
+            heading = _GROUP_HEADING.match(raw_name)
+            if heading:
+                group = heading.group(1).strip()
+                continue
+            code = next((cell for cell in row[name_column + 1 :] if cell.strip()), "")
+            name = _name_without_note(raw_name)
+            if not code or not _usable_code(code) or not _usable_name(name):
+                continue
+            rules.append(
+                {
+                    "code": code.strip(),
+                    "name": name,
+                    "group": group,
+                    "source_page": page_number,
+                }
+            )
+    return rules
+
+
 def line_style_rules(page: pymupdf.Page, page_number: int) -> list[dict[str, Any]]:
     """線種(実線・破線・二点鎖線)の見本を凡例から写す。
 
@@ -365,6 +438,13 @@ def main() -> None:
     parser.add_argument("--symbol-pages", type=int, nargs="*", default=())
     parser.add_argument("--line-pages", type=int, nargs="*", default=())
     parser.add_argument(
+        "--symbol-route",
+        choices=("tables", "xy"),
+        default="tables",
+        help="記号の表の写し方。tables=罫線の升目(既定) / xy=はじめの写し方。"
+        "**2 つを突き合わせるために残してある。**",
+    )
+    parser.add_argument(
         "--out", type=Path, required=True, help="**共有フォルダのパスを渡すこと**"
     )
     args = parser.parse_args()
@@ -383,7 +463,10 @@ def main() -> None:
     for number in args.mark_pages:
         table["work_marks"] += mark_rules(doc[number - 1], number)
     for number in args.symbol_pages:
-        table["symbols"] += symbol_rules(doc[number - 1], number)
+        if args.symbol_route == "tables":
+            table["symbols"] += symbol_rules_from_tables(args.pdf, number)
+        else:
+            table["symbols"] += symbol_rules(doc[number - 1], number)
     for number in args.line_pages:
         table["line_styles"] += line_style_rules(doc[number - 1], number)
 
