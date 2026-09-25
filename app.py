@@ -78,6 +78,12 @@ MARK_NO_RULES = "規則なし"
 MARK_NO_MATCHING_RULE = "規則が当たらない"
 """規則ファイルはあったが、この数量に当たる規則が無かった。"""
 
+#: 仕上表の行の科目(K-36 改訂版、仮の判断。`docs/provisional_decisions.md` 7 節)。
+#: 撤去は解体・撤去工事、それ以外(新設・改修)は内装仕上工事に置く。
+#: 下地からのやり替えを木工・大工工事に分けるかは、まだ決めていない。
+FINISH_KAMOKU_REMOVAL = "解体・撤去工事"
+FINISH_KAMOKU_OTHER = "内装仕上工事"
+
 #: 行にしない工事区分(工事が無い)。
 #: 「区分不明」は撤去か新設かが決まっていない(理解を通っていない)ので行にしない。
 NO_WORK_KINDS = frozenset({"既存のまま"})
@@ -129,6 +135,8 @@ class EstimateLine:
     quantity_range: tuple[float, float] | None = None
     waits_for_human: bool = False
     """数量が人の入力を待っている(入力があれば埋まる)行か。"""
+    spec: str = ""
+    """摘要。材種・材質・工法など、単価に対応する条件(K-36 改訂版)。**読めたものだけ。**"""
 
     def as_answer_row(self, number: int) -> dict[str, Any]:
         """読み方の比較実験と同じ出力の形の 1 行(採点をそのまま当てるため)。"""
@@ -146,6 +154,7 @@ class EstimateLine:
             "符号": self.code,
             "数量の幅": list(self.quantity_range) if self.quantity_range else None,
             "人の入力待ち": self.waits_for_human,
+            "摘要": self.spec,
             "備考": " / ".join(self.notes),
         }
 
@@ -169,6 +178,25 @@ class OnePassResult:
     ここに残すのは数量そのもので、**見積の行ではない。確定もしない。**
     """
 
+    def breakdown(self):  # noqa: ANN201
+        """行を種目・科目・中科目・細目に組んだもの(K-36 改訂版 3 節)。
+
+        **科目は行にあるものだけ。**科目の無い行は「科目未定」に集まる。
+        単価はまだ無いので、金額は空のまま出る。
+        """
+        from estimating.breakdown import build_breakdown
+
+        return build_breakdown(
+            {
+                "科目": line.category,
+                "工事項目": line.work_item,
+                "摘要": line.spec,
+                "数量": line.quantity,
+                "単位": line.unit,
+            }
+            for line in self.lines
+        )
+
     @property
     def auto_confirmed_total(self) -> int:
         return sum(self.auto_confirmed.values())
@@ -188,6 +216,7 @@ class OnePassResult:
             "自動確定": {**self.auto_confirmed, "合計": self.auto_confirmed_total},
             "足りないもの": self.gaps,
             "繋げなかった部品": self.not_connected,
+            "内訳書": self.breakdown().as_dict(),
             "行にしなかった数量": {
                 "件数": len(self.kept_quantities),
                 "印ごと": dict(Counter(row["印"] for row in self.kept_quantities)),
@@ -314,6 +343,15 @@ def _finish_line(assignment, item, page_number: int, room_quantities) -> Estimat
         notes=notes,
         quantity_range=quantity_range,
         waits_for_human=waits,
+        category=FINISH_KAMOKU_REMOVAL if item.work_kind == "撤去" else FINISH_KAMOKU_OTHER,
+        spec=" / ".join(
+            f"{label}: {value}"
+            for label, value in (
+                ("仕上", assignment.finish if item.work_kind != "撤去" else None),
+                ("下地", assignment.base),
+            )
+            if value
+        ),
     )
 
 
