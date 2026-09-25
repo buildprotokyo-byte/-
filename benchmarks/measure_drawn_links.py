@@ -183,3 +183,102 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# ---------------------------------------------------------------------------
+# 周1-3「引き出し線で切る」
+# 基準は `docs/loop_round1c_leader_line_criteria.md`(**測る前にコミット済み**)
+# ---------------------------------------------------------------------------
+
+#: 引き出し線の、印の無い端と文字を組にする距離。**その文字の高さの倍数。**
+LEADER_HEIGHTS = 1.5
+
+
+def leader_lines(segments: list[Segment], marks: list[Mark]) -> list[Segment]:
+    """**ちょうど片方の端にだけ印がある直線。**
+
+    両端に印があるもの(寸法線、周1-2)と、どちらにも無いものは外す。
+    返す線は、**印のあるほうを `a`、無いほうを `b`** に揃える。
+    """
+    out: list[Segment] = []
+    for segment in segments:
+        marked_a = _marked_end(segment.a, marks)
+        marked_b = _marked_end(segment.b, marks)
+        if marked_a == marked_b:
+            continue
+        out.append(segment if marked_a else Segment(segment.b, segment.a))
+    return out
+
+
+def pair_words(lines: list[Segment], words: list["Word"]) -> dict[int, list["Word"]]:
+    """線の**印の無いほうの端**に、文字の高さの `LEADER_HEIGHTS` 倍以内の文字を組にする。"""
+    from benchmarks.measure_cluster_reading import _point_to_box
+
+    pairs: dict[int, list[Word]] = {}
+    for index, line in enumerate(lines):
+        for word in words:
+            if _point_to_box(line.b, word.box) <= word.height * LEADER_HEIGHTS:
+                pairs.setdefault(index, []).append(word)
+    return pairs
+
+
+def _shift(line: Segment, page: tuple[float, float], rng: random.Random) -> Segment:
+    """**向きと長さを保ったまま**、紙の上のでたらめな位置へ動かす(囮)。"""
+    dx = line.b[0] - line.a[0]
+    dy = line.b[1] - line.a[1]
+    x = rng.uniform(0.0, max(page[0] - abs(dx), 1.0))
+    y = rng.uniform(0.0, max(page[1] - abs(dy), 1.0))
+    a = (x, y)
+    return Segment(a, (a[0] + dx, a[1] + dy))
+
+
+def measure_leader_page(
+    pdf_path: str | Path, page_index: int, *, seed: int = 20260925
+) -> dict[str, Any]:
+    from benchmarks.measure_cluster_reading import (
+        MIN_TABLE_MATCH_LENGTH,
+        table_cell_texts,
+    )
+
+    with pymupdf.open(pdf_path) as doc:
+        page = doc.load_page(page_index)
+        words = collect_words(page)
+        marks, segments = collect_marks_and_segments(page)
+        size = (page.rect.x1 - page.rect.x0, page.rect.y1 - page.rect.y0)
+        cells = table_cell_texts(doc, "建具") | table_cell_texts(doc, "仕上")
+
+    lines = leader_lines(segments, marks)
+    pairs = pair_words(lines, words)
+
+    in_table = 0
+    undecided = 0
+    for matched in pairs.values():
+        if len(matched) > 1:
+            undecided += 1
+            continue
+        text = normalize(matched[0].text)
+        if len(text) >= MIN_TABLE_MATCH_LENGTH and text in cells:
+            in_table += 1
+
+    rng = random.Random(seed)
+    shifted = [_shift(line, size, rng) for line in lines]
+    fake_pairs = pair_words(shifted, words)
+    fake_in_table = 0
+    for matched in fake_pairs.values():
+        if len(matched) > 1:
+            continue
+        text = normalize(matched[0].text)
+        if len(text) >= MIN_TABLE_MATCH_LENGTH and text in cells:
+            fake_in_table += 1
+
+    return {
+        "ページ番号": page_index + 1,
+        "文字の断片": len(words),
+        "小さい塗りつぶしの印": len(marks),
+        "片端だけに印がある線": len(lines),
+        "文字が組になった線": len(pairs),
+        "文字が2つ以上ついた線": undecided,
+        "表の升目にあった文字": in_table,
+        "囮で文字が組になった線": len(fake_pairs),
+        "囮で表の升目にあった文字": fake_in_table,
+    }
