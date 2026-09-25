@@ -25,6 +25,13 @@
 - **科目を推し量らない。** 行に科目が無ければ「科目未定」に集める(黙って捨てない)。
 - 判定には触らない。行を並べ替えて段を付けるだけである。
 
+内訳(K-38 原則11、2026-09-25)
+------------------------------
+**数量は最小の単位(室ごと・1箇所ごと・1個ごと)で出し、内訳を持ったまま足し上げる。**
+同じ科目・中科目・名称・摘要・単位の行は 1 つの細目にまとめ、行の ``場所`` ごとの数量を
+内訳(``parts``)に残す。**数量の無い場所は「未取得」として残し、0 にしない。**
+**未取得が 1 件でもあれば細目の合計は出さない**(金額も出さない)。
+
 仮の判断(`docs/provisional_decisions.md` 7 節)
 -----------------------------------------------
 - 共通費に入る科目は、科目の名前に `COMMON_COST_WORDS` のどれかが入っているもの。
@@ -48,9 +55,25 @@ NO_MIDDLE = "中科目なし"
 COMMON_COST_WORDS: tuple[str, ...] = ("共通仮設", "現場管理", "一般管理", "諸経費")
 
 
+#: 数量の取れていない内訳の印。**0 ではない。**
+MISSING = "未取得"
+
+
+@dataclass(frozen=True)
+class Part:
+    """細目の内訳 1 つ(最小の単位)。``quantity`` が ``None`` なら未取得。"""
+
+    place: str
+    quantity: float | None
+    source: Mapping[str, Any] = field(default_factory=dict)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"場所": self.place, "数量": MISSING if self.quantity is None else self.quantity}
+
+
 @dataclass
 class Detail:
-    """細目。**工事そのもの。**"""
+    """細目。**工事そのもの。**合計と内訳の両方を持つ。"""
 
     name: str
     spec: str
@@ -59,9 +82,15 @@ class Detail:
     unit_price: float | None = None
     amount: float | None = None
     source: Mapping[str, Any] = field(default_factory=dict)
+    parts: tuple[Part, ...] = ()
+
+    @property
+    def missing(self) -> tuple[str, ...]:
+        """未取得の内訳の場所。"""
+        return tuple(p.place for p in self.parts if p.quantity is None)
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "名称": self.name,
             "摘要": self.spec,
             "数量": self.quantity,
@@ -69,6 +98,10 @@ class Detail:
             "単価": self.unit_price,
             "金額": self.amount,
         }
+        if self.parts:
+            out["内訳"] = [p.as_dict() for p in self.parts]
+            out["未取得"] = list(self.missing)
+        return out
 
 
 def _sum_amounts(details: list[Detail]) -> tuple[float | None, int]:
@@ -180,6 +213,45 @@ def shumoku_of(kamoku: str) -> str:
     return COMMON_COST if any(w in kamoku for w in COMMON_COST_WORDS) else DIRECT_COST
 
 
+def _detail(group: list[Mapping[str, Any]]) -> Detail:
+    """同じ細目の行を 1 つにまとめる。**未取得があれば合計も金額も出さない。**"""
+    first = group[0]
+    price = _number(first.get("単価"))
+    parts = tuple(
+        Part(place=_text(row.get("場所")), quantity=_number(row.get("数量")), source=row)
+        for row in group
+    )
+    if len(group) == 1 and not _text(first.get("場所")):
+        # 場所の無い行 1 つは、内訳を持たない細目のまま(これまでの形)。
+        quantity = parts[0].quantity
+        amount = _number(first.get("金額"))
+        if amount is None and price is not None and quantity is not None:
+            amount = price * quantity
+        return Detail(
+            name=_text(first.get("工事項目")),
+            spec=_text(first.get("摘要")),
+            quantity=quantity,
+            unit=_text(first.get("単位")),
+            unit_price=price,
+            amount=amount,
+            source=first,
+        )
+    quantity = None
+    if all(p.quantity is not None for p in parts):
+        quantity = sum(p.quantity for p in parts)  # type: ignore[misc]
+    amount = price * quantity if price is not None and quantity is not None else None
+    return Detail(
+        name=_text(first.get("工事項目")),
+        spec=_text(first.get("摘要")),
+        quantity=quantity,
+        unit=_text(first.get("単位")),
+        unit_price=price,
+        amount=amount,
+        source=first,
+        parts=parts,
+    )
+
+
 def build_breakdown(rows: Iterable[Mapping[str, Any]]) -> Breakdown:
     """行(``科目`` ``中科目`` ``工事項目`` ``摘要`` ``数量`` ``単位`` ``単価`` ``金額``)を段に組む。
 
@@ -195,23 +267,19 @@ def build_breakdown(rows: Iterable[Mapping[str, Any]]) -> Breakdown:
         kamoku = Kamoku(name=name)
         needs_middle = any(_text(r.get("中科目")) for r in members)
         middles: dict[str, Middle] = {}
+        grouped: dict[tuple[str, str, str, str], list[Mapping[str, Any]]] = {}
         for row in members:
-            quantity = _number(row.get("数量"))
-            price = _number(row.get("単価"))
-            amount = _number(row.get("金額"))
-            if amount is None and price is not None and quantity is not None:
-                amount = price * quantity
-            detail = Detail(
-                name=_text(row.get("工事項目")),
-                spec=_text(row.get("摘要")),
-                quantity=quantity,
-                unit=_text(row.get("単位")),
-                unit_price=price,
-                amount=amount,
-                source=row,
+            key = (
+                _text(row.get("中科目")) if needs_middle else "",
+                _text(row.get("工事項目")),
+                _text(row.get("摘要")),
+                _text(row.get("単位")),
             )
+            grouped.setdefault(key, []).append(row)
+        for (middle_name, _, _, _), group in grouped.items():
+            detail = _detail(group)
             if needs_middle:
-                middle = _text(row.get("中科目")) or NO_MIDDLE
+                middle = middle_name or NO_MIDDLE
                 middles.setdefault(middle, Middle(name=middle)).details.append(detail)
             else:
                 kamoku.details.append(detail)

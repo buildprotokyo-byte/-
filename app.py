@@ -187,6 +187,8 @@ class OnePassResult:
 
         **科目は行にあるものだけ。**科目の無い行は「科目未定」に集まる。
         単価はまだ無いので、金額は空のまま出る。
+        同じ工事の行は 1 つの細目にまとまり、場所ごとの内訳を持つ。数量の無い場所は
+        「未取得」で、未取得があるうちは細目の合計を出さない(K-38 原則11)。
         """
         from estimating.breakdown import build_breakdown
 
@@ -194,6 +196,7 @@ class OnePassResult:
             {
                 "科目": line.category,
                 "工事項目": line.work_item,
+                "場所": line.place,
                 "摘要": line.spec,
                 "数量": line.quantity,
                 "単位": line.unit,
@@ -245,9 +248,16 @@ def _drawing_room_result(pdf_path: Path, assignments_path: Path):  # noqa: ANN20
     import pymupdf
 
     from axes.image_axis.pdf_dimensions import read_dimensions
-    from intake.drawing_room_dimensions import dimension_ids, load_assignments, rooms_from_drawing
+    from intake.drawing_room_dimensions import (
+        dimension_ids,
+        load_assignments,
+        load_rulers,
+        rooms_from_drawing,
+    )
 
-    assignments = load_assignments(json.loads(assignments_path.read_text(encoding="utf-8")))
+    payload = json.loads(assignments_path.read_text(encoding="utf-8"))
+    assignments = load_assignments(payload)
+    rulers = {r.page: r for r in load_rulers(payload)}
     pages: set[int] = set()
     for a in assignments:
         for dim_id in a.width_ids + a.length_ids:
@@ -259,8 +269,33 @@ def _drawing_room_result(pdf_path: Path, assignments_path: Path):  # noqa: ANN20
     with pymupdf.open(pdf_path) as doc:
         pages = {p for p in pages if 1 <= p <= doc.page_count}
         texts = {p: doc.load_page(p - 1).get_text("text") for p in sorted(pages)}
-    readings = dimension_ids(read_dimensions(pdf_path, p - 1) for p in sorted(pages))
-    return rooms_from_drawing(assignments, readings, texts)
+    ruler_gaps: list[str] = []
+
+    def read(page: int):  # noqa: ANN202
+        plain = read_dimensions(pdf_path, page - 1)
+        ruler = rulers.get(page)
+        if ruler is None:
+            return plain
+        reference = dimension_ids([plain]).get(ruler.reference_id)
+        if reference is None or not reference.paper_distance_pt:
+            ruler_gaps.append(
+                f"[基準の寸法が読みに無い] ページ {page}: {ruler.reference_id} が無いので縮尺なしで読んだ"
+            )
+            return plain
+        return read_dimensions(
+            pdf_path,
+            page - 1,
+            ruler_mm_per_point=float(reference.value_mm) / float(reference.paper_distance_pt),
+            ruler_tolerance=ruler.tolerance,
+        )
+
+    readings = dimension_ids(read(p) for p in sorted(pages))
+    result = rooms_from_drawing(assignments, readings, texts)
+    if ruler_gaps:
+        from dataclasses import replace
+
+        result = replace(result, gaps=tuple(ruler_gaps) + result.gaps)
+    return result
 
 
 

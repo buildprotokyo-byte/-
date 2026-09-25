@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from estimating.breakdown import (
     DIRECT_COST,
     COMMON_COST,
@@ -139,3 +141,60 @@ def test_the_one_pass_output_carries_the_breakdown(tmp_path) -> None:
     assert floor["摘要"] == "仕上: フローリング / 下地: 既存"
     assert floor["金額"] is None  # 単価が無いので作らない
     assert result.auto_confirmed_total == 0
+
+
+# ---------------------------------------------------------------------------
+# K-38 原則11: 数量は最小の単位で出し、内訳を持ったまま足し上げる
+# ---------------------------------------------------------------------------
+
+
+def _room_row(room, qty, *, name="壁 ビニルクロス 新設", unit="㎡", kamoku="内装仕上工事"):
+    row = _row(kamoku, name, qty=qty, unit=unit)
+    row["場所"] = room
+    return row
+
+
+def test_the_same_work_in_several_rooms_is_one_detail_with_a_breakdown() -> None:
+    book = build_breakdown([_room_row("玄関", 10.0), _room_row("書斎", 2.86)])
+
+    details = book.shumoku[0].kamoku[0].details
+    assert len(details) == 1
+    detail = details[0]
+    assert [(p.place, p.quantity) for p in detail.parts] == [("玄関", 10.0), ("書斎", 2.86)]
+    assert detail.quantity == pytest.approx(12.86)
+    assert detail.missing == ()
+
+
+def test_a_missing_room_is_kept_as_missing_and_the_total_is_not_given() -> None:
+    book = build_breakdown(
+        [_room_row("玄関", 10.0), _room_row("ホール", None), _room_row("書斎", 2.86)]
+    )
+
+    detail = book.shumoku[0].kamoku[0].details[0]
+    assert detail.quantity is None  # 未取得があるうちは合計を出さない
+    assert detail.missing == ("ホール",)
+    assert [p.quantity for p in detail.parts] == [10.0, None, 2.86]  # 0 にしない
+    out = detail.as_dict()
+    assert out["数量"] is None
+    assert out["未取得"] == ["ホール"]
+    assert {"場所": "ホール", "数量": "未取得"} in out["内訳"]
+
+
+def test_different_units_or_names_stay_separate_details() -> None:
+    book = build_breakdown(
+        [
+            _room_row("玄関", 10.0),
+            _room_row("玄関", 4.0, name="巾木 新設", unit="m"),
+            _room_row("書斎", 2.0, unit="m"),
+        ]
+    )
+    names = [(d.name, d.unit) for d in book.shumoku[0].kamoku[0].details]
+    assert names == [("壁 ビニルクロス 新設", "㎡"), ("巾木 新設", "m"), ("壁 ビニルクロス 新設", "m")]
+
+
+def test_no_amount_is_made_while_a_room_is_missing() -> None:
+    rows = [_room_row("玄関", 10.0), _room_row("ホール", None)]
+    for row in rows:
+        row["単価"] = 1000
+    detail = build_breakdown(rows).shumoku[0].kamoku[0].details[0]
+    assert detail.amount is None

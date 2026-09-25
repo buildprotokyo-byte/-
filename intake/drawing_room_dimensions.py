@@ -220,6 +220,32 @@ def rooms_from_drawing(
     )
 
 
+@dataclass(frozen=True)
+class PageRuler:
+    """1 ページぶんの基準(K-38)。**AI が選んだ 1 つの寸法の id と、許容差だけを持つ。**
+
+    ``reference_id`` は**縮尺なしで読んだときの id**(K-37 で AI が基準を選んだ読み)。
+    目盛りはその寸法の値 ÷ 紙の上の長さから機械が作る。AI は値を書けない。
+    そのページは、この目盛りで読み直してから室を組む(候補が 2 本以上で落ちた数字を 1 本に決める)。
+    室の対応づけの id は、**読み直したあとの id** を指す。
+    """
+
+    page: int
+    reference_id: str
+    tolerance: float
+
+
+def load_rulers(payload: Mapping[str, Any]) -> tuple[PageRuler, ...]:
+    """対応づけの JSON の ``"基準": [{"ページ", "基準の寸法", "許容差"}]`` を読む。無ければ空。"""
+    out: list[PageRuler] = []
+    for row in payload.get("基準", ()):
+        tolerance = row.get("許容差")
+        if tolerance is None:
+            raise ValueError(f"基準 {row!r} に許容差が無い。許容差は黙って決めない")
+        out.append(PageRuler(int(row["ページ"]), str(row["基準の寸法"]), float(tolerance)))
+    return tuple(out)
+
+
 def load_assignments(payload: Mapping[str, Any]) -> tuple[RoomAssignment, ...]:
     """対応づけの JSON(``{"対応づけた人": ..., "室": [{"室名", "横", "縦", "測り方", "天井高_mm", "天井高のページ"}]}``)を読む。"""
     by = str(payload.get("対応づけた人", ""))
@@ -242,6 +268,7 @@ def load_assignments(payload: Mapping[str, Any]) -> tuple[RoomAssignment, ...]:
 
 __all__ = [
     "METHOD_DRAWING_ROOM_DIMENSIONS",
+    "PageRuler",
     "STATE_BOTH",
     "STATE_NONE",
     "STATE_ONE",
@@ -250,5 +277,6 @@ __all__ = [
     "RoomAssignment",
     "dimension_ids",
     "load_assignments",
+    "load_rulers",
     "rooms_from_drawing",
 ]
