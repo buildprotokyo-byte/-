@@ -174,6 +174,9 @@ class OnePassResult:
     drawing_rooms: dict[str, Any] | None = None
     """図面の寸法から組んだ室の状態(K-37)。渡されなかったら ``None``。"""
 
+    checks: dict[str, list[str]] = field(default_factory=dict)
+    """機械の検算(K-40)。**知らせるだけで、数量は変えていない。**"""
+
     kept_quantities: list[dict[str, Any]] = field(default_factory=list)
     """行にしなかった入口の数量。**捨てずに印を付けて残す**(K-36)。
 
@@ -230,6 +233,7 @@ class OnePassResult:
                 "数量": self.kept_quantities,
             },
             "図面の寸法から組んだ室": self.drawing_rooms,
+            "検算": self.checks,
             "かかった秒数": self.timings,
             "そのほか": self.extras,
         }
@@ -252,6 +256,7 @@ def _drawing_room_result(pdf_path: Path, assignments_path: Path):  # noqa: ANN20
         dimension_ids,
         load_assignments,
         load_rulers,
+        other_room_names_inside,
         rooms_from_drawing,
     )
 
@@ -295,7 +300,32 @@ def _drawing_room_result(pdf_path: Path, assignments_path: Path):  # noqa: ANN20
         from dataclasses import replace
 
         result = replace(result, gaps=tuple(ruler_gaps) + result.gaps)
-    return result
+    labels = _room_label_positions(pdf_path, sorted(pages), [a.room_name for a in assignments])
+    return result, other_room_names_inside(assignments, readings, labels)
+
+
+def _room_label_positions(
+    pdf_path: Path, pages: Sequence[int], names: Sequence[str]
+) -> dict[str, list[tuple[int, float, float]]]:
+    """室名の文字の中心(ページ・x・y)。**図面に刷られた語と、NFKC で正規化した室名の各行が一致したものだけ。**
+
+    仕上表の室名(例: 「キッチン/ダイニング/リビング」は 3 行)は、行ごとに探す。
+    平面図の書き方(「洋室(1)」など)と一致しないものは見つからないまま(検算から漏れる)。
+    """
+    import pymupdf
+
+    wanted = {name: {_nfkc(part) for part in name.split("\n") if _nfkc(part)} for name in names}
+    out: dict[str, list[tuple[int, float, float]]] = {name: [] for name in names}
+    with pymupdf.open(pdf_path) as doc:
+        for page in pages:
+            if not 1 <= page <= doc.page_count:
+                continue
+            for x0, y0, x1, y1, word, *_ in doc.load_page(page - 1).get_text("words"):
+                text = _nfkc(word)
+                for name, parts in wanted.items():
+                    if text in parts:
+                        out[name].append((page, (x0 + x1) / 2.0, (y0 + y1) / 2.0))
+    return out
 
 
 
@@ -676,8 +706,9 @@ def run(
 
     # 5'. 図面の寸法から組んだ室(K-37)。**人の入力がある室は人の入力のまま**(混ぜない)。
     drawing_summary: dict[str, Any] | None = None
+    rectangle_checks: tuple[str, ...] = ()
     if drawing_rooms is not None:
-        drawing_result = _drawing_room_result(pdf, Path(drawing_rooms))
+        drawing_result, rectangle_checks = _drawing_room_result(pdf, Path(drawing_rooms))
         drawing_summary = drawing_result.summary()
         drawn = quantities_from_room_dimensions(drawing_result.rooms, origin=ORIGIN_DRAWING)
         gaps.extend(drawing_result.gaps)
@@ -739,6 +770,17 @@ def run(
         "当てはめで確定した行": settled_lines,
     }
     lines = finish_lines + legend_lines + mapped
+    from estimating.cross_checks import same_surface_counted_twice
+
+    checks = {
+        "長方形の中の別の室名": list(rectangle_checks),
+        "同じ面を2回以上": list(
+            same_surface_counted_twice(
+                {"場所": line.place, "工事項目": line.work_item, "数量": line.quantity, "単位": line.unit}
+                for line in lines
+            )
+        ),
+    }
     return OnePassResult(
         case_id=case_id,
         lines=lines,
@@ -750,6 +792,7 @@ def run(
         timings=timings,
         kept_quantities=kept,
         drawing_rooms=drawing_summary,
+        checks=checks,
         extras={
             **finish_extra,
             **legend_extra,

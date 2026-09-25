@@ -220,6 +220,61 @@ def rooms_from_drawing(
     )
 
 
+def _page_of(dim_id: str) -> int | None:
+    head = dim_id.split("-", 1)[0]
+    return int(head[1:]) if head.startswith("P") and head[1:].isdigit() else None
+
+
+def _span(ids: Sequence[str], readings: Mapping[str, Any], axis: int) -> tuple[float, float] | None:
+    values: list[float] = []
+    for dim_id in ids:
+        reading = readings.get(dim_id)
+        start = getattr(reading, "start_pt", None)
+        end = getattr(reading, "end_pt", None)
+        if start is None or end is None:
+            return None
+        values.extend((float(start[axis]), float(end[axis])))
+    return (min(values), max(values)) if values else None
+
+
+def other_room_names_inside(
+    assignments: Iterable[RoomAssignment],
+    readings: Mapping[str, Any],
+    labels: Mapping[str, Sequence[tuple[int, float, float]]],
+) -> tuple[str, ...]:
+    """室の長方形の中に、**別の室の室名**が入っていたら知らせる(K-40 1 番の検算)。
+
+    長方形は、横に使った寸法の左右の端と、縦に使った寸法の上下の端で作る(同じページのときだけ)。
+    ``labels`` は室名ごとの ``(ページ, x, y)``(室名の文字の中心、pt)。
+    実図面(K-38)では、LDK の長方形に玄関とホールの室名が入り、LDK の面積が大きすぎた。
+    **知らせるだけで、面積は変えない。**
+    """
+    warnings: list[str] = []
+    for assignment in assignments:
+        pages = {_page_of(i) for i in assignment.width_ids + assignment.length_ids}
+        if len(pages) != 1 or None in pages:
+            continue
+        page = pages.pop()
+        xs = _span(assignment.width_ids, readings, 0)
+        ys = _span(assignment.length_ids, readings, 1)
+        if xs is None or ys is None:
+            continue
+        name = _nfkc(assignment.room_name)
+        inside = sorted(
+            other
+            for other, points in labels.items()
+            if _nfkc(other) != name
+            and any(p == page and xs[0] < x < xs[1] and ys[0] < y < ys[1] for p, x, y in points)
+        )
+        if inside:
+            warnings.append(
+                f"[長方形の中に別の室名] {assignment.room_name.strip()} の長方形"
+                f"(ページ {page}、横 {xs[0]:.0f}〜{xs[1]:.0f}pt・縦 {ys[0]:.0f}〜{ys[1]:.0f}pt)に "
+                f"{'・'.join(n.strip() for n in inside)} の室名が入っている。面積が大きすぎるおそれ"
+            )
+    return tuple(warnings)
+
+
 @dataclass(frozen=True)
 class PageRuler:
     """1 ページぶんの基準(K-38)。**AI が選んだ 1 つの寸法の id と、許容差だけを持つ。**
@@ -278,5 +333,6 @@ __all__ = [
     "dimension_ids",
     "load_assignments",
     "load_rulers",
+    "other_room_names_inside",
     "rooms_from_drawing",
 ]
