@@ -25,6 +25,13 @@
 **図面が刷っている語そのものは既定では返さない**(``--with-text`` を
 付けたときだけ返し、その出力は共有フォルダにしか置かない)。
 
+**あとから足した欄が 1 つある**
+
+``参考_文字が1つでも入った面`` は、**結果を見てから足した診断の欄**である。
+線1〜線4 の判定には使っていない。足した理由は、室名の語が入った面が
+43 個中 4 個しかなく、**「面に文字が無い」のか「文字はあるが室名ではない」のか
+を分ける**必要が出たため。**先に決めた線は動かしていない。**
+
 基準は `docs/loop_round14_where_are_faces_criteria.md`(測る前にコミット済み)。
 """
 
@@ -196,6 +203,9 @@ def measure_page(pdf_path: Path, page_index: int, seed: int, with_text: bool) ->
             }
         )
 
+    # **結果を見てから足した診断の欄。**線の判定には使っていない。
+    any_text = faces_with_any([center for _, center in spans], wide_polygons)
+
     row = {
         "ページ": page_index + 1,
         "注記": len(notes),
@@ -211,6 +221,7 @@ def measure_page(pdf_path: Path, page_index: int, seed: int, with_text: bool) ->
         "線3_紙の側_居室": paper_living,
         "線3_紙の側_非居室": paper_service,
         "参考_区分に当たらなかった文字": paper_other,
+        "参考_文字が1つでも入った面": any_text,
         "線4_天井高を受けた面": receivers,
     }
     if with_text:
@@ -284,6 +295,7 @@ def measure(pdf_path: Path, seed: int, with_text: bool) -> dict:
             "閉じた面": total("閉じた面"),
             f"幅{ROOM_WIDTH_MM:.0f}mm以上の面": total(f"幅{ROOM_WIDTH_MM:.0f}mm以上の面"),
             "室名が2つ以上入った面": total("参考_室名が2つ以上入った面"),
+            "文字が1つでも入った面": total("参考_文字が1つでも入った面"),
         },
     }
 
