@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from estimating.from_room_dimensions import KIND_FLOOR_AREA, KIND_PERIMETER, KIND_WALL_AREA
+from intake.drawing_room_dimensions import METHOD_DRAWING_ROOM_DIMENSIONS
 
 # 段の名前。K-27 の言葉をそのまま使う。
 STAGE_RECOGNIZE = "認識"
@@ -170,6 +171,9 @@ class OnePassResult:
     not_connected: list[dict[str, str]]
     timings: dict[str, float]
     extras: dict[str, Any] = field(default_factory=dict)
+    drawing_rooms: dict[str, Any] | None = None
+    """図面の寸法から組んだ室の状態(K-37)。渡されなかったら ``None``。"""
+
     kept_quantities: list[dict[str, Any]] = field(default_factory=list)
     """行にしなかった入口の数量。**捨てずに印を付けて残す**(K-36)。
 
@@ -222,6 +226,7 @@ class OnePassResult:
                 "印ごと": dict(Counter(row["印"] for row in self.kept_quantities)),
                 "数量": self.kept_quantities,
             },
+            "図面の寸法から組んだ室": self.drawing_rooms,
             "かかった秒数": self.timings,
             "そのほか": self.extras,
         }
@@ -230,6 +235,33 @@ class OnePassResult:
 # ---------------------------------------------------------------------------
 # 5. 人の入力
 # ---------------------------------------------------------------------------
+
+
+def _drawing_room_result(pdf_path: Path, assignments_path: Path):  # noqa: ANN202
+    """AI の対応づけ(寸法の id だけ)と、機械が読んだ寸法から室を組む(K-37)。
+
+    読むのは、対応づけが指しているページと天井高のページだけ。
+    """
+    import pymupdf
+
+    from axes.image_axis.pdf_dimensions import read_dimensions
+    from intake.drawing_room_dimensions import dimension_ids, load_assignments, rooms_from_drawing
+
+    assignments = load_assignments(json.loads(assignments_path.read_text(encoding="utf-8")))
+    pages: set[int] = set()
+    for a in assignments:
+        for dim_id in a.width_ids + a.length_ids:
+            head = dim_id.split("-", 1)[0]
+            if head.startswith("P") and head[1:].isdigit():
+                pages.add(int(head[1:]))
+        if a.ceiling_page is not None:
+            pages.add(int(a.ceiling_page))
+    with pymupdf.open(pdf_path) as doc:
+        pages = {p for p in pages if 1 <= p <= doc.page_count}
+        texts = {p: doc.load_page(p - 1).get_text("text") for p in sorted(pages)}
+    readings = dimension_ids(read_dimensions(pdf_path, p - 1) for p in sorted(pages))
+    return rooms_from_drawing(assignments, readings, texts)
+
 
 
 @dataclass(frozen=True)
@@ -323,6 +355,11 @@ def _finish_line(assignment, item, page_number: int, room_quantities) -> Estimat
             quantity = round((low + high) / 2, 2)
             if note:
                 notes.append(note)
+            if found.method_id == METHOD_DRAWING_ROOM_DIMENSIONS:
+                notes.append(
+                    "数量は図面の寸法(AIが室に対応づけ)から: "
+                    + str(found.provenance.get("entered_by", ""))
+                )
     else:
         notes.append("この部位の数量の作り方をまだ持っていない")
     return EstimateLine(
@@ -553,10 +590,11 @@ def run(
     human_input: str | Path | None = None,
     rules: str | Path | None = None,
     build_ledger_stage: bool = True,
+    drawing_rooms: str | Path | None = None,
 ) -> OnePassResult:
     """7 つの段を順に動かす。**途中の段が空でも止めずに最後まで通す。**"""
     from estimating.from_intake import quantities_from_intake
-    from estimating.from_room_dimensions import quantities_from_room_dimensions
+    from estimating.from_room_dimensions import ORIGIN_DRAWING, quantities_from_room_dimensions
     from estimating.from_symbol_counts import quantities_from_symbol_counts
     from intake.drawing_intake import IntakeConfig, read_drawing
 
@@ -600,6 +638,18 @@ def run(
     for q in room_result.quantities:
         kind, _, room = q.target.partition("::")
         room_quantities[(kind, _nfkc(room))] = q
+
+    # 5'. 図面の寸法から組んだ室(K-37)。**人の入力がある室は人の入力のまま**(混ぜない)。
+    drawing_summary: dict[str, Any] | None = None
+    if drawing_rooms is not None:
+        drawing_result = _drawing_room_result(pdf, Path(drawing_rooms))
+        drawing_summary = drawing_result.summary()
+        drawn = quantities_from_room_dimensions(drawing_result.rooms, origin=ORIGIN_DRAWING)
+        gaps.extend(drawing_result.gaps)
+        gaps.extend(drawn.gaps)
+        for q in drawn.quantities:
+            kind, _, room = q.target.partition("::")
+            room_quantities.setdefault((kind, _nfkc(room)), q)
 
     # 3. 仕上表
     started = time.perf_counter()
@@ -664,6 +714,7 @@ def run(
         not_connected=[{"部品": name, "理由": why} for name, why in NOT_CONNECTED],
         timings=timings,
         kept_quantities=kept,
+        drawing_rooms=drawing_summary,
         extras={
             **finish_extra,
             **legend_extra,
@@ -685,6 +736,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--answers", default=None, help="問いの答えを置く JSON(無ければ作る)")
     parser.add_argument("--legend-table", default=None, help="凡例の対照表(リポジトリの外)")
     parser.add_argument("--human-input", default=None, help="人の入力(室の寸法・記号の個数)")
+    parser.add_argument(
+        "--drawing-rooms", default=None, help="図面の寸法の id を室に対応づけたもの(K-37)"
+    )
     parser.add_argument("--rules", default=None, help="当てはめの規則ファイル(リポジトリの外)")
     parser.add_argument("--no-ledger", action="store_true", help="台帳の段を飛ばす")
     args = parser.parse_args(argv)
@@ -696,6 +750,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         answers_path=args.answers or out.with_suffix(".answers.json"),
         legend_table=args.legend_table,
         human_input=args.human_input,
+        drawing_rooms=args.drawing_rooms,
         rules=args.rules,
         build_ledger_stage=not args.no_ledger,
     )

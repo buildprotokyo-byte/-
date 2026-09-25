@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Sequence
 
+from intake.drawing_room_dimensions import METHOD_DRAWING_ROOM_DIMENSIONS
 from intake.room_dimensions import (
     BASIS_UNKNOWN,
     METHOD_HUMAN_ROOM_DIMENSIONS,
@@ -45,6 +46,43 @@ KIND_WALL_AREA = "内壁面積"
 
 #: 数量の出どころの区分。図面から読んだものと混ぜない。
 SOURCE_HUMAN_INPUT = "human"
+SOURCE_DRAWING = "drawing"
+
+
+@dataclass(frozen=True)
+class RoomOrigin:
+    """室の寸法の出どころ。**人の入力と図面の寸法を混ぜないために、数量の手法を分ける。**"""
+
+    method_id: str
+    source_kind: str
+    axis_id: str
+    independence_note: str
+
+
+#: 人が入れた縦・横・天井高(既定)。
+ORIGIN_HUMAN = RoomOrigin(
+    method_id=METHOD_HUMAN_ROOM_DIMENSIONS,
+    source_kind=SOURCE_HUMAN_INPUT,
+    axis_id="human",
+    independence_note=(
+        "床面積・周長・内壁面積は、同じ人が同じ時に入れた縦・横・天井高から"
+        "計算したものである。**3 つの独立した証言ではない。**"
+        "入力の取り違えは 3 つ全部に同じように効くので、"
+        "互いを突き合わせても誤りは見つからない。"
+    ),
+)
+
+#: 図面に記入された寸法を、AI が室に対応づけたもの(K-37、`intake/drawing_room_dimensions.py`)。
+ORIGIN_DRAWING = RoomOrigin(
+    method_id=METHOD_DRAWING_ROOM_DIMENSIONS,
+    source_kind=SOURCE_DRAWING,
+    axis_id="image",
+    independence_note=(
+        "床面積・周長・内壁面積は、図面に記入された寸法の値を、AI が室に対応づけて"
+        "組んだものである。**同じ PDF の印字なので、図面のほかの読みと独立した証言ではない。**"
+        "対応づけの誤り(別の室の寸法を当てた)は 3 つ全部に同じように効く。"
+    ),
+)
 
 #: 壁の面積に必ず付ける注記。**開口を引いていないことを黙らせない。**
 WALL_OPENING_NOTE = (
@@ -74,8 +112,14 @@ class RoomQuantityResult:
 
 def quantities_from_room_dimensions(
     dimensions: Sequence[RoomDimension],
+    *,
+    origin: RoomOrigin = ORIGIN_HUMAN,
 ) -> RoomQuantityResult:
-    """室の寸法の並びから数量を作る。**空の入力からは何も作らない。**"""
+    """室の寸法の並びから数量を作る。**空の入力からは何も作らない。**
+
+    ``origin`` は寸法の出どころ。既定は人の入力。図面の寸法から組んだ室は
+    ``ORIGIN_DRAWING`` を渡す(手法を分けて、人の入力と混ぜない)。
+    """
     quantities: list[QuantityItem] = []
     gaps: list[str] = []
     seen: set[str] = set()
@@ -99,7 +143,7 @@ def quantities_from_room_dimensions(
             )
             continue
 
-        provenance = _provenance(dimension)
+        provenance = _provenance(dimension, origin)
         notes_common = (RECTANGLE_NOTE,)
         if dimension.area_basis == BASIS_UNKNOWN:
             notes_common += (
@@ -117,9 +161,9 @@ def quantities_from_room_dimensions(
                 target=f"{KIND_FLOOR_AREA}::{name}",
                 value_range=_cm2_to_sqm(floor),
                 unit="㎡",
-                method_id=METHOD_HUMAN_ROOM_DIMENSIONS,
-                source_kind=SOURCE_HUMAN_INPUT,
-                axis_id="human",
+                method_id=origin.method_id,
+                source_kind=origin.source_kind,
+                axis_id=origin.axis_id,
                 derivation="derived",
                 derivation_basis=("read",),
                 provenance=provenance,
@@ -131,9 +175,9 @@ def quantities_from_room_dimensions(
                 target=f"{KIND_PERIMETER}::{name}",
                 value_range=_mm_to_m(dimension.perimeter_mm),
                 unit="m",
-                method_id=METHOD_HUMAN_ROOM_DIMENSIONS,
-                source_kind=SOURCE_HUMAN_INPUT,
-                axis_id="human",
+                method_id=origin.method_id,
+                source_kind=origin.source_kind,
+                axis_id=origin.axis_id,
                 derivation="derived",
                 derivation_basis=("read",),
                 provenance=provenance,
@@ -154,9 +198,9 @@ def quantities_from_room_dimensions(
                 target=f"{KIND_WALL_AREA}::{name}",
                 value_range=_cm2_to_sqm(wall),
                 unit="㎡",
-                method_id=METHOD_HUMAN_ROOM_DIMENSIONS,
-                source_kind=SOURCE_HUMAN_INPUT,
-                axis_id="human",
+                method_id=origin.method_id,
+                source_kind=origin.source_kind,
+                axis_id=origin.axis_id,
                 derivation="derived",
                 derivation_basis=("read",),
                 provenance=provenance,
@@ -167,21 +211,16 @@ def quantities_from_room_dimensions(
     return RoomQuantityResult(quantities=tuple(quantities), gaps=tuple(gaps))
 
 
-def _provenance(dimension: RoomDimension) -> dict[str, object]:
+def _provenance(dimension: RoomDimension, origin: RoomOrigin) -> dict[str, object]:
     """**独立でないことを、根拠に必ず残す。**"""
     return {
-        "method_id": METHOD_HUMAN_ROOM_DIMENSIONS,
+        "method_id": origin.method_id,
         "entered_by": dimension.entered_by,
         "area_basis": dimension.area_basis,
         "length_mm": dimension.length_mm,
         "width_mm": dimension.width_mm,
         "ceiling_height_mm": dimension.ceiling_height_mm,
-        "independence_note": (
-            "床面積・周長・内壁面積は、同じ人が同じ時に入れた縦・横・天井高から"
-            "計算したものである。**3 つの独立した証言ではない。**"
-            "入力の取り違えは 3 つ全部に同じように効くので、"
-            "互いを突き合わせても誤りは見つからない。"
-        ),
+        "independence_note": origin.independence_note,
     }
 
 
@@ -203,8 +242,12 @@ __all__ = [
     "KIND_FLOOR_AREA",
     "KIND_PERIMETER",
     "KIND_WALL_AREA",
+    "ORIGIN_DRAWING",
+    "ORIGIN_HUMAN",
     "RECTANGLE_NOTE",
+    "RoomOrigin",
     "RoomQuantityResult",
+    "SOURCE_DRAWING",
     "SOURCE_HUMAN_INPUT",
     "WALL_OPENING_NOTE",
     "quantities_from_room_dimensions",
