@@ -91,7 +91,12 @@ def false_walls(
     """**嘘の壁**(建具が無い所に引いた仮の辺)の本数。"""
     graph = build_plan_graph(pdf_path, page_index, scale, max_gap_mm=width_mm)
     if graph is None:
-        return {"仮の辺": 0, "嘘の壁": 0, "建具の円弧": 0}
+        return {
+            "仮の辺": 0,
+            "嘘の壁": 0,
+            "建具の円弧": 0,
+            "仮の辺の長さ": {"100mm未満": 0, "100-600mm": 0, "600mm以上": 0},
+        }
     arcs = find_door_arcs(pdf_path, page_index, scale)
     hinges = [arc.center_pt for arc in arcs]
     near_pt = near_mm / graph.mm_per_pt
@@ -99,6 +104,10 @@ def false_walls(
     seen: set[tuple[int, int]] = set()
     lies = 0
     total = 0
+    # **結果を見てから足した診断。**線1〜線6 の判定には使っていない。
+    # 仮の辺の長さを段に分けて数える。細い途切れの繕いと、開口をまたぐ線を
+    # 分けるため(下の「嘘の壁」はこの 2 つを分けていない)。
+    bands = {"100mm未満": 0, "100-600mm": 0, "600mm以上": 0}
     for u, v in graph.virtual_edges:
         key = (u, v) if u < v else (v, u)
         if key in seen:
@@ -108,13 +117,25 @@ def false_walls(
         ax, ay = graph.coords[u]
         bx, by = graph.coords[v]
         mid = ((ax + bx) / 2.0, (ay + by) / 2.0)
+        length_mm = ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5 * graph.mm_per_pt
+        if length_mm < 100.0:
+            bands["100mm未満"] += 1
+        elif length_mm < 600.0:
+            bands["100-600mm"] += 1
+        else:
+            bands["600mm以上"] += 1
         close = any(
             (hx - mid[0]) ** 2 + (hy - mid[1]) ** 2 <= near_pt**2
             for hx, hy in hinges
         )
         if not close:
             lies += 1
-    return {"仮の辺": total, "嘘の壁": lies, "建具の円弧": len(arcs)}
+    return {
+        "仮の辺": total,
+        "嘘の壁": lies,
+        "建具の円弧": len(arcs),
+        "仮の辺の長さ": bands,
+    }
 
 
 def measure_page(

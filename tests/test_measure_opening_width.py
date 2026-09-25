@@ -75,4 +75,6 @@ def test_線が1本も無い紙では何も出ない(tmp_path) -> None:
     document.close()
     scale = DrawingScale(denominator=50.0, source_text="1/50")
     result = false_walls(path, 0, scale, width_mm=3000.0)
-    assert result == {"仮の辺": 0, "嘘の壁": 0, "建具の円弧": 0}
+    assert result["仮の辺"] == 0
+    assert result["嘘の壁"] == 0
+    assert result["建具の円弧"] == 0
