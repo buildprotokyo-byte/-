@@ -170,6 +170,7 @@ def caption_band(page: pymupdf.Page) -> Box:
 
 
 def _crop(image: np.ndarray, page: pymupdf.Page, box: Box, pad: float = 1.0) -> np.ndarray:
+    """紙の座標の矩形を、周りに `pad` ポイントの余白を足して切り出す。"""
     scale_x = image.shape[1] / page.rect.width
     scale_y = image.shape[0] / page.rect.height
     x0 = max(int((box[0] - pad) * scale_x), 0)
@@ -192,8 +193,19 @@ def places(page: pymupdf.Page, image: np.ndarray) -> list[tuple[str, Box]]:
     return out
 
 
+def _pad_for(box: Box, pad_ratio: float) -> float:
+    """切り出しの余白。**その矩形の高さに比例させる**(周9 の基準)。"""
+    return max(1.0, (box[3] - box[1]) * pad_ratio)
+
+
 def measure_page(
-    engine: Any, doc: pymupdf.Document, page_index: int, *, dpi: int, seed: int
+    engine: Any,
+    doc: pymupdf.Document,
+    page_index: int,
+    *,
+    dpi: int,
+    seed: int,
+    pad_ratio: float = 0.0,
 ) -> dict[str, Any]:
     page = doc.load_page(page_index)
     image = render(page, dpi)
@@ -201,7 +213,7 @@ def measure_page(
 
     texts: list[tuple[str, str, float]] = []
     for name, box in spots:
-        tile = _crop(image, page, box)
+        tile = _crop(image, page, box, _pad_for(box, pad_ratio))
         if tile.size == 0:
             continue
         for text, score in read(engine, tile):
@@ -210,7 +222,7 @@ def measure_page(
     shifted_image = render(render_shifted(page, random.Random(seed + page_index)), dpi)
     decoy: list[tuple[str, str, float]] = []
     for name, box in spots:
-        tile = _crop(shifted_image, page, box)
+        tile = _crop(shifted_image, page, box, _pad_for(box, pad_ratio))
         if tile.size == 0:
             continue
         for text, score in read(engine, tile):
@@ -223,6 +235,7 @@ def measure_page(
     return {
         "ページ番号": page_index + 1,
         "解像度": dpi,
+        "切り出しの余白の割合": pad_ratio,
         "読んだ単位": len(spots),
         "決まりごとの単位の数": by_rule,
         "本物から返った文字の数": len(texts),
@@ -240,6 +253,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pages", required=True)
     parser.add_argument("--dpi", type=int, default=300)
     parser.add_argument("--seed", type=int, default=20260925)
+    parser.add_argument(
+        "--pad-ratio",
+        type=float,
+        default=0.0,
+        help="切り出しの余白を、矩形の高さの何倍にするか(周8 は 0、周9 は 1.0)",
+    )
     parser.add_argument("--out", type=Path)
     parser.add_argument("--texts", type=Path)
     args = parser.parse_args(argv)
@@ -249,7 +268,10 @@ def main(argv: list[str] | None = None) -> int:
     engine = RapidOCR()
     doc = pymupdf.open(args.pdf)
     pages = [
-        measure_page(engine, doc, int(number) - 1, dpi=args.dpi, seed=args.seed)
+        measure_page(
+            engine, doc, int(number) - 1,
+            dpi=args.dpi, seed=args.seed, pad_ratio=args.pad_ratio,
+        )
         for number in args.pages.split(",")
     ]
 
