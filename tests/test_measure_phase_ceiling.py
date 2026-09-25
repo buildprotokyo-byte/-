@@ -133,3 +133,28 @@ def test_ページが取れなければ0():
         provenance: dict = {}
 
     assert m.page_of(_無し()) == 0
+
+
+# --- 追記2: 器を新しく作らない(いまの上限) ---
+
+
+def test_器を作らない指定では器の無い数量に位相は入らない():
+    もと = 数量()
+    out = m.with_phase([もと], "全部現況", create_containers=False)[0]
+    assert out.meaning is None
+    assert out.phase is None
+
+
+def test_器を作らない指定でも器がある数量には入る():
+    もと = 数量(
+        meaning=Meaning(
+            what="建具", where="ページ3", phase="不明", purpose_link="目的未確立"
+        )
+    )
+    out = m.with_phase([もと], "全部現況", create_containers=False)[0]
+    assert out.phase == PHASE_EXISTING
+
+
+def test_器を作らない指定でも件数は減らない():
+    items = [数量(), 数量(meaning=Meaning(what="建具", where="p", phase="不明", purpose_link="目的未確立"))]
+    assert len(m.with_phase(items, "全部現況", create_containers=False)) == 2

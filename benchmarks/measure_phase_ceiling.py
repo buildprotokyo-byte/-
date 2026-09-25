@@ -68,11 +68,16 @@ def phase_for(item: Any, assignment: str) -> str:
     return PHASE_EXISTING if page_of(item) % 2 else PHASE_PLANNED
 
 
-def with_phase(quantities: Sequence[Any], assignment: str) -> list[Any]:
+def with_phase(
+    quantities: Sequence[Any], assignment: str, *, create_containers: bool = True
+) -> list[Any]:
     """**器ごと位相を入れた数量**を作る。元の数量は変えない。
 
     器(`Meaning`)が無い数量には器を作る。**`what` と `where` は
     その数量が既に持っているものから作る**(読めていない欄を埋めない)。
+
+    `create_containers=False` のときは**器を新しく作らない**(追記2)。
+    **既に器を持っている数量だけ**に位相が入る。**これがいまの上限である。**
     """
     out: list[Any] = []
     for item in quantities:
@@ -80,6 +85,9 @@ def with_phase(quantities: Sequence[Any], assignment: str) -> list[Any]:
         current = getattr(item, "meaning", None)
         if current is not None:
             meaning = dataclasses.replace(current, phase=phase)
+        elif not create_containers:
+            out.append(item)
+            continue
         else:
             page = page_of(item)
             meaning = Meaning(
@@ -199,6 +207,14 @@ def measure(pdf: Path, answers: Path) -> dict:
             afters = {
                 name: outcome(with_phase(base, name), paths) for name in ASSIGNMENTS
             }
+            今の上限 = {
+                name: outcome(
+                    with_phase(base, name, create_containers=False), paths
+                )
+                for name in ASSIGNMENTS
+            }
+            for name in ASSIGNMENTS:
+                今の上限[name].pop("_指紋")
             fingerprints = {name: afters[name].pop("_指紋") for name in ASSIGNMENTS}
             before.pop("_指紋")
 
@@ -210,9 +226,27 @@ def measure(pdf: Path, answers: Path) -> dict:
             grew = [name for name in ASSIGNMENTS if afters[name]["行の数"] > before["行の数"]]
             demolition = [name for name in ASSIGNMENTS if afters[name]["撤去の行"] >= 1]
 
+            増えた今 = [
+                name for name in ASSIGNMENTS if 今の上限[name]["行の数"] > before["行の数"]
+            ]
+            撤去今 = [name for name in ASSIGNMENTS if 今の上限[name]["撤去の行"] >= 1]
+
             result["規則ごと"][rules_name] = {
                 "入れる前": before,
                 "入れた後": afters,
+                "追記2_器を作らない(いまの上限)": {
+                    "結果": 今の上限,
+                    "線1ダッシュ_行が増えたか": {
+                        "合格": "1 行でも増える",
+                        "増えた入れ方": 増えた今,
+                        "通過": bool(増えた今),
+                    },
+                    "線2ダッシュ_撤去の行": {
+                        "合格": "1 行以上",
+                        "出た入れ方": 撤去今,
+                        "通過": bool(撤去今),
+                    },
+                },
                 "線1_行が増えたか": {
                     "合格": "1 行でも増える",
                     "増えた入れ方": grew,
@@ -239,11 +273,23 @@ def measure(pdf: Path, answers: Path) -> dict:
             result["規則ごと"][name]["入れた後"][a]["当てはめで確定した行"]
             for name in rulesets
             for a in ASSIGNMENTS
+        ] + [
+            result["規則ごと"][name]["追記2_器を作らない(いまの上限)"]["結果"][a][
+                "当てはめで確定した行"
+            ]
+            for name in rulesets
+            for a in ASSIGNMENTS
         ]
         confirmed_all = [
             result["規則ごと"][name]["入れる前"]["自動確定した数量"] for name in rulesets
         ] + [
             result["規則ごと"][name]["入れた後"][a]["自動確定した数量"]
+            for name in rulesets
+            for a in ASSIGNMENTS
+        ] + [
+            result["規則ごと"][name]["追記2_器を作らない(いまの上限)"]["結果"][a][
+                "自動確定した数量"
+            ]
             for name in rulesets
             for a in ASSIGNMENTS
         ]
