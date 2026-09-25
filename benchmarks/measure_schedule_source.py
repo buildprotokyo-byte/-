@@ -27,6 +27,14 @@
 **0 件は「仕上表が無い」ではなく「この見出しの表では当たらなかった」。**
 **0 件だったときに、しきいや見出しの語をその場で足さない。**
 
+**あとから足した欄が 1 つある**
+
+``参考_語の表を通さない室名`` は、**結果を見てから足した診断の欄**である。
+線1〜線3 の判定には使っていない。足した理由は、線1 が数えているのが
+**区分の語に当たった室名**なので、**語の表に無い室名が何個あるか**を
+分けないと、9 という数が「室が 9 つ」なのか「表に当たったのが 9 つ」なのか
+言えないため。**先に決めた線は動かしていない。**
+
 基準は `docs/loop_round16_schedule_source_criteria.md`(測る前にコミット済み)。
 """
 
@@ -167,6 +175,13 @@ def measure(pdf_path: Path, with_text: bool) -> dict:
     real_in_plan = [name for name in real if appears_in(name, texts)]
     decoy_in_plan = [name for name in decoy_a if appears_in(name, texts)]
 
+    # **結果を見てから足した診断の欄。**線の判定には使っていない。
+    raw: list[str] = []
+    for name in found["室名"]:
+        if name not in raw:
+            raw.append(name)
+    raw_in_plan = [name for name in raw if appears_in(name, texts)]
+
     share = len(skipped) / len(real) if real else None
     result = {
         "ページごと": found["ページごと"],
@@ -194,6 +209,10 @@ def measure(pdf_path: Path, with_text: bool) -> dict:
             "割合": None if share is None else round(share, 3),
             "但し書きが要る": share is not None and share >= SKIPPED_SHARE,
         },
+        "参考_語の表を通さない室名": {
+            "重複なし": len(raw),
+            "平面図にもあった": len(raw_in_plan),
+        },
         "かかった秒": round(time.time() - started, 1),
     }
     if with_text:
@@ -202,6 +221,7 @@ def measure(pdf_path: Path, with_text: bool) -> dict:
             "囮A": decoy_a,
             "平面図にもあった室名": real_in_plan,
             "落とした行の室名": skipped,
+            "語の表を通さない室名": raw,
         }
     return result
 
