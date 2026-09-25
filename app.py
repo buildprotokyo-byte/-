@@ -187,6 +187,8 @@ class OnePassResult:
 
         **科目は行にあるものだけ。**科目の無い行は「科目未定」に集まる。
         単価はまだ無いので、金額は空のまま出る。
+        同じ工事の行は 1 つの細目にまとまり、場所ごとの内訳を持つ。数量の無い場所は
+        「未取得」で、未取得があるうちは細目の合計を出さない(K-38 原則11)。
         """
         from estimating.breakdown import build_breakdown
 
@@ -194,6 +196,7 @@ class OnePassResult:
             {
                 "科目": line.category,
                 "工事項目": line.work_item,
+                "場所": line.place,
                 "摘要": line.spec,
                 "数量": line.quantity,
                 "単位": line.unit,
