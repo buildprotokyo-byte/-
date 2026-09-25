@@ -158,8 +158,8 @@ from axes.reading.meaning import (
 from intake.start_kit import (
     DOOR_ARC_EXPECTED_PAGE_KINDS,
     LEGEND_PAGE_KINDS,
-    REPEATED_SYMBOL_PAGE_KINDS,
-    ROOM_OUTLINE_PAGE_KINDS,
+    REPEATED_SYMBOL_EXPECTED_PAGE_KINDS,
+    ROOM_OUTLINE_EXPECTED_PAGE_KINDS,
     PageDeclaration,
     PagePairing,
     ReferencePoint,
@@ -1009,7 +1009,7 @@ def _extract(
     #: ページごとの「繰り返す図形の群」と、凡例で読めた「名前 ↔ 図形」。
     #: **名前付けはページを全部読み終えてから行う。** 凡例が平面図より
     #: 後ろのページにあることがあり、途中で名前を決めると取りこぼすため。
-    symbol_clusters: list[tuple[int, str | None, SymbolCluster]] = []
+    symbol_clusters: list[_PageSymbolCluster] = []
     legend_symbols: list[LegendSymbol] = []
     findings: list[DrawingFinding] = []
     pending: list[PendingDecision] = []
@@ -1180,10 +1180,16 @@ def _extract(
                 )
             )
 
+            # 室の輪郭と繰り返す記号も**宣言でページを外さない**(K-04 の 5)。
+            # 食い違ったときの扱いは開き戸と同じで、同じページの食い違いは
+            # 1 件の `PendingDecision` にまとめる。
             findings.extend(
                 _room_outline_findings(
                     pdf_path, index, page_number, scale, declaration, notes,
                     area_basis=config.area_basis,
+                    pending=pending,
+                    door_schedule_count=door_schedule_count,
+                    finish_schedule_count=finish_schedule_count,
                 )
             )
 
@@ -1196,6 +1202,9 @@ def _extract(
                 notes=notes,
                 symbol_clusters=symbol_clusters,
                 legend_symbols=legend_symbols,
+                pending=pending,
+                door_schedule_count=door_schedule_count,
+                finish_schedule_count=finish_schedule_count,
             )
 
         outcomes.append(
@@ -1932,6 +1941,76 @@ def _door_arc_findings(
     ]
 
 
+#: ページの種類の食い違いの ``observed`` に使う、読みの名前。
+ROOM_OUTLINE_READING_LABEL = "室の輪郭"
+REPEATED_SYMBOL_READING_LABEL = "繰り返す記号の群"
+
+
+@dataclass(frozen=True)
+class _PageSymbolCluster:
+    """ページごとに集めた繰り返す図形の群。名前付けは全ページを読んでから。"""
+
+    page_number: int
+    phase: str | None
+    cluster: SymbolCluster
+    declared_kind: str | None = None
+    declaration_conflict: bool = False
+
+
+def _record_page_kind_disagreement(
+    pending: list[PendingDecision],
+    *,
+    page_number: int,
+    declared_kind: str,
+    reading_label: str,
+    reading_count: int,
+    door_schedule_count: int = 0,
+    finish_schedule_count: int = 0,
+) -> None:
+    """室の輪郭・繰り返す記号が宣言と食い違ったことを、人の判断へ回す。
+
+    **同じページの食い違いは 1 件にまとめる。** 開き戸(`_door_arc_findings`)・
+    室の輪郭・繰り返す記号が同じ宣言と食い違ったとき、別々に立てると同じ
+    宣言について人へ 3 回聞くことになる。すでにそのページの食い違いがあれば、
+    読みの件数を ``observed`` に足し、文を書き足す。
+    """
+    addition = (
+        f"{reading_label}も {reading_count} 件読めた"
+        "(表の罫線・表題欄・ハッチングを拾った可能性もある)。"
+    )
+    for position, existing in enumerate(pending):
+        if existing.kind == PAGE_KIND_DISAGREEMENT and existing.page_number == page_number:
+            pending[position] = PendingDecision(
+                kind=existing.kind,
+                detail=existing.detail + "また、" + addition,
+                observed=existing.observed + ((reading_label, float(reading_count)),),
+                page_number=page_number,
+            )
+            return
+
+    observed: list[tuple[str, float]] = [(reading_label, float(reading_count))]
+    if door_schedule_count:
+        observed.append(("読めた建具表", float(door_schedule_count)))
+    if finish_schedule_count:
+        observed.append(("読めた内装仕上表", float(finish_schedule_count)))
+    detail = (
+        f"ページ{page_number}は人が「{declared_kind}」と宣言しているが、"
+        f"{addition}"
+        "宣言が誤っている(実際は平面図・設備図、または同居している)のか、"
+        "平面図でないものを拾ったのか、図面を見て決めてください。"
+    )
+    if door_schedule_count or finish_schedule_count:
+        detail += "なお、このページでは表も読めている(宣言どおりの可能性がある)。"
+    pending.append(
+        PendingDecision(
+            kind=PAGE_KIND_DISAGREEMENT,
+            detail=detail,
+            observed=tuple(observed),
+            page_number=page_number,
+        )
+    )
+
+
 def _room_outline_findings(
     pdf_path: Path,
     index: int,
@@ -1941,19 +2020,28 @@ def _room_outline_findings(
     notes: list[str],
     *,
     area_basis: AreaBasis = "壁芯",
+    pending: list[PendingDecision] | None = None,
+    door_schedule_count: int = 0,
+    finish_schedule_count: int = 0,
 ) -> list[DrawingFinding]:
-    """室の輪郭を、根拠付きの面積の証拠に直す。
+    """室の輪郭を、根拠付きの面積の証拠に直す。**人の宣言では止めない。**
 
     ``area_basis`` は**求める数え方**である(既定は会社のルールどおり「壁芯」)。
     **求めても、図面から厚みが読めなければ「不明」のまま出る。**
     出た数え方と、その理由は provenance にそのまま残し、
     下流が片方に決め打ちできないようにする。
     こちらの都合で開口を閉じた室は ``virtual_edges`` が 0 より大きくなる。
+
+    人が宣言したページの種類は**弱い手がかり**であって、読み取りの範囲では
+    ない(原則4の条件3、PR #37)。「平面図」以外と宣言されたページでも探し、
+    出たときは開き戸の円弧と同じく、値は捨てずに由来を ``assumed`` にし、
+    食い違いを人の判断へ回す。0 件なら食い違いは立てない。
     """
-    kind = declaration.kind if declaration is not None else None
-    if kind is not None and kind not in ROOM_OUTLINE_PAGE_KINDS:
-        notes.append(f"人が「{kind}」と宣言したページなので室の輪郭は探さない")
-        return []
+    declared_kind = declaration.kind if declaration is not None else None
+    unexpected_here = (
+        declared_kind is not None
+        and declared_kind not in ROOM_OUTLINE_EXPECTED_PAGE_KINDS
+    )
 
     rooms = find_room_outlines(pdf_path, index, scale, area_basis=area_basis)
     if not rooms:
@@ -1961,7 +2049,32 @@ def _room_outline_findings(
             "室の輪郭は 0 件"
             "(開口が広くて閉じられない室は漏れて落ちる。0 件は「室が無い」ではない)"
         )
+        if unexpected_here:
+            notes.append(
+                f"人が「{declared_kind}」と宣言したページでも室の輪郭は探した"
+                "(宣言は読み取りの範囲を決めない)。結果は 0 件で、"
+                "宣言と食い違わなかった"
+            )
         return []
+
+    conflict = unexpected_here
+    if conflict:
+        notes.append(
+            f"人が「{declared_kind}」と宣言したページだが、室の輪郭が "
+            f"{len(rooms)} 件出た。**宣言を理由に捨てていない。** ただし表の罫線や"
+            "表題欄の升目を室と取り違えている可能性があるので、この値は"
+            "「仮説に基づく」として出し、食い違いを人の判断へ回した"
+        )
+        if pending is not None:
+            _record_page_kind_disagreement(
+                pending,
+                page_number=page_number,
+                declared_kind=declared_kind,
+                reading_label=ROOM_OUTLINE_READING_LABEL,
+                reading_count=len(rooms),
+                door_schedule_count=door_schedule_count,
+                finish_schedule_count=finish_schedule_count,
+            )
     phase = declaration.phase if declaration is not None else None
     out: list[DrawingFinding] = []
     for order, room in enumerate(rooms, start=1):
@@ -1978,9 +2091,13 @@ def _room_outline_findings(
                 unit=AREA_UNIT,
                 method_id=METHOD_ROOM_OUTLINE,
                 strength="weak",
+                # 宣言と食い違った読みは「仮説に基づく」側に落とす(開き戸と同じ)。
+                derivation="assumed" if conflict else "read",
                 provenance={
                     "page_number": page_number,
                     "phase": phase,
+                    "declared_page_kind": declared_kind,
+                    "declaration_conflict": conflict,
                     "room_name": room.name,
                     "area_sqm_unrounded": room.area_sqm,
                     "name_basis": room.name_basis,
@@ -2006,24 +2123,33 @@ def _collect_symbols(
     scale: DrawingScale,
     declaration: PageDeclaration | None,
     notes: list[str],
-    symbol_clusters: list[tuple[int, str | None, SymbolCluster]],
+    symbol_clusters: list[_PageSymbolCluster],
     legend_symbols: list[LegendSymbol],
+    pending: list[PendingDecision] | None = None,
+    door_schedule_count: int = 0,
+    finish_schedule_count: int = 0,
 ) -> None:
     """そのページから、繰り返す図形の群と、凡例の「名前 ↔ 図形」を集める。
 
     **名前は「凡例」と宣言されたページからしか取らない。** 平面図の上で
     室名がたまたま記号の左に並んでいるのを凡例と読み違えると、名前が
     捏造される。宣言が無ければ名前は付かないまま(件数だけ)になる。
+    (これは名前の出どころの決まりで、探索の範囲の話ではない。変えていない。)
+
+    **繰り返す図形の探索は、人の宣言では止めない**(原則4の条件3、PR #37)。
+    「凡例」と宣言されたページでも、凡例を読んだうえで探す。
+    「平面図」「設備図」以外と宣言されたページで群が出たときは、開き戸の円弧と
+    同じく、値は捨てずに由来を ``assumed`` にし、食い違いを人の判断へ回す。
     """
-    kind = declaration.kind if declaration is not None else None
-    if kind in LEGEND_PAGE_KINDS:
+    declared_kind = declaration.kind if declaration is not None else None
+    if declared_kind in LEGEND_PAGE_KINDS:
         found = read_legend_symbols(pdf_path, index, scale)
         legend_symbols.extend(found)
         notes.append(f"凡例として読んだ記号は {len(found)} 件")
-        return
-    if kind is not None and kind not in REPEATED_SYMBOL_PAGE_KINDS:
-        notes.append(f"人が「{kind}」と宣言したページなので繰り返す記号は探さない")
-        return
+    unexpected_here = (
+        declared_kind is not None
+        and declared_kind not in REPEATED_SYMBOL_EXPECTED_PAGE_KINDS
+    )
 
     clusters = find_repeated_symbols(pdf_path, index, scale)
     if not clusters:
@@ -2032,14 +2158,47 @@ def _collect_symbols(
             "(1 回しか出てこない記号と大きさの窓の外の記号は拾えない。"
             "0 群は「記号が無い」ではない)"
         )
+        if unexpected_here:
+            notes.append(
+                f"人が「{declared_kind}」と宣言したページでも繰り返す図形は探した"
+                "(宣言は読み取りの範囲を決めない)。結果は 0 群で、"
+                "宣言と食い違わなかった"
+            )
         return
+
+    conflict = unexpected_here
+    if conflict:
+        notes.append(
+            f"人が「{declared_kind}」と宣言したページだが、繰り返す図形が "
+            f"{len(clusters)} 群出た。**宣言を理由に捨てていない。** ただし表の罫線や"
+            "ハッチングを記号と取り違えている可能性があるので、この値は"
+            "「仮説に基づく」として出し、食い違いを人の判断へ回した"
+        )
+        if pending is not None:
+            _record_page_kind_disagreement(
+                pending,
+                page_number=page_number,
+                declared_kind=declared_kind,
+                reading_label=REPEATED_SYMBOL_READING_LABEL,
+                reading_count=len(clusters),
+                door_schedule_count=door_schedule_count,
+                finish_schedule_count=finish_schedule_count,
+            )
     phase = declaration.phase if declaration is not None else None
     for cluster in clusters:
-        symbol_clusters.append((page_number, phase, cluster))
+        symbol_clusters.append(
+            _PageSymbolCluster(
+                page_number=page_number,
+                phase=phase,
+                cluster=cluster,
+                declared_kind=declared_kind,
+                declaration_conflict=conflict,
+            )
+        )
 
 
 def _repeated_symbol_findings(
-    symbol_clusters: list[tuple[int, str | None, SymbolCluster]],
+    symbol_clusters: list[_PageSymbolCluster],
     legend_symbols: list[LegendSymbol],
 ) -> list[DrawingFinding]:
     """繰り返す記号の群を、根拠付きの証拠に直す。
@@ -2050,9 +2209,10 @@ def _repeated_symbol_findings(
     """
     if not symbol_clusters:
         return []
-    named = name_clusters([c for _, _, c in symbol_clusters], legend_symbols)
+    named = name_clusters([item.cluster for item in symbol_clusters], legend_symbols)
     out: list[DrawingFinding] = []
-    for (page_number, phase, cluster), naming in zip(symbol_clusters, named):
+    for item, naming in zip(symbol_clusters, named):
+        page_number, phase, cluster = item.page_number, item.phase, item.cluster
         label = naming.name if naming.name is not None else f"名前不明{cluster.size_mm:.0f}mm"
         target = (
             f"記号::{label}::{phase}::ページ{page_number}"
@@ -2066,9 +2226,13 @@ def _repeated_symbol_findings(
                 unit=COUNT_UNIT,
                 method_id=METHOD_REPEATED_SYMBOL,
                 strength="weak",
+                # 宣言と食い違った読みは「仮説に基づく」側に落とす(開き戸と同じ)。
+                derivation="assumed" if item.declaration_conflict else "read",
                 provenance={
                     "page_number": page_number,
                     "phase": phase,
+                    "declared_page_kind": item.declared_kind,
+                    "declaration_conflict": item.declaration_conflict,
                     "symbol_name": naming.name,
                     "naming_basis": naming.basis,
                     "size_mm": round(cluster.size_mm, 1),
