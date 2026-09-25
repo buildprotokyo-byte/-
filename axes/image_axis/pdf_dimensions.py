@@ -186,6 +186,9 @@ FRAME_FILLED_RATIO = 0.25
 #: 単位の出どころの表記。根拠としてそのまま残す。
 UNIT_FROM_TEXT = "単位が表記されていた"
 UNIT_FROM_PLAUSIBLE_SCALE = "単位の表記が無く、縮尺が成り立つ側に読んだ"
+#: 寸法線の候補が 2 本以上あった数字を、渡された目盛り(選んだ基準の縮尺)で 1 本に決めた(K-38)。
+#: **ほかの読みと出どころを分けるために、単位の決め方の欄に印を置く。**
+UNIT_FROM_RULER = "寸法線の候補が複数あり、基準の縮尺で区間を1本に決めた"
 
 
 class DimensionError(ValueError):
@@ -692,6 +695,42 @@ def _pick_span(matches: Sequence[_Span]) -> _Span | None:
     return shortest
 
 
+def _pick_span_with_ruler(
+    number: _NumberText,
+    matches: Sequence[_Span],
+    mm_per_point: float,
+    tolerance: float,
+) -> tuple[_Span | None, tuple[float, str] | None]:
+    """目盛りで候補を 1 本に決める。**合う候補がちょうど 1 本のときだけ。**
+
+    数字の実寸は、単位が書かれていればそれ、書かれていなければ mm と m の両方を試す
+    (どちらも建築図面として成り立つ縮尺の幅に入るかは `_resolve_unit` と同じく確かめる)。
+    """
+    if number.has_unit:
+        values = [number.value * number.unit_factor]
+    elif number.digit_count >= MIN_BARE_DIGITS:
+        values = [number.value, number.value * 1000.0]
+    else:
+        return None, None
+    hits: list[tuple[_Span, float]] = []
+    for span in matches:
+        measured = span.length * mm_per_point
+        if measured <= 0:
+            continue
+        for value_mm in values:
+            if value_mm < MIN_DIMENSION_MM:
+                continue
+            denominator = value_mm / span.length / MM_PER_POINT
+            if not PLAUSIBLE_SCALE_MIN <= denominator <= PLAUSIBLE_SCALE_MAX:
+                continue
+            if abs(value_mm / measured - 1.0) <= tolerance:
+                hits.append((span, value_mm))
+    if len(hits) != 1:
+        return None, None
+    span, value_mm = hits[0]
+    return span, (value_mm, UNIT_FROM_RULER)
+
+
 def _resolve_unit(
     number: _NumberText, paper_distance_pt: float
 ) -> tuple[float, str] | None:
@@ -743,6 +782,8 @@ def read_dimensions(
     *,
     phase: str = "不明",
     purpose_received: bool = False,
+    ruler_mm_per_point: float | None = None,
+    ruler_tolerance: float | None = None,
 ) -> DimensionPage:
     """1 ページから、記入された寸法を読む。読めなければ空。
 
@@ -755,7 +796,18 @@ def read_dimensions(
     経路はまだ無い**(原則3-2の二段階目が未実装)ので、意味の4欄の
     `purpose_link` には「受け皿が無い」のか「結び付けが無い」のかを分けて
     印だけを置く。**方向性の自由記述をここに写さない。**
+
+    `ruler_mm_per_point` は、そのページで選んだ基準の縮尺(1pt が実寸何 mm か。
+    `axes/image_axis/page_ruler.py`)。**渡したときだけ**、寸法線の候補が 2 本以上あって
+    落としていた数字について、「区間の長さ × 目盛り」が数字と `ruler_tolerance` の中で
+    合う候補が **1 本だけ**なら、その区間を採る(K-38)。**渡さなければ読みはこれまでと同じ。**
+    拾った読みの ``unit_source`` は ``UNIT_FROM_RULER``。
     """
+    if ruler_mm_per_point is not None:
+        if ruler_tolerance is None or ruler_tolerance < 0:
+            raise DimensionError("目盛りを渡すときは、突き合わせの許容差も渡してください")
+        if not (ruler_mm_per_point > 0 and math.isfinite(ruler_mm_per_point)):
+            raise DimensionError(f"目盛りが正の有限値ではありません: {ruler_mm_per_point}")
     with pymupdf.open(pdf_path) as doc:
         if not 0 <= page_index < doc.page_count:
             raise IndexError(f"ページ {page_index} は存在しません")
@@ -812,6 +864,11 @@ def read_dimensions(
             )
             continue
         span = _pick_span(matches)
+        resolved = None
+        if span is None and ruler_mm_per_point is not None:
+            span, resolved = _pick_span_with_ruler(
+                number, matches, ruler_mm_per_point, float(ruler_tolerance)
+            )
         if span is None:
             skipped.append(
                 SkippedNumber(
@@ -819,7 +876,8 @@ def read_dimensions(
                 )
             )
             continue
-        resolved = _resolve_unit(number, span.length)
+        if resolved is None:
+            resolved = _resolve_unit(number, span.length)
         if resolved is None:
             skipped.append(
                 SkippedNumber(
