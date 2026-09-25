@@ -137,3 +137,79 @@ def test_the_drawing_rooms_path_rereads_a_page_with_the_chosen_ruler(tmp_path: P
     without = run(False)
     assert without.as_dict()["図面の寸法から組んだ室"]["両方判明"] == []
     assert without.auto_confirmed_total == 0
+
+
+def _dot(shape: pymupdf.Shape, x: float, y: float, r: float = 1.0) -> None:
+    shape.draw_circle(pymupdf.Point(x, y), r)
+
+
+def _dot_chain_crossed_by_walls(path: Path, *, dots: bool = True) -> Path:
+    """両端が黒丸の寸法(450)。区間の途中を、寸法とは関係のない線(壁)が 2 本横切る。"""
+    doc = pymupdf.open()
+    page = _new_page(doc)
+    x0, y = 300.0, 300.0
+    x1 = x0 + 450 * PT_PER_MM_AT_50 * 2.0  # 1/25 相当で紙の上の長さを 10pt より長くする
+    shape = page.new_shape()
+    shape.draw_line(pymupdf.Point(x0, y), pymupdf.Point(x1, y))
+    shape.finish(color=(0, 0, 0), width=0.24)
+    for x in (x0 + 0.52 * (x1 - x0), x0 + 0.6 * (x1 - x0)):
+        shape.draw_line(pymupdf.Point(x, y - 3), pymupdf.Point(x, y + 3))
+    shape.finish(color=(1, 0, 0), width=0.72)
+    if dots:
+        for x in (x0, x1):
+            _dot(shape, x, y)
+        shape.finish(color=(0, 0, 0), fill=(0, 0, 0), width=0.24)
+    shape.commit()
+    width = pymupdf.get_text_length("450", fontname="helv", fontsize=6)
+    page.insert_text(pymupdf.Point((x0 + x1) / 2 - width / 2, y - 2), "450", fontsize=6, fontname="helv")
+    doc.save(path)
+    doc.close()
+    return path
+
+
+def test_filled_dots_mark_the_ends_even_when_a_wall_crosses_the_span(tmp_path: Path) -> None:
+    """黒丸(JIS の端末記号の一つ)を目印に数え、黒丸どうしの区間を 1 本の寸法線の区間として読む。"""
+    page = read_dimensions(
+        _dot_chain_crossed_by_walls(tmp_path / "p.pdf"),
+        0,
+        ruler_mm_per_point=MM_PER_PT_AT_50 / 2.0,
+        ruler_tolerance=0.01,
+    )
+    picked = [r for r in page.readings if r.text == "450"]
+    assert len(picked) == 1
+    assert picked[0].paper_distance_pt == pytest.approx(450 * PT_PER_MM_AT_50 * 2.0, rel=1e-3)
+
+
+def test_without_dots_a_crossed_line_is_still_not_read(tmp_path: Path) -> None:
+    page = read_dimensions(
+        _dot_chain_crossed_by_walls(tmp_path / "p.pdf", dots=False),
+        0,
+        ruler_mm_per_point=MM_PER_PT_AT_50 / 2.0,
+        ruler_tolerance=0.01,
+    )
+    assert not [
+        r for r in page.readings
+        if r.text == "450" and r.paper_distance_pt == pytest.approx(450 * PT_PER_MM_AT_50 * 2.0, rel=1e-3)
+    ]
+
+
+def test_dots_and_ticks_at_the_same_ends_count_as_one_span(tmp_path: Path) -> None:
+    """黒丸と寸法補助線が同じ所にあっても、同じ区間を 2 度数えて「候補が複数」にしない。
+
+    実図面(K-38)では、これを数えていなかったとき、基準の縮尺で拾えていた上側の連続寸法 5 件が落ちた。
+    """
+    path = _two_overlapping_lines(tmp_path / "p.pdf")
+    doc = pymupdf.open(path)
+    page = doc.load_page(0)
+    long_pt = 3600 * PT_PER_MM_AT_50
+    shape = page.new_shape()
+    for x in (400.0 - long_pt / 2, 400.0 + long_pt / 2):
+        _dot(shape, x, 300.0)
+    shape.finish(color=(0, 0, 0), fill=(0, 0, 0), width=0.24)
+    shape.commit()
+    out = tmp_path / "dots.pdf"
+    doc.save(out)
+    doc.close()
+
+    reading = read_dimensions(out, 0, ruler_mm_per_point=MM_PER_PT_AT_50, ruler_tolerance=0.01)
+    assert [r.text for r in reading.readings if r.text == "3600"] == ["3600"]
