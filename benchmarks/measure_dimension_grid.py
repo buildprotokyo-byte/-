@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
 from pathlib import Path
 
@@ -36,10 +37,7 @@ import pymupdf
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from axes.image_axis.pdf_dimensions import read_dimensions  # noqa: E402
-from benchmarks.measure_dimension_chains import (  # noqa: E402
-    JOIN_PT,
-    scatter_ends,
-)
+from benchmarks.measure_dimension_chains import JOIN_PT  # noqa: E402
 from benchmarks.measure_height_destination import ceiling_notes  # noqa: E402
 from benchmarks.measure_room_face_link import (  # noqa: E402
     name_positions,
@@ -136,12 +134,40 @@ def _cell_of(
 def cells_with_one_room(
     readings: list[Reading], names: list[tuple[str, tuple[float, float]]]
 ) -> dict[str, int]:
+    """連なりから格子を組み、**室名がちょうど 1 個入った升目**を数える。"""
+    xs, ys = grid_lines(readings)
+    return count_in_grid(xs, ys, names)
+
+
+def scatter_grid(
+    xs: list[float], ys: list[float], width: float, height: float, seed: int
+) -> tuple[list[float], list[float]]:
+    """囮′: **格子線の本数はそのままに、位置だけでたらめに置き直す。**
+
+    **基準に最初に書いた囮(寸法そのものを散らす `scatter_ends`)は
+    当たりようのない囮だった。**紙の上に散らすと端点が 5pt 以内で繋がらず、
+    連なりが 0 本になり、**格子線が 1 本もできない。**升目 0 個の囮は
+    どんな図面でも必ず 0 を返す(周10・周16 と同じ失敗)。
+    **測る前に差し替え、理由を基準の追記1 に書いてコミットしてある。**
+
+    こちらの囮は、問い(**寸法の区切りは室の境目に来ているか**)を
+    そのまま裏返している。**升目の数はほぼ同じで、変わるのは位置だけ。**
+    """
+    rng = random.Random(seed)
+    return (
+        _merge([rng.uniform(0.0, width) for _ in xs]),
+        _merge([rng.uniform(0.0, height) for _ in ys]),
+    )
+
+
+def count_in_grid(
+    xs: list[float], ys: list[float], names: list[tuple[str, tuple[float, float]]]
+) -> dict[str, int]:
     """**室名がちょうど 1 個入った升目**の数を数える。
 
     升目の数そのものは成果にしない(格子を細かくすれば増える)。
     **見るのは「ちょうど 1 個」だけ**で、**囮と並べて見る。**
     """
-    xs, ys = grid_lines(readings)
     if len(xs) < 2 or len(ys) < 2:
         return {"升目": 0, "室名が1個": 0, "格子の外の室名": len(names)}
     counts: dict[tuple[int, int], int] = {}
@@ -156,6 +182,21 @@ def cells_with_one_room(
         "升目": (len(xs) - 1) * (len(ys) - 1),
         "室名が1個": sum(1 for value in counts.values() if value == 1),
         "格子の外の室名": outside,
+    }
+
+
+def _coverage(
+    xs: list[float], ys: list[float], width: float, height: float
+) -> dict[str, float]:
+    """格子が紙のどれだけを覆っているか。**あとから足した診断の欄。**"""
+    if len(xs) < 2 or len(ys) < 2 or width <= 0 or height <= 0:
+        return {"横": 0.0, "縦": 0.0, "面積": 0.0}
+    across = (xs[-1] - xs[0]) / width
+    down = (ys[-1] - ys[0]) / height
+    return {
+        "横": round(across, 3),
+        "縦": round(down, 3),
+        "面積": round(across * down, 3),
     }
 
 
@@ -177,17 +218,23 @@ def measure_page(pdf_path: Path, page_index: int, seed: int, rooms: list[str]) -
         for reading in got.readings
     ]
     members = chain_members(readings)
-    decoy_members = chain_members(scatter_ends(readings, width, height, seed + page_index))
+    xs, ys = grid_lines(members)
+    decoy_xs, decoy_ys = scatter_grid(xs, ys, width, height, seed + page_index)
 
     return {
         "ページ": page_index + 1,
         "平面図とみなす": True,
         "寸法": len(readings),
         "連なりに属する寸法": len(members),
-        "囮_連なりに属する寸法": len(decoy_members),
+        "格子線": [len(xs), len(ys)],
         "印字された室名": len(here),
-        "線4_本物": cells_with_one_room(members, here),
-        "線4_囮": cells_with_one_room(decoy_members, here),
+        "線4_本物": count_in_grid(xs, ys, here),
+        "線4_囮": count_in_grid(decoy_xs, decoy_ys, here),
+        # **結果を見てから足した診断の欄。**線4 の判定には使っていない。
+        # 足した理由は、線4 が不通過だったときに
+        # 「格子が室の境目に来ていない」のか「格子が紙をほとんど割っていない」のかを
+        # 分けないと、数字の意味が言えないため。**先に決めた線は動かしていない。**
+        "参考_格子が覆う紙の割合": _coverage(xs, ys, width, height),
     }
 
 
@@ -203,10 +250,14 @@ def measure(pdf_path: Path, seed: int) -> dict:
 
     real = sum(row["線4_本物"]["室名が1個"] for row in plan)
     decoy = sum(row["線4_囮"]["室名が1個"] for row in plan)
+    names = sum(row["印字された室名"] for row in plan)
+    outside = sum(row["線4_本物"]["格子の外の室名"] for row in plan)
 
     return {
         "仕上表の室": len(rooms),
         "ページ": plan,
+        "参考_格子が覆う紙の割合": [row["参考_格子が覆う紙の割合"] for row in plan],
+        "参考_印字された室名": {"のべ": names, "格子の外": outside},
         "線4_寸法の格子に室が1つずつ入るか": {
             "本物": real,
             "囮": decoy,
@@ -240,11 +291,15 @@ def check_definition() -> dict:
         ("室D", (150.0, 150.0)),
         ("室E", (155.0, 155.0)),
     ]
+    xs, ys = grid_lines(members)
+    decoy_xs, decoy_ys = scatter_grid(xs, ys, 800.0, 800.0, 20260925)
     return {
         "連なりに属する寸法": len(members),
         "1本きりの寸法を外した": len(members) == 4,
-        "格子線": [len(line) for line in grid_lines(members)],
-        "升目と室名": cells_with_one_room(members, names),
+        "格子線": [len(xs), len(ys)],
+        "升目と室名": count_in_grid(xs, ys, names),
+        "囮_格子線": [len(decoy_xs), len(decoy_ys)],
+        "囮_升目と室名": count_in_grid(decoy_xs, decoy_ys, names),
     }
 
 
