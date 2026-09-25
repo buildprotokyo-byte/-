@@ -41,18 +41,30 @@ from intake.start_kit import PageDeclaration, StartKit
 ODD_PAGE_PHASE = "現況"
 EVEN_PAGE_PHASE = "計画"
 
-#: 宣言するページの種類。**位相だけを見たいので、種類は当たり障りのないものにする。**
+#: 宣言するページの種類。**当たり障りのないもののつもりで選んだが、そうではなかった。**
+#: `その他` はどの読み取りにも割り当てられていないので、宣言した瞬間に
+#: 開き戸の円弧(`drawing_intake.py:1826`)と繰り返し記号(`:2024`)が止まる。
+#: **宣言は足し算ではなく関門である。**(基準の追記1)
 DECLARED_KIND = "その他"
+
+#: 追記1 で使う種類。**関門をどれも閉じない**(`DOOR_ARC_EXPECTED_PAGE_KINDS` と
+#: `REPEATED_SYMBOL_PAGE_KINDS` の両方に入っている)。
+NEUTRAL_KIND = "平面図"
 
 LINE1_MIN_SHARE = 0.90
 
 
-def declarations_for(page_count: int) -> tuple[PageDeclaration, ...]:
-    """全ページぶんの宣言。**位相は機械的。意味は無い。**"""
+def declarations_for(
+    page_count: int, kind: str = DECLARED_KIND
+) -> tuple[PageDeclaration, ...]:
+    """全ページぶんの宣言。**位相は機械的。意味は無い。**
+
+    `kind` は**位相とは別の欄**だが、**読み取りの関門になる**(基準の追記1)。
+    """
     return tuple(
         PageDeclaration(
             page_number=number,
-            kind=DECLARED_KIND,
+            kind=kind,
             phase=ODD_PAGE_PHASE if number % 2 else EVEN_PAGE_PHASE,
         )
         for number in range(1, page_count + 1)
@@ -146,9 +158,9 @@ def hits_and_settled(quantities: Sequence[Any], rules: Path) -> tuple[int, int]:
     return hits, len(draft.settled_lines)
 
 
-def measure(pdf: Path, answers: Path) -> dict:
+def measure(pdf: Path, answers: Path, kind: str = DECLARED_KIND) -> dict:
     before = run(pdf, answers, None)
-    kit = StartKit(page_declarations=declarations_for(page_count_of(pdf)))
+    kit = StartKit(page_declarations=declarations_for(page_count_of(pdf), kind))
     after = run(pdf, answers, kit)
 
     with tempfile.TemporaryDirectory() as tmp:
@@ -163,6 +175,11 @@ def measure(pdf: Path, answers: Path) -> dict:
 
     return {
         "断り": "渡した位相はページ番号で機械的に振ったもの。**値に意味は無い。**",
+        "宣言した種類": kind,
+        "入口の数量(宣言を渡さない側)": len(before),
+        "線1を入口の件数で数え直すと": (
+            round(decided_after / len(before), 4) if before else 0.0
+        ),
         "線1_配管は通るか": {
             "渡す前に位相が決まっている数量": decided(before),
             "渡した後": decided_after,
@@ -208,9 +225,14 @@ def main() -> int:
     parser.add_argument("--pdf", type=Path, required=True)
     parser.add_argument("--answers", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument(
+        "--kind",
+        default=DECLARED_KIND,
+        help=f"宣言するページの種類(既定 {DECLARED_KIND}、追記1 は {NEUTRAL_KIND})",
+    )
     args = parser.parse_args()
 
-    result = measure(args.pdf, args.answers)
+    result = measure(args.pdf, args.answers, args.kind)
     args.out.write_text(
         json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
     )

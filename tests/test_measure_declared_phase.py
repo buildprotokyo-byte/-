@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import benchmarks.measure_declared_phase as m
 from axes.reading.meaning import PHASE_UNKNOWN
 from benchmarks.measure_declared_phase import (
     DECLARED_KIND,
@@ -97,3 +98,37 @@ def test_合成の規則は版3である(tmp_path: Path) -> None:
         phase_ruleset(["あ"], tmp_path / "r.json").read_text(encoding="utf-8")
     )
     assert payload["format_version"] == 3
+
+
+# --- 追記1: 関門を閉じない種類 ---
+
+
+def test_追記1の種類は関門をどれも閉じない():
+    """`平面図` は開き戸の円弧と繰り返し記号のどちらの関門も通す。"""
+    from intake.start_kit import (
+        DOOR_ARC_EXPECTED_PAGE_KINDS,
+        REPEATED_SYMBOL_PAGE_KINDS,
+    )
+
+    assert m.NEUTRAL_KIND in DOOR_ARC_EXPECTED_PAGE_KINDS
+    assert m.NEUTRAL_KIND in REPEATED_SYMBOL_PAGE_KINDS
+
+
+def test_1回目の種類はどちらの関門も閉じる():
+    """**`その他` は当たり障りのない値ではない。** これが線2 が落ちた理由。"""
+    from intake.start_kit import (
+        DOOR_ARC_EXPECTED_PAGE_KINDS,
+        REPEATED_SYMBOL_PAGE_KINDS,
+    )
+
+    assert m.DECLARED_KIND not in DOOR_ARC_EXPECTED_PAGE_KINDS
+    assert m.DECLARED_KIND not in REPEATED_SYMBOL_PAGE_KINDS
+
+
+def test_宣言の種類は差し替えられ位相の振り方は変わらない():
+    既定 = m.declarations_for(4)
+    追記 = m.declarations_for(4, m.NEUTRAL_KIND)
+
+    assert [d.kind for d in 既定] == [m.DECLARED_KIND] * 4
+    assert [d.kind for d in 追記] == [m.NEUTRAL_KIND] * 4
+    assert [d.phase for d in 既定] == [d.phase for d in 追記]
