@@ -23,6 +23,14 @@
 そして**寸法線と結び付ける実装は既にある**(`pdf_dimensions.py`)。
 **書き残した予想も、測るまで根拠にしない。**
 
+**あとから足した欄が 1 つある**
+
+``参考_落とした理由`` と ``参考_表とみなされた割合`` は、
+**結果を見てから足した診断の欄**である。
+線1〜線3 の判定には使っていない。足した理由は、線1 が **0 件**だったので、
+**「寸法線が無い」のか「数字が寸法として読めない」のか**を分けないと、
+0 の意味が言えないため。**先に決めた線は動かしていない。**
+
 基準は `docs/loop_round21_dimension_chains_criteria.md`(測る前にコミット済み)。
 """
 
@@ -40,6 +48,7 @@ import pymupdf
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from axes.image_axis.pdf_dimensions import read_dimensions  # noqa: E402
+from axes.image_axis.pdf_tables import find_tables  # noqa: E402
 from benchmarks.measure_height_destination import ceiling_notes  # noqa: E402
 
 #: 線1 の合格。仕上表の室は 10 個で、面積には 1 室あたり 2 辺が要る。
@@ -140,10 +149,25 @@ def measure_page(pdf_path: Path, page_index: int, seed: int) -> dict:
     ]
     decoy = scatter_ends(readings, width, height, seed + page_index)
 
+    # **結果を見てから足した診断の欄。**線の判定には使っていない。
+    # 落とした理由のほとんどが「表の升目の中」だったので、
+    # **表とみなされた範囲が紙をどれだけ覆っているか**を数える。
+    covered = 0.0
+    for region in find_tables(pdf_path, page_index):
+        x0, y0, x1, y1 = region.rect_pt
+        covered += max(0.0, x1 - x0) * max(0.0, y1 - y0)
+    share = covered / (width * height) if width and height else 0.0
+
+    reasons: dict[str, int] = {}
+    for item in got.skipped:
+        reasons[item.reason] = reasons.get(item.reason, 0) + 1
+
     return {
         "ページ": page_index + 1,
         "平面図とみなす": True,
         "線1_寸法線と結び付いた寸法": len(got.readings),
+        "参考_落とした理由": reasons,
+        "参考_表とみなされた割合": round(share, 3),
         "落とした数字": len(got.skipped),
         "線2_連なり": chains(readings),
         "線2_囮": chains(decoy),
@@ -190,6 +214,13 @@ def measure(pdf_path: Path, seed: int) -> dict:
             "通過": vertical >= 1
             and horizontal >= 1
             and real_total - decoy_total >= 1,
+        },
+        "参考_表とみなされた割合": [row["参考_表とみなされた割合"] for row in plan],
+        "参考_落とした理由": {
+            reason: sum(row["参考_落とした理由"].get(reason, 0) for row in plan)
+            for reason in sorted(
+                {key for row in plan for key in row["参考_落とした理由"]}
+            )
         },
         "線3_通り芯の符号は本当に0件か": {
             "本物": marks,
