@@ -76,7 +76,7 @@ from typing import Any, Iterable, Sequence
 
 import pymupdf
 
-from axes.image_axis.pdf_tables import find_tables
+from axes.image_axis.pdf_tables import TableRegion, find_tables
 from axes.reading.meaning import (
     PURPOSE_RECEIVED_UNLINKED,
     PURPOSE_UNESTABLISHED,
@@ -171,6 +171,21 @@ REASON_INSIDE_TABLE = (
     "表の升目の中の数字なので寸法ではない(罫線は寸法線ではない)。"
     "表の数字は schedule_tables が読む"
 )
+
+#: **図面枠を表と数えないための線。**K-29 で実測して決めた
+#: (`docs/k29_area_expert_reading_criteria.md` 追記 4)。
+#:
+#: P011 匿名化v2 の平面図では、図面枠が**紙の 86.9% を覆う「表」**として拾われ、
+#: その中の数字が全部「表の升目の中だから寸法ではない」で捨てられていた。
+#: **34 ページすべてで寸法が 0 件**だったのは、これ 1 つが原因である。
+#:
+#: 本物の表と分けるのに使うのは 2 つで、**両方を満たしたときだけ**枠と見なす。
+#: 面積だけでは分けられない(本物の内装仕上表も紙の 74.8% を覆う)。
+FRAME_AREA_RATIO = 0.60
+
+#: 升目のうち**文字が入っているもの**の割合。本物の表は 31.9〜65.0%、
+#: 図面枠は 6.6〜15.6% だった(同じ実測)。
+FRAME_FILLED_RATIO = 0.25
 
 #: 単位の出どころの表記。根拠としてそのまま残す。
 UNIT_FROM_TEXT = "単位が表記されていた"
@@ -362,6 +377,30 @@ def _inside(
         and rect[2] <= outer[2] + margin
         and rect[3] <= outer[3] + margin
     )
+
+
+def _looks_like_a_drawing_frame(region: TableRegion, page_area: float) -> bool:
+    """その「表」が**図面枠**かどうか。**枠なら寸法の除外に使わない。**
+
+    枠と見なすのは、**紙の大半を覆い、かつ升目のほとんどが空**のときだけである。
+    どちらか片方では分けられない。
+
+    - 面積だけで切ると、**本物の内装仕上表(紙の 74.8%)まで落ちる。**
+    - 文字の割合だけで切ると、**升目の空きが多い本物の凡例の表(19.2%)が危うい。**
+
+    `pdf_tables` の側は変えない。表の探し方を変えると、仕上表・建具表・凡例の
+    読み取りが全部動く。**変えるのはここの使い方だけである。**
+    """
+    if page_area <= 0:
+        return False
+    x0, y0, x1, y1 = region.rect_pt
+    if (x1 - x0) * (y1 - y0) < page_area * FRAME_AREA_RATIO:
+        return False
+    cells = [cell for row in region.rows for cell in row]
+    if not cells:
+        return False
+    filled = sum(1 for cell in cells if cell.text.strip())
+    return filled < len(cells) * FRAME_FILLED_RATIO
 
 
 def _in_any_table(
@@ -746,9 +785,15 @@ def read_dimensions(
         page = doc.load_page(page_index)
         segments = _collect_segments(page)
         numbers = _number_texts(page)
+        page_area = page.rect.width * page.rect.height
 
     # 表の位置は、既にある検出器に聞く(自前で罫線を探し直さない)。
-    tables = tuple(region.rect_pt for region in find_tables(pdf_path, page_index))
+    # **ただし図面枠は表ではない。**除外に使う前に外す。
+    tables = tuple(
+        region.rect_pt
+        for region in find_tables(pdf_path, page_index)
+        if not _looks_like_a_drawing_frame(region, page_area)
+    )
     if tables:
         # 表の罫線を寸法線の候補から外す。**外さないと升目の長さを
         # 「その数字が指す長さ」として読んでしまう。**
