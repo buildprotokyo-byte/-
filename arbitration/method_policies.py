@@ -73,6 +73,10 @@ METHOD_HUMAN_REFERENCE_POINT = "human_reference_point"
 #: にあるが、基準点と同じ理由でここに文字列として置く。
 METHOD_HUMAN_ROOM_DIMENSIONS = "human_room_dimensions"
 
+#: 図面に記入された寸法を、AI が室に対応づけて組んだ縦・横(K-37)。実体は
+#: `intake/drawing_room_dimensions.py`。同じ理由でここには文字列として置く。
+METHOD_DRAWING_ROOM_DIMENSIONS = "drawing_room_dimensions"
+
 #: 人が数えた記号の個数の手法ID。実体は `intake/symbol_counts.py`(14周目)。
 #: 同じ理由でここには文字列として置く。
 METHOD_HUMAN_SYMBOL_COUNT = "human_symbol_count"
@@ -251,6 +255,10 @@ DEFAULT_METHOD_POLICIES: Mapping[str, MethodPolicy] = {
     METHOD_TEXT_SCALE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_HUMAN_REFERENCE_POINT: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_HUMAN_ROOM_DIMENSIONS: MethodPolicy(calibrated=False, max_strength="weak"),
+    # K-37。**未校正・上限 weak。**人の入力と同じ 4 つの理由に加えて、
+    # 対応づけ(どの寸法をどの室に当てたか)の誤り率を測っていない。値は記入寸法の読みだが、
+    # 同じ PDF の印字なので、ほかの図面の読みと独立した 2 つ目にはならない。
+    METHOD_DRAWING_ROOM_DIMENSIONS: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_DOOR_SCHEDULE: MethodPolicy(calibrated=False, max_strength="strong"),
     METHOD_FINISH_SCHEDULE: MethodPolicy(calibrated=False, max_strength="weak"),
     METHOD_DIMENSION_TEXT: MethodPolicy(calibrated=False, max_strength="strong"),

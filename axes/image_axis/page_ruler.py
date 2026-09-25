@@ -30,6 +30,18 @@
    回転 0・90・270 の合成の紙で試験に固定してある
    (K-26 で踏んだ「回転前の座標を前提にした値」と同じ轍を踏まない)。
 5. **本番の経路には繋がない。**`intake/` からはまだ呼ばれない。
+
+AI が選んだ基準(K-37、2026-09-25)
+-----------------------------------
+おーちゃんの K-37 やること 2。**人が 2 点を指して実長を入れる作業を、AI が代わる。**
+AI が図面の中から基準にすべき寸法線を 1 本選び、機械がその 2 点の距離から比を出す
+(`ruler_from_chosen_dimension`)。**出どころは ``SOURCE_AI_REFERENCE`` で、人の入力と混ぜない。**
+誰が・なぜ選んだかを ``note`` に残し、理由の無い選択は受け付けない。
+
+検算(`cross_check`)は、同じページのほかの寸法をその比で割り戻す。
+ほかが全部そろえば「揃っている」、1 本だけ外れればその寸法を疑い、
+2 本以上外れれば基準のほうを疑う。**外れた寸法は捨てずにずれと一緒に返す。**
+表記の縮尺は当てにしないが、比べる相手として差を返す。
 """
 
 from __future__ import annotations
@@ -42,12 +54,20 @@ __all__ = [
     "SOURCE_HUMAN",
     "SOURCE_DIMENSIONS",
     "SOURCE_PRINTED_SCALE",
+    "SOURCE_AI_REFERENCE",
+    "CHECK_ALL_AGREE",
+    "CHECK_ONE_OFF",
+    "CHECK_SEVERAL_OFF",
     "PageRuler",
+    "CrossCheck",
+    "OffDimension",
     "RulerConflict",
     "RulerError",
     "ruler_from_reference_length",
     "ruler_from_page_scale",
     "ruler_from_printed_scale",
+    "ruler_from_chosen_dimension",
+    "cross_check",
     "agree",
     "reconcile",
     "group_by_agreement",
@@ -57,6 +77,15 @@ __all__ = [
 SOURCE_HUMAN = "人の基準の長さ"
 SOURCE_DIMENSIONS = "記入された寸法"
 SOURCE_PRINTED_SCALE = "印字された縮尺"
+#: AI が図面の中から選んだ 1 本の寸法線(K-37)。**人の基準の長さとは別の出どころ。**
+SOURCE_AI_REFERENCE = "AIが選んだ基準の寸法"
+
+_SOURCES = (SOURCE_HUMAN, SOURCE_AI_REFERENCE, SOURCE_DIMENSIONS, SOURCE_PRINTED_SCALE)
+
+#: 検算の結論。
+CHECK_ALL_AGREE = "揃っている"
+CHECK_ONE_OFF = "1本だけ外れた(その寸法が誤りの疑い)"
+CHECK_SEVERAL_OFF = "2本以上外れた(基準が疑わしい)"
 
 #: 1 インチのミリ数と、1 インチのポイント数。PDF の座標は 1/72 インチ。
 _MM_PER_INCH = 25.4
@@ -118,7 +147,7 @@ class PageRuler:
     def __post_init__(self) -> None:
         if self.mm_per_point <= 0 or not math.isfinite(self.mm_per_point):
             raise RulerError(f"長さの比が正の有限値ではありません: {self.mm_per_point}")
-        if self.source not in (SOURCE_HUMAN, SOURCE_DIMENSIONS, SOURCE_PRINTED_SCALE):
+        if self.source not in _SOURCES:
             raise RulerError(f"知らない出どころです: {self.source}")
         if self.calibrated:
             raise RulerError(
@@ -239,6 +268,115 @@ def ruler_from_printed_scale(page_index: int, denominator: float) -> PageRuler:
     )
 
 
+def ruler_from_chosen_dimension(
+    page_index: int,
+    start_pt: Sequence[float],
+    end_pt: Sequence[float],
+    value_mm: float,
+    *,
+    text: str,
+    chosen_by: str,
+    reason: str,
+) -> PageRuler:
+    """**AI が選んだ 1 本の寸法線**から目盛りを作る(K-37)。
+
+    比は「記入された値 ÷ その 2 点の紙の上の距離」だけで決まる。表題欄の縮尺は見ない。
+    ``chosen_by`` と ``reason`` は根拠としてそのまま残す。**どちらかが空なら作らない。**
+    """
+    if not chosen_by.strip() or not reason.strip():
+        raise RulerError("誰が・なぜその寸法線を基準に選んだかが無い選択は受け付けません")
+    if value_mm <= 0 or not math.isfinite(value_mm):
+        raise RulerError(f"基準の寸法が正の有限値ではありません: {value_mm}")
+    paper_pt = _distance(start_pt, end_pt)
+    if paper_pt <= 0:
+        raise RulerError("基準の寸法線の 2 点が同じ場所です。長さが 0 では比が出ません")
+    return PageRuler(
+        page_index=page_index,
+        mm_per_point=value_mm / paper_pt,
+        source=SOURCE_AI_REFERENCE,
+        note=f"{chosen_by} が寸法「{text}」({paper_pt:.2f}pt)を基準に選んだ。理由: {reason}",
+    )
+
+
+@dataclass(frozen=True)
+class OffDimension:
+    """検算で外れた寸法。**捨てずに、ずれと一緒に残す。**"""
+
+    text: str
+    value_mm: float
+    measured_mm: float
+    """基準の比で紙の上の区間を測った長さ。"""
+
+    deviation: float
+    """記入された値が、測った長さより何割大きいか(+0.1 なら 10% 大きい)。"""
+
+
+@dataclass(frozen=True)
+class CrossCheck:
+    """基準の比で、同じページのほかの寸法を割り戻した結果。"""
+
+    ruler: PageRuler
+    tolerance: float
+    agreeing: int
+    off: tuple[OffDimension, ...]
+    printed_difference: float | None = None
+    """表記の縮尺に対する、基準から出た縮尺の差(+0.02 なら 2% 大きい)。表記が無ければ ``None``。"""
+
+    @property
+    def verdict(self) -> str:
+        if not self.off:
+            return CHECK_ALL_AGREE
+        if len(self.off) == 1:
+            return CHECK_ONE_OFF
+        return CHECK_SEVERAL_OFF
+
+
+def cross_check(
+    ruler: PageRuler,
+    readings: Iterable[object],
+    *,
+    tolerance: float,
+    printed_denominator: float | None = None,
+) -> CrossCheck:
+    """ほかの寸法(``value_mm``・``start_pt``・``end_pt`` を持つもの)で基準を検算する。
+
+    **既定の許容差は置かない。**判定の許容差(±5%)とは別の、検算のための線を呼ぶ側が渡す。
+    """
+    if tolerance < 0:
+        raise RulerError("許容差は 0 以上である必要があります")
+    agreeing = 0
+    off: list[OffDimension] = []
+    for reading in readings:
+        value = float(getattr(reading, "value_mm"))
+        measured = ruler.distance_mm(getattr(reading, "start_pt"), getattr(reading, "end_pt"))
+        if measured <= 0:
+            continue
+        deviation = value / measured - 1.0
+        if abs(deviation) <= tolerance:
+            agreeing += 1
+        else:
+            off.append(
+                OffDimension(
+                    text=str(getattr(reading, "text", "")),
+                    value_mm=value,
+                    measured_mm=measured,
+                    deviation=deviation,
+                )
+            )
+    printed = None
+    if printed_denominator is not None:
+        if printed_denominator <= 0 or not math.isfinite(printed_denominator):
+            raise RulerError(f"縮尺の分母が正の有限値ではありません: {printed_denominator}")
+        printed = ruler.denominator / printed_denominator - 1.0
+    return CrossCheck(
+        ruler=ruler,
+        tolerance=tolerance,
+        agreeing=agreeing,
+        off=tuple(off),
+        printed_difference=printed,
+    )
+
+
 def agree(first: PageRuler, second: PageRuler, *, tolerance: float) -> bool:
     """2 つの目盛りが許容差の中にあるか。**既定値は置かない。**"""
     if tolerance < 0:
@@ -254,8 +392,8 @@ def reconcile(
 ) -> PageRuler | RulerConflict:
     """複数の出どころを突き合わせる。**食い違えば平均せず、食い違いを返す。**
 
-    揃っていれば、**人の基準の長さ > 記入された寸法 > 印字された縮尺**の順に
-    1 つを選ぶ。選ぶだけで、値を混ぜない。
+    揃っていれば、**人の基準の長さ > AI が選んだ基準 > 記入された寸法 > 印字された縮尺**の順に
+    1 つを選ぶ。選ぶだけで、値を混ぜない(AI の位置は仮の判断、`docs/provisional_decisions.md` 8 節)。
     """
     items = tuple(rulers)
     if not items:
@@ -267,8 +405,7 @@ def reconcile(
         for second in items[index + 1 :]:
             if not agree(first, second, tolerance=tolerance):
                 return RulerConflict(rulers=items, tolerance=tolerance)
-    order = (SOURCE_HUMAN, SOURCE_DIMENSIONS, SOURCE_PRINTED_SCALE)
-    return min(items, key=lambda ruler: order.index(ruler.source))
+    return min(items, key=lambda ruler: _SOURCES.index(ruler.source))
 
 
 def group_by_agreement(
