@@ -23,6 +23,13 @@
 **位置を問うこの周では当たりようがない。当たりようのない囮は何も守らない**
 (周10 の教訓)。だから周14・周15 と同じ「位置をばらばらに置き直す」囮を使う。
 
+**あとから足した欄が 1 つある**
+
+``参考_1 つの室名が届いた面の数`` は、**結果を見てから足した診断の欄**である。
+線1〜線3 の判定には使っていない。足した理由は、線1(届くか)が囮と並ぶのに
+線2(1 つに決まるか)が 0 だったので、**「届かない」のか「いくつもに
+届く」のか**を分ける必要が出たため。**先に決めた線は動かしていない。**
+
 基準は `docs/loop_round17_room_face_link_criteria.md`(測る前にコミット済み)。
 """
 
@@ -163,6 +170,19 @@ def measure_page(pdf_path: Path, page_index: int, names: list[str], seed: int) -
             decoy_per_face.setdefault(index, set()).add(name)
             decoy_per_room.setdefault(name, set()).add(index)
 
+    # **結果を見てから足した診断の欄。**線の判定には使っていない。
+    spread: dict[str, int] = {"0個": 0, "1個": 0, "2〜3個": 0, "4個以上": 0}
+    for _, point in found:
+        count = len(reach(point, polygons, band_pt))
+        if count == 0:
+            spread["0個"] += 1
+        elif count == 1:
+            spread["1個"] += 1
+        elif count <= 3:
+            spread["2〜3個"] += 1
+        else:
+            spread["4個以上"] += 1
+
     return {
         "ページ": page_index + 1,
         "平面図とみなす": True,
@@ -183,6 +203,7 @@ def measure_page(pdf_path: Path, page_index: int, names: list[str], seed: int) -
         "線3_囮": sum(
             1 for faces_here in decoy_per_room.values() if len(faces_here) == 1
         ),
+        "参考_1つの室名が届いた面の数": spread,
     }
 
 
@@ -203,6 +224,10 @@ def measure(pdf_path: Path, seed: int, with_text: bool) -> dict:
     line2_real, line2_decoy = total("線2_室名が1つに決まった面"), total("線2_囮")
     line3_real = total("線3_面が1つに決まった室")
     line3_decoy = total("線3_囮")
+    spread_all = {
+        band: sum(row["参考_1つの室名が届いた面の数"][band] for row in plan)
+        for band in ("0個", "1個", "2〜3個", "4個以上")
+    }
 
     result = {
         "ページ": plan,
@@ -225,6 +250,7 @@ def measure(pdf_path: Path, seed: int, with_text: bool) -> dict:
             "差": line3_real - line3_decoy,
             "通過": line3_real >= LINE3_MIN and line3_real - line3_decoy >= LINE3_MIN,
         },
+        "参考_1つの室名が届いた面の数": spread_all,
     }
     if with_text:
         result["室名(共有フォルダにのみ置く)"] = names
