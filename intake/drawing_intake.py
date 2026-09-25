@@ -160,6 +160,7 @@ from intake.start_kit import (
     LEGEND_PAGE_KINDS,
     REPEATED_SYMBOL_PAGE_KINDS,
     ROOM_OUTLINE_PAGE_KINDS,
+    UNDECIDED_PAGE_KIND,
     PageDeclaration,
     PagePairing,
     ReferencePoint,
@@ -1951,6 +1952,8 @@ def _room_outline_findings(
     こちらの都合で開口を閉じた室は ``virtual_edges`` が 0 より大きくなる。
     """
     kind = declaration.kind if declaration is not None else None
+    if kind == UNDECIDED_PAGE_KIND:
+        kind = None  # 「判断できない」は宣言しなかったのと同じ(K-36)
     if kind is not None and kind not in ROOM_OUTLINE_PAGE_KINDS:
         notes.append(f"人が「{kind}」と宣言したページなので室の輪郭は探さない")
         return []
@@ -2016,6 +2019,8 @@ def _collect_symbols(
     捏造される。宣言が無ければ名前は付かないまま(件数だけ)になる。
     """
     kind = declaration.kind if declaration is not None else None
+    if kind == UNDECIDED_PAGE_KIND:
+        kind = None  # 「判断できない」は宣言しなかったのと同じ(K-36)
     if kind in LEGEND_PAGE_KINDS:
         found = read_legend_symbols(pdf_path, index, scale)
         legend_symbols.extend(found)

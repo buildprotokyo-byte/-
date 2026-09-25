@@ -45,6 +45,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from estimating.from_room_dimensions import KIND_FLOOR_AREA, KIND_PERIMETER, KIND_WALL_AREA
+
 # 段の名前。K-27 の言葉をそのまま使う。
 STAGE_RECOGNIZE = "認識"
 STAGE_READ = "読む"
@@ -59,12 +61,28 @@ PATH_HUMAN = "人の入力"
 
 #: 仕上表の部位 → 人の入力から作る数量の種類。**ここに無い部位には数量を付けない。**
 #: 天井は床と同じ広さとみなす(平らな天井の一般則)。そうしたことを行に注記する。
+#:
+#: **名前は作る側(`estimating.from_room_dimensions`)の定数から取る。写さない。**
+#: 2026-09-25 まで巾木は `周長` と書き写してあり、作る側の `室の周長` と
+#: 食い違っていたので、人が寸法を入れても巾木の行は永久に空だった(周28、K-36)。
 FINISH_PART_QUANTITY: dict[str, tuple[str, str, str | None]] = {
-    "床": ("床面積", "㎡", None),
-    "天井": ("床面積", "㎡", "天井の面積は床面積と同じとみなした(平らな天井の一般則)"),
-    "壁": ("内壁面積", "㎡", None),
-    "巾木": ("周長", "m", None),
+    "床": (KIND_FLOOR_AREA, "㎡", None),
+    "天井": (KIND_FLOOR_AREA, "㎡", "天井の面積は床面積と同じとみなした(平らな天井の一般則)"),
+    "壁": (KIND_WALL_AREA, "㎡", None),
+    "巾木": (KIND_PERIMETER, "m", None),
 }
+
+#: 行にしなかった数量に付ける印(K-36)。**捨てずに残し、なぜ行でないかを書く。**
+MARK_NO_RULES = "規則なし"
+"""規則ファイルが渡されなかったので当てはめていない。"""
+MARK_NO_MATCHING_RULE = "規則が当たらない"
+"""規則ファイルはあったが、この数量に当たる規則が無かった。"""
+
+#: 仕上表の行の科目(K-36 改訂版、仮の判断。`docs/provisional_decisions.md` 7 節)。
+#: 撤去は解体・撤去工事、それ以外(新設・改修)は内装仕上工事に置く。
+#: 下地からのやり替えを木工・大工工事に分けるかは、まだ決めていない。
+FINISH_KAMOKU_REMOVAL = "解体・撤去工事"
+FINISH_KAMOKU_OTHER = "内装仕上工事"
 
 #: 行にしない工事区分(工事が無い)。
 #: 「区分不明」は撤去か新設かが決まっていない(理解を通っていない)ので行にしない。
@@ -117,6 +135,8 @@ class EstimateLine:
     quantity_range: tuple[float, float] | None = None
     waits_for_human: bool = False
     """数量が人の入力を待っている(入力があれば埋まる)行か。"""
+    spec: str = ""
+    """摘要。材種・材質・工法など、単価に対応する条件(K-36 改訂版)。**読めたものだけ。**"""
 
     def as_answer_row(self, number: int) -> dict[str, Any]:
         """読み方の比較実験と同じ出力の形の 1 行(採点をそのまま当てるため)。"""
@@ -134,6 +154,7 @@ class EstimateLine:
             "符号": self.code,
             "数量の幅": list(self.quantity_range) if self.quantity_range else None,
             "人の入力待ち": self.waits_for_human,
+            "摘要": self.spec,
             "備考": " / ".join(self.notes),
         }
 
@@ -149,6 +170,32 @@ class OnePassResult:
     not_connected: list[dict[str, str]]
     timings: dict[str, float]
     extras: dict[str, Any] = field(default_factory=dict)
+    kept_quantities: list[dict[str, Any]] = field(default_factory=list)
+    """行にしなかった入口の数量。**捨てずに印を付けて残す**(K-36)。
+
+    2026-09-25 までは、規則ファイルが無いと入口の数量は丸ごと落ち、
+    `gaps` に 1 行残るだけだった(周31。P011 では 2,887 件)。
+    ここに残すのは数量そのもので、**見積の行ではない。確定もしない。**
+    """
+
+    def breakdown(self):  # noqa: ANN201
+        """行を種目・科目・中科目・細目に組んだもの(K-36 改訂版 3 節)。
+
+        **科目は行にあるものだけ。**科目の無い行は「科目未定」に集まる。
+        単価はまだ無いので、金額は空のまま出る。
+        """
+        from estimating.breakdown import build_breakdown
+
+        return build_breakdown(
+            {
+                "科目": line.category,
+                "工事項目": line.work_item,
+                "摘要": line.spec,
+                "数量": line.quantity,
+                "単位": line.unit,
+            }
+            for line in self.lines
+        )
 
     @property
     def auto_confirmed_total(self) -> int:
@@ -169,6 +216,12 @@ class OnePassResult:
             "自動確定": {**self.auto_confirmed, "合計": self.auto_confirmed_total},
             "足りないもの": self.gaps,
             "繋げなかった部品": self.not_connected,
+            "内訳書": self.breakdown().as_dict(),
+            "行にしなかった数量": {
+                "件数": len(self.kept_quantities),
+                "印ごと": dict(Counter(row["印"] for row in self.kept_quantities)),
+                "数量": self.kept_quantities,
+            },
             "かかった秒数": self.timings,
             "そのほか": self.extras,
         }
@@ -290,6 +343,15 @@ def _finish_line(assignment, item, page_number: int, room_quantities) -> Estimat
         notes=notes,
         quantity_range=quantity_range,
         waits_for_human=waits,
+        category=FINISH_KAMOKU_REMOVAL if item.work_kind == "撤去" else FINISH_KAMOKU_OTHER,
+        spec=" / ".join(
+            f"{label}: {value}"
+            for label, value in (
+                ("仕上", assignment.finish if item.work_kind != "撤去" else None),
+                ("下地", assignment.base),
+            )
+            if value
+        ),
     )
 
 
@@ -447,6 +509,19 @@ def _intake_counts(result) -> dict[str, int]:  # noqa: ANN001
     return counts
 
 
+def _kept_quantity(quantity, mark: str) -> dict[str, Any]:  # noqa: ANN001
+    """行にしなかった数量 1 件を、印つきで残す形にする。**値は作り直さない。**"""
+    low, high = quantity.value_range
+    return {
+        "印": mark,
+        "対象": quantity.target,
+        "数量の範囲": [low, high],
+        "単位": quantity.unit,
+        "手法": quantity.method_id,
+        "由来": quantity.derivation,
+    }
+
+
 def _mapped_lines(draft) -> list[EstimateLine]:  # noqa: ANN001
     lines: list[EstimateLine] = []
     for mapping in draft.mapping.mappings:
@@ -543,6 +618,7 @@ def run(
     stages[PATH_INTAKE] = _intake_counts(intake)
     quantities = list(quantities_from_intake(intake)) + list(symbol_result.quantities)
     mapped: list[EstimateLine] = []
+    kept: list[dict[str, Any]] = []
     settled_lines = 0
     if rules is not None:
         from estimating.pipeline import build_estimate_draft_from_quantities
@@ -552,11 +628,16 @@ def run(
         settled_lines = len(draft.settled_lines)
         mapped = _mapped_lines(draft)
         gaps.extend(draft.gaps())
+        kept = [
+            _kept_quantity(m.quantity, MARK_NO_MATCHING_RULE) for m in draft.mapping.unmapped()
+        ]
     else:
         gaps.append(
             f"[規則ファイルが無い] 入口の数量 {len(quantities)} 件は見積の行に当てはめていない"
-            "(この案件の規則ファイルがまだ無い。合成の見本は実案件に使わない)"
+            "(この案件の規則ファイルがまだ無い。合成の見本は実案件に使わない)。"
+            "**数量は捨てずに「行にしなかった数量」に「規則なし」の印を付けて残した**"
         )
+        kept = [_kept_quantity(q, MARK_NO_RULES) for q in quantities]
     stages[PATH_INTAKE][STAGE_ASSEMBLE] = sum(1 for line in mapped if line.path == PATH_INTAKE)
     human_lines = [line for line in mapped if line.path == PATH_HUMAN]
     stages[PATH_HUMAN] = {
@@ -582,6 +663,7 @@ def run(
         gaps=gaps,
         not_connected=[{"部品": name, "理由": why} for name, why in NOT_CONNECTED],
         timings=timings,
+        kept_quantities=kept,
         extras={
             **finish_extra,
             **legend_extra,
