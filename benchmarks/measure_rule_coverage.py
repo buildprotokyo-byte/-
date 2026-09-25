@@ -105,6 +105,29 @@ def settled_with(quantities: Sequence[QuantityItem], ruleset: RuleSet) -> int:
     return len(draft.settled_lines)
 
 
+def what_a_rule_also_needs(quantities: Sequence[QuantityItem]) -> dict:
+    """**あとから足した診断の欄。線1〜4 の判定には使っていない。**
+
+    足した理由: **種類が 6 つしかないと分かったが、「だから規則も 6 本で足りる」
+    とは言えない。**`estimating/rules.py` の `MappingRule` は種類のほかに
+    **単位の次元・属性・現況か計画か**も条件にでき、とくに
+    **`不明` は規則に書けない**(決まっていないことを根拠に行を立てないため)。
+
+    **だから「規則が書ける状態の数量が何件あるか」を別に数える。**
+    """
+    with_phase = sum(1 for item in quantities if item.phase not in (None, "不明"))
+    unknown_phase = sum(1 for item in quantities if item.phase == "不明")
+    no_phase = sum(1 for item in quantities if item.phase is None)
+    units = Counter(item.unit for item in quantities)
+    return {
+        "現況か計画かが決まっている": with_phase,
+        "不明(規則に書けない)": unknown_phase,
+        "意味そのものが付いていない": no_phase,
+        "単位の種類": len(units),
+        "断り": "結果を見てから足した診断。線1〜4 の数字は動かしていない",
+    }
+
+
 def measure(pdf: Path, answers: Path, rules: Path, seed: int) -> dict:
     from intake.drawing_intake import IntakeConfig, read_drawing
 
@@ -154,6 +177,7 @@ def measure(pdf: Path, answers: Path, rules: Path, seed: int) -> dict:
             "意味": "0 でなければ裏返しの危険。その場で止めて報告する",
         },
         "参考_順位ごとの件数": [count for _, count in counts.most_common()],
+        "参考_規則を書くのに他に要るもの": what_a_rule_also_needs(quantities),
     }
 
 
