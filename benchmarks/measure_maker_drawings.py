@@ -41,6 +41,7 @@ def render_shifted(page: pymupdf.Page, rng: random.Random) -> pymupdf.Page:
 
     1 本ずつの線・曲線・矩形は形も大きさも変えず、**図形のまとまりごと**に
     でたらめな平行移動を掛ける。**文字を組み立てている並びだけが壊れる。**
+    **墨は 1 画素も紙の外へ出さない**(外接矩形が紙に収まる範囲でだけ動かす)。
     読み取りが「墨があれば何か返す」のか「並びを見ている」のかが、これで分かれる。
     """
     out = pymupdf.open()
@@ -49,8 +50,13 @@ def render_shifted(page: pymupdf.Page, rng: random.Random) -> pymupdf.Page:
     width = page.rect.width
     height = page.rect.height
     for drawing in page.get_drawings():
-        dx = rng.uniform(-width / 3.0, width / 3.0)
-        dy = rng.uniform(-height / 3.0, height / 3.0)
+        # **墨を紙の外へ出さない。**図形の外接矩形が紙に収まる範囲でだけ動かす
+        # (`benchmarks/measure_closed_faces.py` の囮と同じ決め方)。
+        box = drawing["rect"]
+        span_x = max(width - box.width, 0.0)
+        span_y = max(height - box.height, 0.0)
+        dx = rng.uniform(0.0, span_x) - box.x0
+        dy = rng.uniform(0.0, span_y) - box.y0
         move = pymupdf.Matrix(1, 0, 0, 1, dx, dy)
         for item in drawing["items"]:
             kind = item[0]
