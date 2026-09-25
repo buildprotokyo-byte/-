@@ -73,6 +73,18 @@ def main(argv: list[str] | None = None) -> int:
     pages = json.loads(Path(args.texts).read_text(encoding="utf-8"))
     by_page = {page["ページ番号"]: [row[-2] for row in page["_本物"]] for page in pages}
 
+    # 線3(周9): 広げた切り出しが、**別の場所の正解**を拾っていないか。
+    mixed = 0
+    for page in pages:
+        for row in page["_本物"]:
+            text = fold(row[-2])
+            for place in answers["場所"]:
+                if place["ページ"] == page["ページ番号"]:
+                    continue
+                if dice(text, fold(place["正解"])) >= NEAR_MIN_DICE:
+                    mixed += 1
+                    break
+
     rows = []
     for place in answers["場所"]:
         texts = by_page.get(place["ページ"], [])
@@ -94,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         "届いた": sum(1 for row in rows if row["届いた"]),
         "そのまま一致": sum(1 for row in rows if row["そのまま一致"]),
         "近い": sum(1 for row in rows if row["近い"]),
+        "別のページの正解が混ざった件数": mixed,
         "場所ごと": rows,
     }
     text = json.dumps(result, ensure_ascii=False, indent=2)

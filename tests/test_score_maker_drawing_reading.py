@@ -48,3 +48,11 @@ def test_まったく違う文字列は近いにも入らない() -> None:
 def test_2gramのDice() -> None:
     assert dice("あいう", "あいう") == 1.0
     assert dice("あいう", "かきく") == 0.0
+
+
+def test_混ざりは別のページの正解に近いものを数える() -> None:
+    """周9 の線3。広げた切り出しが隣の場所の文字を拾っていないかを見る。"""
+    from benchmarks.score_maker_drawing_reading import NEAR_MIN_DICE, dice, fold
+
+    assert dice(fold("UW1613×UH2300"), fold("UW1613×UH2300")) >= NEAR_MIN_DICE
+    assert dice(fold("UW1613×UH2300"), fold("固定枠見込み90mm")) < NEAR_MIN_DICE
