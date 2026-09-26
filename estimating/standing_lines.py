@@ -1,11 +1,13 @@
-"""図面からは決まらない見積の行(会社のルールだけで立つ行)。
+"""図面からは決まらない見積の行(「図面に現れない行」。K-17 で「会社のルールの行」から改名)。
 
 **なぜ要るのか**
 
 仮設水道料・仮設電気料・小運搬費・荷上費・墨出し・竣工時清掃・駐車場代は、
 読み方の比較実験の 6 本の答案すべてで **0 件**だった。図面のどこにも書かれて
 いないので、読み取りをどれだけ良くしても 1 行も埋まらない。
-これらは**会社のルールがあって初めて立つ行**である。
+これらは**図面の外の決まり(公開の積算基準か、自社の慣行)があって初めて立つ行**である。
+**「会社のルール」とは呼ばない**(K-17)。そう呼ぶと公開の基準を探す先から外れる。
+行の中身が公開基準で決まるか自社で決まるかは、引用した知識の `binding` が言う。
 
 **この実装が守ること**
 
@@ -16,7 +18,7 @@
    行だけは出して「何が足りないか」を添える。
 3. **数量を勝手に埋めない。** 率が空なら数量は入らない
    (原則: 申告が無い数量を既定値で埋めない)。
-4. **自動で確定させない。** 図面ではなく会社のルールに基づく行なので、
+4. **自動で確定させない。** 図面ではなく図面の外の決まりに基づく行なので、
    人の確認が要る。
 
 **ルールの中身はここに書かない**
@@ -38,13 +40,13 @@ from estimating.quantities import QuantityItem, split_target
 from estimating.rules import RuleSet, StandingLineSpec
 
 #: 足りないものの種類。
-GAP_NO_STANDING_RULES = "会社のルールが与えられていない"
+GAP_NO_STANDING_RULES = "図面に現れない行の決まりが与えられていない"
 GAP_MISSING_QUANTITY = "もとになる数量が無い"
 GAP_AMBIGUOUS_QUANTITY = "もとになる数量が複数あって選べない"
 GAP_EMPTY_BASIS = "基準の中身が決まっていない"
 
 #: これらの行が「何に基づいているか」。`estimating/basis.py` の言葉と揃える。
-BASIS_COMPANY_RULE = "会社のルールに基づく"
+BASIS_OUTSIDE_DRAWING_RULE = "図面の外の決まりに基づく"
 
 
 @dataclass(frozen=True)
@@ -58,7 +60,7 @@ class StandingGap:
 
 @dataclass(frozen=True)
 class StandingLine:
-    """会社のルールだけで立った見積の行 1 件。"""
+    """図面に現れない行 1 件(図面の外の決まりだけで立った行)。"""
 
     standing_id: str
     work_item: str
@@ -71,9 +73,9 @@ class StandingLine:
     source_targets: tuple[str, ...] = ()
     """数量のもとにした対象名。一式の行では空。"""
 
-    basis: str = BASIS_COMPANY_RULE
+    basis: str = BASIS_OUTSIDE_DRAWING_RULE
     settled: bool = False
-    """**常に False。** 図面ではなく会社のルールに基づく行なので確定させない。"""
+    """**常に False。** 図面ではなく図面の外の決まりに基づく行なので確定させない。"""
 
     requires_human_confirmation: bool = True
     note: str | None = None
@@ -104,7 +106,7 @@ class StandingResult:
         if not self.has_standing_rules:
             return (
                 f"規則: {self.ruleset_id} / "
-                "図面からは決まらない行の会社のルールが**与えられていない**。"
+                "図面に現れない行の決まりが**与えられていない**。"
                 "この見積には、図面からは決まらない行が 1 行も入っていない。"
                 "**「その行が無い」ではなく「ルールが欠けている」である。**"
             )
@@ -122,7 +124,7 @@ def apply_standing_lines(
     ruleset: RuleSet,
     quantities: Sequence[QuantityItem] = (),
 ) -> StandingResult:
-    """会社のルールだけで立つ行を作る。
+    """図面に現れない行を作る。
 
     **規則が無ければ「ルールが欠けている」を返す。** 黙って空を返さない。
     """
@@ -135,7 +137,7 @@ def apply_standing_lines(
                     kind=GAP_NO_STANDING_RULES,
                     message=(
                         "図面からは決まらない行(仮設・運搬・墨出し・清掃など)の"
-                        "会社のルールが与えられていない。"
+                        "決まり(公開の積算基準か自社の慣行)が与えられていない。"
                         "この見積にそれらの行が入っていないのは、"
                         "**工事にその行が無いからではなく、ルールを持っていないから**である"
                     ),
@@ -183,7 +185,7 @@ def _decisive_for(spec: StandingLineSpec) -> tuple[DecisiveReason, ...]:
     """
     return decisive_reasons_for(
         effective_derivation="assumed",
-        source_kind="company_rule",
+        source_kind="outside_drawing_rule",
         knowledge_rule_ids=spec.knowledge_rule_ids,
     )
 

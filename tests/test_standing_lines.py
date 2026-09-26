@@ -2,7 +2,7 @@
 
 **図面からは決まらない見積の行**(仮設水道料・仮設電気料・小運搬費・荷上費・
 墨出し・竣工時清掃・駐車場代)は、6 本の答案すべてで 0 件だった。
-読み取りをどれだけ良くしても 1 行も埋まらない。会社のルールが要る。
+読み取りをどれだけ良くしても 1 行も埋まらない。図面の外の決まりが要る。
 
 守りたいのは 5 つ。
 
@@ -178,7 +178,7 @@ def test_基準の中身が空の規則は行だけ作って数量を作らな�
 def test_図面からは決まらない行を自動で確定させない() -> None:
     result = apply_standing_lines(_ruleset(_all_lump_sum()))
     assert all(not line.settled for line in result.lines)
-    assert all(line.basis == "会社のルールに基づく" for line in result.lines)
+    assert all(line.basis == "図面の外の決まりに基づく" for line in result.lines)
     assert all(line.requires_human_confirmation for line in result.lines)
 
 

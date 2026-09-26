@@ -51,7 +51,7 @@ PT_PER_MM = (1 / 50) / 25.4 * 72
 #: 合成した案件の記号の正解。**この数字を経路には渡さない。**
 SYMBOL_TRUTH = {"埋込コンセント": 12, "片切スイッチ": 6, "引掛シーリング": 8, "TEL引出口": 3}
 
-#: 会社のルールの行の正解(合成。実在の会社のものではない)。
+#: 図面に現れない行の正解(合成。実在の会社のものではない)。
 #: **`estimating/examples/synthetic_standing_rules.json` の行の名前と同じにする。**
 #: 1 回目はここを手で書いて 5 件の名前が合っておらず、分母が 16 になっていた。
 #: 行の名前は合成した書式の側が正であって、正解の側で言い換えてよいものではない。
@@ -229,7 +229,7 @@ def path_from_behind(rules_path: Path) -> list[PathItem]:
             path_kind="後ろから",
             source_fingerprint=FORM_SOURCE,
             item_key=line.work_item,
-            item_category="会社のルールの行",
+            item_category="図面に現れない行",
             value_range=None,
             evidence="見積の書式にこの行がある",
         )
@@ -359,7 +359,7 @@ def main() -> None:
                    if any(x.path_id == "後ろから(見積の型)" for x in i.items)}
     report["負の対照"]["3_1経路だけの行"] = {
         "片方にしか無いもの": len(only_one.single_path()),
-        "会社のルールの行が残ったか": sorted(behind_only),
+        "図面に現れない行が残ったか": sorted(behind_only),
         "期待": "捨てられずに残る",
         "合格": set(STANDING_TRUTH) <= behind_only,
     }
