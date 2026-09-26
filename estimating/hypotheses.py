@@ -329,11 +329,44 @@ def check_conflicting_evidence(hs: Sequence[Hypothesis]) -> list[Inconsistency]:
     return out
 
 
+REMOVAL_WORDS = ("撤去", "解体", "剥がし")
+FOLLOW_WORDS = ("新設", "張", "貼", "組", "既存", "重張", "交換", "復旧", "戻す")
+
+
+def check_chain(hs: Sequence[Hypothesis]) -> list[Inconsistency]:
+    """工事の連鎖が切れている: 床・壁・天井の撤去があるのに、同じ部位の新設・張替・既存利用の仮説がどこにも無い。
+
+    撤去の仮説そのものの文に後の工事(「→貼替」など)が書かれていれば、連鎖は切れていないと見る。
+    場所は比べない(室名の書き方が仮説ごとにそろわないため。見落とす向きに倒している)。
+    """
+    out = []
+    for h in hs:
+        work = _nfkc(h.work)
+        if not any(w in work for w in REMOVAL_WORDS):
+            continue
+        parts = [p for p in AREA_PARTS if p in work]
+        if not parts:
+            continue
+        if any(w in work for w in FOLLOW_WORDS):
+            continue
+        followed = any(
+            other is not h
+            and any(p in _nfkc(other.work) for p in parts)
+            and any(w in _nfkc(other.work) for w in FOLLOW_WORDS)
+            and not any(w in _nfkc(other.work) for w in REMOVAL_WORDS)
+            for other in hs
+        )
+        if not followed:
+            out.append(Inconsistency("工事の連鎖が切れている", f"{h.work} の後の工事が無い", (h.item_id,)))
+    return out
+
+
 DEFAULT_CHECKS: tuple[Callable[[Sequence[Hypothesis]], list[Inconsistency]], ...] = (
     check_units,
     check_physical,
     check_double_count,
     check_conflicting_evidence,
+    check_chain,
 )
 
 #: この層では見られない検算。見られないことを黙らせないために名前を出す。

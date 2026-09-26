@@ -117,3 +117,16 @@ def test_consistent_hypotheses_all_survive():
           _h("b", "コンセント 新設", q=2, unit="箇所", ev=[Evidence(2, EVIDENCE_TEXT, "y")])]
     alive, discards = backtrack(hs)
     assert len(alive) == 2 and discards == []
+
+
+def test_chain_break_when_removal_has_no_follow_up():
+    rm = _h("r", "天井 撤去", ev=[Evidence(2, EVIDENCE_TEXT, "x")])
+    alive, discards = backtrack([rm])
+    assert alive == [] and discards[0].check == "工事の連鎖が切れている"
+
+
+def test_chain_ok_when_follow_up_exists():
+    rm = _h("r", "天井 撤去", ev=[Evidence(2, EVIDENCE_TEXT, "x")])
+    new = _h("n", "天井組 新設", ev=[Evidence(3, EVIDENCE_TEXT, "y")])
+    alive, discards = backtrack([rm, new])
+    assert len(alive) == 2 and discards == []
