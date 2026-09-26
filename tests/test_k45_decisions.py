@@ -65,7 +65,15 @@ def test_app_turns_a_blank_finish_into_a_question_not_a_line(tmp_path: Path) -> 
 
 
 def test_hatch_regions_also_give_three_needs_check_rows(tmp_path: Path) -> None:
-    result = _run(_full_pdf(tmp_path / "full.pdf"), tmp_path)
+    # K-46: 線引きは AI の判定。ここでは網の 5 行を AI が「工事の行」とした形で渡す
+    # (判定が無いと全部の行が要確認になり、撤去の行が候補のままかを確かめられない)。
+    from estimating.line_judge import AIJudgmentFileJudge
+
+    judge = AIJudgmentFileJudge(
+        [{"工事": work, "判定": "工事の行", "理由": "合成"}
+         for work in ("床組 撤去", "天井組 撤去", *app.HATCH_INFERRED_NEW_WORKS)]
+    )
+    result = _run(_full_pdf(tmp_path / "full.pdf"), tmp_path, line_judge=judge)
 
     assert result.auto_confirmed_total == 0
     rows = [line for line in result.lines if line.path == app.PATH_DEMOLITION_HATCH]
@@ -81,6 +89,7 @@ def test_hatch_regions_also_give_three_needs_check_rows(tmp_path: Path) -> None:
         assert line.quantity == pytest.approx(expected, rel=0.02)
         assert line.quantity == removal[0].quantity
         assert line.place == removal[0].place
+        # AI が工事の行と判定しても、推し量った行は要確認のまま(線引きは確かさを上げない)
         assert line.certainty == app.CERTAINTY_NEEDS_CHECK
         answer = line.as_answer_row(1)
         assert answer["確かさ"] == "要確認"
