@@ -36,6 +36,7 @@ from estimating.finish_schedule_scope import (
     BASE_REPLACED,
     BASE_SAME_AS_ABOVE,
     BASE_UNDETERMINED,
+    CAUSE_FINISH_BLANK,
     CAUSE_OWNER_SUPPLIED,
     CAUSE_SAME_AS_ABOVE,
     CAUSE_UNKNOWN_BASE_WORD,
@@ -89,7 +90,7 @@ def test_the_six_readings_of_the_table_are_assigned_as_written(tmp_path: Path) -
         READING_FINISH_ONLY,    # 既存 / 材料名
         READING_REPLACE,        # 交換 / 何でも
         READING_NO_WORK,        # ー  (該当なし)
-        READING_NO_WORK,        # 既存 / 空欄
+        READING_QUESTION,       # 既存 / 空欄(K-45 で「工事なし」から問いへ)
         READING_FROM_BASE,      # 材料名 / 何でも
     ]
 
@@ -112,7 +113,7 @@ def test_the_readings_map_onto_the_five_work_kinds(tmp_path: Path) -> None:
         [WORK_ALTERED],  # 仕上だけやり替え。**畳まれるのはこの読みだけ**
         [WORK_REMOVAL, WORK_NEW],  # 撤去して新設
         [WORK_AS_IS],
-        [WORK_AS_IS],
+        [WORK_UNDECIDED],  # 既存 / 空欄。K-45 で問いへ(区分を決めない)
         [WORK_REMOVAL, WORK_NEW],  # 下地からやり替え(K-08 1番)
     ]
 
@@ -585,3 +586,47 @@ def test_the_ditto_mark_is_read_the_same_way_as_the_word(
     assert question.question == "この行の下地は、上の行と同じですか"
     assert question.previous_base == "軸組新設"
     assert [i.work_kind for i in result.assignments[1].items] == [WORK_UNDECIDED]
+
+
+# ---------------------------------------------------------------------------
+# 8. 下地が既存で仕上の欄が空欄(K-45、おーちゃん 2026-09-26、案 B)
+# ---------------------------------------------------------------------------
+
+
+def test_a_blank_finish_over_an_existing_base_is_a_question_not_no_work(
+    tmp_path: Path,
+) -> None:
+    """**空欄は「工事なし」ではなく「何も書かれていない」。**
+
+    元の読み方の表(K-05)では「工事なし」だった。おーちゃんが K-45 で
+    決め直した(案 B): 仕上の記載が見当たらないとして問いに回す。
+    **既存のまま(工事なし)の要素にしない。**
+    """
+    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+
+    blank = result.assignments[4]
+    assert blank.finish in (None, "")
+    assert blank.reading == READING_QUESTION
+    assert "仕上の記載が見当たりません" in blank.reason
+    assert [item.work_kind for item in blank.items] == [WORK_UNDECIDED]
+    assert WORK_AS_IS not in [item.work_kind for item in blank.items]
+
+    assert blank.question is not None
+    assert blank.question.cause == CAUSE_FINISH_BLANK
+    assert blank.question.question == (
+        "洋室1・廻縁の仕上の記載が見当たりません。この部位の工事はどうなりますか。"
+    )
+    assert blank.question in result.questions
+
+
+def test_the_blank_finish_question_carries_no_recommendation(tmp_path: Path) -> None:
+    """**推奨を付けない**(K-45)。答えを先に置くと、記載が無いことを根拠に
+    「既存のまま」を通すことになる。問いの文にも想定を書かない。"""
+    result = assign_finish_schedule_scope(_schedule(tmp_path / "a.pdf", SIX_READINGS))
+
+    question = result.assignments[4].question
+    assert question is not None
+    assert question.recommended_answer is None
+    assert question.as_dict()["recommended_answer"] is None
+    for word in ("想定", "既存のまま", "工事なし", "よいですか"):
+        assert word not in question.question

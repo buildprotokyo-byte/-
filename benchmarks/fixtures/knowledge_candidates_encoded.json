@@ -2,7 +2,7 @@
   "format_version": 2,
   "table_id": "candidates-public-standards",
   "synthetic": false,
-  "description": "docs/knowledge/candidates.md の A・A′・B′・B・C 節を、知識の表の形式で書き直したもの。**公共工事の基準からの候補であって、会社のルールでも採用済みの規則でもない。** 形式が候補を受け取れるかを測るためだけに置いてある(65周目)。format_version 2 への書き直し(2026-09-23、K-04 6 番): 発行元・版・拘束力は docs/knowledge/sources.md 4節の記録から埋めた。確認日は全件 不明(null)。その文書をいつ読んだかの記録が無いため(K-06 の決定)。採否の状態は全件 候補(採否を決めるのはおーちゃん)。",
+  "description": "docs/knowledge/candidates.md の A・A′・B′・B・C 節を、知識の表の形式で書き直したもの。**公共工事の基準からの候補であって、会社のルールでも採用済みの規則でもない。** 形式が候補を受け取れるかを測るためだけに置いてある(65周目)。format_version 2 への書き直し(2026-09-23、K-04 6 番): 発行元・版・拘束力は docs/knowledge/sources.md 4節の記録から埋めた。確認日は docs/knowledge/sources.md にその文書を足したコミットの日付で埋めた(2026-09-24、K-16 1 番)。記録から復元できたので推し量っていない。採否の状態は全件 候補(採否を決めるのはおーちゃん)。",
   "entries": [
     {
       "entry_id": "A-1",
@@ -15,7 +15,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -54,7 +54,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -85,7 +85,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -116,7 +116,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -149,7 +149,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -180,7 +180,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -199,7 +199,7 @@
         "unit": "㎡",
         "method": "天井の改修面積。壁のみ新設・改修なら壁の水平長さ×1.0m。"
       },
-      "note": "墨出し・養生清掃も同じ節に式がある。それぞれ別の1件として書く。"
+      "note": "墨出しは A-8、養生清掃は A-9 として別の1件で書いた(2026-09-24、K-18 1番)。3件とも同じ 第7編-1-2-2。"
     },
     {
       "entry_id": "A-7",
@@ -212,7 +212,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -233,6 +233,74 @@
       }
     },
     {
+      "entry_id": "A-8",
+      "kind": "数え方",
+      "statement": "墨出しは、内装改修・塗装改修では床又は天井の改修面積で数え、壁のみを新設・改修する場合は新設壁前面から1.0mの範囲の床面積で数える。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-1-2-2",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": "2026-09-22",
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "仮設",
+          "内装改修",
+          "塗装改修"
+        ],
+        "parts": [
+          "墨出し"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "㎡",
+        "method": "床又は天井の改修面積。壁のみを新設・改修する場合は新設壁前面から1.0mの範囲の床面積。"
+      },
+      "note": "A-6(内部仕上足場)の注記から起こした別の1件(2026-09-24、K-18 1番)。壁のみかどうかの分岐は C-3(問い)と同じ分岐。1.0mの範囲は B-3 と同じ既定値。"
+    },
+    {
+      "entry_id": "A-9",
+      "kind": "数え方",
+      "statement": "養生清掃は、建具改修では外部建具は建具幅×1.0m、内部建具は建具幅×2.0mの面積で数える。",
+      "source": {
+        "document": "公共建築数量積算基準(令和5年改定)",
+        "clause": "第7編-1-2-2",
+        "url": "https://www.mlit.go.jp/common/001178206.pdf",
+        "read_directly": true,
+        "publisher": "国土交通省官庁営繕部",
+        "edition": "令和5年改定",
+        "checked_on": "2026-09-22",
+        "binding": "行政基準"
+      },
+      "adoption_status": "候補",
+      "confidence": "一次資料",
+      "scope": "公共工事",
+      "applies_to": {
+        "work_kinds": [
+          "仮設",
+          "建具改修"
+        ],
+        "parts": [
+          "養生",
+          "建具"
+        ]
+      },
+      "needs_human_check": true,
+      "detail": {
+        "unit": "㎡",
+        "method": "外部建具は建具幅×1.0m、内部建具は建具幅×2.0m。建具改修のみに掛かる。"
+      },
+      "note": "A-6(内部仕上足場)の注記から起こした別の1件(2026-09-24、K-18 1番)。建具の幅は A-5(内法寸法)で拾う値と同じ。"
+    },
+    {
       "entry_id": "Ad-1",
       "kind": "数え方",
       "statement": "配線器具は形式および容量の組合せごとの個数、照明器具は形式および記号ごとの個数で数える。",
@@ -243,7 +311,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -278,7 +346,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -309,7 +377,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -348,7 +416,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -384,7 +452,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -417,7 +485,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -451,7 +519,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": null,
+        "checked_on": "2026-09-23",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -496,7 +564,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": null,
+        "checked_on": "2026-09-23",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -540,7 +608,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": null,
+        "checked_on": "2026-09-23",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -565,9 +633,10 @@
         "symmetric": false
       },
       "overridden_by": [
-        "特記"
+        "特記",
+        "案件の凡例"
       ],
-      "note": "**形式に収まっていない**: 「波及しない」ことを書く欄が無いので、extent に文字で書いて逃がしている。affected も空にせざるを得ない。 Bd-1・Bd-2 の逆向きは自動では起きない、という非対称。"
+      "note": "**形式に収まっていない**: 「波及しない」ことを書く欄が無いので、extent に文字で書いて逃がしている。affected も空にせざるを得ない。 Bd-1・Bd-2 の逆向きは自動では起きない、という非対称。 【K-45 3 番、おーちゃん 2026-09-26】「特記がなければ既存のまま」として知識の表に入れる。公的な基準に書かれていることなので「記載が無い」を根拠にしていない。拘束力は 行政基準、採否は 候補 のまま。この知識を使って出したものには印を付ける(knowledge/table.py の usage_mark)。**食い違いの記録**: P011 の凡例は「特記なき場合は新設とする」と書いており、この基準と逆向き。**案件の凡例が優先**する(knowledge/table.py の resolve_conflict。overridden_by に 案件の凡例 を足した)。"
     },
     {
       "entry_id": "Bd-4",
@@ -580,7 +649,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": null,
+        "checked_on": "2026-09-23",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -622,7 +691,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": null,
+        "checked_on": "2026-09-23",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -660,7 +729,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -694,7 +763,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -728,7 +797,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -769,7 +838,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -806,7 +875,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -843,7 +912,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和5年改定",
-        "checked_on": null,
+        "checked_on": "2026-09-22",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -881,7 +950,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": null,
+        "checked_on": "2026-09-23",
         "binding": "行政基準"
       },
       "adoption_status": "候補",
@@ -924,7 +993,7 @@
         "read_directly": true,
         "publisher": "国土交通省官庁営繕部",
         "edition": "令和7年版",
-        "checked_on": null,
+        "checked_on": "2026-09-23",
         "binding": "行政基準"
       },
       "adoption_status": "候補",

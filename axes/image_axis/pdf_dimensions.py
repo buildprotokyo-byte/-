@@ -76,7 +76,7 @@ from typing import Any, Iterable, Sequence
 
 import pymupdf
 
-from axes.image_axis.pdf_tables import find_tables
+from axes.image_axis.pdf_tables import TableRegion, find_tables
 from axes.reading.meaning import (
     PURPOSE_RECEIVED_UNLINKED,
     PURPOSE_UNESTABLISHED,
@@ -168,9 +168,27 @@ REASON_INSIDE_TABLE = (
     "表の数字は schedule_tables が読む"
 )
 
+#: **図面枠を表と数えないための線。**K-29 で実測して決めた
+#: (`docs/k29_area_expert_reading_criteria.md` 追記 4)。
+#:
+#: P011 匿名化v2 の平面図では、図面枠が**紙の 86.9% を覆う「表」**として拾われ、
+#: その中の数字が全部「表の升目の中だから寸法ではない」で捨てられていた。
+#: **34 ページすべてで寸法が 0 件**だったのは、これ 1 つが原因である。
+#:
+#: 本物の表と分けるのに使うのは 2 つで、**両方を満たしたときだけ**枠と見なす。
+#: 面積だけでは分けられない(本物の内装仕上表も紙の 74.8% を覆う)。
+FRAME_AREA_RATIO = 0.60
+
+#: 升目のうち**文字が入っているもの**の割合。本物の表は 31.9〜65.0%、
+#: 図面枠は 6.6〜15.6% だった(同じ実測)。
+FRAME_FILLED_RATIO = 0.25
+
 #: 単位の出どころの表記。根拠としてそのまま残す。
 UNIT_FROM_TEXT = "単位が表記されていた"
 UNIT_FROM_PLAUSIBLE_SCALE = "単位の表記が無く、縮尺が成り立つ側に読んだ"
+#: 寸法線の候補が 2 本以上あった数字を、渡された目盛り(選んだ基準の縮尺)で 1 本に決めた(K-38)。
+#: **ほかの読みと出どころを分けるために、単位の決め方の欄に印を置く。**
+UNIT_FROM_RULER = "寸法線の候補が複数あり、基準の縮尺で区間を1本に決めた"
 
 
 class DimensionError(ValueError):
@@ -341,6 +359,30 @@ def _inside(
     )
 
 
+def _looks_like_a_drawing_frame(region: TableRegion, page_area: float) -> bool:
+    """その「表」が**図面枠**かどうか。**枠なら寸法の除外に使わない。**
+
+    枠と見なすのは、**紙の大半を覆い、かつ升目のほとんどが空**のときだけである。
+    どちらか片方では分けられない。
+
+    - 面積だけで切ると、**本物の内装仕上表(紙の 74.8%)まで落ちる。**
+    - 文字の割合だけで切ると、**升目の空きが多い本物の凡例の表(19.2%)が危うい。**
+
+    `pdf_tables` の側は変えない。表の探し方を変えると、仕上表・建具表・凡例の
+    読み取りが全部動く。**変えるのはここの使い方だけである。**
+    """
+    if page_area <= 0:
+        return False
+    x0, y0, x1, y1 = region.rect_pt
+    if (x1 - x0) * (y1 - y0) < page_area * FRAME_AREA_RATIO:
+        return False
+    cells = [cell for row in region.rows for cell in row]
+    if not cells:
+        return False
+    filled = sum(1 for cell in cells if cell.text.strip())
+    return filled < len(cells) * FRAME_FILLED_RATIO
+
+
 def _in_any_table(
     rect: tuple[float, float, float, float],
     tables: Sequence[tuple[float, float, float, float]],
@@ -383,6 +425,50 @@ def _collect_segments(page: pymupdf.Page) -> list[Segment]:
                 ]
                 for index in range(4):
                     add(corners[index], corners[(index + 1) % 4])
+    return out
+
+
+#: 黒丸(寸法の端末記号)とみなす、塗りつぶした小さな図形の大きさの上限(ポイント)。
+DOT_MAX_SIZE_PT = 3.0
+
+Dot = tuple[float, float]
+
+
+def _collect_dots(page: pymupdf.Page) -> list[Dot]:
+    """塗りつぶした小さな丸(黒丸)の中心を集める(K-38)。
+
+    JIS の寸法の端末記号には、矢印・斜線のほかに**黒丸**がある。黒丸はベジェ曲線で描かれるので、
+    直線だけを見る `_collect_segments` からは見えない。**黒丸の区間は、途中を壁の線が横切っても
+    1 本の区間として読む**(横切る線は寸法の区切りとは限らないが、黒丸は寸法の端である)。
+    """
+    out: list[Dot] = []
+
+    def close(points: list[tuple[float, float]]) -> None:
+        if len(points) < 2:
+            return
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        width, height = max(xs) - min(xs), max(ys) - min(ys)
+        if 0 < width <= DOT_MAX_SIZE_PT and 0 < height <= DOT_MAX_SIZE_PT:
+            if abs(width - height) <= 0.25 * max(width, height):
+                out.append(((max(xs) + min(xs)) / 2.0, (max(ys) + min(ys)) / 2.0))
+
+    for drawing in page.get_drawings():
+        if drawing.get("fill") is None:
+            continue
+        # 1 つの描画に黒丸がいくつも入っていることがある。曲線がつながっている所ごとに分ける。
+        points: list[tuple[float, float]] = []
+        for item in drawing.get("items", ()):
+            if item[0] != "c":
+                close(points)
+                points = []
+                continue
+            start = (item[1].x, item[1].y)
+            if points and math.hypot(start[0] - points[-1][0], start[1] - points[-1][1]) > 0.01:
+                close(points)
+                points = []
+            points.extend((p.x, p.y) for p in item[1:5])
+        close(points)
     return out
 
 
@@ -512,16 +598,39 @@ class _Span:
         )
 
 
-def _spans(segments: Sequence[Segment]) -> list[_Span]:
+def _dot_params(base: Segment, dots: Sequence[Dot]) -> list[float]:
+    """線 `base` の上に乗っている黒丸の位置(始点からのポイント)。"""
+    length = _length(base)
+    params: list[float] = []
+    for dot in dots:
+        distance, t = _point_to_segment_distance(dot, base)
+        if distance <= ANCHOR_TOUCH_PT and -ANCHOR_TOUCH_PT <= t <= length + ANCHOR_TOUCH_PT:
+            params.append(max(0.0, min(length, t)))
+    merged: list[float] = []
+    for value in sorted(params):
+        if not merged or value - merged[-1] > ANCHOR_TOUCH_PT:
+            merged.append(value)
+    return merged
+
+
+def _spans(segments: Sequence[Segment], dots: Sequence[Dot] = ()) -> list[_Span]:
     """目印で区切られた区間を全部集める。
 
     連続した寸法(``910 | 1820 | 910`` のように1本の線に並ぶもの)を、
     区切りごとの区間として扱えるようにするためである。
+    **黒丸が 2 つ以上乗る線は、隣り合う黒丸の間も区間にする**(K-38。途中を横切る線は数えない)。
     """
     out: list[_Span] = []
     for segment in segments:
         if _length(segment) < MIN_SEGMENT_LENGTH_PT:
             continue
+        dot_params = _dot_params(segment, dots) if dots else []
+        dot_spans = [
+            _Span(segment=segment, start_param=start, end_param=end)
+            for start, end in zip(dot_params, dot_params[1:])
+            if end - start >= MIN_SEGMENT_LENGTH_PT
+        ]
+        out.extend(dot_spans)
         params = _anchor_params(segment, segments)
         if len(params) < 2:
             # 両端に目印が無い線は寸法線ではない(壁・通り芯・ハッチング)。
@@ -529,6 +638,13 @@ def _spans(segments: Sequence[Segment]) -> list[_Span]:
         for index in range(len(params) - 1):
             start, end = params[index], params[index + 1]
             if end - start < MIN_SEGMENT_LENGTH_PT:
+                continue
+            # 黒丸と目印の線が同じ所にあると同じ区間が 2 度できる。**2 度数えると「候補が複数」で落ちる。**
+            if any(
+                abs(span.start_param - start) <= ANCHOR_TOUCH_PT
+                and abs(span.end_param - end) <= ANCHOR_TOUCH_PT
+                for span in dot_spans
+            ):
                 continue
             out.append(_Span(segment=segment, start_param=start, end_param=end))
     return out
@@ -653,6 +769,42 @@ def _pick_span(matches: Sequence[_Span]) -> _Span | None:
     return shortest
 
 
+def _pick_span_with_ruler(
+    number: _NumberText,
+    matches: Sequence[_Span],
+    mm_per_point: float,
+    tolerance: float,
+) -> tuple[_Span | None, tuple[float, str] | None]:
+    """目盛りで候補を 1 本に決める。**合う候補がちょうど 1 本のときだけ。**
+
+    数字の実寸は、単位が書かれていればそれ、書かれていなければ mm と m の両方を試す
+    (どちらも建築図面として成り立つ縮尺の幅に入るかは `_resolve_unit` と同じく確かめる)。
+    """
+    if number.has_unit:
+        values = [number.value * number.unit_factor]
+    elif number.digit_count >= MIN_BARE_DIGITS:
+        values = [number.value, number.value * 1000.0]
+    else:
+        return None, None
+    hits: list[tuple[_Span, float]] = []
+    for span in matches:
+        measured = span.length * mm_per_point
+        if measured <= 0:
+            continue
+        for value_mm in values:
+            if value_mm < MIN_DIMENSION_MM:
+                continue
+            denominator = value_mm / span.length / MM_PER_POINT
+            if not PLAUSIBLE_SCALE_MIN <= denominator <= PLAUSIBLE_SCALE_MAX:
+                continue
+            if abs(value_mm / measured - 1.0) <= tolerance:
+                hits.append((span, value_mm))
+    if len(hits) != 1:
+        return None, None
+    span, value_mm = hits[0]
+    return span, (value_mm, UNIT_FROM_RULER)
+
+
 def _resolve_unit(
     number: _NumberText, paper_distance_pt: float
 ) -> tuple[float, str] | None:
@@ -704,6 +856,8 @@ def read_dimensions(
     *,
     phase: str = "不明",
     purpose_received: bool = False,
+    ruler_mm_per_point: float | None = None,
+    ruler_tolerance: float | None = None,
 ) -> DimensionPage:
     """1 ページから、記入された寸法を読む。読めなければ空。
 
@@ -716,16 +870,34 @@ def read_dimensions(
     経路はまだ無い**(原則3-2の二段階目が未実装)ので、意味の4欄の
     `purpose_link` には「受け皿が無い」のか「結び付けが無い」のかを分けて
     印だけを置く。**方向性の自由記述をここに写さない。**
+
+    `ruler_mm_per_point` は、そのページで選んだ基準の縮尺(1pt が実寸何 mm か。
+    `axes/image_axis/page_ruler.py`)。**渡したときだけ**、寸法線の候補が 2 本以上あって
+    落としていた数字について、「区間の長さ × 目盛り」が数字と `ruler_tolerance` の中で
+    合う候補が **1 本だけ**なら、その区間を採る(K-38)。**渡さなければ読みはこれまでと同じ。**
+    拾った読みの ``unit_source`` は ``UNIT_FROM_RULER``。
     """
+    if ruler_mm_per_point is not None:
+        if ruler_tolerance is None or ruler_tolerance < 0:
+            raise DimensionError("目盛りを渡すときは、突き合わせの許容差も渡してください")
+        if not (ruler_mm_per_point > 0 and math.isfinite(ruler_mm_per_point)):
+            raise DimensionError(f"目盛りが正の有限値ではありません: {ruler_mm_per_point}")
     with pymupdf.open(pdf_path) as doc:
         if not 0 <= page_index < doc.page_count:
             raise IndexError(f"ページ {page_index} は存在しません")
         page = doc.load_page(page_index)
         segments = _collect_segments(page)
+        dots = _collect_dots(page)
         numbers = _number_texts(page)
+        page_area = page.rect.width * page.rect.height
 
     # 表の位置は、既にある検出器に聞く(自前で罫線を探し直さない)。
-    tables = tuple(region.rect_pt for region in find_tables(pdf_path, page_index))
+    # **ただし図面枠は表ではない。**除外に使う前に外す。
+    tables = tuple(
+        region.rect_pt
+        for region in find_tables(pdf_path, page_index)
+        if not _looks_like_a_drawing_frame(region, page_area)
+    )
     if tables:
         # 表の罫線を寸法線の候補から外す。**外さないと升目の長さを
         # 「その数字が指す長さ」として読んでしまう。**
@@ -742,7 +914,7 @@ def read_dimensions(
                 tables,
             )
         ]
-    spans = _spans(segments)
+    spans = _spans(segments, dots)
 
     readings: list[DimensionReading] = []
     skipped: list[SkippedNumber] = []
@@ -767,6 +939,11 @@ def read_dimensions(
             )
             continue
         span = _pick_span(matches)
+        resolved = None
+        if span is None and ruler_mm_per_point is not None:
+            span, resolved = _pick_span_with_ruler(
+                number, matches, ruler_mm_per_point, float(ruler_tolerance)
+            )
         if span is None:
             skipped.append(
                 SkippedNumber(
@@ -774,7 +951,8 @@ def read_dimensions(
                 )
             )
             continue
-        resolved = _resolve_unit(number, span.length)
+        if resolved is None:
+            resolved = _resolve_unit(number, span.length)
         if resolved is None:
             skipped.append(
                 SkippedNumber(

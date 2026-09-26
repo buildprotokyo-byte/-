@@ -42,6 +42,7 @@ from estimating.decisive import (
     NOT_OBTAINED_SITE_SURVEY,
     DecisiveReason,
     NotObtained,
+    decisive_reasons_for,
 )
 from estimating.quantities import QuantityItem
 from estimating.rules import EstimateLineSpec, MappingRule, RuleSet
@@ -429,10 +430,42 @@ def _lines_for(quantity: QuantityItem, rule: MappingRule) -> tuple[MappedLine, .
                 axis_id=quantity.axis_id,
                 tier=quantity.tier,
                 action=quantity.action,
-                decisive=tuple(quantity.decisive),
+                decisive=_decisive_for(quantity, rule),
             )
         )
     return tuple(out)
+
+
+def _decisive_for(
+    quantity: QuantityItem, rule: MappingRule
+) -> tuple[DecisiveReason, ...]:
+    """行の決め手。**数量の証拠と、規則が引用した知識を合わせて作る。**
+
+    K-11 の 1 番。数量の側の欄(`QuantityItem.knowledge_rule_ids`)は空のままで、
+    **入れる側が 0 か所だった。**規則の側に引用を持たせたので、ここで合わせる。
+
+    **札は作らない。証拠を渡すだけ。**札の作り方は `estimating/decisive.py` の
+    1 か所にあり、そこが証拠の足りない札を断る(手で札を付けられる形にすると、
+    証拠の無い札が混ざる)。
+
+    **引用が無ければ数量の決め手そのまま**になるので、既存の行は動かない。
+    """
+    if not rule.knowledge_rule_ids:
+        return tuple(quantity.decisive)
+
+    merged: list[str] = list(quantity.knowledge_rule_ids)
+    for rule_id in rule.knowledge_rule_ids:
+        if rule_id not in merged:
+            merged.append(rule_id)
+    return decisive_reasons_for(
+        effective_derivation=quantity.effective_derivation,
+        source_kind=quantity.source_kind,
+        knowledge_rule_ids=tuple(merged),
+        agreeing_paths=quantity.agreeing_paths,
+        paths_independent=quantity.paths_independent,
+        question_id=quantity.question_id,
+        summary_item=quantity.summary_item,
+    )
 
 
 def _in_unit(canonical: tuple[int, int], unit: str) -> tuple[float, float]:

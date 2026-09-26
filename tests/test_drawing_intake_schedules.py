@@ -35,6 +35,7 @@ from axes.image_axis.schedule_tables import (
     is_arc_blind,
 )
 from intake.drawing_intake import IntakeConfig, read_drawing
+from intake.start_kit import PageDeclaration, StartKit
 from tests.test_pdf_tables import draw_table
 
 DOOR_ROWS: tuple[tuple[str | None, ...], ...] = (
@@ -93,9 +94,14 @@ def _pdf(tmp_path: Path, build) -> Path:
     return path
 
 
-def _config(path: Path, tmp_path: Path) -> IntakeConfig:
+def _config(
+    path: Path, tmp_path: Path, start_kit: StartKit | None = None
+) -> IntakeConfig:
     return IntakeConfig(
-        pdf_path=path, case_id="TEST-SCHEDULE", answers_path=tmp_path / "answers.json"
+        pdf_path=path,
+        case_id="TEST-SCHEDULE",
+        answers_path=tmp_path / "answers.json",
+        start_kit=start_kit,
     )
 
 
@@ -279,6 +285,109 @@ def test_the_same_mark_on_two_pages_with_different_counts_becomes_a_range(
     assert finding.value_range == (2.0, 5.0)
     assert "note" in finding.provenance
     assert len(finding.provenance["occurrences"]) == 2
+    # **ページの宣言が無いので、現況とも計画とも名乗らない。**
+    # ここでレンジになるのは「同じものを 2 回読んで値が違った」からであって、
+    # 現況と計画を混ぜてよいからではない(下の 2 件がそれを分けている)。
+    assert finding.meaning is not None
+    assert finding.meaning.phase == "不明"
+
+
+def test_the_same_mark_in_two_phases_becomes_two_targets(tmp_path: Path) -> None:
+    """**現況の建具表と計画の建具表を、1 つのレンジに混ぜない**(2026-09-23)。
+
+    それまでは建具番号だけでまとめていたので、現況 2 件と計画 5 件が
+    `(2.0, 5.0)` という 1 つのレンジになっていた。**それは値の幅ではなく
+    意味の違いで、この形のままでは差分(工事内容)の層から現況も計画も見えない**
+    (`docs/principles/scope_of_work_diff.md` 3-1)。
+
+    **足さない・選ばないという元の約束は変えていない。** 分けるだけである。
+    """
+    planned: tuple[tuple[str | None, ...], ...] = (
+        ("建具番号", "種別", "幅", "高さ", "数量"),
+        ("WD-01", "引戸", "1650", "2000", "5"),
+    )
+    path = _pdf(
+        tmp_path,
+        lambda doc: (
+            _schedule_page(doc, finish_rows=None),
+            _schedule_page(doc, door_rows=planned, finish_rows=None),
+        ),
+    )
+    result = read_drawing(
+        _config(
+            path,
+            tmp_path,
+            start_kit=StartKit(
+                page_declarations=(
+                    PageDeclaration(page_number=1, kind="建具表", phase="現況"),
+                    PageDeclaration(page_number=2, kind="建具表", phase="計画"),
+                )
+            ),
+        )
+    )
+
+    quantities = {
+        item.target: item.value_range
+        for item in result.findings
+        if item.method_id == METHOD_DOOR_SCHEDULE and "WD-01" in item.target
+    }
+    assert quantities == {
+        "建具数量::WD-01::現況": (2.0, 2.0),
+        "建具数量::WD-01::計画": (5.0, 5.0),
+    }
+
+    # **どちらも 7 になっていない。** 足さないという約束はそのままである。
+    assert sum(1 for value in quantities.values() if value == (7.0, 7.0)) == 0
+
+    for target, phase in (
+        ("建具数量::WD-01::現況", "現況"),
+        ("建具数量::WD-01::計画", "計画"),
+    ):
+        finding = next(item for item in result.findings if item.target == target)
+        assert finding.meaning is not None
+        assert finding.meaning.phase == phase
+
+
+def test_an_undeclared_page_is_not_folded_into_a_declared_phase(
+    tmp_path: Path,
+) -> None:
+    """**宣言が無いページを「計画」に寄せない。**
+
+    寄せると、現況か計画か決まっていない数量が計画の数量として差分に入り、
+    見ただけでは気づけない(`scope_of_work_diff.md` 5 節)。
+    """
+    planned: tuple[tuple[str | None, ...], ...] = (
+        ("建具番号", "種別", "幅", "高さ", "数量"),
+        ("WD-01", "引戸", "1650", "2000", "5"),
+    )
+    path = _pdf(
+        tmp_path,
+        lambda doc: (
+            _schedule_page(doc, finish_rows=None),
+            _schedule_page(doc, door_rows=planned, finish_rows=None),
+        ),
+    )
+    result = read_drawing(
+        _config(
+            path,
+            tmp_path,
+            start_kit=StartKit(
+                page_declarations=(
+                    PageDeclaration(page_number=2, kind="建具表", phase="計画"),
+                )
+            ),
+        )
+    )
+
+    quantities = {
+        item.target: item.value_range
+        for item in result.findings
+        if item.method_id == METHOD_DOOR_SCHEDULE and "WD-01" in item.target
+    }
+    assert quantities == {
+        "建具数量::WD-01": (2.0, 2.0),
+        "建具数量::WD-01::計画": (5.0, 5.0),
+    }
 
 
 def test_the_same_mark_with_the_same_count_stays_one_value(tmp_path: Path) -> None:
