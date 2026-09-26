@@ -3,7 +3,8 @@
 使い方::
 
     python app.py <図面PDF> --case-id P011 --out 結果.json \\
-        [--legend-table 対照表.json] [--human-input 人の入力.json] [--rules 規則.json]
+        [--legend-table 対照表.json] [--human-input 人の入力.json] [--rules 規則.json] \\
+        [--plan-note-pages 8] [--demolition-pages 33]
 
 なぜこれを作るのか
 ------------------
@@ -22,6 +23,18 @@
 5. 人の入力(室の寸法・記号の個数)
 6. 数量を作る
 7. 見積の行に対応づける(規則ファイルがあれば `map_quantities`)
+
+道(行の出どころ)
+------------------
+仕上表・凡例の記号・入口の図形・人の入力に加えて、K-42 で 2 つ足した
+(測ったのは K-41 周 6・周 9・周 11)。どちらも**候補で、確定させない。**
+
+- 改装平面の注記(`intake/plan_colour_notes.py`)… 表題が「改装平面…図」のページの
+  赤・青の文字の行。数量は注記に数が刷られているときだけ。
+- 撤去の網(`intake/demolition_hatch.py`)… 表題に「撤去」がある図のページの青い網を
+  面にして、面ごとに床組の撤去・天井組の撤去の 2 行。縮尺が無ければ面積は空。
+
+許容の少し外にあったものは捨てずに「候補(近いが外れ)」に理由つきで残す。
 
 この入口がしないこと
 --------------------
@@ -59,6 +72,8 @@ PATH_FINISH = "仕上表"
 PATH_LEGEND = "凡例の記号"
 PATH_INTAKE = "入口の図形"
 PATH_HUMAN = "人の入力"
+PATH_PLAN_NOTES = "改装平面の注記"
+PATH_DEMOLITION_HATCH = "撤去の網"
 
 #: 仕上表の部位 → 人の入力から作る数量の種類。**ここに無い部位には数量を付けない。**
 #: 天井は床と同じ広さとみなす(平らな天井の一般則)。そうしたことを行に注記する。
@@ -138,6 +153,8 @@ class EstimateLine:
     """数量が人の入力を待っている(入力があれば埋まる)行か。"""
     spec: str = ""
     """摘要。材種・材質・工法など、単価に対応する条件(K-36 改訂版)。**読めたものだけ。**"""
+    extra: dict[str, Any] = field(default_factory=dict)
+    """その道だけが持つ欄(K-42。例: 注記の色・同じ注記の数)。**空なら出力に何も足さない。**"""
 
     def as_answer_row(self, number: int) -> dict[str, Any]:
         """読み方の比較実験と同じ出力の形の 1 行(採点をそのまま当てるため)。"""
@@ -157,6 +174,7 @@ class EstimateLine:
             "人の入力待ち": self.waits_for_human,
             "摘要": self.spec,
             "備考": " / ".join(self.notes),
+            **self.extra,
         }
 
 
@@ -176,6 +194,9 @@ class OnePassResult:
 
     checks: dict[str, list[str]] = field(default_factory=dict)
     """機械の検算(K-40)。**知らせるだけで、数量は変えていない。**"""
+
+    near_misses: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    """許容の少し外にあったもの(K-42)。**見積の行ではない。確定もしない。**理由つきで残す。"""
 
     kept_quantities: list[dict[str, Any]] = field(default_factory=list)
     """行にしなかった入口の数量。**捨てずに印を付けて残す**(K-36)。
@@ -233,6 +254,7 @@ class OnePassResult:
                 "数量": self.kept_quantities,
             },
             "図面の寸法から組んだ室": self.drawing_rooms,
+            "候補(近いが外れ)": self.near_misses,
             "検算": self.checks,
             "かかった秒数": self.timings,
             "そのほか": self.extras,
@@ -592,6 +614,201 @@ def _legend_lines(
 
 
 # ---------------------------------------------------------------------------
+# K-42. 改装平面の注記 → 行
+# ---------------------------------------------------------------------------
+
+
+def _plan_note_lines(
+    pdf_path: Path, pages: Sequence[int] | None, room_names: Sequence[str]
+) -> tuple[list[EstimateLine], dict[str, int], dict[str, Any], list[dict[str, Any]]]:
+    """改装平面の赤・青の注記を行にする。**数量は注記に刷られた数だけ。**
+
+    ``pages`` が ``None`` なら、表題欄に「改装平面…図」とあるページを探す。
+    """
+    from intake.plan_colour_notes import (
+        pages_with_title,
+        read_colour_notes,
+        room_label_positions,
+    )
+
+    counts = dict.fromkeys(STAGES, 0)
+    chosen = list(pages) if pages is not None else pages_with_title(pdf_path, "改装平面")
+    lines: list[EstimateLine] = []
+    near: list[dict[str, Any]] = []
+    with_count = 0
+    for page_number in chosen:
+        labels = room_label_positions(pdf_path, page_number, room_names)
+        result = read_colour_notes(pdf_path, page_number, labels)
+        counts[STAGE_RECOGNIZE] += result.recognized
+        counts[STAGE_READ] += len(result.notes)
+        # 理解: 色の意味(凡例が名乗る工事の別)が決まった行。許容の外の色は入らない。
+        counts[STAGE_UNDERSTAND] += len(result.notes)
+        near.extend(
+            {
+                "ページ": m.page,
+                "読んだ文字": m.text,
+                "色": m.colour_value,
+                "位置_pt": [round(v, 1) for v in m.bbox],
+                "理由": m.reason,
+            }
+            for m in result.near_misses
+        )
+        for note in result.notes:
+            notes = [
+                f"色 {note.colour}({note.colour_value}): 凡例では{note.kind}を表す"
+                "(凡例の意味は 1 案件でしか確かめていない候補)",
+            ]
+            if note.count is not None:
+                with_count += 1
+                notes.append(f"数量は注記に刷られた数「{note.count_text}」")
+            elif note.count_text:
+                notes.append(
+                    f"注記に数が 2 つ以上刷られている({note.count_text})ので、数量は空のまま"
+                )
+            else:
+                notes.append("注記に数が刷られていないので、数量は空のまま")
+            if not note.place:
+                notes.append("近くに仕上表の室名が見つからないので、場所は空のまま")
+            notes.append(
+                f"同じ注記がこのページに {note.same_text_count} 行ある。**数量ではない**"
+            )
+            lines.append(
+                EstimateLine(
+                    work_item=note.text,
+                    place=note.place,
+                    quantity=note.count,
+                    unit=note.count_unit or "",
+                    path=PATH_PLAN_NOTES,
+                    evidence=[
+                        {
+                            "ページ": note.page,
+                            "読んだ文字": note.text,
+                            "位置_pt": list(note.bbox),
+                            "いちばん近い室名までの距離_pt": note.place_distance_pt,
+                        }
+                    ],
+                    notes=notes,
+                    extra={
+                        "色": note.colour,
+                        "色の値": note.colour_value,
+                        "別": note.kind,
+                        "同じ注記の数": {
+                            "行": note.same_text_count,
+                            "場所": list(note.same_text_places),
+                            "注意": "数量ではない(採点する側が見るための知らせ)",
+                        },
+                    },
+                )
+            )
+    counts[STAGE_ASSEMBLE] = len(lines)
+    return lines, counts, {
+        "改装平面の注記のページ": chosen,
+        "改装平面の注記": len(lines),
+        "改装平面の注記(数が刷られていた)": with_count,
+        "改装平面の注記(近いが外れ)": len(near),
+    }, near
+
+
+# ---------------------------------------------------------------------------
+# K-42. 既存撤去図の青い網 → 行
+# ---------------------------------------------------------------------------
+
+
+def _demolition_hatch_lines(
+    pdf_path: Path,
+    pages: Sequence[int] | None,
+    room_names: Sequence[str],
+    page_scales: Mapping[int, Any],
+) -> tuple[list[EstimateLine], dict[str, int], dict[str, Any], list[dict[str, Any]]]:
+    """既存撤去図の青い網を面にして、面ごとに床組・天井組の撤去の 2 行を出す。
+
+    ``page_scales`` はページ番号 → 入口が決めた縮尺(`DrawingScale`)。
+    **無いページでは面積を出さない(数量は空)。**
+    """
+    from intake.demolition_hatch import (
+        LEGEND_BASIS,
+        LEGEND_MISSING,
+        WORK_CEILING,
+        WORK_FLOOR,
+        find_legend_text,
+        measure_demolition_hatch,
+    )
+    from intake.plan_colour_notes import pages_with_title, room_label_positions
+
+    counts = dict.fromkeys(STAGES, 0)
+    chosen = list(pages) if pages is not None else pages_with_title(pdf_path, "撤去")
+    lines: list[EstimateLine] = []
+    near: list[dict[str, Any]] = []
+    areas: list[dict[str, Any]] = []
+    legend_text = find_legend_text(pdf_path) if chosen else None
+    for page_number in chosen:
+        scale = page_scales.get(page_number)
+        mm_per_point = getattr(scale, "mm_per_point", None)
+        result = measure_demolition_hatch(
+            pdf_path,
+            page_number,
+            mm_per_point=mm_per_point,
+            scale_text=getattr(scale, "source_text", None),
+            room_labels=room_label_positions(pdf_path, page_number, room_names),
+            legend_text=legend_text,
+        )
+        near.extend(result.near_misses)
+        counts[STAGE_RECOGNIZE] += len(result.regions)
+        for region in result.regions:
+            if region.area_sqm is not None:
+                counts[STAGE_READ] += 1
+            if result.legend_found:
+                counts[STAGE_UNDERSTAND] += 1
+            areas.append(
+                {"ページ": page_number, "面積_㎡": region.area_sqm, "場所": list(region.places)}
+            )
+            basis = (
+                f"{LEGEND_BASIS}(図面の文字: {legend_text})"
+                if result.legend_found
+                else LEGEND_MISSING
+            )
+            notes = ["面積は候補。床組と天井組で同じ面の面積を 2 行に出している"]
+            if region.area_sqm is None:
+                notes.append("このページの縮尺が決まらないので面積を出していない(推測しない)")
+            else:
+                notes.append(
+                    f"縮尺: 1pt = {mm_per_point:.4g}mm({getattr(scale, 'source_text', '')})"
+                )
+            if not region.places:
+                notes.append("面の中に仕上表の室名が無いので、場所は空のまま")
+            for work in (WORK_FLOOR, WORK_CEILING):
+                lines.append(
+                    EstimateLine(
+                        work_item=work,
+                        place="・".join(region.places),
+                        quantity=region.area_sqm,
+                        unit="㎡",
+                        path=PATH_DEMOLITION_HATCH,
+                        evidence=[
+                            {
+                                "ページ": page_number,
+                                "読んだ図形": "青い斜めの線の網を 40pt の四角で閉じた面",
+                                "外接_pt": list(region.bbox_pt),
+                                "紙の上の面積_pt2": region.area_pt2,
+                                "根拠": basis,
+                            }
+                        ],
+                        notes=list(notes),
+                        # 撤去は解体・撤去工事に置く(仕上表の行と同じ仮の判断。
+                        # `docs/provisional_decisions.md` 7 節)。
+                        category=FINISH_KAMOKU_REMOVAL,
+                    )
+                )
+    counts[STAGE_ASSEMBLE] = len(lines)
+    return lines, counts, {
+        "撤去の網のページ": chosen,
+        "撤去の網の面": areas,
+        "撤去の網の凡例": legend_text if legend_text is not None else LEGEND_MISSING,
+        "撤去の網(近いが外れ)": len(near),
+    }, near
+
+
+# ---------------------------------------------------------------------------
 # 2・6・7. 今の入口 → 数量 → 規則で行へ
 # ---------------------------------------------------------------------------
 
@@ -656,8 +873,14 @@ def run(
     rules: str | Path | None = None,
     build_ledger_stage: bool = True,
     drawing_rooms: str | Path | None = None,
+    plan_note_pages: Sequence[int] | None = None,
+    demolition_pages: Sequence[int] | None = None,
 ) -> OnePassResult:
-    """7 つの段を順に動かす。**途中の段が空でも止めずに最後まで通す。**"""
+    """7 つの段を順に動かす。**途中の段が空でも止めずに最後まで通す。**
+
+    ``plan_note_pages`` / ``demolition_pages`` を渡さなければ、表題欄の語から
+    改装平面・撤去の図のページを探す(K-42)。
+    """
     from estimating.from_intake import quantities_from_intake
     from estimating.from_room_dimensions import ORIGIN_DRAWING, quantities_from_room_dimensions
     from estimating.from_symbol_counts import quantities_from_symbol_counts
@@ -730,6 +953,22 @@ def run(
     )
     timings["4 凡例"] = round(time.perf_counter() - started, 1)
 
+    # K-42. 改装平面の注記と、既存撤去図の青い網。場所は仕上表の室名から探す。
+    room_names = list(
+        dict.fromkeys(row.room for row in intake.finish_schedule_rows if row.room)
+    )
+    started = time.perf_counter()
+    note_lines, stages[PATH_PLAN_NOTES], note_extra, note_near = _plan_note_lines(
+        pdf, plan_note_pages, room_names
+    )
+    timings["K-42 改装平面の注記"] = round(time.perf_counter() - started, 1)
+    started = time.perf_counter()
+    page_scales = {page.page_number: page.scale for page in intake.pages if page.scale is not None}
+    hatch_lines, stages[PATH_DEMOLITION_HATCH], hatch_extra, hatch_near = _demolition_hatch_lines(
+        pdf, demolition_pages, room_names, page_scales
+    )
+    timings["K-42 撤去の網"] = round(time.perf_counter() - started, 1)
+
     # 6. 数量 と 7. 規則で行へ
     stages[PATH_INTAKE] = _intake_counts(intake)
     quantities = list(quantities_from_intake(intake)) + list(symbol_result.quantities)
@@ -769,7 +1008,7 @@ def run(
         "入口の判定で確定": sum(1 for d in intake.decisions if d.confirmed),
         "当てはめで確定した行": settled_lines,
     }
-    lines = finish_lines + legend_lines + mapped
+    lines = finish_lines + legend_lines + note_lines + hatch_lines + mapped
     from estimating.cross_checks import same_surface_counted_twice
 
     checks = {
@@ -793,9 +1032,12 @@ def run(
         kept_quantities=kept,
         drawing_rooms=drawing_summary,
         checks=checks,
+        near_misses={PATH_PLAN_NOTES: note_near, PATH_DEMOLITION_HATCH: hatch_near},
         extras={
             **finish_extra,
             **legend_extra,
+            **note_extra,
+            **hatch_extra,
             "入口の読み": len(intake.findings),
             "入口の数量": len(quantities),
             "入口の判定": len(intake.decisions),
@@ -804,6 +1046,12 @@ def run(
             "人の入力待ちの行": sum(1 for line in lines if line.waits_for_human),
         },
     )
+
+
+def _page_list(text: str | None) -> list[int] | None:
+    if text is None:
+        return None
+    return [int(part) for part in text.replace("、", ",").split(",") if part.strip()]
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -819,6 +1067,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--rules", default=None, help="当てはめの規則ファイル(リポジトリの外)")
     parser.add_argument("--no-ledger", action="store_true", help="台帳の段を飛ばす")
+    parser.add_argument(
+        "--plan-note-pages",
+        default=None,
+        help="改装平面の注記を読むページ(1 始まり、カンマ区切り)。無ければ表題欄から探す",
+    )
+    parser.add_argument(
+        "--demolition-pages",
+        default=None,
+        help="撤去の網を測るページ(1 始まり、カンマ区切り)。無ければ表題欄から探す",
+    )
     args = parser.parse_args(argv)
 
     out = Path(args.out)
@@ -831,6 +1089,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         drawing_rooms=args.drawing_rooms,
         rules=args.rules,
         build_ledger_stage=not args.no_ledger,
+        plan_note_pages=_page_list(args.plan_note_pages),
+        demolition_pages=_page_list(args.demolition_pages),
     )
     out.write_text(json.dumps(result.as_dict(), ensure_ascii=False, indent=1), encoding="utf-8")
     totals = result.stage_totals()
