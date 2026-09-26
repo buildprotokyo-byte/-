@@ -17,9 +17,14 @@
 既存         材料名あり     仕上だけやり替え
 交換         何でも         既存を撤去して新設
 ー           何でも         該当なし。工事なし
-既存         空欄           工事なし
+既存         空欄           工事なし(※ K-45 で問いに変更)
 材料名あり   何でも         下地からやり替え
 ============ ============== ==========================
+
+**※ 2026-09-26、おーちゃんが K-45 で「既存 | 空欄」の行を決め直した(案 B)。**
+仕上の欄が空欄なのは「工事が無い」と書かれているのではなく、**何も書かれて
+いないだけ**である。「仕上の記載が見当たりません」として問いに回し、
+**推奨は付けない**(「既存のまま」とも「工事なし」とも言わない)。
 
 **下地欄が空欄の継続行(同じ部位で材料名だけが続く行)は、自動で判定しない。**
 物によって意味が違うためである。
@@ -177,6 +182,9 @@ CAUSE_NO_BASE_COLUMN = "下地の列が無い"
 CAUSE_UNKNOWN_BASE_WORD = "下地欄が表に無い書き方"
 CAUSE_SAME_AS_ABOVE = "下地欄が「同上」"
 CAUSE_OWNER_SUPPLIED = "下地欄が「施主支給」"
+#: K-45(おーちゃん 2026-09-26、案 B)。下地が既存で仕上の欄が空欄の行。
+#: **空欄は「工事なし」ではなく「記載が無い」。** 推奨を付けずに問いへ回す。
+CAUSE_FINISH_BLANK = "下地は既存で、仕上の記載が見当たりません"
 
 #: 問いの文面。**おーちゃんが指定した形をそのまま持つ。**
 QUESTION_CONTINUATION = "この行は前の行と同じ工事の材料違いですか、別の工事ですか"
@@ -191,6 +199,16 @@ QUESTION_OWNER_SUPPLIED = (
 QUESTION_NO_BASE_COLUMN = (
     "この表には下地の欄がありません。この部位に工事はありますか"
 )
+
+
+def question_finish_blank(room: str | None, part: str | None) -> str:
+    """K-45: 仕上の欄が空欄の行の問い。**推奨を付けない形。**
+
+    「既存のままと想定してよいですか」のように答えを先に置くと、記載が
+    無いことを根拠に工事なしを通すことになる(新しい決まり)。
+    """
+    where = "・".join(x for x in (room, part) if x) or "この部位"
+    return f"{where}の仕上の記載が見当たりません。この部位の工事はどうなりますか。"
 
 #: 原因 → 問いの文面。**ここに無い原因は継続行の文面になる。**
 QUESTION_BY_CAUSE: dict[str, str] = {
@@ -230,6 +248,9 @@ class ScopeQuestion:
     this_row_texts: tuple[str, ...] = ()
     """この行に書かれていること。**列の役割を決めつけずに、空でない升目を
     左から並べる。** メーカー名や品番の欄に材料名が書かれている行がある。"""
+    recommended_answer: str | None = None
+    """推奨の答え。**この部品の問いには付けない(常に None)。** 記載が
+    見当たらないものに答えを先に置くと、想定を通すことになる(K-45)。"""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -242,6 +263,7 @@ class ScopeQuestion:
             "previous_base": self.previous_base,
             "previous_finish": self.previous_finish,
             "this_row_texts": list(self.this_row_texts),
+            "recommended_answer": self.recommended_answer,
         }
 
 
@@ -460,7 +482,13 @@ def _reading_of(base: str | None, finish: str | None) -> tuple[str, str, str]:
         if _normalize(finish) in BASE_EXISTING:
             return READING_NO_WORK, "下地も仕上も既存", ""
         if not _normalize(finish):
-            return READING_NO_WORK, "下地は既存で、仕上の欄が空欄", ""
+            # K-45(おーちゃん 2026-09-26、案 B)。元は「工事なし」だった。
+            # **空欄は何も書かれていないだけ**なので、推奨を付けずに問いへ回す。
+            return (
+                READING_QUESTION,
+                "仕上の記載が見当たりません(下地は既存で、仕上の欄が空欄)",
+                CAUSE_FINISH_BLANK,
+            )
         return READING_FINISH_ONLY, "下地は既存で、仕上に材料名がある", ""
     return READING_FROM_BASE, f"下地欄に材料名({base!r})がある", ""
 
@@ -590,7 +618,11 @@ def assign_finish_schedule_scope(schedule: Any) -> FinishScopeResult:
         question: ScopeQuestion | None = None
         if reading == READING_QUESTION:
             question = ScopeQuestion(
-                question=QUESTION_BY_CAUSE.get(cause, QUESTION_CONTINUATION),
+                question=(
+                    question_finish_blank(room, part)
+                    if cause == CAUSE_FINISH_BLANK
+                    else QUESTION_BY_CAUSE.get(cause, QUESTION_CONTINUATION)
+                ),
                 cause=cause,
                 page_number=page_number,
                 row_index=view.row_index,

@@ -58,6 +58,11 @@ ADOPTION_STATUSES = ("候補", "採用", "不採用")
 #: ほかの層はこの名前で比べる。**列の名前を口にするのは、この読み込みだけ。**
 STATUS_CANDIDATE, STATUS_ADOPTED, STATUS_REJECTED = ADOPTION_STATUSES
 
+#: 拘束力のうち、その案件の図面が自分で名乗っているもの(`BINDINGS` の最後)。
+BINDING_PROJECT_LEGEND = BINDINGS[-1]
+#: 拘束力のうち、公的な基準(公共建築改修工事標準仕様書など)。
+BINDING_PUBLIC_STANDARD = BINDINGS[1]
+
 _TABLE_FIELDS = {"format_version", "table_id", "description", "synthetic", "entries"}
 _ENTRY_FIELDS = {
     "entry_id", "kind", "statement", "source", "confidence", "scope",
@@ -175,6 +180,87 @@ class KnowledgeTable:
 
     def of_kind(self, kind: str) -> tuple[KnowledgeEntry, ...]:
         return tuple(entry for entry in self.entries if entry.kind == kind)
+
+
+# ---------------------------------------------------------------------------
+# 知識を使って出したものの印と、食い違ったときの優先(K-45)
+# ---------------------------------------------------------------------------
+
+
+def usage_mark(entry: KnowledgeEntry) -> str:
+    """この知識を使って出したものに付ける印。**拘束力と採否を必ず書く。**
+
+    おーちゃんの K-45 3 番(2026-09-26):「特記がなければ既存のまま」
+    (行政基準・候補)を使って出したものには印を付ける。行政基準に限らず、
+    知識から出したものは同じ形の印を持つ。採否が `候補` のものは、
+    **決まった規則ではない**ことがこの印から読めるようにする。
+    """
+    return (
+        f"知識 {entry.entry_id} を使った"
+        f"(拘束力: {entry.source.binding} / 採否: {entry.adoption}"
+        f" / 出典: {entry.source.document} {entry.source.clause})"
+    )
+
+
+@dataclass(frozen=True)
+class KnowledgeConflict:
+    """2 つの知識が同じところで逆のことを言ったときの記録。**負けた側も残す。**"""
+
+    winner: KnowledgeEntry
+    loser: KnowledgeEntry
+    reason: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "winner": self.winner.entry_id,
+            "winner_binding": self.winner.source.binding,
+            "loser": self.loser.entry_id,
+            "loser_binding": self.loser.source.binding,
+            "reason": self.reason,
+        }
+
+
+def resolve_conflict(first: KnowledgeEntry, second: KnowledgeEntry) -> KnowledgeConflict:
+    """食い違った 2 つの知識のうち、どちらを採るかを決めて**記録を返す。**
+
+    1. **案件の凡例が優先する**(おーちゃんの K-45 3 番)。公的な基準の
+       「特記がなければ既存のまま」と、案件の凡例の「特記なき場合は新設とする」
+       は逆向きだが、**その案件については凡例を採る。** 凡例はその図面が
+       自分で名乗っている意味なので、公的な基準の既定値(特記が無いときの値)
+       より先に来る。`BINDINGS` の並びで凡例が最後なのは「ほかの案件には
+       使えない」という意味で、**同じ案件の中の強さではない。**
+    2. どちらも凡例でなければ、`BINDINGS` の並び(強いものが先)で決める。
+       同じ強さなら決めない(`KnowledgeError`)。黙ってどちらかを採らない。
+    """
+    for winner, loser in ((first, second), (second, first)):
+        if (
+            winner.source.binding == BINDING_PROJECT_LEGEND
+            and loser.source.binding != BINDING_PROJECT_LEGEND
+        ):
+            return KnowledgeConflict(
+                winner=winner,
+                loser=loser,
+                reason=(
+                    f"案件の凡例({winner.entry_id})が {loser.source.binding}"
+                    f"({loser.entry_id})と食い違った。案件の凡例が優先(K-45)"
+                ),
+            )
+    rank_first = BINDINGS.index(first.source.binding)
+    rank_second = BINDINGS.index(second.source.binding)
+    if rank_first == rank_second:
+        raise KnowledgeError(
+            f"{first.entry_id} と {second.entry_id} は拘束力が同じ"
+            f"({first.source.binding})で食い違っています。どちらを採るかは人が決めます"
+        )
+    winner, loser = (first, second) if rank_first < rank_second else (second, first)
+    return KnowledgeConflict(
+        winner=winner,
+        loser=loser,
+        reason=(
+            f"{winner.source.binding}({winner.entry_id})を"
+            f" {loser.source.binding}({loser.entry_id})より先に採った(拘束力の順)"
+        ),
+    )
 
 
 def _require_text(value: Any, what: str) -> str:
