@@ -39,6 +39,15 @@
 
 許容の少し外にあったものは捨てずに「候補(近いが外れ)」に理由つきで残す。
 
+線引き(K-46)
+-------------
+行が「見積に載せる工事の行か」の線引きは `estimating/line_judge.py` の役 1 つで行う。
+**本番の既定は AI の判定**(`--line-judgments` で AI が出した判定のファイルを渡す)。
+判定が渡されていない行・判定が無い行は**落とさずに「要確認」**にする。
+「工事の行ではない」とされた行は見積の行から外し、「工事の行ではないと判定した行」に
+理由つきで残す。どの役が判定したか(AI/語の一覧/判定なし)は行の根拠に残る。
+語の一覧(案 B)は `--line-judge words` で比べるために残してある。
+
 この入口がしないこと
 --------------------
 - **何も確定させない。** 入口の判定と当てはめの確定行を数え、1 件でもあれば
@@ -215,6 +224,12 @@ class OnePassResult:
     near_misses: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     """許容の少し外にあったもの(K-42)。**見積の行ではない。確定もしない。**理由つきで残す。"""
 
+    not_work_lines: list[EstimateLine] = field(default_factory=list)
+    """線引き(K-46)で「工事の行ではない」とされた行。**消さずに理由つきで残す。**"""
+
+    line_judge_summary: dict[str, Any] = field(default_factory=dict)
+    """線引きの役と、判定ごとの件数(K-46)。"""
+
     kept_quantities: list[dict[str, Any]] = field(default_factory=list)
     """行にしなかった入口の数量。**捨てずに印を付けて残す**(K-36)。
 
@@ -272,6 +287,10 @@ class OnePassResult:
             },
             "図面の寸法から組んだ室": self.drawing_rooms,
             "候補(近いが外れ)": self.near_misses,
+            "線引き": self.line_judge_summary,
+            "工事の行ではないと判定した行": [
+                line.as_answer_row(i) for i, line in enumerate(self.not_work_lines, 1)
+            ],
             "検算": self.checks,
             "かかった秒数": self.timings,
             "そのほか": self.extras,
@@ -936,11 +955,17 @@ def run(
     drawing_rooms: str | Path | None = None,
     plan_note_pages: Sequence[int] | None = None,
     demolition_pages: Sequence[int] | None = None,
+    line_judge: Any = None,
+    line_judgments: str | Path | None = None,
 ) -> OnePassResult:
     """7 つの段を順に動かす。**途中の段が空でも止めずに最後まで通す。**
 
     ``plan_note_pages`` / ``demolition_pages`` を渡さなければ、表題欄の語から
     改装平面・撤去の図のページを探す(K-42)。
+
+    ``line_judge`` は線引きの役(`estimating.line_judge`)。渡さなければ AI の判定の
+    ファイル ``line_judgments`` を読む役になる(K-46 の本番の既定)。ファイルも
+    渡さなければ、全部の行が「要確認」になる(落とさない)。
     """
     from estimating.from_intake import quantities_from_intake
     from estimating.from_room_dimensions import ORIGIN_DRAWING, quantities_from_room_dimensions
@@ -1070,6 +1095,10 @@ def run(
         "当てはめで確定した行": settled_lines,
     }
     lines = finish_lines + legend_lines + note_lines + hatch_lines + mapped
+    lines, not_work, judge_summary = _draw_the_line(lines, line_judge, line_judgments)
+    for line in not_work:
+        if line.path in stages:
+            stages[line.path][STAGE_ASSEMBLE] -= 1
     from estimating.cross_checks import same_surface_counted_twice
 
     checks = {
@@ -1094,6 +1123,8 @@ def run(
         drawing_rooms=drawing_summary,
         checks=checks,
         near_misses={PATH_PLAN_NOTES: note_near, PATH_DEMOLITION_HATCH: hatch_near},
+        not_work_lines=not_work,
+        line_judge_summary=judge_summary,
         extras={
             **finish_extra,
             **legend_extra,
@@ -1107,6 +1138,45 @@ def run(
             "人の入力待ちの行": sum(1 for line in lines if line.waits_for_human),
         },
     )
+
+
+def _draw_the_line(
+    lines: list[EstimateLine], line_judge: Any, line_judgments: str | Path | None
+) -> tuple[list[EstimateLine], list[EstimateLine], dict[str, Any]]:
+    """線引き(K-46)。**判定の無い行は要確認にして残す。何も確定させない。**
+
+    返すのは (見積の行、工事の行ではないとされた行、件数のまとめ)。
+    """
+    from estimating.line_judge import (
+        VERDICT_NEEDS_CHECK,
+        VERDICT_NOT_WORK,
+        LineText,
+        make_line_judge,
+    )
+
+    judge = line_judge if line_judge is not None else make_line_judge(judgments=line_judgments)
+    verdicts = judge.judge(
+        [LineText(i, line.work_item, line.place) for i, line in enumerate(lines, 1)]
+    )
+    if len(verdicts) != len(lines):
+        raise ValueError(f"線引きの判定の数 {len(verdicts)} が行の数 {len(lines)} と合いません")
+    kept: list[EstimateLine] = []
+    not_work: list[EstimateLine] = []
+    for line, verdict in zip(lines, verdicts):
+        line.evidence = [*line.evidence, verdict.as_evidence()]
+        line.extra = {**line.extra, "線引き": verdict.as_evidence()}
+        if verdict.verdict == VERDICT_NOT_WORK:
+            not_work.append(line)
+            continue
+        if verdict.verdict == VERDICT_NEEDS_CHECK:
+            line.certainty = CERTAINTY_NEEDS_CHECK
+        kept.append(line)
+    summary = {
+        "役": getattr(judge, "name", type(judge).__name__),
+        "判定ごと": dict(Counter(v.verdict for v in verdicts)),
+        "判定した役ごと": dict(Counter(v.judge for v in verdicts)),
+    }
+    return kept, not_work, summary
 
 
 def _page_list(text: str | None) -> list[int] | None:
@@ -1138,7 +1208,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="撤去の網を測るページ(1 始まり、カンマ区切り)。無ければ表題欄から探す",
     )
+    parser.add_argument(
+        "--line-judge",
+        default="ai",
+        choices=("ai", "ai-api", "words"),
+        help="工事の行かの線引きの役(K-46)。既定は AI の判定のファイル(--line-judgments)",
+    )
+    parser.add_argument(
+        "--line-judgments",
+        default=None,
+        help="AI が出した線引きの判定(JSON)。無ければ全部の行を要確認として残す",
+    )
     args = parser.parse_args(argv)
+
+    from estimating.line_judge import make_line_judge
 
     out = Path(args.out)
     result = run(
@@ -1152,6 +1235,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         build_ledger_stage=not args.no_ledger,
         plan_note_pages=_page_list(args.plan_note_pages),
         demolition_pages=_page_list(args.demolition_pages),
+        line_judge=make_line_judge(args.line_judge, args.line_judgments),
     )
     out.write_text(json.dumps(result.as_dict(), ensure_ascii=False, indent=1), encoding="utf-8")
     totals = result.stage_totals()
