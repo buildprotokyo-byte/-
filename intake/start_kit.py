@@ -135,9 +135,21 @@ class ReferencePoint:
     """その2点の間が、実際の建物で何ミリか。"""
 
     entered_by: str = ""
-    """誰が入れたか。人の入力であることを根拠に残すため。"""
+    """誰が入れたか。人の入力であることを根拠に残すため。
+
+    **空のままでは通らない**(2026-09-25、周4)。この基準点は
+    `human_reference_point` として**人が入れたことを根拠に**強い読みで通る。
+    誰が入れたかが空のまま通ると、**機械が出した値と見分けが付かなくなる。**
+    知識の表が「出どころが無ければ断る」のと同じ考え方
+    (`knowledge/table.py` の守ること 2)。
+    """
 
     def __post_init__(self) -> None:
+        if not self.entered_by.strip():
+            raise StartKitError(
+                "基準点を誰が入れたかを書いてください"
+                "(人が入れたことが、この読みが強い根拠です)"
+            )
         if self.page_number < 1:
             raise StartKitError("ページ番号は 1 以上にしてください(1 始まり)")
         if self.axis not in ("horizontal", "vertical"):

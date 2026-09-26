@@ -353,6 +353,7 @@ def test_an_axis_that_contradicts_the_two_points_is_refused() -> None:
             point_a_pt=(100.0, 100.0),
             point_b_pt=(100.0, 400.0),  # 縦に離れている
             actual_length_mm=3000.0,
+            entered_by="おーちゃん",  # 向きの取り違えだけを試すため、ここは埋める
         )
 
 
@@ -375,6 +376,7 @@ def test_a_reference_point_on_a_page_that_does_not_exist_is_refused(
                 ReferencePoint(
                     page_number=99, axis="horizontal", point_a_pt=a, point_b_pt=b,
                     actual_length_mm=3000.0,
+                    entered_by="おーちゃん",  # ページ番号だけを試すため、ここは埋める
                 ),
             )
         ),
@@ -391,6 +393,7 @@ def test_a_zero_length_reference_point_is_refused() -> None:
             point_a_pt=(100.0, 100.0),
             point_b_pt=(100.0, 100.0),
             actual_length_mm=3000.0,
+            entered_by="おーちゃん",  # 長さ 0 だけを試すため、ここは埋める
         )
 
 
@@ -592,3 +595,50 @@ def test_a_start_kit_answer_that_matches_the_saved_one_is_not_a_conflict(
         item for item in result.findings if item.target == TARGET_WORK_FLOOR_AREA
     )
     assert work.value_range == (CONSTRUCTION_AREA_SQM, CONSTRUCTION_AREA_SQM)
+
+
+# ---------------------------------------------------------------------------
+# 6. 誰が入れたかを残す(周4、2026-09-25)
+# ---------------------------------------------------------------------------
+
+
+def test_誰が入れたかが空の基準点は断る() -> None:
+    """**出どころが無ければ断る。**
+
+    `human_reference_point` は**人が入れたこと**を根拠に強い読みとして通る。
+    誰が入れたかが空のまま通ると、**機械が入れた値と見分けが付かなくなる。**
+    知識の表が「出どころが無ければ断る」のと同じ考え方
+    (`knowledge/table.py` の守ること 2)。
+    """
+    with pytest.raises(StartKitError):
+        ReferencePoint(
+            page_number=1,
+            axis="horizontal",
+            point_a_pt=(100.0, 100.0),
+            point_b_pt=(400.0, 100.0),
+            actual_length_mm=3000.0,
+        )
+
+
+def test_空白だけの入れた人も断る() -> None:
+    with pytest.raises(StartKitError):
+        ReferencePoint(
+            page_number=1,
+            axis="horizontal",
+            point_a_pt=(100.0, 100.0),
+            point_b_pt=(400.0, 100.0),
+            actual_length_mm=3000.0,
+            entered_by="   ",
+        )
+
+
+def test_誰が入れたかがあれば通る() -> None:
+    point = ReferencePoint(
+        page_number=1,
+        axis="horizontal",
+        point_a_pt=(100.0, 100.0),
+        point_b_pt=(400.0, 100.0),
+        actual_length_mm=3000.0,
+        entered_by="おーちゃん",
+    )
+    assert point.entered_by == "おーちゃん"
