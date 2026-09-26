@@ -452,3 +452,68 @@ def test_開口の辺でも間仕切りの厚みを使う(tmp_path: Path) -> Non
             f"{name}: 開口の辺で使った厚みが間違っている({room.area_basis_note})"
         )
     assert "200・400" in named["洋室"].area_basis_note, "測った厚みをそのまま残すこと"
+
+
+# ---------------------------------------------------------------------------
+# 室名の弱さ(2026-09-25、おーちゃんの選択)
+#
+# 周1-4 の測定(`docs/loop_round1d_closed_face_report.md`)で、**閉じた面が多い
+# ページでは、輪郭の中にある文字を室名にするやり方が、当てずっぽうとほとんど
+# 区別が付かない**ことが囮の対照で出た(本物 28 個に対し囮 23 個)。
+# 面が少ないページでは効いている(本物 9 個に対し囮 4 個)。
+#
+# **窓は変えない。**名前に**弱いという印を付けて、その紙の面の数を残す。**
+# ---------------------------------------------------------------------------
+
+
+def _grid(path: Path, columns: int, rows: int, cell_mm: float = 1200.0, name: str | None = None) -> Path:
+    """格子状の線で、閉じた面をたくさん作る。**弱さの印を試すためだけの形。**"""
+    doc, page = _new_page()
+    x0, y0 = 50.0, 50.0
+    step = _mm(cell_mm)
+    for column in range(columns + 1):
+        x = x0 + column * step
+        _line(page, x, y0, x, y0 + rows * step)
+    for row in range(rows + 1):
+        y = y0 + row * step
+        _line(page, x0, y, x0 + columns * step, y)
+    if name is not None:
+        page.insert_text(
+            pymupdf.Point(x0 + step / 2 - 10, y0 + step / 2 + 5), name, fontname="japan"
+        )
+    return _save(doc, path)
+
+
+def test_面が少ないページでは室名は強いと記録される(tmp_path: Path) -> None:
+    rooms = find_room_outlines(
+        _single_room(tmp_path / "strong.pdf", name="洋室"), 0, SCALE_50, weak_face_count=10
+    )
+    assert rooms[0].name == "洋室"
+    assert rooms[0].page_face_count == 1
+    assert rooms[0].name_strength == "強い"
+
+
+def test_面が多いページでは室名は弱いと記録される(tmp_path: Path) -> None:
+    rooms = find_room_outlines(
+        _grid(tmp_path / "weak.pdf", 4, 3, name="洋室"), 0, SCALE_50, weak_face_count=4
+    )
+    named = [room for room in rooms if room.name == "洋室"]
+    assert named, "名前の付いた輪郭が 1 つはあるはず"
+    assert named[0].page_face_count >= 4
+    assert named[0].name_strength == "弱い"
+    assert "面" in named[0].name_basis, "弱い理由が人の読める言葉で残ること"
+
+
+def test_名前が無い輪郭には強い弱いを付けない(tmp_path: Path) -> None:
+    rooms = find_room_outlines(
+        _single_room(tmp_path / "none.pdf"), 0, SCALE_50, weak_face_count=10
+    )
+    assert rooms[0].name is None
+    assert rooms[0].name_strength == "名前なし"
+
+
+def test_面の数は同じページのすべての輪郭に同じ値が入る(tmp_path: Path) -> None:
+    rooms = find_room_outlines(_grid(tmp_path / "count.pdf", 3, 3), 0, SCALE_50)
+    assert rooms, "輪郭が取れること"
+    counts = {room.page_face_count for room in rooms}
+    assert counts == {len(rooms)}
