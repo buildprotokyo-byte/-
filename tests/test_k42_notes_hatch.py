@@ -8,6 +8,7 @@
 3. 室ごとの仕上の早見表と表題欄の文字は読まない。
 4. 青い網は面にして、縮尺どおりの面積(±2%)。黒い網は測らない。縮尺が無ければ面積を出さない。
 5. 面ごとに「床組 撤去」「天井組 撤去」の 2 行。凡例の文が無ければ根拠にそう書く。
+   (K-45 から、同じ面の新設 3 行も要確認として続く。`tests/test_k45_decisions.py`)
 6. 許容の少し外のもの(色・傾き)は捨てずに「候補(近いが外れ)」に残す。
 7. **自動確定は 0 件のまま。**
 """
@@ -369,15 +370,17 @@ def test_app_emits_both_paths_and_confirms_nothing(tmp_path: Path) -> None:
     assert row["同じ注記の数"]["行"] == 2
     assert row["数量"] is None
 
-    # 面 1 つにつき 2 行、同じ面積
-    assert [line.work_item for line in hatch_rows] == ["床組 撤去", "天井組 撤去"]
+    # 面 1 つにつき撤去 2 行、同じ面積。K-45 から、同じ面の新設 3 行(要確認)が続く
+    assert [line.work_item for line in hatch_rows] == [
+        "床組 撤去", "天井組 撤去", "床組 新設", "天井組 新設", "天井 石膏ボード 張"
+    ]
     assert hatch_rows[0].quantity == hatch_rows[1].quantity
     x0, y0, x1, y1 = BLUE_RECT
     expected = (x1 - x0) * (y1 - y0) * (MM_PER_PT_1_50 / 1000.0) ** 2
     assert hatch_rows[0].quantity == pytest.approx(expected, rel=0.02)
     assert hatch_rows[0].place == "洋室1"
     assert "床組・天井組の撤去範囲" in hatch_rows[0].evidence[0]["根拠"]
-    assert result.stages[app.PATH_DEMOLITION_HATCH][app.STAGE_ASSEMBLE] == 2
+    assert result.stages[app.PATH_DEMOLITION_HATCH][app.STAGE_ASSEMBLE] == 5
 
     near = result.as_dict()["候補(近いが外れ)"]
     assert [m["読んだ文字"] for m in near[app.PATH_PLAN_NOTES]] == ["近い赤"]
@@ -389,9 +392,9 @@ def test_app_hatch_without_legend_says_so_and_without_scale_has_no_area(tmp_path
 
     assert result.auto_confirmed_total == 0
     hatch_rows = [line for line in result.lines if line.path == app.PATH_DEMOLITION_HATCH]
-    assert len(hatch_rows) == 2
+    assert len(hatch_rows) == 5  # 撤去 2 行 + 要確認の新設 3 行(K-45)
     for line in hatch_rows:
-        assert line.evidence[0]["根拠"] == "凡例の記載が見当たりません"
+        assert line.evidence[0]["根拠"].endswith("凡例の記載が見当たりません")
         assert line.quantity is None  # 縮尺が無い → 面積を出さない(0 にしない)
     assert result.stages[app.PATH_DEMOLITION_HATCH][app.STAGE_READ] == 0
 

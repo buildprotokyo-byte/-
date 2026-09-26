@@ -33,6 +33,9 @@
   赤・青の文字の行。数量は注記に数が刷られているときだけ。
 - 撤去の網(`intake/demolition_hatch.py`)… 表題に「撤去」がある図のページの青い網を
   面にして、面ごとに床組の撤去・天井組の撤去の 2 行。縮尺が無ければ面積は空。
+  K-45(おーちゃん 2026-09-26)から、同じ面ごとに「床組 新設」「天井組 新設」
+  「天井 石膏ボード 張」の 3 行も**要確認**として出す(撤去の範囲を新設の範囲と
+  推し量ったもの。確定しない)。
 
 許容の少し外にあったものは捨てずに「候補(近いが外れ)」に理由つきで残す。
 
@@ -74,6 +77,17 @@ PATH_INTAKE = "入口の図形"
 PATH_HUMAN = "人の入力"
 PATH_PLAN_NOTES = "改装平面の注記"
 PATH_DEMOLITION_HATCH = "撤去の網"
+
+#: 行の確かさ(`EstimateLine.certainty`)。**どちらも確定ではない。**
+CERTAINTY_CANDIDATE = "候補"
+CERTAINTY_NEEDS_CHECK = "要確認"
+
+#: K-45: 撤去の網の面ごとに、要確認として出す新設の 3 行。
+HATCH_INFERRED_NEW_WORKS = ("床組 新設", "天井組 新設", "天井 石膏ボード 張")
+#: その 3 行の根拠。**面積は撤去の網の面積で、新設に使うのは推し量り。**
+HATCH_INFERRED_BASIS = (
+    "面積は撤去の網の面積。撤去の範囲を新設の範囲と推し量った。確定しない"
+)
 
 #: 仕上表の部位 → 人の入力から作る数量の種類。**ここに無い部位には数量を付けない。**
 #: 天井は床と同じ広さとみなす(平らな天井の一般則)。そうしたことを行に注記する。
@@ -155,6 +169,9 @@ class EstimateLine:
     """摘要。材種・材質・工法など、単価に対応する条件(K-36 改訂版)。**読めたものだけ。**"""
     extra: dict[str, Any] = field(default_factory=dict)
     """その道だけが持つ欄(K-42。例: 注記の色・同じ注記の数)。**空なら出力に何も足さない。**"""
+    certainty: str = CERTAINTY_CANDIDATE
+    """確かさ。既定は「候補」。推し量った行(K-45 の撤去の網から出す新設)は「要確認」。
+    **どちらも確定ではない。** 確定させる口はこの行には無い。"""
 
     def as_answer_row(self, number: int) -> dict[str, Any]:
         """読み方の比較実験と同じ出力の形の 1 行(採点をそのまま当てるため)。"""
@@ -166,7 +183,7 @@ class EstimateLine:
             "数量": self.quantity,
             "単位": self.unit,
             "根拠": self.evidence,
-            "確かさ": "候補",
+            "確かさ": self.certainty,
             "出どころ": "直接読んだ" if self.path != PATH_HUMAN else "人の入力",
             "道": self.path,
             "符号": self.code,
@@ -392,10 +409,23 @@ def _finish_lines(
     lines: list[EstimateLine] = []
     readings: Counter[str] = Counter()
     questions = 0
+    # K-45: 問いの中身も残す。**「下地は既存・仕上の欄が空欄」の行は、元は
+    # 工事なしとして黙って落ちていた。** いまは推奨なしの問いとしてここに出る。
+    question_texts: list[dict[str, Any]] = []
     for page_number in pages:
         for schedule in read_finish_schedules(pdf_path, page_number - 1):
             result = assign_finish_schedule_scope(schedule)
             questions += len(result.questions)
+            question_texts.extend(
+                {
+                    "ページ": q.page_number,
+                    "行": q.row_index,
+                    "問い": q.question,
+                    "原因": q.cause,
+                    "推奨": q.recommended_answer,
+                }
+                for q in result.questions
+            )
             # 認識: 文字のある行。**読めた行 + 割り当てられなかった行。**
             counts[STAGE_RECOGNIZE] += len(result.assignments) + len(result.unassigned)
             for assignment in result.assignments:
@@ -414,7 +444,11 @@ def _finish_lines(
                         _finish_line(assignment, item, schedule.page_number, room_quantities)
                     )
     counts[STAGE_ASSEMBLE] = len(lines)
-    return lines, counts, {"仕上表の読み": dict(readings), "仕上表の問い": questions}
+    return lines, counts, {
+        "仕上表の読み": dict(readings),
+        "仕上表の問い": questions,
+        "仕上表の問いの中身": question_texts,
+    }
 
 
 def _finish_line(assignment, item, page_number: int, room_quantities) -> EstimateLine:  # noqa: ANN001
@@ -797,6 +831,33 @@ def _demolition_hatch_lines(
                         # 撤去は解体・撤去工事に置く(仕上表の行と同じ仮の判断。
                         # `docs/provisional_decisions.md` 7 節)。
                         category=FINISH_KAMOKU_REMOVAL,
+                    )
+                )
+            # K-45(おーちゃん 2026-09-26「木工の数量について」): 床組・天井組・天井
+            # ボードの新設は、正解が撤去の網の面積と同じだった。**要確認として数量も
+            # 出す。確定はしない。** 網は撤去の範囲であって、新設の範囲とは書いていない。
+            for work in HATCH_INFERRED_NEW_WORKS:
+                lines.append(
+                    EstimateLine(
+                        work_item=work,
+                        place="・".join(region.places),
+                        quantity=region.area_sqm,
+                        unit="㎡",
+                        path=PATH_DEMOLITION_HATCH,
+                        evidence=[
+                            {
+                                "ページ": page_number,
+                                "読んだ図形": "青い斜めの線の網を 40pt の四角で閉じた面",
+                                "外接_pt": list(region.bbox_pt),
+                                "紙の上の面積_pt2": region.area_pt2,
+                                "根拠": f"{HATCH_INFERRED_BASIS} / {basis}",
+                            }
+                        ],
+                        notes=[HATCH_INFERRED_BASIS, *notes[1:]],
+                        # 新設は内装仕上工事に置く(仮の判断。`docs/provisional_decisions.md`
+                        # 7 節。木工・大工工事に分けるかはまだ決めていない)。
+                        category=FINISH_KAMOKU_OTHER,
+                        certainty=CERTAINTY_NEEDS_CHECK,
                     )
                 )
     counts[STAGE_ASSEMBLE] = len(lines)
