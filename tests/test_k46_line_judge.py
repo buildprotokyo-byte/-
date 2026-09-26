@@ -222,7 +222,7 @@ def test_cli_takes_the_ai_judgment_file(tmp_path: Path) -> None:
     )
     out = tmp_path / "out.json"
     code = app.main(
-        [str(pdf), "--case-id", "K46", "--out", str(out), "--no-ledger",
+        [str(pdf), "--case-id", "K46", "--out", str(out), "--no-ledger", "--reader", "machine",
          "--line-judgments", str(judgments)]
     )
     assert code == 0
@@ -231,7 +231,8 @@ def test_cli_takes_the_ai_judgment_file(tmp_path: Path) -> None:
     assert [row["工事項目"] for row in payload["工事の行ではないと判定した行"]] == ["照明移設"]
 
     code = app.main(
-        [str(pdf), "--case-id", "K46", "--out", str(out), "--no-ledger", "--line-judge", "words"]
+        [str(pdf), "--case-id", "K46", "--out", str(out), "--no-ledger", "--reader", "machine",
+         "--line-judge", "words"]
     )
     assert code == 0
     payload = json.loads(out.read_text(encoding="utf-8"))

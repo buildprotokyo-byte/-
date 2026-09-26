@@ -413,7 +413,7 @@ def test_cli_accepts_page_lists(tmp_path: Path) -> None:
     pdf = _full_pdf(tmp_path / "full.pdf")
     out = tmp_path / "out.json"
     code = app.main(
-        [str(pdf), "--case-id", "K42", "--out", str(out), "--no-ledger",
+        [str(pdf), "--case-id", "K42", "--out", str(out), "--no-ledger", "--reader", "machine",
          "--plan-note-pages", "2", "--demolition-pages", "3"]
     )
     assert code == 0

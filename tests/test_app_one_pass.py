@@ -175,6 +175,9 @@ def test_the_cli_writes_the_answer_rows(pdf: Path, tmp_path: Path) -> None:
             "--legend-table",
             str(_legend_table(tmp_path / "legend.json")),
             "--no-ledger",
+            # K-49 で既定が AI の答案になった。ここは機械の形の出力を確かめる。
+            "--reader",
+            "machine",
         ]
     )
 

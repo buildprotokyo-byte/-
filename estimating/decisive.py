@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 # ---------------------------------------------------------------------------
-# 決め手の 5 種類(おーちゃんの指示の 5 つ。**勝手に増やさない。**)
+# 決め手の種類(おーちゃんの指示の 5 つ + K-49 の「AI の読み」。**勝手に増やさない。**)
 # ---------------------------------------------------------------------------
 
 #: 図面を読んで素直に出た。**下の 4 つがどれも無いときだけ名乗れる。**
@@ -42,6 +42,10 @@ REASON_PATHS_AGREED = "経路の一致"
 REASON_HUMAN_ANSWER = "人の回答"
 #: 要約資料(メニュー)から探しに行って見つかった。
 REASON_SUMMARY_SEARCH = "要約資料"
+#: AI が図面を読んで出した(K-49。おーちゃん 2026-09-26「AI が 34 ページを読んだ結果を
+#: そのまま本番の入力にする」)。**どの読み手(答案のファイル・モデル)かが無ければ名乗れない。**
+#: 「観測」とは分ける。読んだのは機械ではなく AI で、報告で見分けられるようにするため。
+REASON_AI_READING = "AI の読み"
 
 REASON_KINDS: tuple[str, ...] = (
     REASON_OBSERVED,
@@ -49,6 +53,7 @@ REASON_KINDS: tuple[str, ...] = (
     REASON_PATHS_AGREED,
     REASON_HUMAN_ANSWER,
     REASON_SUMMARY_SEARCH,
+    REASON_AI_READING,
 )
 
 # ---------------------------------------------------------------------------
@@ -104,6 +109,9 @@ class DecisiveReason:
     summary_item: str = ""
     """要約資料(メニュー)のどの項目から見つけたか。**`要約資料` では要る。**"""
 
+    ai_reader: str = ""
+    """どの AI の読みか(答案のファイル・モデル名)。**`AI の読み` では要る。**"""
+
     detail: str = ""
     """人が読むための補足。**判定には使わない。**"""
 
@@ -120,6 +128,7 @@ class DecisiveReason:
             and self.paths_independent is not None,
             REASON_HUMAN_ANSWER: bool(self.question_id),
             REASON_SUMMARY_SEARCH: bool(self.summary_item),
+            REASON_AI_READING: bool(self.ai_reader),
         }
         if self.kind in required and not required[self.kind]:
             raise DecisiveError(
@@ -128,7 +137,8 @@ class DecisiveReason:
                 f"経路 {len(set(self.agreeing_paths))} 本 / "
                 f"独立性 {self.paths_independent} / "
                 f"問い {self.question_id or 'なし'} / "
-                f"要約資料の項目 {self.summary_item or 'なし'})"
+                f"要約資料の項目 {self.summary_item or 'なし'} / "
+                f"AI の読み手 {self.ai_reader or 'なし'})"
             )
 
         # **種類に合わない証拠は持たせない。** 付いていると、集計のときに
@@ -138,6 +148,7 @@ class DecisiveReason:
             "agreeing_paths": (bool(self.agreeing_paths), REASON_PATHS_AGREED),
             "question_id": (bool(self.question_id), REASON_HUMAN_ANSWER),
             "summary_item": (bool(self.summary_item), REASON_SUMMARY_SEARCH),
+            "ai_reader": (bool(self.ai_reader), REASON_AI_READING),
         }
         for name, (present, owner) in foreign.items():
             if present and self.kind != owner:
@@ -157,6 +168,7 @@ class DecisiveReason:
             "paths_independent": self.paths_independent,
             "question_id": self.question_id,
             "summary_item": self.summary_item,
+            "ai_reader": self.ai_reader,
             "detail": self.detail,
         }
 
@@ -198,6 +210,7 @@ def decisive_reasons_for(
     paths_independent: bool | None = None,
     question_id: str = "",
     summary_item: str = "",
+    ai_reader: str = "",
 ) -> tuple[DecisiveReason, ...]:
     """手元の証拠から、名乗れる決め手だけを作る。
 
@@ -235,6 +248,9 @@ def decisive_reasons_for(
         reasons.append(
             DecisiveReason(kind=REASON_SUMMARY_SEARCH, summary_item=summary_item)
         )
+
+    if ai_reader:
+        reasons.append(DecisiveReason(kind=REASON_AI_READING, ai_reader=ai_reader))
 
     if reasons:
         return tuple(reasons)
