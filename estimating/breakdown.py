@@ -32,6 +32,17 @@
 内訳(``parts``)に残す。**数量の無い場所は「未取得」として残し、0 にしない。**
 **未取得が 1 件でもあれば細目の合計は出さない**(金額も出さない)。
 
+公開書式の出力の決まり(K-54、2026-09-30)
+-----------------------------------------
+- **細目が 0 件の科目・中科目は出力しない**(空の枠を出さない)。
+- **正式な中科目が無い科目に、仕様書の節名などを中科目として足さない。**``official_middles``
+  (科目 → 正式な中科目の名前)を渡したとき、表に無い中科目は立てず、細目の
+  ``書式に無い中科目`` に残す(捨てない)。渡さないときは、これまでどおり行の中科目を使う。
+- **改修の「撤去」「改修」は中科目。**設備でない科目の行が区分「撤去」なら中科目「撤去」、
+  区分が改修の種類(``RENEWAL_KINDS``)なら中科目「改修」。
+- **設備の撤去は、それぞれの設備の科目の細目にする。**名前が「撤去」を含まなければ末尾に足す
+  (同じ名前の新設の細目と混ざらないように)。
+
 仮の判断(`docs/provisional_decisions.md` 7 節)
 -----------------------------------------------
 - 共通費に入る科目は、科目の名前に `COMMON_COST_WORDS` のどれかが入っているもの。
@@ -53,6 +64,15 @@ NO_MIDDLE = "中科目なし"
 #: 共通費に入る科目の名前に含まれる語(仮の判断)。公共の書式の共通費は
 #: 共通仮設費・現場管理費・一般管理費等。直接仮設は直接工事費の側に残る。
 COMMON_COST_WORDS: tuple[str, ...] = ("共通仮設", "現場管理", "一般管理", "諸経費")
+
+
+#: 改修の中科目(K-54)。公共の書式(改修)で科目の下に立つ 2 つ。
+REMOVAL = "撤去"
+RENEWAL = "改修"
+#: 中科目「改修」に入る区分(仮の判断: 撤去でない改修の種類)。
+RENEWAL_KINDS: frozenset[str] = frozenset({"新設", "交換", "移設", "改修", "補修", "取替"})
+#: 設備の科目とみなす語(仮の判断)。
+EQUIPMENT_WORD = "設備"
 
 
 #: 数量の取れていない内訳の印。**0 ではない。**
@@ -83,6 +103,8 @@ class Detail:
     amount: float | None = None
     source: Mapping[str, Any] = field(default_factory=dict)
     parts: tuple[Part, ...] = ()
+    off_format_middle: str = ""
+    """行が持っていたが、公開書式の中科目の表に無かった名前(K-54)。捨てずに残す。"""
 
     @property
     def missing(self) -> tuple[str, ...]:
@@ -101,6 +123,8 @@ class Detail:
         if self.parts:
             out["内訳"] = [p.as_dict() for p in self.parts]
             out["未取得"] = list(self.missing)
+        if self.off_format_middle:
+            out["書式に無い中科目"] = self.off_format_middle
         return out
 
 
@@ -252,10 +276,46 @@ def _detail(group: list[Mapping[str, Any]]) -> Detail:
     )
 
 
-def build_breakdown(rows: Iterable[Mapping[str, Any]]) -> Breakdown:
-    """行(``科目`` ``中科目`` ``工事項目`` ``摘要`` ``数量`` ``単位`` ``単価`` ``金額``)を段に組む。
+def is_equipment(kamoku: str) -> bool:
+    """設備の科目か(仮の判断: 名前に「設備」を含む)。"""
+    return EQUIPMENT_WORD in kamoku
+
+
+def _placed(
+    row: Mapping[str, Any],
+    kamoku: str,
+    official_middles: Mapping[str, Iterable[str]] | None,
+) -> tuple[str, str, str]:
+    """行の (中科目, 細目の名前, 書式に無い中科目) を決める(K-54)。"""
+    name = _text(row.get("工事項目"))
+    middle = _text(row.get("中科目"))
+    kind = _text(row.get("区分"))
+    removal = kind == REMOVAL or middle == REMOVAL
+    if is_equipment(kamoku):
+        if removal:
+            if REMOVAL not in name:
+                name = f"{name}{REMOVAL}"
+            middle = ""
+    elif middle not in (REMOVAL, RENEWAL):
+        if removal:
+            middle = REMOVAL
+        elif kind in RENEWAL_KINDS:
+            middle = RENEWAL
+    off_format = ""
+    if middle and middle not in (REMOVAL, RENEWAL) and official_middles is not None:
+        if middle not in tuple(official_middles.get(kamoku, ())):
+            off_format, middle = middle, ""
+    return middle, name, off_format
+
+
+def build_breakdown(
+    rows: Iterable[Mapping[str, Any]],
+    official_middles: Mapping[str, Iterable[str]] | None = None,
+) -> Breakdown:
+    """行(``科目`` ``中科目`` ``区分`` ``工事項目`` ``摘要`` ``数量`` ``単位`` ``単価`` ``金額``)を段に組む。
 
     科目と種目の並びは、行に**初めて出てきた順**(工程の順に並んだ行ならその順になる)。
+    ``official_middles`` は科目ごとの正式な中科目の名前(K-54)。渡せば、表に無い中科目は立てない。
     """
     kamoku_rows: dict[str, list[Mapping[str, Any]]] = {}
     for row in rows:
@@ -265,25 +325,31 @@ def build_breakdown(rows: Iterable[Mapping[str, Any]]) -> Breakdown:
     shumoku: dict[str, Shumoku] = {}
     for name, members in kamoku_rows.items():
         kamoku = Kamoku(name=name)
-        needs_middle = any(_text(r.get("中科目")) for r in members)
+        placed = [(row, *_placed(row, name, official_middles)) for row in members]
+        needs_middle = any(middle for _, middle, _, _ in placed)
         middles: dict[str, Middle] = {}
-        grouped: dict[tuple[str, str, str, str], list[Mapping[str, Any]]] = {}
-        for row in members:
+        grouped: dict[tuple[str, str, str, str], list[tuple[Mapping[str, Any], str, str]]] = {}
+        for row, middle, detail_name, off_format in placed:
             key = (
-                _text(row.get("中科目")) if needs_middle else "",
-                _text(row.get("工事項目")),
+                middle if needs_middle else "",
+                detail_name,
                 _text(row.get("摘要")),
                 _text(row.get("単位")),
             )
-            grouped.setdefault(key, []).append(row)
-        for (middle_name, _, _, _), group in grouped.items():
-            detail = _detail(group)
+            grouped.setdefault(key, []).append((row, detail_name, off_format))
+        for (middle_name, detail_name, _, _), group in grouped.items():
+            detail = _detail([row for row, _, _ in group])
+            detail.name = detail_name
+            detail.off_format_middle = next((o for _, _, o in group if o), "")
             if needs_middle:
                 middle = middle_name or NO_MIDDLE
                 middles.setdefault(middle, Middle(name=middle)).details.append(detail)
             else:
                 kamoku.details.append(detail)
-        kamoku.middles = list(middles.values())
+        # 細目の無い中科目・科目は出さない(K-54)。
+        kamoku.middles = [m for m in middles.values() if m.details]
+        if not kamoku.all_details():
+            continue
         group = shumoku_of(name) if name != UNDECIDED_KAMOKU else DIRECT_COST
         shumoku.setdefault(group, Shumoku(name=group)).kamoku.append(kamoku)
 
