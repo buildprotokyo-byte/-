@@ -38,6 +38,7 @@ AI の読み取り(`docs/k50_recognition_loop.md` の形)の「位置」も同�
 from __future__ import annotations
 
 import math
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 
@@ -266,3 +267,211 @@ def check_page(page: pymupdf.Page, page_no: int, elements: list[dict], area_cap:
     mark_exclusions(prims, w, h)
     mark_read(prims, elements, w * h, area_cap)
     return prims, summarize(prims)
+
+
+# --- 周 3(K-53): 端点のつながる線を繋いで数える / 線の落ちを種類で分ける ---
+
+CHAIN_SETTINGS = {
+    "端点が重なるとみなす距離(画素)": 0.5,
+    "拾えたとするつながった線の長さの割合": 0.5,
+}
+
+
+def _ends(p: Primitive) -> tuple[np.ndarray, np.ndarray] | None:
+    if p.kind == "直線":
+        return p.points[0], p.points[-1]
+    if p.kind == "曲線":
+        return p.points[0], p.points[3]
+    return None
+
+
+def chain_lines(prims: list[Primitive]) -> list[list[int]]:
+    """除外していない直線・曲線を、端点が重なるものどうしで繋ぐ。ほかの図形はそれぞれ 1 つ。"""
+    tol = CHAIN_SETTINGS["端点が重なるとみなす距離(画素)"]
+    parent = list(range(len(prims)))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    grid: dict[tuple[int, int], list[tuple[int, np.ndarray]]] = {}
+    for i, p in enumerate(prims):
+        if p.excluded:
+            continue
+        e = _ends(p)
+        if e is None:
+            continue
+        for pt in e:
+            gx, gy = int(math.floor(pt[0] / tol)), int(math.floor(pt[1] / tol))
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    for j, q in grid.get((gx + dx, gy + dy), ()):
+                        if j != i and math.dist(pt, q) <= tol:
+                            ra, rb = find(i), find(j)
+                            if ra != rb:
+                                parent[ra] = rb
+            grid.setdefault((gx, gy), []).append((i, pt))
+    groups: dict[int, list[int]] = {}
+    for i, p in enumerate(prims):
+        if p.excluded:
+            continue
+        groups.setdefault(find(i), []).append(i)
+    return list(groups.values())
+
+
+def summarize_chained(prims: list[Primitive]) -> dict:
+    """繋いだ単位での落ち。点・小さい図形の部品が、繋ぐと大きい線の一部になる件数も出す。"""
+    need = CHAIN_SETTINGS["拾えたとするつながった線の長さの割合"]
+    small = SETTINGS["点・小さい図形の上限(画素)"]
+    units = chain_lines(prims)
+    cat_all: Counter = Counter()
+    cat_miss: Counter = Counter()
+    small_parts_joined = 0
+    small_parts_missed_joined = 0
+    for u in units:
+        ps = [prims[i] for i in u]
+        if len(ps) == 1:
+            p = ps[0]
+            cat, marked = p.category, p.marked
+        else:
+            b = (min(p.bbox[0] for p in ps), min(p.bbox[1] for p in ps),
+                 max(p.bbox[2] for p in ps), max(p.bbox[3] for p in ps))
+            size = max(b[2] - b[0], b[3] - b[1])
+            cat = "点・小さい図形" if size < small else "線"
+            w = [p.length if p.length > 0 else 1.0 for p in ps]
+            marked = sum(wi for wi, p in zip(w, ps) if p.marked) >= need * sum(w)
+            if cat == "線":
+                parts = [p for p in ps if p.category == "点・小さい図形"]
+                small_parts_joined += len(parts)
+                small_parts_missed_joined += sum(1 for p in parts if not p.marked)
+        cat_all[cat] += 1
+        if not marked:
+            cat_miss[cat] += 1
+    n, m = sum(cat_all.values()), sum(cat_miss.values())
+    return {
+        "数える単位": n,
+        "落ちた": m,
+        "落ちた率": round(m / n, 4) if n else None,
+        "種類ごと(数える/落ちた)": {k: [cat_all[k], cat_miss.get(k, 0)] for k in sorted(cat_all)},
+        "繋ぐと8画素以上の線の一部になる点・小さい図形の部品": small_parts_joined,
+        "そのうち部品の単位で落ちていたもの": small_parts_missed_joined,
+    }
+
+
+LINE_TYPES = ["ハッチング", "寸法線", "寸法補助線", "引出線", "壁", "家具・建具", "その他"]
+
+
+def _angle(p: Primitive) -> float:
+    a, b = _ends(p)
+    return math.degrees(math.atan2(b[1] - a[1], b[0] - a[0])) % 180
+
+
+def _seg_dist(pt, a, b) -> float:
+    ab = b - a
+    L = float(ab @ ab)
+    t = 0.0 if L == 0 else max(0.0, min(1.0, float((pt - a) @ ab) / L))
+    return float(np.linalg.norm(pt - (a + t * ab)))
+
+
+def classify_lines(prims: list[Primitive]) -> dict[int, str]:
+    """「線」に分けた図形(除外なし)を、決まりを上から順に当てて種類に分ける。返り値は id → 種類。"""
+    lines = [p for p in prims if not p.excluded and p.category == "線"]
+    words = [p for p in prims if p.kind == "文字" and not p.excluded]
+    digit_words = [w for w in words if re.fullmatch(r"[0-9０-９,，.]+", w.text or "")]
+    out: dict[int, str] = {}
+    straight = [p for p in lines if p.kind == "直線"]
+    curves = [p for p in prims if p.kind == "曲線" and not p.excluded]
+    curve_ends = [e for c in curves for e in _ends(c)]
+
+    def horiz(a):
+        return min(a, 180 - a) < 3
+
+    def vert(a):
+        return abs(a - 90) < 3
+
+    for p in lines:
+        if p.kind == "ハッチング":
+            out[p.id] = "ハッチング"
+    dims = []
+    for p in straight:
+        if p.id in out:
+            continue
+        a, b = _ends(p)
+        ang = _angle(p)
+        for w in digit_words:
+            x0, y0, x1, y1 = w.bbox
+            c = np.array([(x0 + x1) / 2, (y0 + y1) / 2])
+            text_horiz = (x1 - x0) >= (y1 - y0)
+            if not ((text_horiz and horiz(ang)) or (not text_horiz and vert(ang))):
+                continue
+            ab = b - a
+            L = float(ab @ ab)
+            if L == 0:
+                continue
+            t = float((c - a) @ ab) / L
+            if 0 <= t <= 1 and _seg_dist(c, a, b) <= 20:
+                out[p.id] = "寸法線"
+                dims.append(p)
+                break
+    for p in straight:
+        if p.id in out:
+            continue
+        ang = _angle(p)
+        for d in dims:
+            da, db = _ends(d)
+            dang = _angle(d)
+            perp = abs(((ang - dang) % 180) - 90) < 3
+            if perp and any(_seg_dist(e, da, db) <= 3 for e in _ends(p)):
+                out[p.id] = "寸法補助線"
+                break
+    wboxes = np.array([w.bbox for w in words]) if words else np.zeros((0, 4))
+
+    def near_text(pt, r=20):
+        if not len(wboxes):
+            return False
+        dx = np.maximum(np.maximum(wboxes[:, 0] - pt[0], 0), pt[0] - wboxes[:, 2])
+        dy = np.maximum(np.maximum(wboxes[:, 1] - pt[1], 0), pt[1] - wboxes[:, 3])
+        return bool((np.hypot(dx, dy) <= r).any())
+
+    for p in straight:
+        if p.id in out:
+            continue
+        ang = _angle(p)
+        if horiz(ang) or vert(ang):
+            continue
+        a, b = _ends(p)
+        if near_text(a) != near_text(b):
+            out[p.id] = "引出線"
+    for p in straight:
+        if p.id in out or p.length < 40:
+            continue
+        a, b = _ends(p)
+        ang = _angle(p)
+        u = (b - a) / p.length
+        n = np.array([-u[1], u[0]])
+        for q in straight:
+            if q is p or abs(((_angle(q) - ang + 90) % 180) - 90) > 1:
+                continue
+            qa, qb = _ends(q)
+            gap = abs(float((qa - a) @ n))
+            if not 2 <= gap <= 25:
+                continue
+            s = sorted([float((qa - a) @ u), float((qb - a) @ u)])
+            ov = min(p.length, s[1]) - max(0.0, s[0])
+            if ov >= 0.5 * p.length:
+                out[p.id] = "壁"
+                break
+    for p in lines:
+        if p.id in out:
+            continue
+        if p.kind == "曲線":
+            out[p.id] = "家具・建具"
+            continue
+        e = _ends(p)
+        if e is not None and curve_ends and any(math.dist(x, c) <= 3 for x in e for c in curve_ends):
+            out[p.id] = "家具・建具"
+    for p in lines:
+        out.setdefault(p.id, "その他")
+    return out

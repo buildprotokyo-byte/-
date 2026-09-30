@@ -32,6 +32,29 @@ def _add(total: dict, s: dict) -> None:
         total.setdefault("落ちた図形の大きさ(画素、長い辺)", {})[k] = total.get("落ちた図形の大きさ(画素、長い辺)", {}).get(k, 0) + v
 
 
+def make_decoys(reads: dict, doc) -> dict:
+    """囮: 各読みの要素の位置を、同じ大きさのままページ内のでたらめな場所に置き直す(種 51)。"""
+    rng = random.Random(51)
+    out = {}
+    for n in list(reads):
+        fake = {}
+        for pno, els in reads[n].items():
+            page = doc[pno - 1]
+            s = ec.WIDTH_PX / page.rect.width
+            w, h = page.rect.width * s, page.rect.height * s
+            moved = []
+            for e in els:
+                pos = e.get("位置")
+                if not pos or len(pos) != 4:
+                    continue
+                bw, bh = abs(pos[2] - pos[0]), abs(pos[3] - pos[1])
+                x, y = rng.uniform(0, max(w - bw, 0)), rng.uniform(0, max(h - bh, 0))
+                moved.append({"種類": e.get("種類"), "位置": [x, y, x + bw, y + bh]})
+            fake[pno] = moved
+        out["囮_" + n] = fake
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("pdf")
@@ -46,23 +69,7 @@ def main(argv=None):
     pages = [int(x) for x in a.pages.split(",")] if a.pages else list(range(1, len(doc) + 1))
     reads = {Path(r).stem: {p["ページ"]: p.get("要素", []) for p in json.load(open(r))["ページ"]} for r in a.reads}
     if a.decoy:
-        rng = random.Random(51)
-        for n in list(reads):
-            fake = {}
-            for pno, els in reads[n].items():
-                page = doc[pno - 1]
-                s = ec.WIDTH_PX / page.rect.width
-                w, h = page.rect.width * s, page.rect.height * s
-                moved = []
-                for e in els:
-                    pos = e.get("位置")
-                    if not pos or len(pos) != 4:
-                        continue
-                    bw, bh = abs(pos[2] - pos[0]), abs(pos[3] - pos[1])
-                    x, y = rng.uniform(0, max(w - bw, 0)), rng.uniform(0, max(h - bh, 0))
-                    moved.append({"種類": e.get("種類"), "位置": [x, y, x + bw, y + bh]})
-                fake[pno] = moved
-            reads["囮_" + n] = fake
+        reads.update(make_decoys(reads, doc))
     real = [n for n in reads if not n.startswith("囮_")]
     names = list(reads) + (["合わせて"] if len(real) > 1 else [])
     out = {"設定": ec.SETTINGS, "読み": list(reads), "上限ごと": {}}
