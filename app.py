@@ -1373,11 +1373,20 @@ def run_ai_reading(
     machine_source: str = "",
     machine_auto_confirmed: Mapping[str, int] | None = None,
     timings: Mapping[str, float] | None = None,
+    symbol_counts=None,  # noqa: ANN001
 ) -> OnePassResult:
-    """AI の答案を本番の行にし、機械の読みを検算として並べる(K-49)。**何も確定させない。**"""
+    """AI の答案を本番の行にし、機械の読みを検算として並べる(K-49)。**何も確定させない。**
+
+    ``symbol_counts`` は位置つきの読みから機械が室ごとに数えた記号の答案(K-55、
+    `intake/positioned_symbol_count.py` の形)。渡されれば AI の答案の行の後ろに足す。
+    """
     from estimating.cross_checks import same_surface_counted_twice
 
     lines = ai_reading_lines(reading)
+    counted_lines = ai_reading_lines(symbol_counts) if symbol_counts is not None else []
+    for line in counted_lines:
+        line.notes.append("位置つきの読みの記号を、機械が室ごとに数えた(K-55)")
+    lines = lines + counted_lines
     machine_check = check_with_machine(lines, machine_rows, machine_source)
     gaps: list[str] = []
     if reading.status != "読んだ" or reading.reason:
@@ -1427,7 +1436,14 @@ def run_ai_reading(
         reader=reader,
         ai_reading=reading.summary(),
         machine_check=machine_check,
-        extras={"数量のある行": sum(1 for line in lines if line.quantity is not None)},
+        extras={
+            "数量のある行": sum(1 for line in lines if line.quantity is not None),
+            **(
+                {"記号の数え上げ": {"足した行": len(counted_lines), **symbol_counts.summary()}}
+                if symbol_counts is not None
+                else {}
+            ),
+        },
     )
 
 
@@ -1441,6 +1457,7 @@ def run_production(
     machine_output: str | Path | None = None,
     machine_check: bool = True,
     ai_client: Any = None,
+    symbol_counts: str | Path | None = None,
     **machine_kwargs: Any,
 ) -> OnePassResult:
     """本番の入口(K-49)。**既定は AI の答案のファイル。**
@@ -1451,6 +1468,9 @@ def run_production(
 
     AI の側では、機械の読み(``run`` の出力の行)を検算として並べる。``machine_output`` に
     前に出した機械の出力(JSON)を渡せば、機械を動かし直さずにそれを使う。
+
+    ``symbol_counts`` に、位置つきの読みから機械が記号を室ごとに数えた答案(K-55)を渡せば、
+    AI の答案の行の後ろに足す。
     """
     if reader not in READERS:
         raise ValueError(f"知らない読み手です: {reader!r}(選べるのは {', '.join(READERS)})")
@@ -1498,7 +1518,18 @@ def run_production(
         machine_source=source,
         machine_auto_confirmed=machine_auto,
         timings=timings,
+        symbol_counts=_load_symbol_counts(symbol_counts),
     )
+
+
+def _load_symbol_counts(path: str | Path | None):  # noqa: ANN202
+    """記号の数え上げの答案を読む(K-55)。無ければ None。"""
+    if path is None:
+        return None
+    from intake.ai_reading import parse_ai_reading
+    from intake.positioned_symbol_count import READER
+
+    return parse_ai_reading(json.loads(Path(path).read_text(encoding="utf-8")), reader=READER)
 
 
 def _page_list(text: str | None) -> list[int] | None:
@@ -1559,6 +1590,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--no-machine-check", action="store_true", help="AI の側で機械の検算を動かさない"
     )
+    parser.add_argument(
+        "--symbol-counts",
+        default=None,
+        help="位置つきの読みから機械が記号を室ごとに数えた答案(JSON、K-55)。AI の答案の行の後ろに足す",
+    )
     args = parser.parse_args(argv)
 
     from estimating.line_judge import make_line_judge
@@ -1572,6 +1608,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ai_reading=args.ai_reading,
         machine_output=args.machine_output,
         machine_check=not args.no_machine_check,
+        symbol_counts=args.symbol_counts,
         legend_table=args.legend_table,
         human_input=args.human_input,
         drawing_rooms=args.drawing_rooms,
