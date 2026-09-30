@@ -198,3 +198,91 @@ def test_no_amount_is_made_while_a_room_is_missing() -> None:
         row["単価"] = 1000
     detail = build_breakdown(rows).shumoku[0].kamoku[0].details[0]
     assert detail.amount is None
+
+
+# --- K-54: 公開書式(B-08)の出力の決まり ---------------------------------------------
+
+
+def _krow(kamoku, name, *, kind="", middle="", qty=1.0, unit="箇所"):
+    row = _row(kamoku, name, qty=qty, unit=unit, middle=middle)
+    row["区分"] = kind
+    return row
+
+
+def test_k54_renovation_removal_and_renewal_are_middles_of_a_building_kamoku() -> None:
+    book = build_breakdown(
+        [
+            _krow("内装改修", "床 フローリング撤去", kind="撤去", unit="㎡"),
+            _krow("内装改修", "床 フローリング", kind="新設", unit="㎡"),
+        ]
+    )
+
+    kamoku = book.shumoku[0].kamoku[0]
+    assert [m.name for m in kamoku.middles] == ["撤去", "改修"]
+
+
+def test_k54_equipment_removal_is_a_detail_of_the_equipment_kamoku_not_a_middle() -> None:
+    book = build_breakdown(
+        [
+            _krow("電気設備", "ダウンライト", kind="撤去"),
+            _krow("電気設備", "ダウンライト", kind="新設"),
+        ]
+    )
+
+    kamoku = book.shumoku[0].kamoku[0]
+    assert kamoku.middles == []
+    assert [d.name for d in kamoku.details] == ["ダウンライト撤去", "ダウンライト"]
+
+
+def test_k54_a_removal_name_that_already_says_removal_is_not_doubled() -> None:
+    book = build_breakdown([_krow("電気設備", "照明器具撤去", kind="撤去")])
+
+    assert [d.name for d in book.shumoku[0].kamoku[0].details] == ["照明器具撤去"]
+
+
+def test_k54_a_middle_that_is_not_in_the_official_table_is_not_added() -> None:
+    """正式な中科目が無い科目に、仕様書の節名を中科目として足さない。"""
+    book = build_breakdown(
+        [_krow("木工事", "巾木", middle="造作工事(仕様書 3 節)")],
+        official_middles={"電気設備": ("電灯設備",)},
+    )
+
+    kamoku = book.shumoku[0].kamoku[0]
+    assert kamoku.middles == []
+    detail = kamoku.details[0]
+    assert detail.as_dict()["書式に無い中科目"] == "造作工事(仕様書 3 節)"
+
+
+def test_k54_an_official_middle_is_kept() -> None:
+    book = build_breakdown(
+        [_krow("電気設備", "コンセント", middle="電灯設備")],
+        official_middles={"電気設備": ("電灯設備",)},
+    )
+
+    assert [m.name for m in book.shumoku[0].kamoku[0].middles] == ["電灯設備"]
+
+
+def test_k54_no_empty_kamoku_or_middle_is_output() -> None:
+    book = build_breakdown(
+        [
+            _krow("内装改修", "床", kind="撤去"),
+            _krow("木工事", "巾木", middle="造作工事"),
+        ],
+        official_middles={},
+    )
+
+    out = book.as_dict()
+    for shumoku in out["種目"]:
+        for kamoku in shumoku["科目"]:
+            if "中科目" in kamoku:
+                assert kamoku["中科目"] and all(m["細目"] for m in kamoku["中科目"])
+            else:
+                assert kamoku["細目"]
+
+
+def test_k54_without_a_kind_or_middle_nothing_changes() -> None:
+    book = build_breakdown([_krow("内装改修", "床"), _krow("内装改修", "壁")])
+
+    kamoku = book.shumoku[0].kamoku[0]
+    assert kamoku.middles == []
+    assert [d.name for d in kamoku.details] == ["床", "壁"]
