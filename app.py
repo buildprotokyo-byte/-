@@ -4,7 +4,25 @@
 
     python app.py <図面PDF> --case-id P011 --out 結果.json \\
         [--legend-table 対照表.json] [--human-input 人の入力.json] [--rules 規則.json] \\
-        [--plan-note-pages 8] [--demolition-pages 33]
+        [--plan-note-pages 8] [--demolition-pages 33] \\
+        [--reader {ai-file,ai-api,machine}] [--ai-reading 答案.json] \\
+        [--machine-output 機械の出力.json | --no-machine-check]
+
+読み手(K-49)
+-------------
+おーちゃんの決定(2026-09-26): 部分ごとに AI に替えるのをやめ、**AI が全ページを読んだ答案を
+そのまま本番の入力にする。機械は測る・数える・検算するに回る。**基準は
+`docs/k49_ai_reads_all_criteria.md`。
+
+- ``--reader ai-file``(**既定**)… ``--ai-reading`` の答案(`intake/ai_reading.py` の形)の行を
+  見積の行にする。数量は答案のまま、空は空のまま。決め手は「AI の読み」。確かさは上げない。
+  答案が渡されなければ「読んでいない」(行 0 件、理由つき)。
+- ``--reader ai-api`` … AI をその場で呼ぶ(鍵 ``ANTHROPIC_API_KEY`` と部品 ``anthropic`` が要る。
+  モデルは ``AI_READING_MODEL``)。鍵が無ければ止めずに「読んでいない」。
+- ``--reader machine`` … いままでの形(下の 7 つの段と線引き)。比べるために残す。
+
+AI の側では、機械の読み(下の 7 つの段の出力)は**見積の行を作らず**、同じ工事・場所の AI の行に
+「機械の検算」として並ぶ。食い違えば行を要確認にして理由を書く。**機械は答案を直さない。**
 
 なぜこれを作るのか
 ------------------
@@ -86,6 +104,14 @@ PATH_INTAKE = "入口の図形"
 PATH_HUMAN = "人の入力"
 PATH_PLAN_NOTES = "改装平面の注記"
 PATH_DEMOLITION_HATCH = "撤去の網"
+#: K-49: AI が図面を読んだ答案から出た行。**本番の既定。**
+PATH_AI_READING = "AI の読み"
+
+#: 読み手(K-49)。**既定は AI の答案のファイル。**機械は比べるために残す。
+READER_AI_FILE = "ai-file"
+READER_AI_API = "ai-api"
+READER_MACHINE = "machine"
+READERS = (READER_AI_FILE, READER_AI_API, READER_MACHINE)
 
 #: 行の確かさ(`EstimateLine.certainty`)。**どちらも確定ではない。**
 CERTAINTY_CANDIDATE = "候補"
@@ -181,6 +207,8 @@ class EstimateLine:
     certainty: str = CERTAINTY_CANDIDATE
     """確かさ。既定は「候補」。推し量った行(K-45 の撤去の網から出す新設)は「要確認」。
     **どちらも確定ではない。** 確定させる口はこの行には無い。"""
+    decisive: tuple[Any, ...] = ()
+    """決め手(`estimating.decisive`)。**札は decisive が証拠から作る。**空なら出力に何も足さない。"""
 
     def as_answer_row(self, number: int) -> dict[str, Any]:
         """読み方の比較実験と同じ出力の形の 1 行(採点をそのまま当てるため)。"""
@@ -193,15 +221,24 @@ class EstimateLine:
             "単位": self.unit,
             "根拠": self.evidence,
             "確かさ": self.certainty,
-            "出どころ": "直接読んだ" if self.path != PATH_HUMAN else "人の入力",
+            "出どころ": _origin_of(self.path),
             "道": self.path,
             "符号": self.code,
             "数量の幅": list(self.quantity_range) if self.quantity_range else None,
             "人の入力待ち": self.waits_for_human,
             "摘要": self.spec,
             "備考": " / ".join(self.notes),
+            **({"決め手": [r.as_dict() for r in self.decisive]} if self.decisive else {}),
             **self.extra,
         }
+
+
+def _origin_of(path: str) -> str:
+    if path == PATH_HUMAN:
+        return "人の入力"
+    if path == PATH_AI_READING:
+        return "AI が読んだ"
+    return "直接読んだ"
 
 
 @dataclass
@@ -229,6 +266,15 @@ class OnePassResult:
 
     line_judge_summary: dict[str, Any] = field(default_factory=dict)
     """線引きの役と、判定ごとの件数(K-46)。"""
+
+    reader: str = READER_MACHINE
+    """誰が読んだか(K-49)。"""
+
+    ai_reading: dict[str, Any] | None = None
+    """AI の答案のまとめ(K-49)。機械が読んだときは ``None``。"""
+
+    machine_check: dict[str, Any] | None = None
+    """機械の検算(K-49)。**機械は答案を直さない。**並べて、食い違いを要確認の理由に書くだけ。"""
 
     kept_quantities: list[dict[str, Any]] = field(default_factory=list)
     """行にしなかった入口の数量。**捨てずに印を付けて残す**(K-36)。
@@ -273,6 +319,7 @@ class OnePassResult:
     def as_dict(self) -> dict[str, Any]:
         return {
             "案件": self.case_id,
+            "読み手": self.reader,
             "工事項目": [line.as_answer_row(i) for i, line in enumerate(self.lines, 1)],
             "段ごとの件数": {"道ごと": self.stages, "合計": self.stage_totals()},
             "台帳": self.ledger,
@@ -292,6 +339,8 @@ class OnePassResult:
                 line.as_answer_row(i) for i, line in enumerate(self.not_work_lines, 1)
             ],
             "検算": self.checks,
+            "AI の答案": self.ai_reading,
+            "機械の検算": self.machine_check,
             "かかった秒数": self.timings,
             "そのほか": self.extras,
         }
@@ -1179,6 +1228,279 @@ def _draw_the_line(
     return kept, not_work, summary
 
 
+# ---------------------------------------------------------------------------
+# K-49. AI が読んだ答案を本番の入力にする。機械は検算に回る
+# ---------------------------------------------------------------------------
+
+#: 機械の検算で食い違いとみなさない差(数の丸めの差だけ)。
+MACHINE_CHECK_EPSILON = 1e-6
+
+
+def ai_reading_lines(reading) -> list[EstimateLine]:  # noqa: ANN001
+    """答案の行を見積の行にする。**数量は答案のまま。null は null のまま(0 にしない)。**
+
+    決め手は「AI の読み」。札は `estimating.decisive` が読み手(証拠)から作る。
+    **確かさは上げない**(候補のまま)。
+    """
+    from estimating.decisive import decisive_reasons_for
+
+    lines: list[EstimateLine] = []
+    for row in reading.rows:
+        decisive = decisive_reasons_for(
+            effective_derivation="read", ai_reader=reading.reader or "AI(読み手不明)"
+        )
+        notes = []
+        if row.formula:
+            notes.append(f"式: {row.formula}")
+        if row.quantity is None:
+            notes.append("AI が数量を出していない(空のまま。0 にしていない)")
+        lines.append(
+            EstimateLine(
+                work_item=row.work,
+                place=row.place,
+                quantity=row.quantity,
+                unit=row.unit,
+                path=PATH_AI_READING,
+                evidence=[
+                    {
+                        "読み": PATH_AI_READING,
+                        "読み手": reading.reader,
+                        "答案の番号": row.number,
+                        "根拠": row.basis,
+                        "式": row.formula,
+                    }
+                ],
+                notes=notes,
+                decisive=decisive,
+                extra={"式": row.formula},
+            )
+        )
+    return lines
+
+
+def _same_number(a: float, b: float) -> bool:
+    return abs(float(a) - float(b)) <= MACHINE_CHECK_EPSILON * max(1.0, abs(float(b)))
+
+
+def check_with_machine(
+    lines: list[EstimateLine], machine_rows: Sequence[Mapping[str, Any]] | None, source: str = ""
+) -> dict[str, Any]:
+    """機械の読みを AI の行に「機械の検算」として並べる。**機械は答案を直さない。**
+
+    引き方は工事と場所の文字(NFKC にして空白を除く)が両方とも同じものだけ。引けないものは引かない。
+    機械が数を持っていれば行の横に並べ、食い違えば行を要確認にして理由を書く。
+    **数量は変えない。**AI の数量が空で機械が数を持っていても、埋めない(理由に書くだけ)。
+    """
+    if machine_rows is None:
+        return {"動かした": False, "理由": source or "機械の読みを渡していない"}
+    by_key: dict[tuple[str, str], list[Mapping[str, Any]]] = {}
+    for row in machine_rows:
+        key = (_nfkc(row.get("工事項目")), _nfkc(row.get("場所")))
+        by_key.setdefault(key, []).append(row)
+    matched_machine: set[int] = set()
+    matched_lines = 0
+    disagreements = 0
+    for line in lines:
+        found = by_key.get((_nfkc(line.work_item), _nfkc(line.place)), [])
+        with_number = [r for r in found if isinstance(r.get("数量"), (int, float)) and not isinstance(r.get("数量"), bool)]
+        for r in found:
+            matched_machine.add(id(r))
+        if not with_number:
+            continue
+        matched_lines += 1
+        line.extra = {
+            **line.extra,
+            "機械の検算": [
+                {
+                    "機械の番号": r.get("番号"),
+                    "数量": r.get("数量"),
+                    "単位": r.get("単位"),
+                    "道": r.get("道"),
+                }
+                for r in with_number
+            ],
+        }
+        reasons: list[str] = []
+        numbers = [float(r["数量"]) for r in with_number]
+        units = {_nfkc(r.get("単位")) for r in with_number}
+        if line.quantity is None:
+            reasons.append(
+                "AI は数量を出していない。機械は "
+                + "、".join(f"{r['数量']}{r.get('単位') or ''}" for r in with_number)
+                + "(埋めていない)"
+            )
+        else:
+            if not (
+                any(_same_number(line.quantity, n) for n in numbers)
+                or _same_number(line.quantity, sum(numbers))
+            ):
+                reasons.append(
+                    f"数量が機械の検算と食い違う: AI {line.quantity}{line.unit} / 機械 "
+                    + "、".join(f"{r['数量']}{r.get('単位') or ''}" for r in with_number)
+                )
+            if units and _nfkc(line.unit) not in units:
+                reasons.append(
+                    f"単位が機械の検算と食い違う: AI {line.unit or '(空)'} / 機械 "
+                    + "、".join(sorted(str(r.get("単位") or "(空)") for r in with_number))
+                )
+        if reasons:
+            disagreements += 1
+            line.certainty = CERTAINTY_NEEDS_CHECK
+            line.notes.extend(reasons)
+            line.extra = {**line.extra, "要確認の理由": reasons}
+    unmatched = [dict(r) for r in machine_rows if id(r) not in matched_machine]
+    return {
+        "動かした": True,
+        "出どころ": source,
+        "機械の行": len(machine_rows),
+        "機械の行のうち数量のある行": sum(
+            1 for r in machine_rows
+            if isinstance(r.get("数量"), (int, float)) and not isinstance(r.get("数量"), bool)
+        ),
+        "機械の数を並べた AI の行": matched_lines,
+        "食い違って要確認にした AI の行": disagreements,
+        "AI の行に引けなかった機械の行": len(unmatched),
+        "引けなかった機械の行": unmatched,
+    }
+
+
+def run_ai_reading(
+    reading,  # noqa: ANN001
+    *,
+    case_id: str,
+    reader: str = READER_AI_FILE,
+    machine_rows: Sequence[Mapping[str, Any]] | None = None,
+    machine_source: str = "",
+    machine_auto_confirmed: Mapping[str, int] | None = None,
+    timings: Mapping[str, float] | None = None,
+) -> OnePassResult:
+    """AI の答案を本番の行にし、機械の読みを検算として並べる(K-49)。**何も確定させない。**"""
+    from estimating.cross_checks import same_surface_counted_twice
+
+    lines = ai_reading_lines(reading)
+    machine_check = check_with_machine(lines, machine_rows, machine_source)
+    gaps: list[str] = []
+    if reading.status != "読んだ" or reading.reason:
+        gaps.append(f"[AI の読み] {reading.status}: {reading.reason}")
+    if reading.dropped:
+        gaps.append(
+            f"[AI の答案の形] 形が崩れた行 {len(reading.dropped)} 件を理由つきで落とした"
+            "(「AI の答案」の「落とした行」)"
+        )
+    auto_confirmed = {"AI の読みで確定": 0}
+    for name, count in (machine_auto_confirmed or {}).items():
+        if name != "合計":
+            auto_confirmed[f"機械の検算の側: {name}"] = int(count)
+    received = len(reading.rows)
+    stages = {
+        PATH_AI_READING: {
+            STAGE_RECOGNIZE: received + len(reading.dropped),
+            STAGE_READ: received,
+            STAGE_UNDERSTAND: received,
+            STAGE_ASSEMBLE: len(lines),
+        }
+    }
+    checks = {
+        "同じ面を2回以上": list(
+            same_surface_counted_twice(
+                {"場所": line.place, "工事項目": line.work_item, "数量": line.quantity, "単位": line.unit}
+                for line in lines
+            )
+        ),
+        "機械の検算と食い違う行": [
+            f"{line.work_item} / {line.place}: " + " / ".join(line.extra.get("要確認の理由", []))
+            for line in lines
+            if line.extra.get("要確認の理由")
+        ],
+    }
+    return OnePassResult(
+        case_id=case_id,
+        lines=lines,
+        stages=stages,
+        ledger={"動かした": False},
+        auto_confirmed=auto_confirmed,
+        gaps=gaps,
+        not_connected=[{"部品": name, "理由": why} for name, why in NOT_CONNECTED],
+        timings=dict(timings or {}),
+        checks=checks,
+        line_judge_summary={"役": "AI の読み(答案の行をそのまま使う。線引きは掛けない)"},
+        reader=reader,
+        ai_reading=reading.summary(),
+        machine_check=machine_check,
+        extras={"数量のある行": sum(1 for line in lines if line.quantity is not None)},
+    )
+
+
+def run_production(
+    pdf_path: str | Path,
+    *,
+    case_id: str,
+    answers_path: str | Path,
+    reader: str = READER_AI_FILE,
+    ai_reading: str | Path | None = None,
+    machine_output: str | Path | None = None,
+    machine_check: bool = True,
+    ai_client: Any = None,
+    **machine_kwargs: Any,
+) -> OnePassResult:
+    """本番の入口(K-49)。**既定は AI の答案のファイル。**
+
+    - ``reader="machine"`` … いままでの形(機械が読み、線引きを掛ける)。比べるために残す。
+    - ``reader="ai-file"`` … ``ai_reading`` の答案を行にする。無ければ「読んでいない」(行 0 件)。
+    - ``reader="ai-api"`` … AI をその場で呼ぶ。鍵が無ければ止めずに「読んでいない」。
+
+    AI の側では、機械の読み(``run`` の出力の行)を検算として並べる。``machine_output`` に
+    前に出した機械の出力(JSON)を渡せば、機械を動かし直さずにそれを使う。
+    """
+    if reader not in READERS:
+        raise ValueError(f"知らない読み手です: {reader!r}(選べるのは {', '.join(READERS)})")
+    if reader == READER_MACHINE:
+        result = run(pdf_path, case_id=case_id, answers_path=answers_path, **machine_kwargs)
+        result.reader = READER_MACHINE
+        return result
+
+    from intake.ai_reading import load_ai_reading, read_with_api
+
+    timings: dict[str, float] = {}
+    started = time.perf_counter()
+    if reader == READER_AI_API:
+        reading = read_with_api(pdf_path, client=ai_client)
+    else:
+        reading = load_ai_reading(ai_reading)
+    timings["AI の読み(受け取り)"] = round(time.perf_counter() - started, 1)
+    if reading.seconds is not None:
+        timings["AI が読んだ秒数"] = reading.seconds
+
+    machine_rows: list[dict[str, Any]] | None = None
+    machine_auto: dict[str, int] | None = None
+    source = ""
+    if machine_output is not None:
+        payload = json.loads(Path(machine_output).read_text(encoding="utf-8"))
+        machine_rows = list(payload.get("工事項目", []))
+        machine_auto = {
+            k: int(v) for k, v in (payload.get("自動確定") or {}).items() if k != "合計"
+        }
+        source = f"前に出した機械の出力: {Path(machine_output).name}"
+    elif machine_check:
+        started = time.perf_counter()
+        machine = run(pdf_path, case_id=case_id, answers_path=answers_path, **machine_kwargs)
+        timings["機械の検算"] = round(time.perf_counter() - started, 1)
+        machine_rows = [line.as_answer_row(i) for i, line in enumerate(machine.lines, 1)]
+        machine_auto = dict(machine.auto_confirmed)
+        source = "この場で機械が読んだ(app.run)"
+    else:
+        source = "機械の検算を止めた(--no-machine-check)"
+    return run_ai_reading(
+        reading,
+        case_id=case_id,
+        reader=reader,
+        machine_rows=machine_rows,
+        machine_source=source,
+        machine_auto_confirmed=machine_auto,
+        timings=timings,
+    )
+
+
 def _page_list(text: str | None) -> list[int] | None:
     if text is None:
         return None
@@ -1219,15 +1541,37 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=None,
         help="AI が出した線引きの判定(JSON)。無ければ全部の行を要確認として残す",
     )
+    parser.add_argument(
+        "--reader",
+        default=READER_AI_FILE,
+        choices=READERS,
+        help="誰が読むか(K-49)。既定は AI の答案のファイル(--ai-reading)。"
+        "ai-api は AI をその場で呼ぶ(鍵 ANTHROPIC_API_KEY が要る)。machine はいままでの形",
+    )
+    parser.add_argument(
+        "--ai-reading", default=None, help="AI が図面を読んだ答案(JSON)。--reader ai-file で使う"
+    )
+    parser.add_argument(
+        "--machine-output",
+        default=None,
+        help="機械の検算に、前に --reader machine で出した出力(JSON)を使う(機械を動かし直さない)",
+    )
+    parser.add_argument(
+        "--no-machine-check", action="store_true", help="AI の側で機械の検算を動かさない"
+    )
     args = parser.parse_args(argv)
 
     from estimating.line_judge import make_line_judge
 
     out = Path(args.out)
-    result = run(
+    result = run_production(
         args.pdf,
         case_id=args.case_id,
         answers_path=args.answers or out.with_suffix(".answers.json"),
+        reader=args.reader,
+        ai_reading=args.ai_reading,
+        machine_output=args.machine_output,
+        machine_check=not args.no_machine_check,
         legend_table=args.legend_table,
         human_input=args.human_input,
         drawing_rooms=args.drawing_rooms,
@@ -1240,9 +1584,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     out.write_text(json.dumps(result.as_dict(), ensure_ascii=False, indent=1), encoding="utf-8")
     totals = result.stage_totals()
     print(
-        f"行 {len(result.lines)} / 自動確定 {result.auto_confirmed_total} / "
+        f"読み手 {result.reader} / 行 {len(result.lines)} / 自動確定 {result.auto_confirmed_total} / "
         + " / ".join(f"{k} {v}" for k, v in totals.items())
     )
+    if result.ai_reading is not None and result.ai_reading.get("状態") != "読んだ":
+        print(f"AI は読んでいない: {result.ai_reading.get('理由')}", file=sys.stderr)
     if result.auto_confirmed_total:
         print("**自動確定が出た。K-27 の止める条件に当たる。**", file=sys.stderr)
         return 2

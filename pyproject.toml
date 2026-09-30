@@ -22,5 +22,9 @@ packages = [
     "benchmarks",
 ]
 
+[tool.setuptools.package-data]
+# K-49: AI に図面を読ませる指示文(コードに埋め込まずファイルに置く)。
+intake = ["ai_reading_instructions.txt"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
