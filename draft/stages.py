@@ -77,6 +77,8 @@ class Context:
     stops: list[dict[str, str]] = field(default_factory=list)
     timings: dict[str, float] = field(default_factory=dict)
     provisional: list[dict[str, str]] = field(default_factory=list)
+    #: 通読の 1 回に渡すページ数。0 は全ページを 1 回で(K-59 の既定)。小さくすると並べて呼べる(時間を下げる案)。
+    pass1_batch: int = 0
 
     def page(self, number: int) -> PageInfo:
         return self.pages[number - 1]
@@ -162,11 +164,11 @@ READ_SHAPE = (
 )
 
 
-def pass1_request(ctx: Context, pages: Sequence[int]) -> AIRequest:
+def pass1_request(ctx: Context, pages: Sequence[int], key: str = "全ページ") -> AIRequest:
     ordered = sorted(pages)
     return AIRequest(
         stage="通読",
-        key="全ページ",
+        key=key,
         instructions=prompt("通読"),
         images=[ctx.page(n).image for n in ordered],
         data={"文字の層": {str(n): ctx.page(n).text for n in ordered}},
@@ -283,17 +285,24 @@ def read(ctx: Context, org: Mapping[str, Any]) -> dict[str, Any]:
     """通読 → 落ちを測る → 33% を超えるページを読み直す → もう一度測る。"""
     targets = ai_pages(ctx, org)
     started = time.perf_counter()
-    first = ctx.caller.call(pass1_request(ctx, targets))
-    ctx.timings["読む: 通読(AI)"] = first.seconds or 0.0
-    reading = page_entries(first.payload)
-    if first.payload is None:
-        ctx.stop("読む", "通読の答えが未取得。読みの無いページは要素 0 のまま進めた")
+    size = ctx.pass1_batch if ctx.pass1_batch > 0 else len(targets)
+    batches = [sorted(targets)[i:i + size] for i in range(0, len(targets), size)] if targets else []
+    reqs = [pass1_request(ctx, b, "全ページ" if len(batches) == 1 else f"p{b[0]}-p{b[-1]}") for b in batches]
+    firsts = ctx.caller.map(reqs, ctx.parallel)
+    ctx.timings["読む: 通読(AI、いちばん長い 1 回)"] = max((f.seconds or 0.0) for f in firsts) if firsts else 0.0
+    reading: dict[int, dict[str, Any]] = {}
+    for b, f in zip(batches, firsts):
+        reading.update({n: e for n, e in page_entries(f.payload).items() if n in b})
+    got_any = any(f.payload is not None for f in firsts)
+    if not all(f.payload is not None for f in firsts):
+        ctx.stop("読む", "通読の答えが未取得の回がある。読みの無いページは要素 0 のまま進めた")
     for n in targets:
         if n not in reading:
             reading[n] = {"描かれているもの": "", "要素": [], "分からなかったもの": [], "形の崩れた要素": 0,
                           "注": "通読の答えにこのページが無い(未取得)"}
     t = time.perf_counter()
-    before = measure_misses(ctx.pdf, reading, targets) if first.payload is not None else {}
+    measured = [n for n in targets if "注" not in reading[n]]
+    before = measure_misses(ctx.pdf, reading, measured) if got_any else {}
     ctx.timings["読む: 落ちを測る(機械、1回目)"] = round(time.perf_counter() - t, 1)
     chosen = [n for n in targets if before.get(n, {}).get("落ちた率", 0) > REREAD_THRESHOLD]
     answers = ctx.caller.map([reread_request(ctx, n) for n in chosen], ctx.parallel)

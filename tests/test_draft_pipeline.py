@@ -230,3 +230,13 @@ def test_quantity_never_becomes_zero():
         item = stages.check_item({"要素": ["p1-001"], "数量": raw, "状態": "観測", "確度": "高",
                                   "根拠の種類": "図面から読んだ"}, 1, by_id, 1)
         assert item["数量"] is None
+
+
+def test_batched_full_read_keeps_only_its_own_pages(tmp_path, machine_output):
+    pdf = _pdf(tmp_path / "図面.pdf")
+    out = tmp_path / "出力"
+    client = FakeClient()
+    run([str(pdf), "--out", str(out), "--machine-output", str(machine_output), "--pass1-batch", "1"], client=client)
+    r = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    assert client.calls.count("通読") == 2
+    assert sorted(int(k) for k in r["読む"]["読み"]) == [1, 2]

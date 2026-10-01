@@ -125,6 +125,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--machine-output", default=None, help="前に出した機械の出力(無ければこの場で機械を動かす)")
     p.add_argument("--no-machine-check", action="store_true", help="機械の検算を飛ばす(自動確定の数も未取得になる)")
     p.add_argument("--parallel", type=int, default=DEFAULT_PARALLEL)
+    p.add_argument("--pass1-batch", type=int, default=0,
+                   help="通読の 1 回に渡すページ数(0 は全ページを 1 回で。K-59 の既定)。小さくすると並べて呼べる")
     a = p.parse_args(argv)
 
     started = time.perf_counter()
@@ -138,7 +140,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     t = time.perf_counter()
     pdf = Path(a.pdf)
     page_infos = render(pdf, out / "ページ")
-    ctx = stages.Context(pdf=pdf, pages=page_infos, caller=caller, parallel=a.parallel)
+    ctx = stages.Context(pdf=pdf, pages=page_infos, caller=caller, parallel=a.parallel, pass1_batch=a.pass1_batch)
     ctx.timings["段: ページを画像にする"] = round(time.perf_counter() - t, 1)
     machine_future = None
     pool = None
