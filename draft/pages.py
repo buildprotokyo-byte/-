@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 #: 読みの座標の幅(画素)。`benchmarks/erase_check.py` の WIDTH_PX と同じ。
 WIDTH_PX = 2000
@@ -69,3 +69,14 @@ def hide_pages(pdf_path: str | Path, pages: Sequence[int], out_pdf: str | Path) 
         dst.save(out_pdf)
         dst.close()
     return Path(out_pdf)
+
+
+def positioned_words(pdf_path: str | Path, number: int) -> list[list[Any]]:
+    """文字の層の語を、幅 ``WIDTH_PX`` 画素の画像の座標で返す(``[語, x0, y0, x1, y1]``)。"""
+    import pymupdf
+
+    with pymupdf.open(pdf_path) as doc:
+        page = doc.load_page(number - 1)
+        zoom = WIDTH_PX / page.rect.width
+        return [[w[4], round(w[0] * zoom), round(w[1] * zoom), round(w[2] * zoom), round(w[3] * zoom)]
+                for w in page.get_text("words")]

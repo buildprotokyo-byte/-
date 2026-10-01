@@ -86,7 +86,7 @@ function kindOf(n){return ((R["整理"]||{})["ページ"]||{})[n]||{}}
 function loadOf(n){const m=pageMeta(n),items=(R["理解"]||{})["項目"]||[];
  const q=items.filter(i=>i["ページ"]==n&&i["状態"]=="問い").length,low=items.filter(i=>i["ページ"]==n&&i["確度"]=="低").length;
  const miss=m["落ちた率"];let s=(miss??0.5)*10+q+low*0.5;return {miss,q,low,score:s}}
-function summary(){const s=R["まとめ"]||{};let h=`<div>${esc(s["案件"]||"")} ・ 段階 <b>${esc(s["段階"]||"")}</b> ・ 自動確定 <b>${esc(s["自動確定"])}</b> 件 ・ 原本の仕上表: <b>${esc((R["仕上表"]||{})["原本"]||"未取得")}</b> ・ 原価表: <b>${esc(s["原価表"]||"未取得")}</b></div>`;
+function summary(){const s=R["まとめ"]||{};let h=`<div>${esc(s["案件"]||"")} ・ 段階 <b>${esc(s["段階"]||"")}</b> ・ 自動確定 <b>${esc(s["自動確定"])}</b> 件 ・ 原本の仕上表: <b>${esc((R["仕上表"]||{})["原本"]||"未取得")}</b>${((R["仕上表"]||{})["本来の仕上表ではないページ"]||[]).map(x=>`(${esc(x["ページ"])}ページは本来の仕上表ではない: ${esc(x["図面"])})`).join("")} ・ 原価表: <b>${esc(s["原価表"]||"未取得")}</b></div>`;
  const w=s["精度の注意"]||[];if(w.length)h+=`<div class="warn">精度が上がっていません: ${w.map(esc).join(" / ")}</div>`;
  const st=R["止まった所"]||[];if(st.length)h+=`<div class="warn">欠けたまま進んだ所: ${st.map(x=>esc(x["段"]+": "+x["止まった所"])).join(" / ")}</div>`;
  document.getElementById("summary").innerHTML=h;

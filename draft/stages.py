@@ -79,6 +79,8 @@ class Context:
     provisional: list[dict[str, str]] = field(default_factory=list)
     #: 通読の 1 回に渡すページ数。0 は全ページを 1 回で(K-59 の既定)。小さくすると並べて呼べる(時間を下げる案)。
     pass1_batch: int = 0
+    #: 画像を送らず、文字の層(位置つき)だけで読ませるページ(K-62 の手段 a)。既定は空(今までどおり画像も送る)。
+    text_only: set[int] = field(default_factory=set)
 
     def page(self, number: int) -> PageInfo:
         return self.pages[number - 1]
@@ -164,14 +166,41 @@ READ_SHAPE = (
 )
 
 
+#: 手段 a で画像を送らない候補の種類(表・仕様書から。図の多いページは今までどおり画像を送る)。
+TEXT_ONLY_KINDS = ("表紙・図面リスト", "概要", "仕様書", "仕上表", "建具表")
+TEXT_ONLY_NOTE = ("このページの画像は渡していない。文字の層の語と、その位置(幅 2000 画素の画像の座標)だけで読む。"
+                  "位置は語の位置を写してよい。線・罫・記号は見えないので推し量って挙げず、分からなかったものに書く。")
+
+
+def text_only_pages(ctx: Context, org: Mapping[str, Any]) -> set[int]:
+    """文字の層があり、表・仕様書の種類のページ(K-62 の手段 a・追記 3)。"""
+    return {n for n, e in org.get("ページ", {}).items()
+            if e.get("種類") in TEXT_ONLY_KINDS and ctx.page(int(n)).text.strip()}
+
+
+def _images(ctx: Context, numbers: Sequence[int]) -> list[Path]:
+    return [ctx.page(n).image for n in numbers if n not in ctx.text_only]
+
+
+def _text_data(ctx: Context, numbers: Sequence[int]) -> dict[str, Any]:
+    from draft.pages import positioned_words
+
+    data: dict[str, Any] = {"文字の層": {str(n): ctx.page(n).text for n in numbers}}
+    only = [n for n in numbers if n in ctx.text_only]
+    if only:
+        data["画像を渡していないページ"] = {"ページ": only, "読み方": TEXT_ONLY_NOTE}
+        data["文字の層(位置つき)"] = {str(n): positioned_words(ctx.pdf, n) for n in only}
+    return data
+
+
 def pass1_request(ctx: Context, pages: Sequence[int], key: str = "全ページ") -> AIRequest:
     ordered = sorted(pages)
     return AIRequest(
         stage="通読",
         key=key,
         instructions=prompt("通読"),
-        images=[ctx.page(n).image for n in ordered],
-        data={"文字の層": {str(n): ctx.page(n).text for n in ordered}},
+        images=_images(ctx, ordered),
+        data=_text_data(ctx, ordered),
         answer_shape=READ_SHAPE,
     )
 
@@ -181,8 +210,8 @@ def reread_request(ctx: Context, n: int) -> AIRequest:
         stage="読み直し",
         key=f"p{n}",
         instructions=prompt("読み直し", page=n),
-        images=[ctx.page(n).image],
-        data={"文字の層": {str(n): ctx.page(n).text}},
+        images=_images(ctx, [n]),
+        data=_text_data(ctx, [n]),
         answer_shape=READ_SHAPE,
     )
 
@@ -362,7 +391,7 @@ def understand_request(ctx: Context, n: int, org: Mapping[str, Any], elements: l
         stage="理解",
         key=f"p{n}",
         instructions=prompt("理解", page=n),
-        images=[ctx.page(n).image] + [ctx.page(m).image for m in legends],
+        images=_images(ctx, [n]) + [ctx.page(m).image for m in legends],
         data={
             "要素": [{k: e[k] for k in ("id", "種類", "内容", "位置", "確かさ")} for e in elements],
             "ページの種類": {"このページ": kind, "凡例のページ": legends},
@@ -480,7 +509,7 @@ def understand(ctx: Context, org: Mapping[str, Any], reading: Mapping[str, Any])
 
 
 def same_key(item: Mapping[str, Any]) -> tuple[str, ...]:
-    return (nfkc(item["工事"]), nfkc(item["場所"]), nfkc(item["品番"]), nfkc(item["区分"]))
+    return (nfkc(item["工事"]), room_key(item["場所"]), nfkc(item["品番"]), nfkc(item["区分"]))
 
 
 def link_same_things(items: list[dict[str, Any]]) -> None:
@@ -520,8 +549,40 @@ def _finish_pages(ctx: Context, org: Mapping[str, Any]) -> tuple[list[int], str]
     return guess, "文字の層の語(整理が未取得のため)"
 
 
-def _norm_room(text: str) -> str:
-    return re.sub(r"[\s・()()]", "", nfkc(text))
+#: 同じ室の別の書き方(K-62 の 4)。**略し方が一意に決まるものだけ**。「リビングダイニング」と「LDK」のように
+#: 中身が違うかもしれないものは揃えない。「トイレ・洗面室」のような 2 室の書き方も揃えない(残る揺れとして数える)。
+ROOM_SYNONYMS = {
+    "ウォークインクローゼット": "WIC", "ウォークインクロゼット": "WIC", "W.I.C": "WIC", "WCL": "WIC",
+    "シューズインクローゼット": "SIC", "シューズインクロゼット": "SIC", "S.I.C": "SIC",
+}
+_LDK_PARTS = {"リビング": "L", "ダイニング": "D", "キッチン": "K"}
+
+
+def room_key(text: Any) -> str:
+    """室名を揃えた鍵。全角半角・空白・括弧の違いと、一意に決まる略し方だけを揃える。"""
+    s = re.sub(r"[\s()()]", "", nfkc(text))
+    upper = s.upper()
+    for name, short in ROOM_SYNONYMS.items():
+        if upper == nfkc(name).upper().replace(" ", ""):
+            return short
+    parts = [x for x in re.split(r"[/・、,]", nfkc(text).replace(" ", "/")) if x]
+    if len(parts) > 1 and all(x in _LDK_PARTS for x in parts) and len(set(parts)) == len(parts):
+        letters = "".join(sorted((_LDK_PARTS[x] for x in parts), key="LDK".index))
+        if letters in ("LDK", "LD", "DK"):
+            return letters
+    return upper if re.fullmatch(r"[A-Za-z0-9.]+", s) else s
+
+
+def room_variants(names: Sequence[Any]) -> list[dict[str, Any]]:
+    """揃えた室名ごとに、元の書き方が 2 つ以上あったもの(揃えた件数を数えるため)。"""
+    groups: dict[str, set[str]] = {}
+    for n in names:
+        if nfkc(n) and nfkc(n) != UNDECIDED:
+            groups.setdefault(room_key(n), set()).add(nfkc(n))
+    return [{"揃えた名前": k, "元の書き方": sorted(v)} for k, v in sorted(groups.items()) if len(v) > 1]
+
+
+_norm_room = room_key
 
 
 def template_rows(items: Sequence[Mapping[str, Any]], skip_pages: set[int], kinds: Mapping[int, Mapping[str, Any]],
@@ -531,7 +592,7 @@ def template_rows(items: Sequence[Mapping[str, Any]], skip_pages: set[int], kind
     for item in items:
         if item["ページ"] in skip_pages or item["場所"] in (UNDECIDED, ""):
             continue
-        if item["部位"] in FINISH_PARTS and item["場所"] not in rooms:
+        if item["部位"] in FINISH_PARTS and room_key(item["場所"]) not in {room_key(r) for r in rooms}:
             rooms.append(item["場所"])
     for room in extra_rooms:
         if _norm_room(room) not in {_norm_room(r) for r in rooms}:
@@ -643,6 +704,12 @@ def finish_schedule(ctx: Context, org: Mapping[str, Any], understanding: Mapping
     rooms = [r["室"] for r in original]
     kinds = org["ページ"]
     template = template_rows(understanding["項目"], set(pages), kinds, rooms)
+    # K-61 の判断 2: 仕上の表を持つ別の図面(カラースキームなど)も原本と数えるが、本来の仕上表ではないと示す。
+    not_proper = []
+    for n in pages:
+        drawn = nfkc(kinds.get(n, {}).get("描かれているもの"))
+        if drawn and not re.search(r"仕上(げ)?表|仕上(げ)?一覧", drawn):
+            not_proper.append({"ページ": n, "図面": drawn})
     if not pages:
         status = NO_ORIGINAL
     elif missing and not original:
@@ -655,6 +722,8 @@ def finish_schedule(ctx: Context, org: Mapping[str, Any], understanding: Mapping
         "原本のページの見つけ方": how,
         "原本の行": original,
         "原本の読めなかった所": unreadable,
+        "本来の仕上表ではないページ": not_proper,
+        "室名を揃えた": room_variants([it["場所"] for it in understanding["項目"]] + rooms),
         "ひな型": template,
         "照らし合わせ": compare(template, [r for r in original if r["部位"] in FINISH_PARTS]) if original else
         [dict(_pair(t, []), 照らし合わせ=NO_ORIGINAL if not pages else UNKNOWN) for t in template],

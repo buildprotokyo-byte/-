@@ -112,6 +112,11 @@ def machine_check(rows: Sequence[Mapping[str, Any]], machine_output: str | None,
     }
 
 
+#: 通読の 1 回に渡すページ数(K-61 の判断 1「分ける」)。P011 は 1 ページの読みが平均 1.6〜2.1 万字あり、
+#: 34 ページを 1 回で読ませると 1 回の出力の上限を超える。3 ページなら上限の内に収まる見込み(パソコン側で確かめる)。
+DEFAULT_PASS1_BATCH = 3
+
+
 def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("pdf")
@@ -124,16 +129,23 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--labor", default=None, help="歩掛 {工事項目: {1人1日あたり, 日当}}(無ければ未入力)")
     p.add_argument("--machine-output", default=None, help="前に出した機械の出力(無ければこの場で機械を動かす)")
     p.add_argument("--no-machine-check", action="store_true", help="機械の検算を飛ばす(自動確定の数も未取得になる)")
+    p.add_argument("--cache-dir", default=None,
+                   help="機械の読みを置いて使い回す場所(既定は環境変数 DRAFT_CACHE_DIR。どちらも無ければ使い回さない)")
     p.add_argument("--parallel", type=int, default=DEFAULT_PARALLEL)
-    p.add_argument("--pass1-batch", type=int, default=0,
-                   help="通読の 1 回に渡すページ数(0 は全ページを 1 回で。K-59 の既定)。小さくすると並べて呼べる")
+    p.add_argument("--pass1-batch", type=int, default=DEFAULT_PASS1_BATCH,
+                   help=f"通読の 1 回に渡すページ数(既定 {DEFAULT_PASS1_BATCH}。K-61 の判断 1 で分ける。0 は全ページを 1 回で)")
+    p.add_argument("--text-instead-of-image", action="store_true",
+                   help="表・仕様書のページで文字の層があれば、画像を送らず位置つきの文字で読ませる(K-62 の手段 a、未採用)")
+    p.add_argument("--batch", action="store_true",
+                   help="評価用の回だけ: 段ごとの呼び出しをまとめて送る(即時でない処理方式、半額。結果は最長 24 時間後)")
+    p.add_argument("--batch-poll-seconds", type=float, default=30.0, help="まとめて送ったものの終わりを見に行く間隔(秒)")
     a = p.parse_args(argv)
 
     started = time.perf_counter()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     answers_dir = Path(a.answers_dir) if a.answers_dir else out / "AIの答え"
-    caller = make_caller(answers_dir, client=client)
+    caller = make_caller(answers_dir, client=client, batch=a.batch, poll_seconds=a.batch_poll_seconds)
     import os
 
     model = getattr(caller, "model", None) or os.environ.get(MODEL_ENV) or DEFAULT_MODEL
@@ -148,7 +160,14 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         from concurrent.futures import ThreadPoolExecutor
 
         pool = ThreadPoolExecutor(max_workers=1)
-        machine_future = pool.submit(machine_reading, pdf, a.case_id, out)
+        import os as _os
+
+        from draft import machine as machine_part
+
+        if a.cache_dir or _os.environ.get(machine_part.CACHE_ENV):
+            machine_future = pool.submit(machine_part.machine_read, pdf, a.cache_dir, a.case_id)
+        else:
+            machine_future = pool.submit(machine_reading, pdf, a.case_id, out)
     cost_table = _load_json(a.cost_table)
     human = _load_json(a.answers) or {}
 
@@ -156,6 +175,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
                    {"出どころ": stages.UNKNOWN, "ページ": {}, "読む順": [p.number for p in page_infos]})
     for pinfo in page_infos:
         org["ページ"].setdefault(pinfo.number, {"種類": stages.UNKNOWN, "描かれているもの": "", "担当": "AI", "理由": ""})
+    if a.text_instead_of_image:
+        ctx.text_only = stages.text_only_pages(ctx, org)
     reading = _guarded(ctx, "読む", lambda: stages.read(ctx, org),
                        {"読み": {}, "ページ": {}, "通読の落ち": stages.UNKNOWN, "読み直した後の落ち": stages.UNKNOWN,
                         "読み直したページ": [], "読み直しが未取得のページ": []})
@@ -206,6 +227,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         warn.append(f"理解が未取得のページ {understanding['未取得のページ']}")
     if finish["原本"] != "原本あり":
         warn.append(f"仕上表: {finish['原本']}(ひな型だけ)")
+    for np_ in finish.get("本来の仕上表ではないページ", []):
+        warn.append(f"仕上表の原本の {np_['ページ']} ページは本来の仕上表ではない({np_['図面']})")
     warn.append("数量・照らし合わせは採点していない(正解を使う測定はパソコン側)")
     items = understanding["項目"]
     result = {
