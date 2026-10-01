@@ -240,3 +240,124 @@ def test_batched_full_read_keeps_only_its_own_pages(tmp_path, machine_output):
     r = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
     assert client.calls.count("通読") == 2
     assert sorted(int(k) for k in r["読む"]["読み"]) == [1, 2]
+
+
+# ---------------------------------------------------------------------------
+# K-62
+# ---------------------------------------------------------------------------
+
+
+def _item(i: int, page: int, room: str, part: str, work: str) -> dict:
+    return {"id": f"u{i}", "ページ": page, "場所": room, "部位": part, "工事": work, "品番": "", "確度": "中",
+            "区分": "張替", "数量": None}
+
+
+def test_room_name_variants_make_one_question():
+    """「洋室1」と「洋室(1)」は同じ室。別々に問わない(K-61 の 3 回で 2 回ずつ問うていた)。"""
+    items = [_item(1, 7, "洋室1", "壁", "クロス貼"), _item(2, 8, "洋室(1)", "壁", "クロス張替"),
+             _item(3, 8, "ウォークインクローゼット", "床", "フローリング"), _item(4, 7, "WIC", "床", "CF")]
+    original = [{"ページ": 3, "室": "洋室1", "部位": "壁", "仕上": "ビニルクロス", "位置": None},
+                {"ページ": 3, "室": "WIC", "部位": "床", "仕上": "塩ビタイル", "位置": None}]
+    template = stages.template_rows(items, {3}, {}, [r["室"] for r in original])
+    keys = [(stages.room_key(t["室"]), t["部位"]) for t in template]
+    assert len(keys) == len(set(keys))
+    finish = {"照らし合わせ": stages.compare(template, original)}
+    qs = stages.question_candidates({"項目": []}, finish, {"読み": {}}, None)
+    assert len([q for q in qs if q["鍵"] == "仕上:洋室1:壁"]) == 1
+    assert len([q for q in qs if q["鍵"] == "仕上:WIC:床"]) == 1
+    merged = stages.room_variants([it["場所"] for it in items] + [r["室"] for r in original])
+    assert {"揃えた名前": "洋室1", "元の書き方": ["洋室(1)", "洋室1"]} in merged
+
+
+def test_room_key_keeps_different_rooms_apart():
+    assert stages.room_key("洋室1") != stages.room_key("洋室2")
+    assert stages.room_key("リビングダイニング") != stages.room_key("LDK")
+    assert stages.room_key("トイレ・洗面室") not in (stages.room_key("トイレ"), stages.room_key("洗面室"))
+    assert stages.room_key("キッチン ダイニング リビング") == stages.room_key("LDK")
+    assert stages.room_key("洋室(1)") == stages.room_key("洋室１") == stages.room_key("洋室 1")
+
+
+def test_original_page_that_is_not_a_finish_schedule_is_marked(tmp_path, machine_output):
+    """K-61 の判断 2: 仕上の表を持つ別の図面(カラースキームなど)も原本と数え、「本来の仕上表ではない」と出す。"""
+    pdf = _pdf(tmp_path / "図面.pdf")
+    out = tmp_path / "出力"
+
+    class Client(FakeClient):
+        def stream(self, *, system: str, messages, **kwargs):
+            if "読む前の整理" in system:
+                body = {"ページ": [{"ページ": 1, "種類": "仕上表", "描かれているもの": "カラースキームボード"},
+                                   {"ページ": 2, "種類": "平面図", "描かれているもの": "改修平面図"},
+                                   {"ページ": 3, "種類": "白紙"}], "読む順": [2, 1, 3]}
+                self.calls.append("整理")
+                return FakeStream(json.dumps(body, ensure_ascii=False))
+            return super().stream(system=system, messages=messages, **kwargs)
+
+    run([str(pdf), "--out", str(out), "--machine-output", str(machine_output)], client=Client())
+    r = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    assert r["仕上表"]["原本"] == "原本あり"
+    assert r["仕上表"]["本来の仕上表ではないページ"] == [{"ページ": 1, "図面": "カラースキームボード"}]
+    assert any("本来の仕上表ではない" in w for w in r["まとめ"]["精度の注意"])
+    assert "本来の仕上表ではない" in (out / "確認画面.html").read_text(encoding="utf-8")
+
+
+class UsageStream(FakeStream):
+    def get_final_message(self):
+        msg = super().get_final_message()
+        msg.usage = SimpleNamespace(input_tokens=1000, output_tokens=2000, cache_creation_input_tokens=100,
+                                    cache_read_input_tokens=400)
+        msg.model = "claude-opus-5-5"
+        return msg
+
+
+class UsageClient(FakeClient):
+    def __init__(self) -> None:
+        super().__init__()
+        self.models: list[str] = []
+
+    def stream(self, *, system: str, messages, **kwargs):
+        self.models.append(kwargs.get("model"))
+        s = super().stream(system=system, messages=messages, **kwargs)
+        return UsageStream(s.text)
+
+
+def test_api_usage_is_recorded_and_priced(tmp_path, machine_output):
+    """K-62 の 1: 費用は字数の目安ではなく、API が返した使用量で数える(呼び出しごと・段ごと)。"""
+    pdf = _pdf(tmp_path / "図面.pdf")
+    out = tmp_path / "出力"
+    run([str(pdf), "--out", str(out), "--machine-output", str(machine_output)], client=UsageClient())
+    r = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    rec = r["AI を呼んだ記録"]
+    one = rec["1回ずつ"][0]
+    assert one["使用量"] == {"入力": 1000, "出力": 2000, "キャッシュに書いた": 100, "キャッシュから読んだ": 400}
+    # Opus 5.5: 入力 $4・出力 $20・キャッシュ書き込み 1.25 倍・読み出し $0.20(100 万トークンあたり)
+    assert one["費用(ドル)"] == pytest.approx((1000 * 4 + 2000 * 20 + 100 * 5 + 400 * 0.2) / 1e6)
+    real = rec["まとめ"]["使用量で数えた費用(ドル)"]
+    assert real["呼び出しの数"] == len(rec["1回ずつ"])
+    assert real["合計"] == pytest.approx(one["費用(ドル)"] * len(rec["1回ずつ"]), rel=1e-6)
+    assert set(real["段ごと"]) >= {"整理", "通読", "理解"}
+    # 2 回目は置かれた答えを使う。使用量は前の回のものを書いた記録から読み、2 度数えない
+    run([str(pdf), "--out", str(out), "--machine-output", str(machine_output)], client=UsageClient())
+    r2 = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    assert r2["AI を呼んだ記録"]["まとめ"]["使用量で数えた費用(ドル)"]["この通しで払った分"] == 0
+
+
+def test_stage_model_can_be_set_per_stage(tmp_path, machine_output, monkeypatch):
+    """手段 c の口: DRAFT_AI_MODEL_<段> で段ごとにモデルを変えられる(既定は変えない)。"""
+    monkeypatch.setenv("DRAFT_AI_MODEL_整理", "claude-sonnet-5-5")
+    pdf = _pdf(tmp_path / "図面.pdf")
+    client = UsageClient()
+    run([str(pdf), "--out", str(tmp_path / "出力"), "--machine-output", str(machine_output)], client=client)
+    stage_models = dict(zip(client.calls, client.models))
+    assert stage_models["整理"] == "claude-sonnet-5-5"
+    assert stage_models["通読"] == "claude-opus-5-5"
+
+
+def test_full_read_is_split_by_default(tmp_path, machine_output):
+    """K-61 の判断 1: 通読は既定で分けて読ませる。"""
+    pdf = _pdf(tmp_path / "図面.pdf")
+    client = FakeClient()
+    run([str(pdf), "--out", str(tmp_path / "出力"), "--machine-output", str(machine_output)], client=client)
+    from draft.run import DEFAULT_PASS1_BATCH
+
+    assert DEFAULT_PASS1_BATCH > 0
+    assert client.calls.count("通読") == 1  # 2 ページなので 1 回に収まる

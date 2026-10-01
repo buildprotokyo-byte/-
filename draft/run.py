@@ -112,6 +112,11 @@ def machine_check(rows: Sequence[Mapping[str, Any]], machine_output: str | None,
     }
 
 
+#: 通読の 1 回に渡すページ数(K-61 の判断 1「分ける」)。P011 は 1 ページの読みが平均 1.6〜2.1 万字あり、
+#: 34 ページを 1 回で読ませると 1 回の出力の上限を超える。3 ページなら上限の内に収まる見込み(パソコン側で確かめる)。
+DEFAULT_PASS1_BATCH = 3
+
+
 def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("pdf")
@@ -125,8 +130,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--machine-output", default=None, help="前に出した機械の出力(無ければこの場で機械を動かす)")
     p.add_argument("--no-machine-check", action="store_true", help="機械の検算を飛ばす(自動確定の数も未取得になる)")
     p.add_argument("--parallel", type=int, default=DEFAULT_PARALLEL)
-    p.add_argument("--pass1-batch", type=int, default=0,
-                   help="通読の 1 回に渡すページ数(0 は全ページを 1 回で。K-59 の既定)。小さくすると並べて呼べる")
+    p.add_argument("--pass1-batch", type=int, default=DEFAULT_PASS1_BATCH,
+                   help=f"通読の 1 回に渡すページ数(既定 {DEFAULT_PASS1_BATCH}。K-61 の判断 1 で分ける。0 は全ページを 1 回で)")
     a = p.parse_args(argv)
 
     started = time.perf_counter()
@@ -206,6 +211,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         warn.append(f"理解が未取得のページ {understanding['未取得のページ']}")
     if finish["原本"] != "原本あり":
         warn.append(f"仕上表: {finish['原本']}(ひな型だけ)")
+    for np_ in finish.get("本来の仕上表ではないページ", []):
+        warn.append(f"仕上表の原本の {np_['ページ']} ページは本来の仕上表ではない({np_['図面']})")
     warn.append("数量・照らし合わせは採点していない(正解を使う測定はパソコン側)")
     items = understanding["項目"]
     result = {

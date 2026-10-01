@@ -480,7 +480,7 @@ def understand(ctx: Context, org: Mapping[str, Any], reading: Mapping[str, Any])
 
 
 def same_key(item: Mapping[str, Any]) -> tuple[str, ...]:
-    return (nfkc(item["工事"]), nfkc(item["場所"]), nfkc(item["品番"]), nfkc(item["区分"]))
+    return (nfkc(item["工事"]), room_key(item["場所"]), nfkc(item["品番"]), nfkc(item["区分"]))
 
 
 def link_same_things(items: list[dict[str, Any]]) -> None:
@@ -520,8 +520,40 @@ def _finish_pages(ctx: Context, org: Mapping[str, Any]) -> tuple[list[int], str]
     return guess, "文字の層の語(整理が未取得のため)"
 
 
-def _norm_room(text: str) -> str:
-    return re.sub(r"[\s・()()]", "", nfkc(text))
+#: 同じ室の別の書き方(K-62 の 4)。**略し方が一意に決まるものだけ**。「リビングダイニング」と「LDK」のように
+#: 中身が違うかもしれないものは揃えない。「トイレ・洗面室」のような 2 室の書き方も揃えない(残る揺れとして数える)。
+ROOM_SYNONYMS = {
+    "ウォークインクローゼット": "WIC", "ウォークインクロゼット": "WIC", "W.I.C": "WIC", "WCL": "WIC",
+    "シューズインクローゼット": "SIC", "シューズインクロゼット": "SIC", "S.I.C": "SIC",
+}
+_LDK_PARTS = {"リビング": "L", "ダイニング": "D", "キッチン": "K"}
+
+
+def room_key(text: Any) -> str:
+    """室名を揃えた鍵。全角半角・空白・括弧の違いと、一意に決まる略し方だけを揃える。"""
+    s = re.sub(r"[\s()()]", "", nfkc(text))
+    upper = s.upper()
+    for name, short in ROOM_SYNONYMS.items():
+        if upper == nfkc(name).upper().replace(" ", ""):
+            return short
+    parts = [x for x in re.split(r"[/・、,]", nfkc(text).replace(" ", "/")) if x]
+    if len(parts) > 1 and all(x in _LDK_PARTS for x in parts) and len(set(parts)) == len(parts):
+        letters = "".join(sorted((_LDK_PARTS[x] for x in parts), key="LDK".index))
+        if letters in ("LDK", "LD", "DK"):
+            return letters
+    return upper if re.fullmatch(r"[A-Za-z0-9.]+", s) else s
+
+
+def room_variants(names: Sequence[Any]) -> list[dict[str, Any]]:
+    """揃えた室名ごとに、元の書き方が 2 つ以上あったもの(揃えた件数を数えるため)。"""
+    groups: dict[str, set[str]] = {}
+    for n in names:
+        if nfkc(n) and nfkc(n) != UNDECIDED:
+            groups.setdefault(room_key(n), set()).add(nfkc(n))
+    return [{"揃えた名前": k, "元の書き方": sorted(v)} for k, v in sorted(groups.items()) if len(v) > 1]
+
+
+_norm_room = room_key
 
 
 def template_rows(items: Sequence[Mapping[str, Any]], skip_pages: set[int], kinds: Mapping[int, Mapping[str, Any]],
@@ -531,7 +563,7 @@ def template_rows(items: Sequence[Mapping[str, Any]], skip_pages: set[int], kind
     for item in items:
         if item["ページ"] in skip_pages or item["場所"] in (UNDECIDED, ""):
             continue
-        if item["部位"] in FINISH_PARTS and item["場所"] not in rooms:
+        if item["部位"] in FINISH_PARTS and room_key(item["場所"]) not in {room_key(r) for r in rooms}:
             rooms.append(item["場所"])
     for room in extra_rooms:
         if _norm_room(room) not in {_norm_room(r) for r in rooms}:
@@ -643,6 +675,12 @@ def finish_schedule(ctx: Context, org: Mapping[str, Any], understanding: Mapping
     rooms = [r["室"] for r in original]
     kinds = org["ページ"]
     template = template_rows(understanding["項目"], set(pages), kinds, rooms)
+    # K-61 の判断 2: 仕上の表を持つ別の図面(カラースキームなど)も原本と数えるが、本来の仕上表ではないと示す。
+    not_proper = []
+    for n in pages:
+        drawn = nfkc(kinds.get(n, {}).get("描かれているもの"))
+        if drawn and not re.search(r"仕上(げ)?表|仕上(げ)?一覧", drawn):
+            not_proper.append({"ページ": n, "図面": drawn})
     if not pages:
         status = NO_ORIGINAL
     elif missing and not original:
@@ -655,6 +693,8 @@ def finish_schedule(ctx: Context, org: Mapping[str, Any], understanding: Mapping
         "原本のページの見つけ方": how,
         "原本の行": original,
         "原本の読めなかった所": unreadable,
+        "本来の仕上表ではないページ": not_proper,
+        "室名を揃えた": room_variants([it["場所"] for it in understanding["項目"]] + rooms),
         "ひな型": template,
         "照らし合わせ": compare(template, [r for r in original if r["部位"] in FINISH_PARTS]) if original else
         [dict(_pair(t, []), 照らし合わせ=NO_ORIGINAL if not pages else UNKNOWN) for t in template],
