@@ -501,10 +501,25 @@ class ApiCaller(AICaller):
         return AIAnswer(payload, SOURCE_API, seconds, note, str(getattr(response, "model", "") or model), usage)
 
 
+BACKEND_ENV = "DRAFT_AI_BACKEND"
+BACKENDS = ("cloud", "local")
+
+
 def make_caller(answers_dir: Path, client: Any = None, model: str | None = None, batch: bool = False,
                 poll_seconds: float = 30.0) -> AICaller:
-    """鍵があれば `ApiCaller`、無ければ `FolderCaller`。``client`` を渡せば鍵を見ない(テスト用)。"""
+    """鍵があれば `ApiCaller`、無ければ `FolderCaller`。``client`` を渡せば鍵を見ない(テスト用)。
+
+    AI の呼び出し口は環境変数 ``DRAFT_AI_BACKEND`` で切り替える(K-62 の追記 2)。
+    - ``cloud``(既定): 鍵があればクラウドの API、無ければ問いをフォルダに置く。
+    - ``local``: ローカルのモデルは**まだ繋いでいない**。問いをフォルダに置くだけにする
+      (``待っている問い/*/指示.md`` を読んで ``答え/<指紋>.json`` を書けば、何が答えても同じに読み込む)。
+    """
+    backend = (os.environ.get(BACKEND_ENV) or "cloud").strip().lower()
+    if backend not in BACKENDS:
+        raise ValueError(f"{BACKEND_ENV} は {' / '.join(BACKENDS)} のどれか({backend!r} は無い)")
     model = model or os.environ.get(MODEL_ENV) or DEFAULT_MODEL
+    if backend == "local" and client is None:
+        return FolderCaller(answers_dir, model)
     if client is None:
         if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
             return FolderCaller(answers_dir, model)

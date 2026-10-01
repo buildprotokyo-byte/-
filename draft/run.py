@@ -129,6 +129,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--labor", default=None, help="歩掛 {工事項目: {1人1日あたり, 日当}}(無ければ未入力)")
     p.add_argument("--machine-output", default=None, help="前に出した機械の出力(無ければこの場で機械を動かす)")
     p.add_argument("--no-machine-check", action="store_true", help="機械の検算を飛ばす(自動確定の数も未取得になる)")
+    p.add_argument("--cache-dir", default=None,
+                   help="機械の読みを置いて使い回す場所(既定は環境変数 DRAFT_CACHE_DIR。どちらも無ければ使い回さない)")
     p.add_argument("--parallel", type=int, default=DEFAULT_PARALLEL)
     p.add_argument("--pass1-batch", type=int, default=DEFAULT_PASS1_BATCH,
                    help=f"通読の 1 回に渡すページ数(既定 {DEFAULT_PASS1_BATCH}。K-61 の判断 1 で分ける。0 は全ページを 1 回で)")
@@ -156,7 +158,14 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         from concurrent.futures import ThreadPoolExecutor
 
         pool = ThreadPoolExecutor(max_workers=1)
-        machine_future = pool.submit(machine_reading, pdf, a.case_id, out)
+        import os as _os
+
+        from draft import machine as machine_part
+
+        if a.cache_dir or _os.environ.get(machine_part.CACHE_ENV):
+            machine_future = pool.submit(machine_part.machine_read, pdf, a.cache_dir, a.case_id)
+        else:
+            machine_future = pool.submit(machine_reading, pdf, a.case_id, out)
     cost_table = _load_json(a.cost_table)
     human = _load_json(a.answers) or {}
 
