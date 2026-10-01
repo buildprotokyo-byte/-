@@ -132,13 +132,16 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--parallel", type=int, default=DEFAULT_PARALLEL)
     p.add_argument("--pass1-batch", type=int, default=DEFAULT_PASS1_BATCH,
                    help=f"通読の 1 回に渡すページ数(既定 {DEFAULT_PASS1_BATCH}。K-61 の判断 1 で分ける。0 は全ページを 1 回で)")
+    p.add_argument("--batch", action="store_true",
+                   help="評価用の回だけ: 段ごとの呼び出しをまとめて送る(即時でない処理方式、半額。結果は最長 24 時間後)")
+    p.add_argument("--batch-poll-seconds", type=float, default=30.0, help="まとめて送ったものの終わりを見に行く間隔(秒)")
     a = p.parse_args(argv)
 
     started = time.perf_counter()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     answers_dir = Path(a.answers_dir) if a.answers_dir else out / "AIの答え"
-    caller = make_caller(answers_dir, client=client)
+    caller = make_caller(answers_dir, client=client, batch=a.batch, poll_seconds=a.batch_poll_seconds)
     import os
 
     model = getattr(caller, "model", None) or os.environ.get(MODEL_ENV) or DEFAULT_MODEL

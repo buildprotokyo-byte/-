@@ -53,6 +53,9 @@ PRICE_PER_MTOK = {
 CACHE_READ_PER_MTOK = {"claude-opus-5-5": 0.20, "claude-sonnet-5-5": 0.20, "claude-haiku-4-5": 0.10}
 #: キャッシュに書いた分は入力の 1.25 倍(5 分の保持)。
 CACHE_WRITE_FACTOR = 1.25
+#: まとめて処理(即時でない処理方式、Message Batches)の値引き。すべての使用量が半額、結果は最長 24 時間後。
+BATCH_FACTOR = 0.5
+BATCH_KEY = "まとめて処理(半額)"
 
 
 def price_of(model: str) -> tuple[float, float, float]:
@@ -65,9 +68,11 @@ def price_of(model: str) -> tuple[float, float, float]:
 def usage_cost(model: str, usage: dict[str, int]) -> float:
     """API が返した使用量から費用(ドル)。出力には考える分(thinking)も入っている。"""
     pin, pout, pread = price_of(model)
-    return (usage.get("入力", 0) * pin + usage.get("出力", 0) * pout
+    cost = (usage.get("入力", 0) * pin + usage.get("出力", 0) * pout
             + usage.get("キャッシュに書いた", 0) * pin * CACHE_WRITE_FACTOR
             + usage.get("キャッシュから読んだ", 0) * pread) / 1e6
+    # まとめて処理(Message Batches)はすべての使用量が 50% 引き。
+    return cost * (BATCH_FACTOR if usage.get(BATCH_KEY) else 1.0)
 
 
 def model_for_stage(stage: str, default: str | None = None) -> str:
@@ -371,9 +376,69 @@ class FolderCaller(AICaller):
 class ApiCaller(AICaller):
     """鍵があるときの口。置かれた答えがあればそれを使い、無ければその場で呼ぶ。"""
 
-    def __init__(self, answers_dir: Path, client: Any, model: str) -> None:
+    def __init__(self, answers_dir: Path, client: Any, model: str, batch: bool = False,
+                 poll_seconds: float = 30.0) -> None:
         super().__init__(answers_dir, model)
         self.client = client
+        #: 評価用の回だけ: 段ごとの呼び出しをまとめて送る(手段 f)。待つあいだ一本道は止まる。
+        self.batch = batch
+        self.poll_seconds = poll_seconds
+        self._prefetched: dict[str, AIAnswer] = {}
+
+    def params(self, req: AIRequest) -> dict[str, Any]:
+        model = self.model_for(req.stage)
+        return {
+            "model": model,
+            "max_tokens": MAX_OUTPUT_TOKENS.get(model, 64000),
+            "thinking": {"type": "adaptive"},
+            "output_config": {"effort": "high"},
+            "system": req.instructions,
+            "messages": [{"role": "user", "content": self.content(req)}],
+        }
+
+    def map(self, reqs: Sequence[AIRequest], parallel: int, fn: Callable[[AIRequest], AIAnswer] | None = None) -> list[AIAnswer]:
+        if not self.batch or fn is not None:
+            return super().map(reqs, parallel, fn)
+        todo: dict[str, AIRequest] = {}
+        for r in reqs:
+            fp = self.fingerprint(r)
+            if self._stored(fp) is None and fp not in self._prefetched:
+                todo[fp] = r
+        if todo:
+            self._run_batch(todo)
+        return [self.call(r) for r in reqs]
+
+    def _run_batch(self, todo: dict[str, AIRequest]) -> None:
+        started = time.perf_counter()
+        ids = {f"r{i}": fp for i, fp in enumerate(todo)}
+        try:
+            batch = self.client.messages.batches.create(requests=[
+                {"custom_id": cid, "params": self.params(todo[fp])} for cid, fp in ids.items()])
+            while getattr(batch, "processing_status", "ended") != "ended":
+                time.sleep(self.poll_seconds)
+                batch = self.client.messages.batches.retrieve(batch.id)
+            results = list(self.client.messages.batches.results(batch.id))
+        except Exception as exc:  # noqa: BLE001  失敗しても止めず、1 件ずつの未取得にする
+            note = f"まとめて送るのに失敗した: {type(exc).__name__}: {exc}"
+            for fp in ids.values():
+                self._prefetched[fp] = AIAnswer(None, SOURCE_MISSING, None, note)
+            return
+        seconds = round(time.perf_counter() - started, 1)
+        for res in results:
+            fp = ids.get(getattr(res, "custom_id", ""))
+            if fp is None:
+                continue
+            body = getattr(res, "result", None)
+            if getattr(body, "type", "") != "succeeded":
+                self._prefetched[fp] = AIAnswer(None, SOURCE_MISSING, seconds,
+                                                f"まとめて送った 1 件が {getattr(body, 'type', '不明')}")
+                continue
+            ans = self._parse(body.message, self.model_for(todo[fp].stage), seconds)
+            if ans.usage is not None:
+                ans.usage[BATCH_KEY] = 1
+            self._prefetched[fp] = ans
+        for fp in ids.values():
+            self._prefetched.setdefault(fp, AIAnswer(None, SOURCE_MISSING, seconds, "まとめて送った結果に無かった"))
 
     def content(self, req: AIRequest) -> list[dict[str, Any]]:
         blocks: list[dict[str, Any]] = []
@@ -395,22 +460,21 @@ class ApiCaller(AICaller):
         return blocks
 
     def _call_fresh(self, req: AIRequest, fp: str) -> AIAnswer:
+        if self.batch and fp not in self._prefetched:
+            self._run_batch({fp: req})  # 1 件だけの段(整理)も同じ処理方式で送る
+        if fp in self._prefetched:
+            return self._prefetched.pop(fp)
         started = time.perf_counter()
         model = self.model_for(req.stage)
         try:
-            with self.client.messages.stream(
-                model=model,
-                max_tokens=MAX_OUTPUT_TOKENS.get(model, 64000),
-                thinking={"type": "adaptive"},
-                output_config={"effort": "high"},
-                system=req.instructions,
-                messages=[{"role": "user", "content": self.content(req)}],
-            ) as stream:
+            with self.client.messages.stream(**self.params(req)) as stream:
                 response = stream.get_final_message()
         except Exception as exc:  # noqa: BLE001  呼び出しの失敗も止めずに理由を残す
             return AIAnswer(None, SOURCE_MISSING, round(time.perf_counter() - started, 1),
                             f"呼び出しが失敗した: {type(exc).__name__}: {exc}")
-        seconds = round(time.perf_counter() - started, 1)
+        return self._parse(response, model, round(time.perf_counter() - started, 1))
+
+    def _parse(self, response: Any, model: str, seconds: float | None) -> AIAnswer:
         if getattr(response, "stop_reason", None) == "refusal":
             return AIAnswer(None, SOURCE_MISSING, seconds, "AI が答えを断った")
         text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
@@ -431,7 +495,8 @@ class ApiCaller(AICaller):
         return AIAnswer(payload, SOURCE_API, seconds, note, str(getattr(response, "model", "") or model), usage)
 
 
-def make_caller(answers_dir: Path, client: Any = None, model: str | None = None) -> AICaller:
+def make_caller(answers_dir: Path, client: Any = None, model: str | None = None, batch: bool = False,
+                poll_seconds: float = 30.0) -> AICaller:
     """鍵があれば `ApiCaller`、無ければ `FolderCaller`。``client`` を渡せば鍵を見ない(テスト用)。"""
     model = model or os.environ.get(MODEL_ENV) or DEFAULT_MODEL
     if client is None:
@@ -442,4 +507,4 @@ def make_caller(answers_dir: Path, client: Any = None, model: str | None = None)
         except ImportError:
             return FolderCaller(answers_dir, model)
         client = anthropic.Anthropic()
-    return ApiCaller(answers_dir, client, model)
+    return ApiCaller(answers_dir, client, model, batch=batch, poll_seconds=poll_seconds)

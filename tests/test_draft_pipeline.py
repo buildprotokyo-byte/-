@@ -361,3 +361,51 @@ def test_full_read_is_split_by_default(tmp_path, machine_output):
 
     assert DEFAULT_PASS1_BATCH > 0
     assert client.calls.count("通読") == 1  # 2 ページなので 1 回に収まる
+
+
+class BatchClient:
+    """まとめて処理(Message Batches)の偽物。中身の答えは FakeClient と同じにする。"""
+
+    def __init__(self) -> None:
+        self.inner = UsageClient()
+        self.created: list[int] = []
+        self._results: dict[str, list] = {}
+        self.messages = SimpleNamespace(stream=self._no_stream, batches=SimpleNamespace(
+            create=self.create, retrieve=self.retrieve, results=self.results))
+
+    def _no_stream(self, **kwargs):
+        raise AssertionError("まとめて処理のときは 1 件ずつ呼ばない")
+
+    def create(self, *, requests):
+        bid = f"b{len(self.created)}"
+        self.created.append(len(requests))
+        out = []
+        for r in requests:
+            p = r["params"]
+            s = self.inner.stream(system=p["system"], messages=p["messages"], model=p["model"])
+            out.append(SimpleNamespace(custom_id=r["custom_id"],
+                                       result=SimpleNamespace(type="succeeded", message=s.get_final_message())))
+        self._results[bid] = out
+        return SimpleNamespace(id=bid, processing_status="in_progress")
+
+    def retrieve(self, bid):
+        return SimpleNamespace(id=bid, processing_status="ended")
+
+    def results(self, bid):
+        return iter(self._results[bid])
+
+
+def test_batch_mode_sends_each_wave_as_one_batch_at_half_price(tmp_path, machine_output):
+    """手段 f: 評価用の回は、段ごとにまとめて送る(即時でない処理方式、50% 引き)。"""
+    pdf = _pdf(tmp_path / "図面.pdf")
+    out = tmp_path / "出力"
+    client = BatchClient()
+    code = run([str(pdf), "--out", str(out), "--machine-output", str(machine_output), "--batch",
+                "--batch-poll-seconds", "0"], client=client)
+    assert code == 0
+    r = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    assert r["理解"]["項目"]
+    assert sum(client.created) == len(r["AI を呼んだ記録"]["1回ずつ"])
+    one = r["AI を呼んだ記録"]["1回ずつ"][0]
+    assert one["使用量"]["まとめて処理(半額)"] == 1
+    assert one["費用(ドル)"] == pytest.approx((1000 * 4 + 2000 * 20 + 100 * 5 + 400 * 0.2) / 1e6 / 2)
