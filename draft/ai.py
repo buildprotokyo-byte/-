@@ -4,7 +4,8 @@
 ------------
 - 環境変数 ``ANTHROPIC_API_KEY``(または ``ANTHROPIC_AUTH_TOKEN``)。部品は ``pip install anthropic``。
 - モデルは環境変数 ``DRAFT_AI_MODEL``(既定 `DEFAULT_MODEL`)。段ごとに変えるときは ``DRAFT_AI_MODEL_<段>``
-  (例 ``DRAFT_AI_MODEL_整理=claude-sonnet-5-5``。K-62 の手段 c)。既定のモデル以外で読んだ答えは、指紋を分けて
+  (段は ORGANIZE 整理・PASS1 通読・REREAD 読み直し・UNDERSTAND 理解・ORIGINAL 仕上表の原本。
+  例 ``DRAFT_AI_MODEL_PASS1=claude-sonnet-5-5``。K-62 の手段 c)。既定のモデル以外で読んだ答えは、指紋を分けて
   既定のモデルの答えと混ぜない。
 - 同時に呼ぶ数の上限は ``--parallel``(既定 `DEFAULT_PARALLEL`)。
 
@@ -75,8 +76,13 @@ def usage_cost(model: str, usage: dict[str, int]) -> float:
     return cost * (BATCH_FACTOR if usage.get(BATCH_KEY) else 1.0)
 
 
+#: 段ごとのモデルを決める環境変数の名前(シェルによっては日本語の変数名が使えないので英字にする)。
+STAGE_ENV = {"整理": "ORGANIZE", "通読": "PASS1", "読み直し": "REREAD", "理解": "UNDERSTAND", "仕上表の原本": "ORIGINAL"}
+
+
 def model_for_stage(stage: str, default: str | None = None) -> str:
-    return os.environ.get(f"{MODEL_ENV}_{stage}") or default or os.environ.get(MODEL_ENV) or DEFAULT_MODEL
+    name = STAGE_ENV.get(stage, stage)
+    return os.environ.get(f"{MODEL_ENV}_{name}") or default or os.environ.get(MODEL_ENV) or DEFAULT_MODEL
 
 #: 画像のトークンの目安: 画素数 / 750(長い辺は 1,568 画素に縮められる前提)。**概算であって請求額ではない。**
 IMAGE_LONG_EDGE_FOR_TOKENS = 1568

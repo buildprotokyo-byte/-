@@ -342,8 +342,8 @@ def test_api_usage_is_recorded_and_priced(tmp_path, machine_output):
 
 
 def test_stage_model_can_be_set_per_stage(tmp_path, machine_output, monkeypatch):
-    """手段 c の口: DRAFT_AI_MODEL_<段> で段ごとにモデルを変えられる(既定は変えない)。"""
-    monkeypatch.setenv("DRAFT_AI_MODEL_整理", "claude-sonnet-5-5")
+    """手段 c の口: DRAFT_AI_MODEL_<段の英字名> で段ごとにモデルを変えられる(既定は変えない)。"""
+    monkeypatch.setenv("DRAFT_AI_MODEL_ORGANIZE", "claude-sonnet-5-5")
     pdf = _pdf(tmp_path / "図面.pdf")
     client = UsageClient()
     run([str(pdf), "--out", str(tmp_path / "出力"), "--machine-output", str(machine_output)], client=client)
