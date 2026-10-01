@@ -409,3 +409,30 @@ def test_batch_mode_sends_each_wave_as_one_batch_at_half_price(tmp_path, machine
     one = r["AI を呼んだ記録"]["1回ずつ"][0]
     assert one["使用量"]["まとめて処理(半額)"] == 1
     assert one["費用(ドル)"] == pytest.approx((1000 * 4 + 2000 * 20 + 100 * 5 + 400 * 0.2) / 1e6 / 2)
+
+
+def test_text_layer_pages_can_be_read_without_their_image(tmp_path, machine_output):
+    """手段 a: 表・仕様書の種類で文字の層があるページは、画像を送らず位置つきの文字で読ませる(既定は送る)。"""
+    pdf = _pdf(tmp_path / "図面.pdf")
+    out = tmp_path / "出力"
+    seen: list[list[dict]] = []
+
+    class Recording(FakeClient):
+        def stream(self, *, system: str, messages, **kwargs):
+            if "図面一式に、何が書いてあるか" in system:
+                seen.append(messages[0]["content"])
+            return super().stream(system=system, messages=messages, **kwargs)
+
+    client = Recording()
+    assert run([str(pdf), "--out", str(out), "--machine-output", str(machine_output),
+                "--text-instead-of-image"], client=client) == 0
+    sent = [{"content": c} for c in seen]
+    assert sent
+    for r in sent:
+        names = [b.get("text", "") for b in r["content"] if b["type"] == "text"]
+        joined = "\n".join(names)
+        # 1 ページ目(仕上表、文字の層あり)の画像は送らず、位置つきの文字を渡す
+        assert "画像: p1.png" not in joined
+        assert "文字の層(位置つき)" in joined
+    # 2 ページ目(平面図)は今までどおり画像を送る
+    assert any("画像: p2.png" in b.get("text", "") for r in sent for b in r["content"] if b["type"] == "text")

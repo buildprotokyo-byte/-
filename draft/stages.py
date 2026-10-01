@@ -79,6 +79,8 @@ class Context:
     provisional: list[dict[str, str]] = field(default_factory=list)
     #: 通読の 1 回に渡すページ数。0 は全ページを 1 回で(K-59 の既定)。小さくすると並べて呼べる(時間を下げる案)。
     pass1_batch: int = 0
+    #: 画像を送らず、文字の層(位置つき)だけで読ませるページ(K-62 の手段 a)。既定は空(今までどおり画像も送る)。
+    text_only: set[int] = field(default_factory=set)
 
     def page(self, number: int) -> PageInfo:
         return self.pages[number - 1]
@@ -164,14 +166,41 @@ READ_SHAPE = (
 )
 
 
+#: 手段 a で画像を送らない候補の種類(表・仕様書から。図の多いページは今までどおり画像を送る)。
+TEXT_ONLY_KINDS = ("表紙・図面リスト", "概要", "仕様書", "仕上表", "建具表")
+TEXT_ONLY_NOTE = ("このページの画像は渡していない。文字の層の語と、その位置(幅 2000 画素の画像の座標)だけで読む。"
+                  "位置は語の位置を写してよい。線・罫・記号は見えないので推し量って挙げず、分からなかったものに書く。")
+
+
+def text_only_pages(ctx: Context, org: Mapping[str, Any]) -> set[int]:
+    """文字の層があり、表・仕様書の種類のページ(K-62 の手段 a・追記 3)。"""
+    return {n for n, e in org.get("ページ", {}).items()
+            if e.get("種類") in TEXT_ONLY_KINDS and ctx.page(int(n)).text.strip()}
+
+
+def _images(ctx: Context, numbers: Sequence[int]) -> list[Path]:
+    return [ctx.page(n).image for n in numbers if n not in ctx.text_only]
+
+
+def _text_data(ctx: Context, numbers: Sequence[int]) -> dict[str, Any]:
+    from draft.pages import positioned_words
+
+    data: dict[str, Any] = {"文字の層": {str(n): ctx.page(n).text for n in numbers}}
+    only = [n for n in numbers if n in ctx.text_only]
+    if only:
+        data["画像を渡していないページ"] = {"ページ": only, "読み方": TEXT_ONLY_NOTE}
+        data["文字の層(位置つき)"] = {str(n): positioned_words(ctx.pdf, n) for n in only}
+    return data
+
+
 def pass1_request(ctx: Context, pages: Sequence[int], key: str = "全ページ") -> AIRequest:
     ordered = sorted(pages)
     return AIRequest(
         stage="通読",
         key=key,
         instructions=prompt("通読"),
-        images=[ctx.page(n).image for n in ordered],
-        data={"文字の層": {str(n): ctx.page(n).text for n in ordered}},
+        images=_images(ctx, ordered),
+        data=_text_data(ctx, ordered),
         answer_shape=READ_SHAPE,
     )
 
@@ -181,8 +210,8 @@ def reread_request(ctx: Context, n: int) -> AIRequest:
         stage="読み直し",
         key=f"p{n}",
         instructions=prompt("読み直し", page=n),
-        images=[ctx.page(n).image],
-        data={"文字の層": {str(n): ctx.page(n).text}},
+        images=_images(ctx, [n]),
+        data=_text_data(ctx, [n]),
         answer_shape=READ_SHAPE,
     )
 
@@ -362,7 +391,7 @@ def understand_request(ctx: Context, n: int, org: Mapping[str, Any], elements: l
         stage="理解",
         key=f"p{n}",
         instructions=prompt("理解", page=n),
-        images=[ctx.page(n).image] + [ctx.page(m).image for m in legends],
+        images=_images(ctx, [n]) + [ctx.page(m).image for m in legends],
         data={
             "要素": [{k: e[k] for k in ("id", "種類", "内容", "位置", "確かさ")} for e in elements],
             "ページの種類": {"このページ": kind, "凡例のページ": legends},
