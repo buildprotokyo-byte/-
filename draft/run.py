@@ -167,6 +167,10 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--with-all", action="store_true", help="旗を全部オンにする(K-63 の比べる回)")
     p.add_argument("--ocr", default=None,
                    help="OCR の結果の JSON(K-64。文字の層が無いページだけ文字の層の代わりに使う。既定は環境変数 DRAFT_OCR)")
+    p.add_argument("--with-cards", action="store_true",
+                   help="質問カードとメーター(K-65)を出す。3 状態・連鎖・累積・止め線も付く")
+    p.add_argument("--card-order", default="連鎖の金額順", choices=("連鎖の金額順", "ランダム"),
+                   help="カードの並べ方(K-65 の実験で比べる 2 通り)")
     p.add_argument("--with-page-confidence", action="store_true",
                    help="旗(既定はオフ、K-64): 読めた割合が基準未満のページでは確度「高」を出さない(理解の確度を書き換える)")
     p.add_argument("--legend-lookup", default=None,
@@ -262,7 +266,11 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         if a.stage >= 2 else dict(empty_finish, 段階="段階 1 なので仕上表の段を動かしていない")
     )
     round_trip = None
+    before_items = None
     if human:
+        from draft import answers_io
+
+        before_items = answers_io.snapshot(understanding["項目"])
         round_trip = _guarded(ctx, "答えを戻す", lambda: stages.apply_answers(understanding, finish, human), None)
     empty_questions = {"段階ごと": {}, "候補の数": {}, "並べ方": stages.UNKNOWN}
     qs = (
@@ -270,6 +278,24 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
                                                        (round_trip or {}).get("戻した鍵")), empty_questions)
         if a.stage >= 2 else dict(empty_questions, 段階="段階 1 なので質問の段を動かしていない")
     )
+    # K-65: 3 状態・連鎖・カードとメーター。**問いは作らない**(上の候補に付けるだけ)。
+    cards = None
+    if a.stage >= 2 and a.with_cards:
+        from draft import questioning
+
+        cards = _guarded(ctx, "質問カード(K-65)",
+                         lambda: questioning.build(qs, understanding, finish, cost_table=cost_table,
+                                                   how=a.card_order), None)
+        if round_trip is not None and cards is not None:
+            from draft import answers_io
+            from draft import chain as chain_part
+
+            answered = [{"鍵": k, "選択肢": (v.get("選択肢") if isinstance(v, dict) else str(v))}
+                        for k, v in human.items()]
+            graph = chain_part.build(understanding["項目"], finish=finish)
+            round_trip["矛盾"] = answers_io.contradictions(answered, cards["カード"], understanding["項目"])
+            round_trip["影響範囲"] = answers_io.affected(graph, answered, cards["カード"])
+            round_trip["変わった項目"] = answers_io.changed(before_items or {}, understanding["項目"])
 
     def assemble() -> dict[str, Any]:
         from estimating.breakdown import build_breakdown
@@ -406,6 +432,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         "採点表": card,
         "仕上表": finish,
         "質問": qs,
+        **({"質問カード(K-65)": cards} if cards is not None else {}),
         "答えの往復": round_trip,
         "組み立て": assembly,
         "機械の検算": check,
