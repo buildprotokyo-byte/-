@@ -158,3 +158,26 @@ def test_言い換えの合格率は測った値を下回らない() -> None:
     """2026-10-02 に測った 32/36。**下がる変更が入ったら落ちる。**"""
     合格 = sum(1 for p in paraphrase_pairs() if compare(p.left, p.right, level=p.level).hit)
     assert 合格 >= 32
+
+
+def test_表記を揃える処理は1か所だけ() -> None:
+    """**K-66 の条件 1(おーちゃん)**: 名前を揃える処理の 2 つ目を作らない。
+
+    `draft/normalize.py` は K-63(#246)で入った層で、同じ表記のゆれ(ビニール→ビニル、
+    貼→張、幅木→巾木)を自分で持っていた。**決める場所が 2 か所あると、
+    片方だけ直したときに黙って食い違う。**そこで `sameness.flatten` に寄せた。
+
+    寄せても判定が動かないことは P011 の内訳 2,209 行で測ってある(細目 id の変化 0 件)。
+    """
+    import re
+
+    import draft.normalize as dn
+    from sameness import flatten
+
+    source = Path(dn.__file__).read_text(encoding="utf-8")
+
+    assert dn._flat("ビニール壁紙貼り") == flatten("ビニール壁紙貼り")
+    # **`_flat` の中に表記のゆれの表を書き戻していないこと。**
+    body = source.split("def _flat")[1].split("\ndef ")[0]
+    assert "replace(" not in body
+    assert not re.search(r"ビニール|幅木", body.split('"""')[-1])
