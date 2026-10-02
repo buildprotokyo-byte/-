@@ -12,6 +12,15 @@
 - ``待っている問い/`` … 鍵が無くて呼べなかった AI の指示(答えを置けば次の通しで使う。``--answers-dir`` の中)
 
 **止まらない。** 段が失敗しても「止まった所」に書いて次の段へ進む。**自動確定が 1 件でも出たら、終了コード 2 で止める。**
+
+旗(K-63、既定はすべてオフ。オフなら出力は今までと同じ)::
+
+    --with-symbol-count  --with-scale-length  --with-legend-lookup [--legend-lookup 対照表.json]
+    --with-branch-questions  --with-line-judge  --with-knowledge [--knowledge 知識の表.json]
+    --with-all(キラークエスチョンは旗の裏でもつないでいない。draft/flags.py の NOT_FLAGGED)
+
+旗オンの部品は ``下書き.json`` の「旗の部品」の欄にだけ書く(理解・組み立ての数量は書き換えない)。
+部品が足した行は組み立ての行と一緒に機械の検算へもう一度通し、自動確定が出たら終了コード 2 で止める。
 """
 
 from __future__ import annotations
@@ -116,6 +125,10 @@ def machine_check(rows: Sequence[Mapping[str, Any]], machine_output: str | None,
 #: 34 ページを 1 回で読ませると 1 回の出力の上限を超える。3 ページなら上限の内に収まる見込み(パソコン側で確かめる)。
 DEFAULT_PASS1_BATCH = 3
 
+#: 旗の部品の表のパスを渡す環境変数(K-63)。表はリポジトリの外に置く。
+LEGEND_ENV = "DRAFT_LEGEND_LOOKUP"
+KNOWLEDGE_ENV = "DRAFT_KNOWLEDGE"
+
 
 def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -139,7 +152,17 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--batch", action="store_true",
                    help="評価用の回だけ: 段ごとの呼び出しをまとめて送る(即時でない処理方式、半額。結果は最長 24 時間後)")
     p.add_argument("--batch-poll-seconds", type=float, default=30.0, help="まとめて送ったものの終わりを見に行く間隔(秒)")
+    from draft import flags as flag_parts
+
+    for part, flag in flag_parts.FLAGS.items():
+        p.add_argument(flag, action="store_true", help=f"旗(既定はオフ): {part}をつなぐ(K-63)。出力は「旗の部品」の欄だけ")
+    p.add_argument("--with-all", action="store_true", help="旗を全部オンにする(K-63 の比べる回)")
+    p.add_argument("--legend-lookup", default=None,
+                   help=f"凡例の対照表の JSON(--with-legend-lookup で使う。既定は環境変数 {LEGEND_ENV})")
+    p.add_argument("--knowledge", default=None,
+                   help=f"知識の表の JSON(--with-knowledge で使う。既定は環境変数 {KNOWLEDGE_ENV})")
     a = p.parse_args(argv)
+    on = [part for part, flag in flag_parts.FLAGS.items() if a.with_all or getattr(a, flag_parts.dest(flag))]
 
     started = time.perf_counter()
     out = Path(a.out)
@@ -207,17 +230,24 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
 
     assembly = _guarded(ctx, "組み立て", assemble, {"内訳の行": [], "内訳": {}, "材料表": [], "時間": []})
     check = None
+    machine_seen: list[Any] = []
     if not a.no_machine_check:
         def checked() -> dict[str, Any]:
             machine = machine_future.result() if machine_future is not None else None
+            machine_seen.append(machine)
             if machine is not None:
                 ctx.timings["機械の読み(AI と並べて動かした)"] = machine["秒"]
             return machine_check(assembly["内訳の行"], a.machine_output, machine, a.case_id, out / "本番の形.json")
 
         check = _guarded(ctx, "機械の検算", checked, None)
+    flag_out = None
+    if on:
+        flag_out = _flag_parts(on, a, ctx, org, reading, understanding, finish, assembly,
+                              machine_seen[0] if machine_seen else None)
     if pool is not None:
         pool.shutdown(wait=False)
     auto = check["自動確定"] if check else stages.UNKNOWN
+    flag_auto = (flag_out or {}).get("検算(旗の行を足した)", {}).get("自動確定")
 
     warn = []
     flagged = [n for n, v in reading["ページ"].items() if v.get("読み落としの可能性が高い")]
@@ -258,6 +288,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         "組み立て": assembly,
         "機械の検算": check,
         "つなげなかった部品": [{"部品": n, "理由": w} for n, w in NOT_CONNECTED],
+        **({"旗の部品": flag_out} if flag_out is not None else {}),
         "時間(秒)": ctx.timings,
         "AI を呼んだ記録": {"まとめ": caller.summary(model), "1回ずつ": [r.as_dict() for r in caller.records]},
         "並列数の上限": a.parallel,
@@ -273,8 +304,52 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     caller.retire_stale()
     pending = sorted((answers_dir / "待っている問い").glob("*/指示.md")) if (answers_dir / "待っている問い").exists() else []
     print(json.dumps({"出力": str(out), "自動確定": auto, "止まった所": len(ctx.stops), "待っている問い": len(pending),
-                      "AI": caller.summary(model)["答えの出どころ"]}, ensure_ascii=False))
+                      "AI": caller.summary(model)["答えの出どころ"],
+                      **({"旗": on, "旗の行を足した自動確定": flag_auto} if on else {})}, ensure_ascii=False))
+    if isinstance(flag_auto, int) and flag_auto > 0:
+        return 2
     return 2 if isinstance(auto, int) and auto > 0 else 0
+
+
+def _flag_parts(on: Sequence[str], a: argparse.Namespace, ctx: stages.Context, org: Mapping[str, Any],
+                reading: Mapping[str, Any], understanding: Mapping[str, Any], finish: Mapping[str, Any],
+                assembly: Mapping[str, Any],
+                machine: Mapping[str, Any] | None) -> dict[str, Any]:
+    """旗オンの部品を動かす(K-63 4 節)。**理解・組み立ての数量は書き換えない。** 部品の失敗は「止まった所」に書いて次へ。"""
+    import os
+
+    from draft import flags as fp
+
+    legend = a.legend_lookup or os.environ.get(LEGEND_ENV)
+    know = a.knowledge or os.environ.get(KNOWLEDGE_ENV)
+    calls: dict[str, Callable[[], dict[str, Any]]] = {
+        "記号を室ごとに数える": lambda: fp.symbol_count(reading, understanding, finish),
+        "縮尺で長さを測る": lambda: fp.scale_length(ctx.pdf, org, reading, understanding, finish),
+        "凡例の対照表": lambda: fp.legend_lookup(ctx.pdf, org, reading, understanding, legend),
+        "分かれ道を AI に選択肢で聞く": lambda: fp.branch_questions(ctx, understanding, assembly),
+        "線引き": lambda: fp.line_judge(ctx, assembly),
+        "知識の表": lambda: fp.knowledge(understanding, know),
+    }
+    parts: dict[str, Any] = {}
+    for name in fp.FLAGS:
+        if name not in on:
+            continue
+        part = _guarded(ctx, f"旗: {name}", calls[name], None)
+        parts[name] = part if part is not None else {"旗": fp.FLAGS[name], "動いたか": "止まった(「止まった所」を見る)",
+                                                      "足したもの": [], "問い": []}
+    out: dict[str, Any] = {"部品": parts, "まとめ": fp.overview(parts),
+                           "旗の裏でもつながなかった部品": [{"部品": k, "理由": v} for k, v in fp.NOT_FLAGGED.items()]}
+    rows = fp.increase_rows(parts)
+    if a.no_machine_check:
+        out["検算(旗の行を足した)"] = {"自動確定": stages.UNKNOWN, "注": "機械の検算を飛ばした"}
+    elif rows:
+        res = _guarded(ctx, "旗: 機械の検算", lambda: machine_check(
+            list(assembly["内訳の行"]) + rows, a.machine_output, machine, a.case_id), None)
+        out["検算(旗の行を足した)"] = ({"自動確定": res["自動確定"], "自動確定の内訳": res["自動確定の内訳"], "足した行": len(rows)}
+                                 if res else {"自動確定": stages.UNKNOWN, "注": "検算が止まった"})
+    else:
+        out["検算(旗の行を足した)"] = {"自動確定": 0, "足した行": 0, "注": "数量が増えた行が無いので、組み立ての検算と同じ"}
+    return out
 
 
 def main() -> None:
