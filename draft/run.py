@@ -138,7 +138,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--case-id", default="案件")
     p.add_argument("--mode", default="通常", choices=tuple(stages.MODES))
     p.add_argument("--answers", default=None, help="人の答え {回答の鍵: 選んだ選択肢の文字}")
-    p.add_argument("--cost-table", default=None, help="原価表 {品番または工事: 単価}(無ければ未取得)")
+    p.add_argument("--cost-table", default=None, help="原価表(JSON {品番または工事: 単価} か行の並び、または CSV: 工事・品番・単位・単価・数量)。"
+                   "質問の並べ方と内訳との比べにだけ使い、正解にはしない(無ければ未取得)")
     p.add_argument("--labor", default=None, help="歩掛 {工事項目: {1人1日あたり, 日当}}(無ければ未入力)")
     p.add_argument("--machine-output", default=None, help="前に出した機械の出力(無ければこの場で機械を動かす)")
     p.add_argument("--no-machine-check", action="store_true", help="機械の検算を飛ばす(自動確定の数も未取得になる)")
@@ -211,7 +212,9 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             machine_future = pool.submit(machine_part.machine_read, pdf, a.cache_dir, a.case_id)
         else:
             machine_future = pool.submit(machine_reading, pdf, a.case_id, out)
-    cost_table = _load_json(a.cost_table)
+    from draft.cost_table import compare as compare_cost, load_cost_table
+
+    cost_table = load_cost_table(a.cost_table)
     human = _load_json(a.answers) or {}
 
     org = _guarded(ctx, "整理", lambda: stages.organize(ctx),
@@ -264,6 +267,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "材料表": stages.materials(understanding["項目"]),
             "時間": stages.labor(rows, _load_json(a.labor)),
             "段階ごとの出力": stages.mode_outputs(rows, understanding["項目"]),
+            **({"原価表との比べ": compare_cost(rows, cost_table)} if cost_table else {}),
             **({"外した行": [{"項目": it["id"], "工事": it["工事"], "場所": it["場所"], "数量": it["数量"],
                              "理由": it["外す"]} for it in understanding["項目"] if it.get("外す")]}
                if any(it.get("外す") for it in understanding["項目"]) else {}),
@@ -308,7 +312,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "段階": a.mode,
             "段階の目安": stages.MODES[a.mode],
             "自動確定": auto,
-            "原価表": "あり" if cost_table else stages.UNKNOWN,
+            "原価表": f"あり({len(cost_table['行'])} 行、{cost_table['形']})" if cost_table else stages.UNKNOWN,
             "概要の別紙": stages.UNKNOWN,
             "精度の注意": warn,
             "項目の数": len(items),

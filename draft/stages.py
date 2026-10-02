@@ -865,17 +865,14 @@ def question_candidates(understanding: Mapping[str, Any], finish: Mapping[str, A
                 "選択肢": list(UNREADABLE_OPTIONS), "見る所": [n], "関係する項目": [],
                 "鍵": f"読めない:{n}:{i}", "位置": [{"ページ": n, "位置": u["位置"]}],
             })
+    from draft.cost_table import load_cost_table, question_amount
+
+    table = cost_table if isinstance(cost_table, Mapping) and isinstance(cost_table.get("行"), list) \
+        else load_cost_table(cost_table)
+    by_id = {it["id"]: it for it in items}
     for q in qs:
-        q["金額"] = _amount(q, cost_table)
+        q["金額"], q["金額の出どころ"] = question_amount(q, by_id, table)
     return qs
-
-
-def _amount(q: Mapping[str, Any], cost_table: Mapping[str, float] | None) -> float | None:
-    if not cost_table:
-        return None
-    price = cost_table.get(nfkc(q.get("品番"))) or cost_table.get(nfkc(q.get("工事")))
-    qty = q.get("数量")
-    return price * qty if price is not None and isinstance(qty, (int, float)) else None
 
 
 def rank_questions(qs: list[dict[str, Any]], mode: str, answered: set[str], has_cost: bool) -> list[dict[str, Any]]:
@@ -885,7 +882,9 @@ def rank_questions(qs: list[dict[str, Any]], mode: str, answered: set[str], has_
     if mode == "概算":
         pool = [q for q in pool if _kamoku_rank(q["科目"]) < len(PRIORITY_KAMOKU)]
     if has_cost:
-        pool.sort(key=lambda q: (-(q["金額"] or -1), _kamoku_rank(q["科目"])))
+        # 金額が未取得の問いは後ろ(そのあいだは今までの並べ方)
+        pool.sort(key=lambda q: (q["金額"] is None, -(q["金額"] or 0), _kamoku_rank(q["科目"]),
+                                 -len(q["関係する項目"]), q["鍵"]))
     else:
         kind_rank = {"原本との違い": 0, "決められなかった所": 1, "読めなかった所": 2}
         pool.sort(key=lambda q: (_kamoku_rank(q["科目"]), kind_rank[q["種類"]], -len(q["関係する項目"]), q["鍵"]))

@@ -198,3 +198,64 @@ def test_original_answer_does_not_confirm_the_drawing_reading(tmp_path, machine_
     assert keys["k"] in after["答えの往復"]["戻した鍵"]
     assert after["答えの往復"]["数量・確度が変わった項目"] == []
     assert before["まとめ"]["確度ごと"] == after["まとめ"]["確度ごと"]
+
+
+# --- 周 5: 原価表の入力口 ---------------------------------------------------------------
+
+
+def test_cost_table_formats(tmp_path):
+    from draft.cost_table import load_cost_table
+
+    csv_path = tmp_path / "原価表.csv"
+    csv_path.write_text("工事項目,品番,単位,単価,数量\n建具,WD-1,枚,\"12,000\",3\n清掃,,式,5000,\n", encoding="utf-8")
+    t = load_cost_table(csv_path)
+    assert t["形"] == "CSV" and t["行"][0] == {"工事": "建具", "品番": "WD-1", "単位": "枚", "単価": 12000.0,
+                                               "数量": 3.0, "科目": ""}
+    assert t["行"][1]["数量"] is None  # 読めない数量は 0 にしない
+    assert load_cost_table({"WD-1": 100})["形"] == "単価だけ"
+    assert load_cost_table({"行": [{"工事": "床", "単価": "x"}]})["行"][0]["単価"] is None
+    assert load_cost_table(None) is None
+
+
+def test_unit_mismatch_does_not_match():
+    from draft.cost_table import match
+
+    t = {"行": [{"工事": "床", "品番": "", "単位": "㎡", "単価": 10.0, "数量": 5.0, "科目": ""}]}
+    assert match(t, "", "床", "㎡") is not None and match(t, "", "床", "m") is None and match(t, "", "床", "") is not None
+
+
+def test_question_amount_uses_table_quantity_only_for_order():
+    from draft.cost_table import question_amount
+
+    t = {"行": [{"工事": "床", "品番": "", "単位": "㎡", "単価": 10.0, "数量": 5.0, "科目": ""}]}
+    items = {"a": {"工事": "床", "品番": "", "単位": "㎡", "数量": None}, "b": {"工事": "床", "品番": "", "単位": "㎡", "数量": 2}}
+    amount, why = question_amount({"関係する項目": ["a"]}, items, t)
+    assert amount == 50.0 and "並べ方のためだけ" in why and items["a"]["数量"] is None
+    assert question_amount({"関係する項目": ["b"]}, items, t)[0] == 20.0
+    assert question_amount({"関係する項目": ["a"]}, items, None) == (None, "原価表 未取得")
+
+
+def test_cost_table_orders_questions_and_compares_without_rewriting(tmp_path, machine_output):  # noqa: F811
+    pdf = _pdf(tmp_path / "図面.pdf")
+    base = tmp_path / "なし"
+    run([str(pdf), "--out", str(base), "--machine-output", str(machine_output)], client=FakeClient())
+    r0 = json.loads((base / "下書き.json").read_text(encoding="utf-8"))
+    works = sorted({it["工事"] for it in r0["理解"]["項目"] if it["工事"]})
+    table = [{"工事": w, "単位": "", "単価": 1000 * (i + 1), "数量": 7} for i, w in enumerate(works)]
+    path = tmp_path / "原価表.json"
+    path.write_text(json.dumps(table, ensure_ascii=False), encoding="utf-8")
+    out = tmp_path / "あり"
+    code = run([str(pdf), "--out", str(out), "--machine-output", str(machine_output), "--cost-table", str(path)],
+               client=FakeClient())
+    r = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    assert code == 0 and r["まとめ"]["自動確定"] == 0 and r["まとめ"]["原価表"].startswith("あり")
+    assert "金額の大きい順" in r["質問"]["並べ方"]
+    for mode, qs in r["質問"]["段階ごと"].items():
+        known = [q["金額"] for q in qs if q["金額"] is not None]
+        assert known == sorted(known, reverse=True)
+        assert all(q["金額"] is not None for q in qs[:len(known)])  # 未取得は後ろ
+    # 内訳の数量は原価表で書き換えない
+    assert [x["数量"] for x in r["組み立て"]["内訳の行"]] == [x["数量"] for x in r0["組み立て"]["内訳の行"]]
+    cmp_ = r["組み立て"]["原価表との比べ"]
+    assert "正解として使わない" in cmp_["注"] and cmp_["並べた行"]
+    assert "原価表との比べ" not in r0["組み立て"]
