@@ -138,7 +138,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--case-id", default="案件")
     p.add_argument("--mode", default="通常", choices=tuple(stages.MODES))
     p.add_argument("--answers", default=None, help="人の答え {回答の鍵: 選んだ選択肢の文字}")
-    p.add_argument("--cost-table", default=None, help="原価表 {品番または工事: 単価}(無ければ未取得)")
+    p.add_argument("--cost-table", default=None, help="原価表(JSON {品番または工事: 単価} か行の並び、または CSV: 工事・品番・単位・単価・数量)。"
+                   "質問の並べ方と内訳との比べにだけ使い、正解にはしない(無ければ未取得)")
     p.add_argument("--labor", default=None, help="歩掛 {工事項目: {1人1日あたり, 日当}}(無ければ未入力)")
     p.add_argument("--machine-output", default=None, help="前に出した機械の出力(無ければこの場で機械を動かす)")
     p.add_argument("--no-machine-check", action="store_true", help="機械の検算を飛ばす(自動確定の数も未取得になる)")
@@ -164,6 +165,10 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     for part, flag in flag_parts.FLAGS.items():
         p.add_argument(flag, action="store_true", help=f"旗(既定はオフ): {part}をつなぐ(K-63)。出力は「旗の部品」の欄だけ")
     p.add_argument("--with-all", action="store_true", help="旗を全部オンにする(K-63 の比べる回)")
+    p.add_argument("--ocr", default=None,
+                   help="OCR の結果の JSON(K-64。文字の層が無いページだけ文字の層の代わりに使う。既定は環境変数 DRAFT_OCR)")
+    p.add_argument("--with-page-confidence", action="store_true",
+                   help="旗(既定はオフ、K-64): 読めた割合が基準未満のページでは確度「高」を出さない(理解の確度を書き換える)")
     p.add_argument("--legend-lookup", default=None,
                    help=f"凡例の対照表の JSON(--with-legend-lookup で使う。既定は環境変数 {LEGEND_ENV})")
     p.add_argument("--knowledge", default=None,
@@ -184,6 +189,18 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     page_infos = render(pdf, out / "ページ")
     ctx = stages.Context(pdf=pdf, pages=page_infos, caller=caller, parallel=a.parallel, pass1_batch=a.pass1_batch)
     ctx.timings["段: ページを画像にする"] = round(time.perf_counter() - t, 1)
+    ocr_info = None
+    ocr_path = a.ocr or os.environ.get("DRAFT_OCR")
+    if ocr_path:
+        from draft import ocr as ocr_part
+
+        def take_ocr() -> dict[str, Any]:
+            loaded = ocr_part.load_ocr(ocr_path)
+            info = ocr_part.apply_ocr(page_infos, loaded)
+            ctx.ocr = {n: loaded[n] for n in info["OCR を使ったページ"]}
+            return {"ファイル": Path(ocr_path).name, **info}
+
+        ocr_info = _guarded(ctx, "OCR の結果を受け取る", take_ocr, None)
     machine_future = None
     pool = None
     if a.stage < 3:
@@ -201,7 +218,9 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             machine_future = pool.submit(machine_part.machine_read, pdf, a.cache_dir, a.case_id)
         else:
             machine_future = pool.submit(machine_reading, pdf, a.case_id, out)
-    cost_table = _load_json(a.cost_table)
+    from draft.cost_table import compare as compare_cost, load_cost_table
+
+    cost_table = load_cost_table(a.cost_table)
     human = _load_json(a.answers) or {}
 
     org = _guarded(ctx, "整理", lambda: stages.organize(ctx),
@@ -232,6 +251,10 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             fn = lambda: designs.v3_read_understand(ctx, org, transcribed or {}, vocab)  # noqa: E731
         design_info, reading, understanding = _guarded(ctx, f"読みと理解({a.design})", fn,
                                                        (None, empty_reading, empty_understanding))
+    page_conf = None
+    if a.with_page_confidence:
+        page_conf = _guarded(ctx, "確度に読めた割合", lambda: stages.cap_by_page_readability(understanding["項目"], reading),
+                             None)
     empty_finish = {"原本": stages.UNKNOWN, "原本のページ": [], "原本の行": [], "原本の読めなかった所": [],
                     "ひな型": [], "照らし合わせ": []}
     finish = (
@@ -258,7 +281,12 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "ページで数量が違う": conflicts,
             "材料表": stages.materials(understanding["項目"]),
             "時間": stages.labor(rows, _load_json(a.labor)),
-            "段階ごとの出力": stages.mode_outputs(rows, understanding["項目"]),
+            "段階ごとの出力": stages.mode_outputs(rows, understanding["項目"],
+                                                stages.big_kamoku(understanding["項目"], cost_table)),
+            **({"原価表との比べ": compare_cost(rows, cost_table)} if cost_table else {}),
+            **({"外した行": [{"項目": it["id"], "工事": it["工事"], "場所": it["場所"], "数量": it["数量"],
+                             "理由": it["外す"]} for it in understanding["項目"] if it.get("外す")]}
+               if any(it.get("外す") for it in understanding["項目"]) else {}),
         }
 
     empty_assembly = {"内訳の行": [], "内訳": {}, "材料表": [], "時間": []}
@@ -350,7 +378,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "段階": a.mode,
             "段階の目安": stages.MODES[a.mode],
             "自動確定": auto,
-            "原価表": "あり" if cost_table else stages.UNKNOWN,
+            "原価表": f"あり({len(cost_table['行'])} 行、{cost_table['形']})" if cost_table else stages.UNKNOWN,
             "概要の別紙": stages.UNKNOWN,
             "精度の注意": warn,
             "項目の数": len(items),
@@ -372,6 +400,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         "読了率": rt,
         "検索の正答率": search,
         "理解": understanding,
+        **({"確度に読めた割合": page_conf} if a.with_page_confidence else {}),
+        **({"OCR": ocr_info} if ocr_path else {}),
         **({"工事チェック表": checklist} if checklist is not None else {}),
         "採点表": card,
         "仕上表": finish,
@@ -387,6 +417,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     }
     ctx.timings["通し全体(壁時計)"] = round(time.perf_counter() - started, 1)
     (out / "下書き.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    (out / "材料発注表.csv").write_text(stages.order_sheet_csv(assembly.get("材料表") or []), encoding="utf-8-sig")
     try:
         review_html.build(json.loads(json.dumps(result, ensure_ascii=False, default=str)),
                           {pi.number: pi.image for pi in page_infos}, out / "確認画面.html")
