@@ -149,6 +149,9 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
                    help=f"通読の 1 回に渡すページ数(既定 {DEFAULT_PASS1_BATCH}。K-61 の判断 1 で分ける。0 は全ページを 1 回で)")
     p.add_argument("--text-instead-of-image", action="store_true",
                    help="表・仕様書のページで文字の層があれば、画像を送らず位置つきの文字で読ませる(K-62 の手段 a、未採用)")
+    p.add_argument("--stage", type=int, default=3, choices=(1, 2, 3),
+                   help="K-67 5 節。1 台帳(読了率と未読マップまで。理解・組み立ての AI を呼ばない)/ "
+                        "2 概略書(+ 理解・仕上表・工事チェック表・質問)/ 3 下書き(全部。既定)")
     p.add_argument("--design", default="V1", choices=("V1", "V2", "V3"),
                    help="読みの設計(K-63)。V1 は今まで通り(既定)。V2 は目的から探す型、V3 は閉じた語彙型")
     p.add_argument("--vocab", default=None,
@@ -183,6 +186,9 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     ctx.timings["段: ページを画像にする"] = round(time.perf_counter() - t, 1)
     machine_future = None
     pool = None
+    if a.stage < 3:
+        # **段階 1・2 は組み立てまで行かないので、機械の検算を動かさない。**費用を段ごとに分けるため。
+        a.no_machine_check = True
     if not a.no_machine_check and not a.machine_output:
         from concurrent.futures import ThreadPoolExecutor
 
@@ -211,7 +217,10 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     transcribed = None
     if a.design == "V1":
         reading = _guarded(ctx, "読む", lambda: stages.read(ctx, org), empty_reading)
-        understanding = _guarded(ctx, "理解", lambda: stages.understand(ctx, org, reading), empty_understanding)
+        if a.stage >= 2:
+            understanding = _guarded(ctx, "理解", lambda: stages.understand(ctx, org, reading), empty_understanding)
+        else:
+            understanding = dict(empty_understanding, 段階="段階 1 なので理解の AI を呼んでいない")
     else:
         from draft import designs
 
@@ -223,15 +232,21 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             fn = lambda: designs.v3_read_understand(ctx, org, transcribed or {}, vocab)  # noqa: E731
         design_info, reading, understanding = _guarded(ctx, f"読みと理解({a.design})", fn,
                                                        (None, empty_reading, empty_understanding))
-    finish = _guarded(ctx, "仕上表", lambda: stages.finish_schedule(ctx, org, understanding, transcribed),
-                      {"原本": stages.UNKNOWN, "原本のページ": [], "原本の行": [], "原本の読めなかった所": [],
-                       "ひな型": [], "照らし合わせ": []})
+    empty_finish = {"原本": stages.UNKNOWN, "原本のページ": [], "原本の行": [], "原本の読めなかった所": [],
+                    "ひな型": [], "照らし合わせ": []}
+    finish = (
+        _guarded(ctx, "仕上表", lambda: stages.finish_schedule(ctx, org, understanding, transcribed), empty_finish)
+        if a.stage >= 2 else dict(empty_finish, 段階="段階 1 なので仕上表の段を動かしていない")
+    )
     round_trip = None
     if human:
         round_trip = _guarded(ctx, "答えを戻す", lambda: stages.apply_answers(understanding, finish, human), None)
-    qs = _guarded(ctx, "質問", lambda: stages.questions(understanding, finish, reading, cost_table, human,
-                                                                (round_trip or {}).get("戻した鍵")),
-                  {"段階ごと": {}, "候補の数": {}, "並べ方": stages.UNKNOWN})
+    empty_questions = {"段階ごと": {}, "候補の数": {}, "並べ方": stages.UNKNOWN}
+    qs = (
+        _guarded(ctx, "質問", lambda: stages.questions(understanding, finish, reading, cost_table, human,
+                                                       (round_trip or {}).get("戻した鍵")), empty_questions)
+        if a.stage >= 2 else dict(empty_questions, 段階="段階 1 なので質問の段を動かしていない")
+    )
 
     def assemble() -> dict[str, Any]:
         from estimating.breakdown import build_breakdown
@@ -246,7 +261,11 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "段階ごとの出力": stages.mode_outputs(rows, understanding["項目"]),
         }
 
-    assembly = _guarded(ctx, "組み立て", assemble, {"内訳の行": [], "内訳": {}, "材料表": [], "時間": []})
+    empty_assembly = {"内訳の行": [], "内訳": {}, "材料表": [], "時間": []}
+    assembly = (
+        _guarded(ctx, "組み立て", assemble, empty_assembly) if a.stage >= 3
+        else dict(empty_assembly, 段階=f"段階 {a.stage} なので組み立ての段を動かしていない")
+    )
     check = None
     machine_seen: list[Any] = []
     if not a.no_machine_check:
@@ -279,6 +298,52 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         warn.append(f"仕上表の原本の {np_['ページ']} ページは本来の仕上表ではない({np_['図面']})")
     warn.append("数量・照らし合わせは採点していない(正解を使う測定はパソコン側)")
     items = understanding["項目"]
+
+    # --- K-67: 読了率と未読マップ(段階 1 から出す。最初の画面になるもの) ---
+    from draft import readthrough as rt_part
+    from draft import scorecard as card_part
+    from draft import search_check
+    from draft import work_checklist
+
+    read_pages = sorted(int(n) for n in (reading.get("読み") or {}))
+    t = time.perf_counter()
+    rt = _guarded(ctx, "読了率",
+                  lambda: rt_part.readthrough(pdf, {int(n): v for n, v in (reading.get("読み") or {}).items()},
+                                              read_pages),
+                  None)
+    ctx.timings["段: 読了率"] = round(time.perf_counter() - t, 1)
+    if rt and rt.get("案件全体の警告"):
+        warn.insert(0, rt["案件全体の警告"])
+
+    t = time.perf_counter()
+    search = _guarded(ctx, "検索の正答率",
+                      lambda: search_check.score(search_check.build_questions(pdf, read_pages),
+                                                 {int(n): v for n, v in (reading.get("読み") or {}).items()}),
+                      None)
+    ctx.timings["段: 検索の正答率"] = round(time.perf_counter() - t, 1)
+
+    # --- K-67: 工事チェック表(段階 2 から) ---
+    missing_sources = []
+    if finish.get("原本") != "原本あり":
+        missing_sources.append("仕上表なし")
+    if not cost_table:
+        missing_sources.append("原価表なし")
+    red_pages = [p_["ページ"] for p_ in ((rt or {}).get("ページごと") or []) if p_.get("信号") == rt_part.RED]
+    checklist = None
+    if a.stage >= 2:
+        t = time.perf_counter()
+        checklist = _guarded(ctx, "工事チェック表",
+                             lambda: work_checklist.build(items, pdf=pdf, pages=read_pages,
+                                                          missing_sources=missing_sources,
+                                                          unread_pages=red_pages),
+                             None)
+        ctx.timings["段: 工事チェック表"] = round(time.perf_counter() - t, 1)
+
+    card = _guarded(ctx, "採点表",
+                    lambda: card_part.build(readthrough=rt, search=search, checklist=checklist,
+                                            finish=finish, items=items,
+                                            timings={"読む": ctx.timings.get("段: 読む")}),
+                    None)
     result = {
         "まとめ": {
             "案件": a.case_id,
@@ -294,13 +359,21 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "確度ごと": {c: sum(1 for it in items if it["確度"] == c) for c in stages.CONFIDENCE},
             "根拠の種類ごと": {b: sum(1 for it in items if it["根拠の種類"] == b) for b in stages.BASIS_KINDS},
             "検算で食い違った項目": sum(1 for it in items if it["検算"]),
+            "下書き": "下書き(人が直す前提)",
+            "段階(K-67)": f"段階 {a.stage} {card_part.STAGES[a.stage]}",
+            "採点表の見出し": card_part.headline(card) if card else stages.UNKNOWN,
+            "読了率": (rt or {}).get("読了率", stages.UNKNOWN),
         },
         "止まった所": ctx.stops,
         "段の中の例外": ctx.state.get("例外", []),
         "整理": org,
         **({"読みの設計": {"案": a.design, "中身": design_info}} if a.design != "V1" else {}),
         "読む": reading,
+        "読了率": rt,
+        "検索の正答率": search,
         "理解": understanding,
+        **({"工事チェック表": checklist} if checklist is not None else {}),
+        "採点表": card,
         "仕上表": finish,
         "質問": qs,
         "答えの往復": round_trip,
