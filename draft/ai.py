@@ -77,7 +77,8 @@ def usage_cost(model: str, usage: dict[str, int]) -> float:
 
 
 #: 段ごとのモデルを決める環境変数の名前(シェルによっては日本語の変数名が使えないので英字にする)。
-STAGE_ENV = {"整理": "ORGANIZE", "通読": "PASS1", "読み直し": "REREAD", "理解": "UNDERSTAND", "仕上表の原本": "ORIGINAL"}
+STAGE_ENV = {"整理": "ORGANIZE", "通読": "PASS1", "読み直し": "REREAD", "理解": "UNDERSTAND", "仕上表の原本": "ORIGINAL",
+             "分かれ道": "BRANCH", "線引き": "LINEJUDGE"}
 
 
 def model_for_stage(stage: str, default: str | None = None) -> str:
