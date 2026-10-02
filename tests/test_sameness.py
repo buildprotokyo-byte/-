@@ -181,3 +181,15 @@ def test_表記を揃える処理は1か所だけ() -> None:
     body = source.split("def _flat")[1].split("\ndef ")[0]
     assert "replace(" not in body
     assert not re.search(r"ビニール|幅木", body.split('"""')[-1])
+
+
+def test_K68_A_材料と部位から細目を引く橋() -> None:
+    from sameness.keys import structure_key
+
+    assert structure_key("床クッションフロア張").工事の種類 == structure_key("床ビニル床シート張").工事の種類 == "N01"
+    assert structure_key("床長尺シート張").工事の種類 == structure_key("床CF張り").工事の種類 == "N01"
+    assert "橋:材料+部位" in structure_key("床ビニル床シート張").由来
+    # 材料だけ違えば別の細目(囮の材料の入れ替えが通らない)
+    assert structure_key("床フロアタイル張").工事の種類 != structure_key("床クッションフロア張").工事の種類
+    # 撤去のときは橋を使わない
+    assert "橋:材料+部位" not in structure_key("床長尺シート撤去").由来
