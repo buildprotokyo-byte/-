@@ -264,6 +264,9 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "材料表": stages.materials(understanding["項目"]),
             "時間": stages.labor(rows, _load_json(a.labor)),
             "段階ごとの出力": stages.mode_outputs(rows, understanding["項目"]),
+            **({"外した行": [{"項目": it["id"], "工事": it["工事"], "場所": it["場所"], "数量": it["数量"],
+                             "理由": it["外す"]} for it in understanding["項目"] if it.get("外す")]}
+               if any(it.get("外す") for it in understanding["項目"]) else {}),
         }
 
     assembly = _guarded(ctx, "組み立て", assemble, {"内訳の行": [], "内訳": {}, "材料表": [], "時間": []})

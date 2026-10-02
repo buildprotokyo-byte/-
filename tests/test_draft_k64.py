@@ -128,3 +128,73 @@ def test_ocr_words_go_to_the_reading_request(tmp_path):
     data = stages._text_data(ctx, [1])
     assert data["文字の層"]["1"] == "洋室1"
     assert data["OCR で読んだ文字のページ"]["位置つき"]["1"] == [["洋室1", 90, 90, 300, 130]]
+
+
+def _round_trip(tmp_path, machine_output, answers):  # noqa: F811
+    pdf = _pdf(tmp_path / "図面.pdf")
+    out = tmp_path / "出力"
+    run([str(pdf), "--out", str(out), "--machine-output", str(machine_output)], client=FakeClient())
+    before = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    path = tmp_path / "答え.json"
+    path.write_text(json.dumps(answers(before), ensure_ascii=False), encoding="utf-8")
+    code = run([str(pdf), "--out", str(out), "--machine-output", str(machine_output), "--answers", str(path)],
+               client=FakeClient())
+    return before, json.loads((out / "下書き.json").read_text(encoding="utf-8")), code
+
+
+def test_answer_with_quantity_changes_rows_and_confidence(tmp_path, machine_output):  # noqa: F811
+    def answers(r):
+        q = next(it for it in r["理解"]["項目"] if it["状態"] == "問い")
+        return {f"項目:{q['id']}": {"選択肢": q["選択肢"][0], "数量": 4, "単位": "枚"}}
+
+    before, after, code = _round_trip(tmp_path, machine_output, answers)
+    it = next(i for i in after["理解"]["項目"] if i.get("人の回答"))
+    assert (it["数量"], it["単位"], it["確度"], it["状態"], it["根拠の種類"]) == (4.0, "枚", "高", "観測", "人の回答")
+    row = next(r for r in after["組み立て"]["内訳の行"] if it["id"] in r["項目"])
+    assert row["数量"] == 4.0
+    assert after["答えの往復"]["数量・確度が変わった項目"][0]["前"]["数量"] is None
+    assert code == 0 and after["まとめ"]["自動確定"] == 0
+
+
+def test_dont_know_decides_nothing(tmp_path, machine_output):  # noqa: F811
+    def answers(r):
+        q = next(it for it in r["理解"]["項目"] if it["状態"] == "問い")
+        return {f"項目:{q['id']}": "分からない(現地・設計者に確認する)"}
+
+    before, after, _ = _round_trip(tmp_path, machine_output, answers)
+    it = next(i for i in after["理解"]["項目"] if "人の回答" in i)
+    assert it["状態"] == "問い" and it["確度"] != "高" and it["数量"] is None
+
+
+def test_quantity_must_be_a_number():
+    choice, fields = stages.answer_parts({"選択肢": "洋室1", "数量": "6"})
+    assert choice == "洋室1" and "数量" not in fields
+
+
+def test_out_of_scope_answer_removes_rows(tmp_path, machine_output):  # noqa: F811
+    def answers(r):
+        c = next(c for c in r["仕上表"]["照らし合わせ"] if c["照らし合わせ"] in ("違う", "近い", "原本のみ", "ひな型のみ")
+                 and any(stages._norm_room(it["場所"]) == stages._norm_room(c["室"]) and it["部位"] == c["部位"]
+                         for it in r["理解"]["項目"]))
+        return {f"仕上:{stages._norm_room(c['室'])}:{c['部位']}": "この室・部位は今回の工事に入らない"}
+
+    before, after, _ = _round_trip(tmp_path, machine_output, answers)
+    gone = after["答えの往復"]["内訳から外した項目"]
+    assert gone and all(not (set(r["項目"]) & set(gone)) for r in after["組み立て"]["内訳の行"])
+    assert len(after["組み立て"]["外した行"]) == len(gone)
+
+
+def test_original_answer_does_not_confirm_the_drawing_reading(tmp_path, machine_output):  # noqa: F811
+    keys = {}
+
+    def answers(r):
+        c = next(c for c in r["仕上表"]["照らし合わせ"] if c["照らし合わせ"] in ("違う", "近い")
+                 and any(stages._norm_room(it["場所"]) == stages._norm_room(c["室"]) and it["部位"] == c["部位"]
+                         for it in r["理解"]["項目"]))
+        keys["k"] = f"仕上:{stages._norm_room(c['室'])}:{c['部位']}"
+        return {keys["k"]: f"原本(仕上表)のとおり: {c['原本']}"}
+
+    before, after, _ = _round_trip(tmp_path, machine_output, answers)
+    assert keys["k"] in after["答えの往復"]["戻した鍵"]
+    assert after["答えの往復"]["数量・確度が変わった項目"] == []
+    assert before["まとめ"]["確度ごと"] == after["まとめ"]["確度ごと"]

@@ -902,10 +902,11 @@ def questions(understanding: Mapping[str, Any], finish: Mapping[str, Any], readi
     answers = dict(answers or {})
     applied = set(applied or ())
     valid = {}
-    for key, choice in answers.items():
+    for key, value in answers.items():
         match = next((q for q in qs if q["鍵"] == key), None)
-        if key in applied or (match is not None and choice in match["選択肢"]):
-            valid[key] = choice
+        choice, fields = answer_parts(value)
+        if key in applied or (match is not None and (choice in match["選択肢"] or (choice is None and fields))):
+            valid[key] = value
     has_cost = bool(cost_table)
     out = {
         "並べ方": "1 つ答えると確定する金額の大きい順" if has_cost else
@@ -918,29 +919,102 @@ def questions(understanding: Mapping[str, Any], finish: Mapping[str, Any], readi
     return out
 
 
-def apply_answers(understanding: dict[str, Any], finish: dict[str, Any], answers: Mapping[str, str]) -> dict[str, Any]:
-    """人の答えを戻す。**答えた所は状態を「人の回答」にし、照らし合わせを数え直す(再検証)。**"""
+#: 答えに数・値で書いてよい欄(K-64 周 4)。**選択肢の文字からは値を推し量らない。**
+ANSWER_FIELDS = ("数量", "単位", "場所", "区分", "工事", "科目", "品番")
+DONT_KNOW = "分からない"
+OUT_OF_SCOPE = "今回の工事に入らない"
+
+
+def answer_parts(value: Any) -> tuple[str | None, dict[str, Any]]:
+    """答えを (選んだ選択肢の文字, 値の欄) に分ける。
+
+    答えは選択肢の文字か、``{"選択肢": "...", "数量": 3, "単位": "枚", ...}`` の形。数量は数だけを受ける(文字は受けない)。
+    """
+    if isinstance(value, Mapping):
+        choice = value.get("選択肢")
+        fields = {k: value[k] for k in ANSWER_FIELDS if k in value and value[k] not in (None, "")}
+        if "数量" in fields and (isinstance(fields["数量"], bool) or not isinstance(fields["数量"], (int, float))):
+            fields.pop("数量")
+        return (str(choice) if choice not in (None, "") else None), fields
+    return (str(value) if value not in (None, "") else None), {}
+
+
+def _answer_text(choice: str | None, fields: Mapping[str, Any]) -> str:
+    parts = [choice] if choice else []
+    parts += [f"{k}: {v}" for k, v in fields.items()]
+    return " / ".join(parts)
+
+
+def apply_answers(understanding: dict[str, Any], finish: dict[str, Any], answers: Mapping[str, Any]) -> dict[str, Any]:
+    """人の答えを戻す(K-64 周 4: **内訳の数量と確度も変える**)。
+
+    - 決められなかった所: 選択肢を選ぶと状態「観測」・確度「高」・根拠「人の回答」。数量などの値が書いてあればその値にする。
+      **分からないと答えたら何も決めない**(状態は「問い」のまま)。
+    - 原本との違い: 照らし合わせを「人の回答で決めた」にする。「図面の読みのとおり」なら同じ室・部位の項目を確度「高」・
+      根拠「人の回答」にする。「原本のとおり」では図面の読みの項目を確かにしない(答えを書くだけ)。
+      「今回の工事に入らない」と答えた室・部位の項目は内訳から外す(「外した行」に残す)。
+    - 読めなかった所: 答えを記録するだけ(数を作らない)。
+    """
     before = sum(1 for c in finish["照らし合わせ"] if c["照らし合わせ"] in ("違う", "近い", "原本のみ", "ひな型のみ"))
+    items = understanding["項目"]
     applied: list[str] = []
+    changes: list[dict[str, Any]] = []
+
+    def decide(it: dict[str, Any], text: str, fields: Mapping[str, Any], key: str) -> None:
+        old = {k: it.get(k) for k in ("数量", "単位", "確度", "状態")}
+        it["人の回答"] = text
+        it["状態"] = "観測"
+        it["確度"] = "高"
+        it["根拠の種類"] = "人の回答"
+        for k, v in fields.items():
+            it[k] = float(v) if k == "数量" else nfkc(v)
+        it.pop("確度の上限", None)
+        changes.append({"鍵": key, "項目": it["id"], "前": old, "後": {k: it.get(k) for k in old}})
+
     for c in finish["照らし合わせ"]:
         key = f"仕上:{_norm_room(c['室'])}:{c['部位']}"
-        if key in answers and c["照らし合わせ"] in ("違う", "近い", "原本のみ", "ひな型のみ"):
-            c["人の回答"] = answers[key]
-            c["照らし合わせ"] = "人の回答で決めた"
-            applied.append(key)
-    for it in understanding["項目"]:
+        if key not in answers or c["照らし合わせ"] not in ("違う", "近い", "原本のみ", "ひな型のみ"):
+            continue
+        choice, fields = answer_parts(answers[key])
+        if not choice or DONT_KNOW in choice:
+            continue
+        c["人の回答"] = choice
+        c["照らし合わせ"] = "人の回答で決めた"
+        applied.append(key)
+        related = [it for it in items if _norm_room(it["場所"]) == _norm_room(c["室"]) and it["部位"] == c["部位"]]
+        for it in related:
+            if OUT_OF_SCOPE in choice:
+                it["人の回答"] = choice
+                it["外す"] = "人の回答: この室・部位は今回の工事に入らない"
+                it["根拠の種類"] = "人の回答"
+                changes.append({"鍵": key, "項目": it["id"], "前": {"外す": False}, "後": {"外す": True}})
+            elif choice.startswith("図面の読みのとおり"):
+                decide(it, choice, fields, key)
+            else:
+                # 原本のとおり・どちらでもない: 図面の読みの項目を確かにはしない(確度は動かさず、答えだけ書く)
+                it["仕上の人の回答"] = choice
+    for it in items:
         key = f"項目:{it['id']}"
-        if key in answers and it["状態"] == "問い" and answers[key] in it["選択肢"] + ["分からない(現地・設計者に確認する)"]:
-            it["人の回答"] = answers[key]
-            it["状態"] = "観測" if "分からない" not in answers[key] else "問い"
-            it["根拠の種類"] = "人の回答"
+        if key not in answers or it["状態"] != "問い":
+            continue
+        choice, fields = answer_parts(answers[key])
+        if choice and choice not in it["選択肢"] and DONT_KNOW not in choice:
+            continue  # 選択肢に無い文字は受け取らない
+        if (choice and DONT_KNOW in choice) or (not choice and not fields):
+            it["人の回答"] = choice or ""
             applied.append(key)
+            continue
+        decide(it, _answer_text(choice, fields), fields, key)
+        applied.append(key)
     for key in answers:
-        if key.startswith("読めない:") and answers[key] in UNREADABLE_OPTIONS:
+        choice, _ = answer_parts(answers[key])
+        if key.startswith("読めない:") and choice in UNREADABLE_OPTIONS:
             applied.append(key)
-    resolved = len(applied)
     after = sum(1 for c in finish["照らし合わせ"] if c["照らし合わせ"] in ("違う", "近い", "原本のみ", "ひな型のみ"))
-    return {"答えた数": len(answers), "戻せた答え": resolved, "戻した鍵": applied, "原本との違い(前)": before, "原本との違い(後)": after}
+    return {"答えた数": len(answers), "戻せた答え": len(applied), "戻した鍵": applied,
+            "原本との違い(前)": before, "原本との違い(後)": after,
+            "数量・確度が変わった項目": changes,
+            "内訳から外した項目": [it["id"] for it in items if it.get("外す")]}
 
 
 # ---------------------------------------------------------------------------
@@ -955,9 +1029,9 @@ def assembly_rows(items: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, An
     done: set[str] = set()
     by_id = {it["id"]: it for it in items}
     for it in items:
-        if it["id"] in done or not it["工事"]:
+        if it["id"] in done or not it["工事"] or it.get("外す"):
             continue
-        group = [it] + [by_id[i] for i in it.get("同じもの", []) if i in by_id]
+        group = [it] + [by_id[i] for i in it.get("同じもの", []) if i in by_id and not by_id[i].get("外す")]
         done.update(g["id"] for g in group)
         qtys = {g["数量"] for g in group if g["数量"] is not None}
         quantity: float | None = None
@@ -988,7 +1062,7 @@ def materials(items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """材料表: 品番ごとに数量・場所。**数量が未取得のものは合計に入れず「未取得」の件数で見せる。**"""
     table: dict[tuple[str, str], dict[str, Any]] = {}
     for it in items:
-        if not it["品番"]:
+        if not it["品番"] or it.get("外す"):
             continue
         key = (it["品番"], it["単位"])
         row = table.setdefault(key, {"品番": it["品番"], "名称": it["何"] or it["工事"], "単位": it["単位"],
