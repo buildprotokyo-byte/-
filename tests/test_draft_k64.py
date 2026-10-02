@@ -295,3 +295,36 @@ def test_modes_split_rows_and_questions(tmp_path, machine_output):  # noqa: F811
     assert len(q["段階ごと"]["概算"]) <= 3 and len(q["段階ごと"]["通常"]) <= 5 and len(q["段階ごと"]["精密"]) <= 10
     big = q["概算で拾う科目"]["科目"]
     assert all(stages._kamoku_rank(x["科目"], big) < len(big) for x in q["段階ごと"]["概算"])
+
+
+# --- 周 7: 材料表(発注表の並び) -----------------------------------------------------------
+
+
+def test_materials_sorted_by_kamoku_then_hinban_and_unknown_not_summed():
+    items = [
+        {"id": "a", "品番": "Z-1", "単位": "枚", "数量": 2.0, "科目": "内装", "工事": "床", "何": "", "場所": "洋室"},
+        {"id": "b", "品番": "A-9", "単位": "枚", "数量": None, "科目": "内装", "工事": "床", "何": "", "場所": "廊下"},
+        {"id": "c", "品番": "B-1", "単位": "台", "数量": 1.0, "科目": "木工事", "工事": "棚", "何": "", "場所": "洋室"},
+        {"id": "d", "品番": "C-1", "単位": "個", "数量": 1.0, "科目": stages.UNDECIDED, "工事": "x", "何": "", "場所": "洋室"},
+        {"id": "e", "品番": "Z-1", "単位": "枚", "数量": None, "科目": "内装", "工事": "床", "何": "", "場所": "廊下"},
+    ]
+    m = stages.materials(items)
+    assert [(r["科目"], r["品番"]) for r in m] == [("木工事", "B-1"), ("内装", "A-9"), ("内装", "Z-1"), ("科目未定", "C-1")]
+    z = next(r for r in m if r["品番"] == "Z-1")
+    assert z["数量の合計(分かった分)"] == 2.0 and z["未取得の件数"] == 1
+    assert next(r for r in m if r["品番"] == "A-9")["数量の合計(分かった分)"] == stages.UNKNOWN
+    csv_text = stages.order_sheet_csv(m)
+    lines = csv_text.splitlines()
+    assert lines[0].split(",")[:3] == ["科目", "品番", "名称"] and lines[1].startswith("木工事,B-1")
+    assert "内装,A-9,床,未取得,枚,1" in csv_text and "内装,Z-1,床,2,枚,1" in csv_text
+
+
+def test_order_sheet_written_and_material_filter_in_review(tmp_path, machine_output):  # noqa: F811
+    pdf = _pdf(tmp_path / "図面.pdf")
+    out = tmp_path / "出力"
+    run([str(pdf), "--out", str(out), "--machine-output", str(machine_output)], client=FakeClient())
+    sheet = (out / "材料発注表.csv").read_text(encoding="utf-8-sig")
+    r = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    assert len(sheet.splitlines()) == len(r["組み立て"]["材料表"]) + 1
+    html = next(out.glob("*.html")).read_text(encoding="utf-8")
+    assert "matSel" in html and "関わる行だけを抜き出す" in html

@@ -1118,8 +1118,10 @@ def materials(items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         if not it["品番"] or it.get("外す"):
             continue
         key = (it["品番"], it["単位"])
-        row = table.setdefault(key, {"品番": it["品番"], "名称": it["何"] or it["工事"], "単位": it["単位"],
+        row = table.setdefault(key, {"科目": "", "品番": it["品番"], "名称": it["何"] or it["工事"], "単位": it["単位"],
                                      "数量の合計(分かった分)": 0.0, "未取得の件数": 0, "場所": [], "項目": []})
+        if not row["科目"] and it.get("科目") not in (None, "", UNDECIDED):
+            row["科目"] = it["科目"]
         if it.get("同じもの") and any(i in row["項目"] for i in it["同じもの"]):
             row["項目"].append(it["id"])
             continue
@@ -1130,11 +1132,35 @@ def materials(items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         if it["場所"] not in row["場所"]:
             row["場所"].append(it["場所"])
         row["項目"].append(it["id"])
-    out = sorted(table.values(), key=lambda r: (r["品番"], r["単位"]))
+    # 材料発注表の並び: 科目 → 品番(科目が決まっていないものは後ろ)
+    out = sorted(table.values(), key=lambda r: (not r["科目"], _kamoku_rank(r["科目"]), r["科目"], r["品番"], r["単位"]))
     for r in out:
+        if not r["科目"]:
+            r["科目"] = "科目未定"
         if r["未取得の件数"] and not r["数量の合計(分かった分)"]:
             r["数量の合計(分かった分)"] = UNKNOWN
     return out
+
+
+#: 材料発注表(CSV)の列。
+ORDER_SHEET_COLUMNS = ("科目", "品番", "名称", "数量(分かった分)", "単位", "数量が未取得の件数", "場所", "項目")
+
+
+def order_sheet_csv(rows: Sequence[Mapping[str, Any]]) -> str:
+    """材料表を材料発注表の並びの CSV にする。**未取得は数量の欄を空にせず「未取得」と書き、件数を別の列に出す。**"""
+    import csv
+    import io
+
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(ORDER_SHEET_COLUMNS)
+    for r in rows:
+        qty = r["数量の合計(分かった分)"]
+        if isinstance(qty, float) and qty.is_integer():
+            qty = int(qty)
+        w.writerow([r["科目"], r["品番"], r["名称"], qty, r["単位"], r["未取得の件数"], " / ".join(r["場所"]),
+                    " ".join(r["項目"])])
+    return buf.getvalue()
 
 
 def labor(rows: Sequence[Mapping[str, Any]], rates: Mapping[str, Mapping[str, float]] | None) -> list[dict[str, Any]]:

@@ -344,6 +344,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     }
     ctx.timings["通し全体(壁時計)"] = round(time.perf_counter() - started, 1)
     (out / "下書き.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
+    (out / "材料発注表.csv").write_text(stages.order_sheet_csv(assembly.get("材料表") or []), encoding="utf-8-sig")
     try:
         review_html.build(json.loads(json.dumps(result, ensure_ascii=False, default=str)),
                           {pi.number: pi.image for pi in page_infos}, out / "確認画面.html")
