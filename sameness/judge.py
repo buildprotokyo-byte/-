@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
 from sameness.keys import StructureKey, structure_key
+from sameness.normalize import flatten
 from sameness.terms import Terms, default_terms
 
 SAME = "○"
@@ -157,13 +158,29 @@ def compare(
     *,
     level: str = "細目",
     terms: Terms | None = None,
+    identical_names: bool = True,
     **key_options: Any,
 ) -> Verdict:
-    """行(または品名)2 つを比べる。構造のキーを作ってから `compare_keys` に渡す。"""
+    """行(または品名)2 つを比べる。構造のキーを作ってから `compare_keys` に渡す。
+
+    `identical_names`(規則 8、**1 回目の測定のあとに足した**。基準の追記 1 を参照):
+    構造が取れずに `比較不能` になったとき、**平らにした品名が丸ごと同じなら** `○` にする。
+    同じ文字が同じものを指さないことは無いので、これは「似ている語で寄せる」ではない。
+    **部分一致は使わない**(`床` と `床タイル` は一致にしない)。これを切ると、
+    語彙に無い工事の行は、名前が字まで同じでも当たりにならない。
+    """
     terms = terms or default_terms()
     a = structure_key(left, terms=terms, **key_options)
     b = structure_key(right, terms=terms, **key_options)
-    return compare_keys(a, b, level=level, terms=terms)
+    verdict = compare_keys(a, b, level=level, terms=terms)
+    if identical_names and verdict.value == INCOMPARABLE:
+        from sameness.keys import _name_text
+
+        la, lb = flatten(_name_text(left)), flatten(_name_text(right))
+        if la and la == lb:
+            return Verdict(SAME, f"構造は取れていないが、揃えた品名が丸ごと同じ({la})",
+                           "細目8", level, a, b)
+    return verdict
 
 
 def judge_with_ai(
