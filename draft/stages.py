@@ -508,6 +508,43 @@ def understand(ctx: Context, org: Mapping[str, Any], reading: Mapping[str, Any])
     return {"項目": items, "決められなかった要素": undecided, "未取得のページ": missing}
 
 
+#: K-64 周 1: 確度「高」を出してよいページの読めた割合の下限(= 1 − HIGH_MISS_FLAG)。**測る前に固定した値。**
+PAGE_READ_FLOOR = round(1 - HIGH_MISS_FLAG, 4)
+
+
+def page_read_rates(reading: Mapping[str, Any]) -> dict[int, float | None]:
+    """ページごとの読めた割合(1 − 最後の読みの落ちた率)。測れなかったページは None。"""
+    out: dict[int, float | None] = {}
+    for n, v in (reading.get("ページ") or {}).items():
+        rate = v.get("落ちた率") if isinstance(v, Mapping) else None
+        out[int(n)] = None if rate is None else round(1 - float(rate), 4)
+    return out
+
+
+def cap_by_page_readability(items: list[dict[str, Any]], reading: Mapping[str, Any],
+                            floor: float = PAGE_READ_FLOOR) -> dict[str, Any]:
+    """読めた割合が ``floor`` 未満(または測れない)ページの項目は、確度「高」を「中」に下げる(K-64 周 1、旗の裏)。
+
+    **下げるだけで上げない。中・低は動かさない。** 下げた項目には「確度の上限」に理由を書く。
+    人の回答で決めた項目は下げない(読みではなく人の答えが根拠のため)。
+    """
+    rates = page_read_rates(reading)
+    lowered: list[str] = []
+    for it in items:
+        if it["確度"] != "高" or it.get("根拠の種類") == "人の回答":
+            continue
+        r = rates.get(it["ページ"])
+        if r is not None and r >= floor:
+            continue
+        it["確度"] = "中"
+        it["確度の上限"] = (f"ページの読めた割合 {r:.0%} が {floor:.0%} 未満なので高を出さない" if r is not None
+                        else "ページの読めた割合が測れなかったので高を出さない")
+        lowered.append(it["id"])
+    low_pages = sorted(n for n, r in rates.items() if r is None or r < floor)
+    return {"読めた割合の下限": floor, "下限を下回ったページ": low_pages, "高から中に下げた項目": len(lowered),
+            "下げた項目": lowered}
+
+
 def same_key(item: Mapping[str, Any]) -> tuple[str, ...]:
     return (nfkc(item["工事"]), room_key(item["場所"]), nfkc(item["品番"]), nfkc(item["区分"]))
 

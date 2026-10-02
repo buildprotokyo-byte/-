@@ -161,6 +161,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     for part, flag in flag_parts.FLAGS.items():
         p.add_argument(flag, action="store_true", help=f"旗(既定はオフ): {part}をつなぐ(K-63)。出力は「旗の部品」の欄だけ")
     p.add_argument("--with-all", action="store_true", help="旗を全部オンにする(K-63 の比べる回)")
+    p.add_argument("--with-page-confidence", action="store_true",
+                   help="旗(既定はオフ、K-64): 読めた割合が基準未満のページでは確度「高」を出さない(理解の確度を書き換える)")
     p.add_argument("--legend-lookup", default=None,
                    help=f"凡例の対照表の JSON(--with-legend-lookup で使う。既定は環境変数 {LEGEND_ENV})")
     p.add_argument("--knowledge", default=None,
@@ -223,6 +225,10 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             fn = lambda: designs.v3_read_understand(ctx, org, transcribed or {}, vocab)  # noqa: E731
         design_info, reading, understanding = _guarded(ctx, f"読みと理解({a.design})", fn,
                                                        (None, empty_reading, empty_understanding))
+    page_conf = None
+    if a.with_page_confidence:
+        page_conf = _guarded(ctx, "確度に読めた割合", lambda: stages.cap_by_page_readability(understanding["項目"], reading),
+                             None)
     finish = _guarded(ctx, "仕上表", lambda: stages.finish_schedule(ctx, org, understanding, transcribed),
                       {"原本": stages.UNKNOWN, "原本のページ": [], "原本の行": [], "原本の読めなかった所": [],
                        "ひな型": [], "照らし合わせ": []})
@@ -301,6 +307,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         **({"読みの設計": {"案": a.design, "中身": design_info}} if a.design != "V1" else {}),
         "読む": reading,
         "理解": understanding,
+        **({"確度に読めた割合": page_conf} if a.with_page_confidence else {}),
         "仕上表": finish,
         "質問": qs,
         "答えの往復": round_trip,
