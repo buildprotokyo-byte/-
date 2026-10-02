@@ -73,3 +73,58 @@ def test_scan_pages_are_unmeasured_not_all_missed(tmp_path, machine_output):  # 
     assert "読み直し" not in client.calls  # 測れないページを全部読み直しに回さない
     assert r["まとめ"]["確度ごと"]["高"] == 0
     assert r["読む"]["読み直した後の落ち"]["落ちた率"] is None
+
+
+def test_ocr_formats_are_read_and_scaled():
+    from draft.ocr import load_ocr
+
+    ours = {"ページ": [{"ページ": 1, "幅": 4000, "語": [{"文字": "洋室1", "位置": [100, 200, 300, 260], "確かさ": 0.9}]}]}
+    paddle2 = {"ページ": [{"ページ": 2, "幅": 1000, "結果": [[[[10, 20], [50, 20], [50, 40], [10, 40]], ["WD-1", 0.8]]]}]}
+    paddle3 = {"ページ": [{"ページ": 3, "幅": 2000, "結果": {"rec_texts": ["天井", " "], "rec_scores": [0.7, 0.1],
+                                                            "rec_polys": [[[0, 0], [10, 0], [10, 5], [0, 5]],
+                                                                          [[1, 1], [2, 1], [2, 2], [1, 2]]]}}]}
+    a, b, c = load_ocr(ours), load_ocr(paddle2), load_ocr(paddle3)
+    assert a[1] == [{"文字": "洋室1", "位置": [50.0, 100.0, 150.0, 130.0], "確かさ": 0.9}]
+    assert b[2][0]["文字"] == "WD-1" and b[2][0]["位置"] == [20.0, 40.0, 100.0, 80.0]
+    assert [w["文字"] for w in c[3]] == ["天井"]  # 空の語は作らない
+
+
+def test_ocr_only_fills_pages_without_text_layer(tmp_path, machine_output):  # noqa: F811
+    pdf = _scan_pdf(tmp_path / "スキャン.pdf")
+    # 1 ページ目だけ文字の層がある PDF にする(2・3 ページは画像だけ)
+    import pymupdf
+
+    with pymupdf.open(pdf) as doc:
+        doc[0].insert_text((50, 50), "文字の層", fontname="japan")
+        doc.save(tmp_path / "混在.pdf")
+    ocr = tmp_path / "ocr.json"
+    ocr.write_text(json.dumps({"ページ": [
+        {"ページ": 1, "幅": 2000, "語": [{"文字": "使われない", "位置": [1, 1, 5, 5]}]},
+        {"ページ": 2, "幅": 2000, "語": [{"文字": "洋室1", "位置": [90, 90, 300, 130]}]}]}, ensure_ascii=False),
+        encoding="utf-8")
+    out = tmp_path / "出力"
+    client = FakeClient()
+    run([str(tmp_path / "混在.pdf"), "--out", str(out), "--machine-output", str(machine_output), "--ocr", str(ocr)],
+        client=client)
+    r = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    assert r["OCR"]["OCR を使ったページ"] == [2]
+    assert r["OCR"]["文字の層があるので使わなかったページ"] == [1]
+    pending = (out / "AIの答え" / "待っている問い")
+    texts = [p.read_text(encoding="utf-8") for p in pending.glob("通読*/指示.md")] if pending.exists() else []
+    if texts:  # 鍵の無い道で指示に OCR の語が入る
+        assert any("洋室1" in t and "OCR で読んだ文字のページ" in t for t in texts)
+    # 渡さなければ今までと同じ(OCR の欄が無い)
+    out2 = tmp_path / "出力2"
+    run([str(tmp_path / "混在.pdf"), "--out", str(out2), "--machine-output", str(machine_output)], client=FakeClient())
+    assert "OCR" not in json.loads((out2 / "下書き.json").read_text(encoding="utf-8"))
+
+
+def test_ocr_words_go_to_the_reading_request(tmp_path):
+    from draft.pages import PageInfo
+
+    page = PageInfo(1, tmp_path / "p1.png", tmp_path / "t.png", "洋室1", 842, 595, False)
+    ctx = stages.Context(pdf=tmp_path / "x.pdf", pages=[page], caller=None,
+                         ocr={1: [{"文字": "洋室1", "位置": [90.0, 90.0, 300.0, 130.0], "確かさ": 0.9}]})
+    data = stages._text_data(ctx, [1])
+    assert data["文字の層"]["1"] == "洋室1"
+    assert data["OCR で読んだ文字のページ"]["位置つき"]["1"] == [["洋室1", 90, 90, 300, 130]]

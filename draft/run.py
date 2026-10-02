@@ -161,6 +161,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     for part, flag in flag_parts.FLAGS.items():
         p.add_argument(flag, action="store_true", help=f"旗(既定はオフ): {part}をつなぐ(K-63)。出力は「旗の部品」の欄だけ")
     p.add_argument("--with-all", action="store_true", help="旗を全部オンにする(K-63 の比べる回)")
+    p.add_argument("--ocr", default=None,
+                   help="OCR の結果の JSON(K-64。文字の層が無いページだけ文字の層の代わりに使う。既定は環境変数 DRAFT_OCR)")
     p.add_argument("--with-page-confidence", action="store_true",
                    help="旗(既定はオフ、K-64): 読めた割合が基準未満のページでは確度「高」を出さない(理解の確度を書き換える)")
     p.add_argument("--legend-lookup", default=None,
@@ -183,6 +185,18 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     page_infos = render(pdf, out / "ページ")
     ctx = stages.Context(pdf=pdf, pages=page_infos, caller=caller, parallel=a.parallel, pass1_batch=a.pass1_batch)
     ctx.timings["段: ページを画像にする"] = round(time.perf_counter() - t, 1)
+    ocr_info = None
+    ocr_path = a.ocr or os.environ.get("DRAFT_OCR")
+    if ocr_path:
+        from draft import ocr as ocr_part
+
+        def take_ocr() -> dict[str, Any]:
+            loaded = ocr_part.load_ocr(ocr_path)
+            info = ocr_part.apply_ocr(page_infos, loaded)
+            ctx.ocr = {n: loaded[n] for n in info["OCR を使ったページ"]}
+            return {"ファイル": Path(ocr_path).name, **info}
+
+        ocr_info = _guarded(ctx, "OCR の結果を受け取る", take_ocr, None)
     machine_future = None
     pool = None
     if not a.no_machine_check and not a.machine_output:
@@ -308,6 +322,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         "読む": reading,
         "理解": understanding,
         **({"確度に読めた割合": page_conf} if a.with_page_confidence else {}),
+        **({"OCR": ocr_info} if ocr_path else {}),
         "仕上表": finish,
         "質問": qs,
         "答えの往復": round_trip,

@@ -81,6 +81,8 @@ class Context:
     pass1_batch: int = 0
     #: 画像を送らず、文字の層(位置つき)だけで読ませるページ(K-62 の手段 a)。既定は空(今までどおり画像も送る)。
     text_only: set[int] = field(default_factory=set)
+    #: K-64: OCR の語を文字の層の代わりに使ったページの語(幅 2000 画素の座標)。既定は空(今までどおり)。
+    ocr: dict[int, list[dict[str, Any]]] = field(default_factory=dict)
 
     def page(self, number: int) -> PageInfo:
         return self.pages[number - 1]
@@ -190,6 +192,16 @@ def _text_data(ctx: Context, numbers: Sequence[int]) -> dict[str, Any]:
     if only:
         data["画像を渡していないページ"] = {"ページ": only, "読み方": TEXT_ONLY_NOTE}
         data["文字の層(位置つき)"] = {str(n): positioned_words(ctx.pdf, n) for n in only}
+    ocr_pages = [n for n in numbers if n in ctx.ocr]
+    if ocr_pages:
+        from draft.ocr import positioned
+
+        data["OCR で読んだ文字のページ"] = {
+            "ページ": ocr_pages,
+            "読み方": "このページには文字の層が無く、上の文字の層は OCR が読んだもの(読み違いがありうる)。"
+                    "位置は幅 2000 画素の画像の座標。画像と食い違えば画像を信じ、食い違いは分からなかったものに書く。",
+            "位置つき": {str(n): positioned(ctx.ocr, n) for n in ocr_pages},
+        }
     return data
 
 
