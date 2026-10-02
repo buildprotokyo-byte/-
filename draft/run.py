@@ -149,6 +149,10 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
                    help=f"通読の 1 回に渡すページ数(既定 {DEFAULT_PASS1_BATCH}。K-61 の判断 1 で分ける。0 は全ページを 1 回で)")
     p.add_argument("--text-instead-of-image", action="store_true",
                    help="表・仕様書のページで文字の層があれば、画像を送らず位置つきの文字で読ませる(K-62 の手段 a、未採用)")
+    p.add_argument("--design", default="V1", choices=("V1", "V2", "V3"),
+                   help="読みの設計(K-63)。V1 は今まで通り(既定)。V2 は目的から探す型、V3 は閉じた語彙型")
+    p.add_argument("--vocab", default=None,
+                   help="V3 の語彙のファイル(既定は環境変数 DRAFT_VOCAB、無ければ draft/vocab/default.json)")
     p.add_argument("--batch", action="store_true",
                    help="評価用の回だけ: 段ごとの呼び出しをまとめて送る(即時でない処理方式、半額。結果は最長 24 時間後)")
     p.add_argument("--batch-poll-seconds", type=float, default=30.0, help="まとめて送ったものの終わりを見に行く間隔(秒)")
@@ -200,12 +204,26 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         org["ページ"].setdefault(pinfo.number, {"種類": stages.UNKNOWN, "描かれているもの": "", "担当": "AI", "理由": ""})
     if a.text_instead_of_image:
         ctx.text_only = stages.text_only_pages(ctx, org)
-    reading = _guarded(ctx, "読む", lambda: stages.read(ctx, org),
-                       {"読み": {}, "ページ": {}, "通読の落ち": stages.UNKNOWN, "読み直した後の落ち": stages.UNKNOWN,
-                        "読み直したページ": [], "読み直しが未取得のページ": []})
-    understanding = _guarded(ctx, "理解", lambda: stages.understand(ctx, org, reading),
-                             {"項目": [], "決められなかった要素": [], "未取得のページ": []})
-    finish = _guarded(ctx, "仕上表", lambda: stages.finish_schedule(ctx, org, understanding),
+    empty_reading = {"読み": {}, "ページ": {}, "通読の落ち": stages.UNKNOWN, "読み直した後の落ち": stages.UNKNOWN,
+                     "読み直したページ": [], "読み直しが未取得のページ": []}
+    empty_understanding = {"項目": [], "決められなかった要素": [], "未取得のページ": []}
+    design_info = None
+    transcribed = None
+    if a.design == "V1":
+        reading = _guarded(ctx, "読む", lambda: stages.read(ctx, org), empty_reading)
+        understanding = _guarded(ctx, "理解", lambda: stages.understand(ctx, org, reading), empty_understanding)
+    else:
+        from draft import designs
+
+        if a.design == "V2":
+            fn = lambda: designs.v2_read_understand(ctx, org)  # noqa: E731
+        else:
+            transcribed = _guarded(ctx, "仕上表の原本", lambda: stages.finish_original(ctx, org), None)
+            vocab = designs.load_vocab(a.vocab)
+            fn = lambda: designs.v3_read_understand(ctx, org, transcribed or {}, vocab)  # noqa: E731
+        design_info, reading, understanding = _guarded(ctx, f"読みと理解({a.design})", fn,
+                                                       (None, empty_reading, empty_understanding))
+    finish = _guarded(ctx, "仕上表", lambda: stages.finish_schedule(ctx, org, understanding, transcribed),
                       {"原本": stages.UNKNOWN, "原本のページ": [], "原本の行": [], "原本の読めなかった所": [],
                        "ひな型": [], "照らし合わせ": []})
     round_trip = None
@@ -280,6 +298,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         "止まった所": ctx.stops,
         "段の中の例外": ctx.state.get("例外", []),
         "整理": org,
+        **({"読みの設計": {"案": a.design, "中身": design_info}} if a.design != "V1" else {}),
         "読む": reading,
         "理解": understanding,
         "仕上表": finish,

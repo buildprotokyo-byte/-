@@ -673,7 +673,8 @@ def _pair(t: Mapping[str, Any] | None, o: Sequence[Mapping[str, Any]]) -> dict[s
     }
 
 
-def finish_schedule(ctx: Context, org: Mapping[str, Any], understanding: Mapping[str, Any]) -> dict[str, Any]:
+def finish_original(ctx: Context, org: Mapping[str, Any]) -> dict[str, Any]:
+    """仕上表の原本を書き写す(AI)。ひな型とは別に先に呼べる(K-63 の V3 は室の表に使う)。"""
     pages, how = _finish_pages(ctx, org)
     original: list[dict[str, Any]] = []
     unreadable: list[dict[str, Any]] = []
@@ -701,6 +702,13 @@ def finish_schedule(ctx: Context, org: Mapping[str, Any], understanding: Mapping
                 unreadable.append({"ページ": n, "位置": _clean_box(u.get("位置")), "理由": str(u.get("理由") or "")})
     if missing:
         ctx.stop("仕上表", f"仕上表の原本の書き写しが未取得のページ {missing}")
+    return {"pages": pages, "how": how, "original": original, "unreadable": unreadable, "missing": missing}
+
+
+def finish_schedule(ctx: Context, org: Mapping[str, Any], understanding: Mapping[str, Any],
+                    transcribed: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    t = transcribed if transcribed is not None else finish_original(ctx, org)
+    pages, how, original, unreadable, missing = (t["pages"], t["how"], t["original"], t["unreadable"], t["missing"])
     rooms = [r["室"] for r in original]
     kinds = org["ページ"]
     template = template_rows(understanding["項目"], set(pages), kinds, rooms)
