@@ -81,6 +81,8 @@ class Context:
     pass1_batch: int = 0
     #: 画像を送らず、文字の層(位置つき)だけで読ませるページ(K-62 の手段 a)。既定は空(今までどおり画像も送る)。
     text_only: set[int] = field(default_factory=set)
+    #: K-64: OCR の語を文字の層の代わりに使ったページの語(幅 2000 画素の座標)。既定は空(今までどおり)。
+    ocr: dict[int, list[dict[str, Any]]] = field(default_factory=dict)
 
     def page(self, number: int) -> PageInfo:
         return self.pages[number - 1]
@@ -190,6 +192,16 @@ def _text_data(ctx: Context, numbers: Sequence[int]) -> dict[str, Any]:
     if only:
         data["画像を渡していないページ"] = {"ページ": only, "読み方": TEXT_ONLY_NOTE}
         data["文字の層(位置つき)"] = {str(n): positioned_words(ctx.pdf, n) for n in only}
+    ocr_pages = [n for n in numbers if n in ctx.ocr]
+    if ocr_pages:
+        from draft.ocr import positioned
+
+        data["OCR で読んだ文字のページ"] = {
+            "ページ": ocr_pages,
+            "読み方": "このページには文字の層が無く、上の文字の層は OCR が読んだもの(読み違いがありうる)。"
+                    "位置は幅 2000 画素の画像の座標。画像と食い違えば画像を信じ、食い違いは分からなかったものに書く。",
+            "位置つき": {str(n): positioned(ctx.ocr, n) for n in ocr_pages},
+        }
     return data
 
 
@@ -283,6 +295,12 @@ def measure_misses(pdf: Path, reading: Mapping[int, Mapping[str, Any]], pages: S
     with pymupdf.open(pdf) as doc:
         for n in pages:
             page = doc.load_page(n - 1)
+            if is_image_only(page):
+                # K-64: 図形も文字の層も無い画像だけのページ(スキャン)は、ページ全体の画像 1 枚を 1 つの図形と数えてしまい、
+                # どう読んでも落ちが 100% になる。測れないので未取得とする(読み直しにも回さない。確度の旗では高を出さない)。
+                out[n] = {"数える図形": 0, "落ちた": 0, "拾えた": 0, "落ちた率": None, "囮が拾えた": 0,
+                          "注": "画像だけのページ(スキャン)。図形で数える落ちは測れない"}
+                continue
             _, s = ec.check_page(page, n, real.get(n, []), ERASE_AREA_CAP)
             _, d = ec.check_page(page, n, decoy.get(n, []), ERASE_AREA_CAP)
             out[n] = {
@@ -295,11 +313,17 @@ def measure_misses(pdf: Path, reading: Mapping[int, Mapping[str, Any]], pages: S
     return out
 
 
+def is_image_only(page: Any) -> bool:
+    """図形も文字の層も無く、画像だけがあるページか(pymupdf のページ)。"""
+    return bool(page.get_images()) and not page.get_drawings() and not page.get_text("words")
+
+
 def _totals(m: Mapping[int, Mapping[str, Any]]) -> dict[str, Any]:
     count = sum(v["数える図形"] for v in m.values())
     miss = sum(v["落ちた"] for v in m.values())
     got = sum(v["拾えた"] for v in m.values())
     decoy = sum(v["囮が拾えた"] for v in m.values())
+    unmeasured = sorted(n for n, v in m.items() if v["落ちた率"] is None)
     return {
         "数える図形": count,
         "落ちた": miss,
@@ -307,6 +331,7 @@ def _totals(m: Mapping[int, Mapping[str, Any]]) -> dict[str, Any]:
         "拾えた": got,
         "囮が拾えた": decoy,
         "拾えた − 囮": got - decoy,
+        **({"測れなかったページ": unmeasured} if unmeasured else {}),
     }
 
 
@@ -333,7 +358,7 @@ def read(ctx: Context, org: Mapping[str, Any]) -> dict[str, Any]:
     measured = [n for n in targets if "注" not in reading[n]]
     before = measure_misses(ctx.pdf, reading, measured) if got_any else {}
     ctx.timings["読む: 落ちを測る(機械、1回目)"] = round(time.perf_counter() - t, 1)
-    chosen = [n for n in targets if before.get(n, {}).get("落ちた率", 0) > REREAD_THRESHOLD]
+    chosen = [n for n in targets if (before.get(n, {}).get("落ちた率") or 0) > REREAD_THRESHOLD]
     answers = ctx.caller.map([reread_request(ctx, n) for n in chosen], ctx.parallel)
     ctx.timings["読む: 読み直し(AI、いちばん長い 1 ページ)"] = max((a.seconds or 0.0) for a in answers) if answers else 0.0
     reread_ok, reread_missing = [], []
@@ -506,6 +531,43 @@ def understand(ctx: Context, org: Mapping[str, Any], reading: Mapping[str, Any])
     link_same_things(items)
     ctx.timings["理解(合計の壁時計)"] = round(time.perf_counter() - started, 1)
     return {"項目": items, "決められなかった要素": undecided, "未取得のページ": missing}
+
+
+#: K-64 周 1: 確度「高」を出してよいページの読めた割合の下限(= 1 − HIGH_MISS_FLAG)。**測る前に固定した値。**
+PAGE_READ_FLOOR = round(1 - HIGH_MISS_FLAG, 4)
+
+
+def page_read_rates(reading: Mapping[str, Any]) -> dict[int, float | None]:
+    """ページごとの読めた割合(1 − 最後の読みの落ちた率)。測れなかったページは None。"""
+    out: dict[int, float | None] = {}
+    for n, v in (reading.get("ページ") or {}).items():
+        rate = v.get("落ちた率") if isinstance(v, Mapping) else None
+        out[int(n)] = None if rate is None else round(1 - float(rate), 4)
+    return out
+
+
+def cap_by_page_readability(items: list[dict[str, Any]], reading: Mapping[str, Any],
+                            floor: float = PAGE_READ_FLOOR) -> dict[str, Any]:
+    """読めた割合が ``floor`` 未満(または測れない)ページの項目は、確度「高」を「中」に下げる(K-64 周 1、旗の裏)。
+
+    **下げるだけで上げない。中・低は動かさない。** 下げた項目には「確度の上限」に理由を書く。
+    人の回答で決めた項目は下げない(読みではなく人の答えが根拠のため)。
+    """
+    rates = page_read_rates(reading)
+    lowered: list[str] = []
+    for it in items:
+        if it["確度"] != "高" or it.get("根拠の種類") == "人の回答":
+            continue
+        r = rates.get(it["ページ"])
+        if r is not None and r >= floor:
+            continue
+        it["確度"] = "中"
+        it["確度の上限"] = (f"ページの読めた割合 {r:.0%} が {floor:.0%} 未満なので高を出さない" if r is not None
+                        else "ページの読めた割合が測れなかったので高を出さない")
+        lowered.append(it["id"])
+    low_pages = sorted(n for n, r in rates.items() if r is None or r < floor)
+    return {"読めた割合の下限": floor, "下限を下回ったページ": low_pages, "高から中に下げた項目": len(lowered),
+            "下げた項目": lowered}
 
 
 def same_key(item: Mapping[str, Any]) -> tuple[str, ...]:
@@ -750,11 +812,59 @@ UNREADABLE_OPTIONS = [
 ]
 
 
-def _kamoku_rank(kamoku: str) -> int:
-    for i, k in enumerate(PRIORITY_KAMOKU):
-        if k in kamoku or kamoku in k:
+def _kamoku_rank(kamoku: str, order: Sequence[str] = PRIORITY_KAMOKU) -> int:
+    for i, k in enumerate(order):
+        if kamoku and (k in kamoku or kamoku in k):
             return i
-    return len(PRIORITY_KAMOKU)
+    return len(order)
+
+
+#: 概算で拾う科目: 金額の多い科目から、分かった金額の合計のこの割合に届くまで(1 − 概算の許容誤差 15%)。
+#: K-64 周 6 の仮の判断(1 案件でも測っていない)。
+BIG_KAMOKU_SHARE = 0.85
+
+
+def big_kamoku(items: Sequence[Mapping[str, Any]], cost_table: Any) -> dict[str, Any]:
+    """概算で拾う「金額の大きい科目」を決める(K-64 周 6)。
+
+    原価表があれば、項目の 単価 × 数量 を科目ごとに足し、多い順に分かった金額の合計の 85% に届くまでの科目。
+    項目の数量が未取得なら原価表の同じ行の数量で見積もる(**科目を選ぶためだけ。数量には書き戻さない**。
+    原価表の同じ行は 1 回しか足さない)。原価表が無い・金額が 1 つも出ないときは K-60 の P011 の見立て(木工・内装・電気)。
+    """
+    from draft.cost_table import load_cost_table, match
+
+    table = cost_table if isinstance(cost_table, Mapping) and isinstance(cost_table.get("行"), list) \
+        else load_cost_table(cost_table)
+    fallback = {"科目": list(PRIORITY_KAMOKU), "出どころ": "原価表が無いので K-60 の P011 の見立て(木工・内装・電気)を仮に使った",
+                "科目ごとの金額": UNKNOWN}
+    if not table:
+        return fallback
+    amounts: dict[str, float] = {}
+    used: set[int] = set()
+    for it in items:
+        if it.get("外す") or not it.get("工事") or it.get("科目") in (None, "", UNDECIDED):
+            continue
+        r = match(table, it.get("品番"), it.get("工事"), it.get("単位"))
+        if r is None or r["単価"] is None:
+            continue
+        qty = it.get("数量")
+        if qty is None:
+            if id(r) in used or r["数量"] is None:
+                continue
+            qty = r["数量"]
+        used.add(id(r))
+        amounts[it["科目"]] = amounts.get(it["科目"], 0.0) + r["単価"] * qty
+    total = sum(amounts.values())
+    if total <= 0:
+        return {**fallback, "出どころ": "原価表に当たる項目の金額が出ないので K-60 の見立て(木工・内装・電気)を仮に使った"}
+    chosen, acc = [], 0.0
+    for k, v in sorted(amounts.items(), key=lambda kv: -kv[1]):
+        chosen.append(k)
+        acc += v
+        if acc >= BIG_KAMOKU_SHARE * total:
+            break
+    return {"科目": chosen, "出どころ": f"原価表の単価 × 数量で、多い科目から分かった金額の {BIG_KAMOKU_SHARE:.0%} に届くまで",
+            "科目ごとの金額": {k: round(v) for k, v in sorted(amounts.items(), key=lambda kv: -kv[1])}}
 
 
 def question_candidates(understanding: Mapping[str, Any], finish: Mapping[str, Any],
@@ -803,27 +913,30 @@ def question_candidates(understanding: Mapping[str, Any], finish: Mapping[str, A
                 "選択肢": list(UNREADABLE_OPTIONS), "見る所": [n], "関係する項目": [],
                 "鍵": f"読めない:{n}:{i}", "位置": [{"ページ": n, "位置": u["位置"]}],
             })
+    from draft.cost_table import load_cost_table, question_amount
+
+    table = cost_table if isinstance(cost_table, Mapping) and isinstance(cost_table.get("行"), list) \
+        else load_cost_table(cost_table)
+    by_id = {it["id"]: it for it in items}
     for q in qs:
-        q["金額"] = _amount(q, cost_table)
+        q["金額"], q["金額の出どころ"] = question_amount(q, by_id, table)
     return qs
 
 
-def _amount(q: Mapping[str, Any], cost_table: Mapping[str, float] | None) -> float | None:
-    if not cost_table:
-        return None
-    price = cost_table.get(nfkc(q.get("品番"))) or cost_table.get(nfkc(q.get("工事")))
-    qty = q.get("数量")
-    return price * qty if price is not None and isinstance(qty, (int, float)) else None
+def rank_questions(qs: list[dict[str, Any]], mode: str, answered: set[str], has_cost: bool,
+                   big: Sequence[str] = PRIORITY_KAMOKU) -> list[dict[str, Any]]:
+    """段階(概算・通常・精密)の上限まで選ぶ。**原価表があれば金額の大きい順、無ければ科目の順と関係する行の数。**
 
-
-def rank_questions(qs: list[dict[str, Any]], mode: str, answered: set[str], has_cost: bool) -> list[dict[str, Any]]:
-    """段階(概算・通常・精密)の上限まで選ぶ。**原価表があれば金額の大きい順、無ければ科目の順と関係する行の数。**"""
+    概算は「金額の大きい科目」(``big``)の問いだけ。通常・精密はすべての問いから選ぶ(精密は上限が大きい)。
+    """
     limit = MODES[mode]["問いの上限"]
     pool = [q for q in qs if q["鍵"] not in answered]
     if mode == "概算":
-        pool = [q for q in pool if _kamoku_rank(q["科目"]) < len(PRIORITY_KAMOKU)]
+        pool = [q for q in pool if _kamoku_rank(q["科目"], big) < len(big)]
     if has_cost:
-        pool.sort(key=lambda q: (-(q["金額"] or -1), _kamoku_rank(q["科目"])))
+        # 金額が未取得の問いは後ろ(そのあいだは今までの並べ方)
+        pool.sort(key=lambda q: (q["金額"] is None, -(q["金額"] or 0), _kamoku_rank(q["科目"]),
+                                 -len(q["関係する項目"]), q["鍵"]))
     else:
         kind_rank = {"原本との違い": 0, "決められなかった所": 1, "読めなかった所": 2}
         pool.sort(key=lambda q: (_kamoku_rank(q["科目"]), kind_rank[q["種類"]], -len(q["関係する項目"]), q["鍵"]))
@@ -840,45 +953,123 @@ def questions(understanding: Mapping[str, Any], finish: Mapping[str, Any], readi
     answers = dict(answers or {})
     applied = set(applied or ())
     valid = {}
-    for key, choice in answers.items():
+    for key, value in answers.items():
         match = next((q for q in qs if q["鍵"] == key), None)
-        if key in applied or (match is not None and choice in match["選択肢"]):
-            valid[key] = choice
+        choice, fields = answer_parts(value)
+        if key in applied or (match is not None and (choice in match["選択肢"] or (choice is None and fields))):
+            valid[key] = value
     has_cost = bool(cost_table)
+    big = big_kamoku(understanding["項目"], cost_table)
     out = {
         "並べ方": "1 つ答えると確定する金額の大きい順" if has_cost else
         "金額の順ではない(原価表 未取得)。木工事・内装・電気設備を先に、その中は関係する項目の多い順",
         "候補の数": {k: sum(1 for q in qs if q["種類"] == k) for k in ("原本との違い", "決められなかった所", "読めなかった所")},
-        "段階ごと": {mode: rank_questions(qs, mode, set(valid), has_cost) for mode in MODES},
+        # K-65: 上限で切る前の候補を全部渡す(質問数の上限を置かない道のため)。段階ごとは今までのまま。
+        "候補": qs,
+        "段階ごと": {mode: rank_questions(qs, mode, set(valid), has_cost, big["科目"]) for mode in MODES},
+        "概算で拾う科目": big,
         "受け取った答え": [{"鍵": k, "答え": v} for k, v in valid.items()],
         "受け取れなかった答え": [{"鍵": k, "答え": v} for k, v in answers.items() if k not in valid],
     }
     return out
 
 
-def apply_answers(understanding: dict[str, Any], finish: dict[str, Any], answers: Mapping[str, str]) -> dict[str, Any]:
-    """人の答えを戻す。**答えた所は状態を「人の回答」にし、照らし合わせを数え直す(再検証)。**"""
+#: 答えに数・値で書いてよい欄(K-64 周 4)。**選択肢の文字からは値を推し量らない。**
+ANSWER_FIELDS = ("数量", "単位", "場所", "区分", "工事", "科目", "品番")
+DONT_KNOW = "分からない"
+OUT_OF_SCOPE = "今回の工事に入らない"
+
+
+def answer_parts(value: Any) -> tuple[str | None, dict[str, Any]]:
+    """答えを (選んだ選択肢の文字, 値の欄) に分ける。
+
+    答えは選択肢の文字か、``{"選択肢": "...", "数量": 3, "単位": "枚", ...}`` の形。数量は数だけを受ける(文字は受けない)。
+    """
+    if isinstance(value, Mapping):
+        choice = value.get("選択肢")
+        fields = {k: value[k] for k in ANSWER_FIELDS if k in value and value[k] not in (None, "")}
+        if "数量" in fields and (isinstance(fields["数量"], bool) or not isinstance(fields["数量"], (int, float))):
+            fields.pop("数量")
+        return (str(choice) if choice not in (None, "") else None), fields
+    return (str(value) if value not in (None, "") else None), {}
+
+
+def _answer_text(choice: str | None, fields: Mapping[str, Any]) -> str:
+    parts = [choice] if choice else []
+    parts += [f"{k}: {v}" for k, v in fields.items()]
+    return " / ".join(parts)
+
+
+def apply_answers(understanding: dict[str, Any], finish: dict[str, Any], answers: Mapping[str, Any]) -> dict[str, Any]:
+    """人の答えを戻す(K-64 周 4: **内訳の数量と確度も変える**)。
+
+    - 決められなかった所: 選択肢を選ぶと状態「観測」・確度「高」・根拠「人の回答」。数量などの値が書いてあればその値にする。
+      **分からないと答えたら何も決めない**(状態は「問い」のまま)。
+    - 原本との違い: 照らし合わせを「人の回答で決めた」にする。「図面の読みのとおり」なら同じ室・部位の項目を確度「高」・
+      根拠「人の回答」にする。「原本のとおり」では図面の読みの項目を確かにしない(答えを書くだけ)。
+      「今回の工事に入らない」と答えた室・部位の項目は内訳から外す(「外した行」に残す)。
+    - 読めなかった所: 答えを記録するだけ(数を作らない)。
+    """
     before = sum(1 for c in finish["照らし合わせ"] if c["照らし合わせ"] in ("違う", "近い", "原本のみ", "ひな型のみ"))
+    items = understanding["項目"]
     applied: list[str] = []
+    changes: list[dict[str, Any]] = []
+
+    def decide(it: dict[str, Any], text: str, fields: Mapping[str, Any], key: str) -> None:
+        old = {k: it.get(k) for k in ("数量", "単位", "確度", "状態")}
+        it["人の回答"] = text
+        it["状態"] = "観測"
+        it["確度"] = "高"
+        it["根拠の種類"] = "人の回答"
+        for k, v in fields.items():
+            it[k] = float(v) if k == "数量" else nfkc(v)
+        it.pop("確度の上限", None)
+        changes.append({"鍵": key, "項目": it["id"], "前": old, "後": {k: it.get(k) for k in old}})
+
     for c in finish["照らし合わせ"]:
         key = f"仕上:{_norm_room(c['室'])}:{c['部位']}"
-        if key in answers and c["照らし合わせ"] in ("違う", "近い", "原本のみ", "ひな型のみ"):
-            c["人の回答"] = answers[key]
-            c["照らし合わせ"] = "人の回答で決めた"
-            applied.append(key)
-    for it in understanding["項目"]:
+        if key not in answers or c["照らし合わせ"] not in ("違う", "近い", "原本のみ", "ひな型のみ"):
+            continue
+        choice, fields = answer_parts(answers[key])
+        if not choice or DONT_KNOW in choice:
+            continue
+        c["人の回答"] = choice
+        c["照らし合わせ"] = "人の回答で決めた"
+        applied.append(key)
+        related = [it for it in items if _norm_room(it["場所"]) == _norm_room(c["室"]) and it["部位"] == c["部位"]]
+        for it in related:
+            if OUT_OF_SCOPE in choice:
+                it["人の回答"] = choice
+                it["外す"] = "人の回答: この室・部位は今回の工事に入らない"
+                it["根拠の種類"] = "人の回答"
+                changes.append({"鍵": key, "項目": it["id"], "前": {"外す": False}, "後": {"外す": True}})
+            elif choice.startswith("図面の読みのとおり"):
+                decide(it, choice, fields, key)
+            else:
+                # 原本のとおり・どちらでもない: 図面の読みの項目を確かにはしない(確度は動かさず、答えだけ書く)
+                it["仕上の人の回答"] = choice
+    for it in items:
         key = f"項目:{it['id']}"
-        if key in answers and it["状態"] == "問い" and answers[key] in it["選択肢"] + ["分からない(現地・設計者に確認する)"]:
-            it["人の回答"] = answers[key]
-            it["状態"] = "観測" if "分からない" not in answers[key] else "問い"
-            it["根拠の種類"] = "人の回答"
+        if key not in answers or it["状態"] != "問い":
+            continue
+        choice, fields = answer_parts(answers[key])
+        if choice and choice not in it["選択肢"] and DONT_KNOW not in choice:
+            continue  # 選択肢に無い文字は受け取らない
+        if (choice and DONT_KNOW in choice) or (not choice and not fields):
+            it["人の回答"] = choice or ""
             applied.append(key)
+            continue
+        decide(it, _answer_text(choice, fields), fields, key)
+        applied.append(key)
     for key in answers:
-        if key.startswith("読めない:") and answers[key] in UNREADABLE_OPTIONS:
+        choice, _ = answer_parts(answers[key])
+        if key.startswith("読めない:") and choice in UNREADABLE_OPTIONS:
             applied.append(key)
-    resolved = len(applied)
     after = sum(1 for c in finish["照らし合わせ"] if c["照らし合わせ"] in ("違う", "近い", "原本のみ", "ひな型のみ"))
-    return {"答えた数": len(answers), "戻せた答え": resolved, "戻した鍵": applied, "原本との違い(前)": before, "原本との違い(後)": after}
+    return {"答えた数": len(answers), "戻せた答え": len(applied), "戻した鍵": applied,
+            "原本との違い(前)": before, "原本との違い(後)": after,
+            "数量・確度が変わった項目": changes,
+            "内訳から外した項目": [it["id"] for it in items if it.get("外す")]}
 
 
 # ---------------------------------------------------------------------------
@@ -893,9 +1084,9 @@ def assembly_rows(items: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, An
     done: set[str] = set()
     by_id = {it["id"]: it for it in items}
     for it in items:
-        if it["id"] in done or not it["工事"]:
+        if it["id"] in done or not it["工事"] or it.get("外す"):
             continue
-        group = [it] + [by_id[i] for i in it.get("同じもの", []) if i in by_id]
+        group = [it] + [by_id[i] for i in it.get("同じもの", []) if i in by_id and not by_id[i].get("外す")]
         done.update(g["id"] for g in group)
         qtys = {g["数量"] for g in group if g["数量"] is not None}
         quantity: float | None = None
@@ -926,11 +1117,13 @@ def materials(items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """材料表: 品番ごとに数量・場所。**数量が未取得のものは合計に入れず「未取得」の件数で見せる。**"""
     table: dict[tuple[str, str], dict[str, Any]] = {}
     for it in items:
-        if not it["品番"]:
+        if not it["品番"] or it.get("外す"):
             continue
         key = (it["品番"], it["単位"])
-        row = table.setdefault(key, {"品番": it["品番"], "名称": it["何"] or it["工事"], "単位": it["単位"],
+        row = table.setdefault(key, {"科目": "", "品番": it["品番"], "名称": it["何"] or it["工事"], "単位": it["単位"],
                                      "数量の合計(分かった分)": 0.0, "未取得の件数": 0, "場所": [], "項目": []})
+        if not row["科目"] and it.get("科目") not in (None, "", UNDECIDED):
+            row["科目"] = it["科目"]
         if it.get("同じもの") and any(i in row["項目"] for i in it["同じもの"]):
             row["項目"].append(it["id"])
             continue
@@ -941,11 +1134,35 @@ def materials(items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
         if it["場所"] not in row["場所"]:
             row["場所"].append(it["場所"])
         row["項目"].append(it["id"])
-    out = sorted(table.values(), key=lambda r: (r["品番"], r["単位"]))
+    # 材料発注表の並び: 科目 → 品番(科目が決まっていないものは後ろ)
+    out = sorted(table.values(), key=lambda r: (not r["科目"], _kamoku_rank(r["科目"]), r["科目"], r["品番"], r["単位"]))
     for r in out:
+        if not r["科目"]:
+            r["科目"] = "科目未定"
         if r["未取得の件数"] and not r["数量の合計(分かった分)"]:
             r["数量の合計(分かった分)"] = UNKNOWN
     return out
+
+
+#: 材料発注表(CSV)の列。
+ORDER_SHEET_COLUMNS = ("科目", "品番", "名称", "数量(分かった分)", "単位", "数量が未取得の件数", "場所", "項目")
+
+
+def order_sheet_csv(rows: Sequence[Mapping[str, Any]]) -> str:
+    """材料表を材料発注表の並びの CSV にする。**未取得は数量の欄を空にせず「未取得」と書き、件数を別の列に出す。**"""
+    import csv
+    import io
+
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(ORDER_SHEET_COLUMNS)
+    for r in rows:
+        qty = r["数量の合計(分かった分)"]
+        if isinstance(qty, float) and qty.is_integer():
+            qty = int(qty)
+        w.writerow([r["科目"], r["品番"], r["名称"], qty, r["単位"], r["未取得の件数"], " / ".join(r["場所"]),
+                    " ".join(r["項目"])])
+    return buf.getvalue()
 
 
 def labor(rows: Sequence[Mapping[str, Any]], rates: Mapping[str, Mapping[str, float]] | None) -> list[dict[str, Any]]:
@@ -966,10 +1183,12 @@ def labor(rows: Sequence[Mapping[str, Any]], rates: Mapping[str, Mapping[str, fl
     return out
 
 
-def mode_outputs(rows: Sequence[Mapping[str, Any]], items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def mode_outputs(rows: Sequence[Mapping[str, Any]], items: Sequence[Mapping[str, Any]],
+                 big: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """段階ごとの出力(K-61 追記)。
 
-    - 概算(±15%): 金額の大きい科目(`PRIORITY_KAMOKU`)の行だけ。ほかの科目は「概算では拾わない」に名前だけ残す。
+    - 概算(±15%): 金額の大きい科目(``big_kamoku``。原価表が無ければ `PRIORITY_KAMOKU`)の行だけ。
+      ほかの科目は「概算では拾わない」に名前だけ残す。
     - 通常(±10%): すべての科目の行。
     - 精密(±5%): 細目まで。**検算を全部通す**: 検算で食い違った項目・数量が未取得の行を「通っていない」として並べる。
     **どの段階も、数量が未取得の行は未取得のまま(足し上げに入れない)。**
@@ -978,8 +1197,11 @@ def mode_outputs(rows: Sequence[Mapping[str, Any]], items: Sequence[Mapping[str,
         return {"行": len(sel), "数量のある行": sum(1 for r in sel if r["数量"] is not None),
                 "数量が未取得の行": sum(1 for r in sel if r["数量"] is None)}
 
-    big = [r for r in rows if _kamoku_rank(r["科目"]) < len(PRIORITY_KAMOKU)]
-    others = sorted({r["科目"] or "科目未定" for r in rows if r not in big})
+    big = dict(big or big_kamoku(items, None))
+    kamoku = list(big["科目"])
+    big_idx = [i for i, r in enumerate(rows) if _kamoku_rank(r["科目"], kamoku) < len(kamoku)]
+    big_rows = [rows[i] for i in big_idx]
+    others = sorted({r["科目"] or "科目未定" for i, r in enumerate(rows) if i not in set(big_idx)})
     by_id = {it["id"]: it for it in items}
     not_passed = []
     for r in rows:
@@ -991,9 +1213,10 @@ def mode_outputs(rows: Sequence[Mapping[str, Any]], items: Sequence[Mapping[str,
         if problems:
             not_passed.append({"工事項目": r["工事項目"], "場所": r["場所"], "通っていない検算": problems})
     return {
-        "概算": {**MODES["概算"], **total(big), "拾う科目": list(PRIORITY_KAMOKU), "概算では拾わない科目": others,
-               "注": "原価表が無いので「金額の大きい科目」は K-60 の P011 の見立て(木工・内装・電気)を仮に使った"},
-        "通常": {**MODES["通常"], **total(rows)},
-        "精密": {**MODES["精密"], **total(rows), "検算を通っていない行": not_passed,
+        "概算": {**MODES["概算"], **total(big_rows), "拾う科目": kamoku, "概算では拾わない科目": others,
+               "行の番号": big_idx, "注": big["出どころ"]},
+        "通常": {**MODES["通常"], **total(rows), "行の番号": list(range(len(rows)))},
+        "精密": {**MODES["精密"], **total(rows), "行の番号": list(range(len(rows))),
+               "細目(項目の数)": sum(1 for it in items if not it.get("外す")), "検算を通っていない行": not_passed,
                "検算を全部通ったか": not not_passed and bool(rows)},
     }

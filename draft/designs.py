@@ -402,7 +402,7 @@ def v3_read_understand(ctx: Context, org: Mapping[str, Any], transcribed: Mappin
     measured = [n for n in targets if n in entries]
     before = measure_misses(ctx.pdf, reading, measured) if measured else {}
     ctx.timings["読む: 落ちを測る(機械、1回目)"] = round(time.perf_counter() - t, 1)
-    chosen = [n for n in measured if before.get(n, {}).get("落ちた率", 0) > stages.REREAD_THRESHOLD]
+    chosen = [n for n in measured if (before.get(n, {}).get("落ちた率") or 0) > stages.REREAD_THRESHOLD]
     re_answers = ctx.caller.map([v3_request(ctx, [n], f"読み直し p{n}", vdata, legends) for n in chosen], ctx.parallel)
     reread, reread_missing = [], []
     for n, ans in zip(chosen, re_answers):
