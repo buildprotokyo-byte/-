@@ -812,11 +812,59 @@ UNREADABLE_OPTIONS = [
 ]
 
 
-def _kamoku_rank(kamoku: str) -> int:
-    for i, k in enumerate(PRIORITY_KAMOKU):
-        if k in kamoku or kamoku in k:
+def _kamoku_rank(kamoku: str, order: Sequence[str] = PRIORITY_KAMOKU) -> int:
+    for i, k in enumerate(order):
+        if kamoku and (k in kamoku or kamoku in k):
             return i
-    return len(PRIORITY_KAMOKU)
+    return len(order)
+
+
+#: 概算で拾う科目: 金額の多い科目から、分かった金額の合計のこの割合に届くまで(1 − 概算の許容誤差 15%)。
+#: K-64 周 6 の仮の判断(1 案件でも測っていない)。
+BIG_KAMOKU_SHARE = 0.85
+
+
+def big_kamoku(items: Sequence[Mapping[str, Any]], cost_table: Any) -> dict[str, Any]:
+    """概算で拾う「金額の大きい科目」を決める(K-64 周 6)。
+
+    原価表があれば、項目の 単価 × 数量 を科目ごとに足し、多い順に分かった金額の合計の 85% に届くまでの科目。
+    項目の数量が未取得なら原価表の同じ行の数量で見積もる(**科目を選ぶためだけ。数量には書き戻さない**。
+    原価表の同じ行は 1 回しか足さない)。原価表が無い・金額が 1 つも出ないときは K-60 の P011 の見立て(木工・内装・電気)。
+    """
+    from draft.cost_table import load_cost_table, match
+
+    table = cost_table if isinstance(cost_table, Mapping) and isinstance(cost_table.get("行"), list) \
+        else load_cost_table(cost_table)
+    fallback = {"科目": list(PRIORITY_KAMOKU), "出どころ": "原価表が無いので K-60 の P011 の見立て(木工・内装・電気)を仮に使った",
+                "科目ごとの金額": UNKNOWN}
+    if not table:
+        return fallback
+    amounts: dict[str, float] = {}
+    used: set[int] = set()
+    for it in items:
+        if it.get("外す") or not it.get("工事") or it.get("科目") in (None, "", UNDECIDED):
+            continue
+        r = match(table, it.get("品番"), it.get("工事"), it.get("単位"))
+        if r is None or r["単価"] is None:
+            continue
+        qty = it.get("数量")
+        if qty is None:
+            if id(r) in used or r["数量"] is None:
+                continue
+            qty = r["数量"]
+        used.add(id(r))
+        amounts[it["科目"]] = amounts.get(it["科目"], 0.0) + r["単価"] * qty
+    total = sum(amounts.values())
+    if total <= 0:
+        return {**fallback, "出どころ": "原価表に当たる項目の金額が出ないので K-60 の見立て(木工・内装・電気)を仮に使った"}
+    chosen, acc = [], 0.0
+    for k, v in sorted(amounts.items(), key=lambda kv: -kv[1]):
+        chosen.append(k)
+        acc += v
+        if acc >= BIG_KAMOKU_SHARE * total:
+            break
+    return {"科目": chosen, "出どころ": f"原価表の単価 × 数量で、多い科目から分かった金額の {BIG_KAMOKU_SHARE:.0%} に届くまで",
+            "科目ごとの金額": {k: round(v) for k, v in sorted(amounts.items(), key=lambda kv: -kv[1])}}
 
 
 def question_candidates(understanding: Mapping[str, Any], finish: Mapping[str, Any],
@@ -875,12 +923,16 @@ def question_candidates(understanding: Mapping[str, Any], finish: Mapping[str, A
     return qs
 
 
-def rank_questions(qs: list[dict[str, Any]], mode: str, answered: set[str], has_cost: bool) -> list[dict[str, Any]]:
-    """段階(概算・通常・精密)の上限まで選ぶ。**原価表があれば金額の大きい順、無ければ科目の順と関係する行の数。**"""
+def rank_questions(qs: list[dict[str, Any]], mode: str, answered: set[str], has_cost: bool,
+                   big: Sequence[str] = PRIORITY_KAMOKU) -> list[dict[str, Any]]:
+    """段階(概算・通常・精密)の上限まで選ぶ。**原価表があれば金額の大きい順、無ければ科目の順と関係する行の数。**
+
+    概算は「金額の大きい科目」(``big``)の問いだけ。通常・精密はすべての問いから選ぶ(精密は上限が大きい)。
+    """
     limit = MODES[mode]["問いの上限"]
     pool = [q for q in qs if q["鍵"] not in answered]
     if mode == "概算":
-        pool = [q for q in pool if _kamoku_rank(q["科目"]) < len(PRIORITY_KAMOKU)]
+        pool = [q for q in pool if _kamoku_rank(q["科目"], big) < len(big)]
     if has_cost:
         # 金額が未取得の問いは後ろ(そのあいだは今までの並べ方)
         pool.sort(key=lambda q: (q["金額"] is None, -(q["金額"] or 0), _kamoku_rank(q["科目"]),
@@ -907,11 +959,13 @@ def questions(understanding: Mapping[str, Any], finish: Mapping[str, Any], readi
         if key in applied or (match is not None and (choice in match["選択肢"] or (choice is None and fields))):
             valid[key] = value
     has_cost = bool(cost_table)
+    big = big_kamoku(understanding["項目"], cost_table)
     out = {
         "並べ方": "1 つ答えると確定する金額の大きい順" if has_cost else
         "金額の順ではない(原価表 未取得)。木工事・内装・電気設備を先に、その中は関係する項目の多い順",
         "候補の数": {k: sum(1 for q in qs if q["種類"] == k) for k in ("原本との違い", "決められなかった所", "読めなかった所")},
-        "段階ごと": {mode: rank_questions(qs, mode, set(valid), has_cost) for mode in MODES},
+        "段階ごと": {mode: rank_questions(qs, mode, set(valid), has_cost, big["科目"]) for mode in MODES},
+        "概算で拾う科目": big,
         "受け取った答え": [{"鍵": k, "答え": v} for k, v in valid.items()],
         "受け取れなかった答え": [{"鍵": k, "答え": v} for k, v in answers.items() if k not in valid],
     }
@@ -1101,10 +1155,12 @@ def labor(rows: Sequence[Mapping[str, Any]], rates: Mapping[str, Mapping[str, fl
     return out
 
 
-def mode_outputs(rows: Sequence[Mapping[str, Any]], items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+def mode_outputs(rows: Sequence[Mapping[str, Any]], items: Sequence[Mapping[str, Any]],
+                 big: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """段階ごとの出力(K-61 追記)。
 
-    - 概算(±15%): 金額の大きい科目(`PRIORITY_KAMOKU`)の行だけ。ほかの科目は「概算では拾わない」に名前だけ残す。
+    - 概算(±15%): 金額の大きい科目(``big_kamoku``。原価表が無ければ `PRIORITY_KAMOKU`)の行だけ。
+      ほかの科目は「概算では拾わない」に名前だけ残す。
     - 通常(±10%): すべての科目の行。
     - 精密(±5%): 細目まで。**検算を全部通す**: 検算で食い違った項目・数量が未取得の行を「通っていない」として並べる。
     **どの段階も、数量が未取得の行は未取得のまま(足し上げに入れない)。**
@@ -1113,8 +1169,11 @@ def mode_outputs(rows: Sequence[Mapping[str, Any]], items: Sequence[Mapping[str,
         return {"行": len(sel), "数量のある行": sum(1 for r in sel if r["数量"] is not None),
                 "数量が未取得の行": sum(1 for r in sel if r["数量"] is None)}
 
-    big = [r for r in rows if _kamoku_rank(r["科目"]) < len(PRIORITY_KAMOKU)]
-    others = sorted({r["科目"] or "科目未定" for r in rows if r not in big})
+    big = dict(big or big_kamoku(items, None))
+    kamoku = list(big["科目"])
+    big_idx = [i for i, r in enumerate(rows) if _kamoku_rank(r["科目"], kamoku) < len(kamoku)]
+    big_rows = [rows[i] for i in big_idx]
+    others = sorted({r["科目"] or "科目未定" for i, r in enumerate(rows) if i not in set(big_idx)})
     by_id = {it["id"]: it for it in items}
     not_passed = []
     for r in rows:
@@ -1126,9 +1185,10 @@ def mode_outputs(rows: Sequence[Mapping[str, Any]], items: Sequence[Mapping[str,
         if problems:
             not_passed.append({"工事項目": r["工事項目"], "場所": r["場所"], "通っていない検算": problems})
     return {
-        "概算": {**MODES["概算"], **total(big), "拾う科目": list(PRIORITY_KAMOKU), "概算では拾わない科目": others,
-               "注": "原価表が無いので「金額の大きい科目」は K-60 の P011 の見立て(木工・内装・電気)を仮に使った"},
-        "通常": {**MODES["通常"], **total(rows)},
-        "精密": {**MODES["精密"], **total(rows), "検算を通っていない行": not_passed,
+        "概算": {**MODES["概算"], **total(big_rows), "拾う科目": kamoku, "概算では拾わない科目": others,
+               "行の番号": big_idx, "注": big["出どころ"]},
+        "通常": {**MODES["通常"], **total(rows), "行の番号": list(range(len(rows)))},
+        "精密": {**MODES["精密"], **total(rows), "行の番号": list(range(len(rows))),
+               "細目(項目の数)": sum(1 for it in items if not it.get("外す")), "検算を通っていない行": not_passed,
                "検算を全部通ったか": not not_passed and bool(rows)},
     }

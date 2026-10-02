@@ -259,3 +259,39 @@ def test_cost_table_orders_questions_and_compares_without_rewriting(tmp_path, ma
     cmp_ = r["組み立て"]["原価表との比べ"]
     assert "正解として使わない" in cmp_["注"] and cmp_["並べた行"]
     assert "原価表との比べ" not in r0["組み立て"]
+
+
+# --- 周 6: 段階別の範囲と質問 -------------------------------------------------------------
+
+
+def _it(i, kamoku, work, qty):
+    return {"id": i, "科目": kamoku, "工事": work, "品番": "", "単位": "", "数量": qty}
+
+
+def test_big_kamoku_from_cost_table_reaches_85_percent():
+    items = [_it("a", "塗装", "塗り", 10), _it("b", "内装", "床", 1), _it("c", "電気設備", "照明", 1),
+             _it("d", "木工事", "棚", None)]
+    table = [{"工事": "塗り", "単価": 100}, {"工事": "床", "単価": 50}, {"工事": "照明", "単価": 10},
+             {"工事": "棚", "単価": 30, "数量": 2}]
+    big = stages.big_kamoku(items, table)
+    # 塗装 1000, 木工事 60(原価表の数量で見積もり), 内装 50, 電気 10 → 合計 1120 の 85% = 952 は塗装だけで届く
+    assert big["科目"] == ["塗装"] and big["科目ごとの金額"]["木工事"] == 60
+    assert items[3]["数量"] is None  # 数量に書き戻さない
+    assert stages.big_kamoku(items, None)["科目"] == list(stages.PRIORITY_KAMOKU)
+    assert stages.big_kamoku(items, [{"工事": "無い", "単価": 1}])["科目"] == list(stages.PRIORITY_KAMOKU)
+
+
+def test_modes_split_rows_and_questions(tmp_path, machine_output):  # noqa: F811
+    pdf = _pdf(tmp_path / "図面.pdf")
+    base = tmp_path / "なし"
+    run([str(pdf), "--out", str(base), "--machine-output", str(machine_output)], client=FakeClient())
+    r0 = json.loads((base / "下書き.json").read_text(encoding="utf-8"))
+    rows = r0["組み立て"]["内訳の行"]
+    m = r0["組み立て"]["段階ごとの出力"]
+    assert set(m["概算"]["行の番号"]) <= set(m["通常"]["行の番号"]) == set(range(len(rows)))
+    assert all(rows[i]["科目"] in m["概算"]["拾う科目"] or any(k in rows[i]["科目"] for k in m["概算"]["拾う科目"])
+               for i in m["概算"]["行の番号"])
+    q = r0["質問"]
+    assert len(q["段階ごと"]["概算"]) <= 3 and len(q["段階ごと"]["通常"]) <= 5 and len(q["段階ごと"]["精密"]) <= 10
+    big = q["概算で拾う科目"]["科目"]
+    assert all(stages._kamoku_rank(x["科目"], big) < len(big) for x in q["段階ごと"]["概算"])

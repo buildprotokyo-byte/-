@@ -266,7 +266,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "ページで数量が違う": conflicts,
             "材料表": stages.materials(understanding["項目"]),
             "時間": stages.labor(rows, _load_json(a.labor)),
-            "段階ごとの出力": stages.mode_outputs(rows, understanding["項目"]),
+            "段階ごとの出力": stages.mode_outputs(rows, understanding["項目"],
+                                                stages.big_kamoku(understanding["項目"], cost_table)),
             **({"原価表との比べ": compare_cost(rows, cost_table)} if cost_table else {}),
             **({"外した行": [{"項目": it["id"], "工事": it["工事"], "場所": it["場所"], "数量": it["数量"],
                              "理由": it["外す"]} for it in understanding["項目"] if it.get("外す")]}
