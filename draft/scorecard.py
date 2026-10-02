@@ -142,12 +142,19 @@ def build(
     rows: list[Row] = []
 
     # --- 段階 1 台帳 ---
-    for name, bucket in (("文字", kinds.get("文字")), ("記号", kinds.get("記号")),
-                         ("数字だけの語(寸法の見込み)", slices.get("数字だけの語(寸法の見込み)")),
-                         ("表", slices.get("表"))):
-        rows.append(Row(1, f"読了率 {name}", "台帳に位置付きで載った図形 ÷ 数える図形", 0.98, _rate(bucket)))
-    for name in ("線(長さ)", "点・小さい図形(面積)"):
-        rows.append(Row(1, f"読了率 {name}", "墨の量で見た読了率", 0.90, _rate(ink.get(name))))
+    # 線は K-68 1 番(おーちゃんの決定): 文字・数字 0.98 / 記号 0.95 / 表 0.95 / 線(長さ)0.90。
+    # 点・小さい図形は参考値として表示するだけで、合否に入れない。
+    from draft.readthrough import PASS_LINES
+
+    for name, bucket, line in (("文字", kinds.get("文字"), PASS_LINES["文字・数字"]),
+                               ("数字だけの語(寸法の見込み)", slices.get("数字だけの語(寸法の見込み)"),
+                                PASS_LINES["文字・数字"]),
+                               ("記号", kinds.get("記号"), PASS_LINES["記号"]),
+                               ("表", slices.get("表"), PASS_LINES["表"])):
+        rows.append(Row(1, f"読了率 {name}", "台帳に位置付きで載った図形 ÷ 数える図形", line, _rate(bucket)))
+    rows.append(Row(1, "読了率 線(長さ)", "墨の量で見た読了率", PASS_LINES["線(長さ)"], _rate(ink.get("線(長さ)"))))
+    rows.append(Row(1, "読了率 点・小さい図形(面積)", "墨の量で見た読了率", "参考(合否に入れない)",
+                    _rate(ink.get("点・小さい図形(面積)")), 備考="K-68 1 番: 参考値として表示するだけ"))
     rows.append(Row(1, "未読の所在", "未読の図形のうち、ページと位置で指せる割合", 1.0,
                     _rate(readthrough, "未読の所在が指せた割合")))
     rows.append(Row(1, "「どこに書いてあるか」検索", "文字の層から自動で 100 問", 0.90,

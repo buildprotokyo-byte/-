@@ -36,6 +36,13 @@ GREEN, YELLOW, RED, GREY = "緑", "黄", "赤", "灰"
 SIGNAL_GREEN = 0.98
 SIGNAL_YELLOW = 0.90
 
+#: 読了率の合否の線(K-68 1 番、おーちゃんの決定)。**種類ごとに言う。**全体の 1 つの数では言わない。
+#: 文字・数字は台帳の「文字」(数字だけの語も含む)、表は重なる切り口の「表」、線は長さで見た読了率。
+PASS_LINES = {"文字・数字": 0.98, "記号": 0.95, "表": 0.95, "線(長さ)": 0.90}
+#: 参考値として表示するだけで、合否に入れないもの(K-68 1 番)。
+REFERENCE_ONLY = ("点・小さい図形",)
+PASS, FAIL, NOT_MEASURED = "通過", "不通過", "測れない"
+
 #: 案件全体の警告を出す、赤のページの割合(**こちらが決めた。仮の判断**)。
 CASE_WARNING_SHARE = 1 / 3
 CASE_WARNING = "この案件は読めていない頁が多い。下書きは参考。人が図面を確認する前提"
@@ -128,7 +135,51 @@ def means_of(page: Any, words: int) -> str:
     return "手段なし"
 
 
+def _kind_rates(result: Mapping[str, Any]) -> dict[str, float | None]:
+    """ページ・案件のどちらの出力からも、合否に使う 4 つの読了率を取り出す。"""
+    kinds = result.get("種類ごと(重なりなし)") or result.get("種類ごと") or {}
+    slices = result.get("別の切り口(重なる)") or result.get("別の切り口") or {}
+    ink = result.get("墨の量で見た読了率") or {}
+    return {
+        "文字・数字": (kinds.get("文字") or {}).get("読了率"),
+        "記号": (kinds.get("記号") or {}).get("読了率"),
+        "表": (slices.get("表") or {}).get("読了率"),
+        "線(長さ)": (ink.get("線(長さ)") or {}).get("読了率"),
+    }
+
+
+def pass_fail(result: Mapping[str, Any]) -> dict[str, Any]:
+    """読了率の合否(K-68 1 番)。**種類ごとに線と比べ、1 つでも割れば不通過。**
+
+    その種類がページに無い(数える図形が 0)・表が無いときは「測れない」で、合否に入れない。
+    4 つとも測れなければ全体も「測れない」(**通過にしない**)。点・小さい図形は参考値として並べるだけ。
+    """
+    rates = _kind_rates(result)
+    rows = {}
+    for name, line in PASS_LINES.items():
+        rate = rates[name]
+        rows[name] = {"読了率": rate, "線": line,
+                      "合否": NOT_MEASURED if rate is None else (PASS if rate >= line else FAIL)}
+    verdicts = [r["合否"] for r in rows.values() if r["合否"] != NOT_MEASURED]
+    overall = NOT_MEASURED if not verdicts else (FAIL if FAIL in verdicts else PASS)
+    kinds = result.get("種類ごと(重なりなし)") or result.get("種類ごと") or {}
+    ink = result.get("墨の量で見た読了率") or {}
+    reference = {
+        "点・小さい図形(数)": (kinds.get("点・小さい図形") or {}).get("読了率"),
+        "点・小さい図形(面積)": (ink.get("点・小さい図形(面積)") or {}).get("読了率"),
+        "全体の 1 つの数": result.get("読了率"),
+    }
+    return {"合否": overall, "種類ごと": rows, "参考(合否に入れない)": reference,
+            "不通過の種類": [n for n, r in rows.items() if r["合否"] == FAIL]}
+
+
+def signal_of(verdict: str) -> str:
+    """ページの信号は合否から決める(K-68 1 番。**点が多いと全体の数が高く見えるので、全体の数では決めない**)。"""
+    return {PASS: GREEN, FAIL: RED}.get(verdict, GREY)
+
+
 def signal(rate: float | None) -> str:
+    """全体の 1 つの数の色(**参考**。ページの信号には使わない)。"""
     if rate is None:
         return GREY
     if rate >= SIGNAL_GREEN:
@@ -173,7 +224,6 @@ def page_readthrough(
     out["読了率"] = round(got / counted, 4)
     out["拾えた"] = got
     out["落ちた"] = summary["落ちた"]
-    out["信号"] = signal(out["読了率"])
     out["種類ごと"] = {
         kind: {"数える": total, "拾えた": total - missed,
                "読了率": round((total - missed) / total, 4) if total else None}
@@ -220,6 +270,10 @@ def page_readthrough(
         "但し書き": "寸法線に当たったかは見ていない。だから「寸法」と言い切らない",
     }
     out["別の切り口"] = slices
+
+    out["合否"] = pass_fail(out)
+    out["信号"] = signal_of(out["合否"]["合否"])
+    out["全体の 1 つの数の色(参考)"] = signal(out["読了率"])
 
     if with_unread:
         unread = []
@@ -300,6 +354,10 @@ def readthrough(
         for name, v in ink_total.items()
     }
 
+    case = {"読了率": round(got / counted, 4) if counted else None, "種類ごと(重なりなし)": kinds,
+            "別の切り口(重なる)": slices, "墨の量で見た読了率": ink_summary}
+    verdict = pass_fail(case)
+
     unread = [u for p in per_page for u in p.get("未読", [])]
     locatable = sum(p.get("未読の所在が指せた") or 0 for p in per_page)
     red_share = colours[RED] / len(per_page) if per_page else 0.0
@@ -308,6 +366,7 @@ def readthrough(
         "定義": DEFINITION,
         "面積の上限": cap,
         "読了率": round(got / counted, 4) if counted else None,
+        "合否": verdict,
         "数える図形": counted,
         "拾えた": got,
         "測れたページ": len(measured),
