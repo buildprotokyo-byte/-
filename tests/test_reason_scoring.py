@@ -53,14 +53,37 @@ def test_a_line_that_matches_the_golden_is_a_hit() -> None:
 
 
 def test_one_character_of_difference_is_not_a_hit() -> None:
-    """**対応づけを緩めない。**"""
+    """**旧規則では、送り仮名 1 字の違いも外れ。**比べるために残してある。"""
     golden = (GoldenItem(work_item="建具取付", unit="箇所"),)
 
-    result = score_lines([_line("建具取付け", "箇所")], golden)
+    result = score_lines([_line("建具取付け", "箇所")], golden, rule="旧")
 
     assert result.hit_lines == ()
     assert len(result.missed_items) == 1
     assert len(result.extra_lines) == 1
+
+
+def test_okurigana_is_a_hit_under_the_new_rule() -> None:
+    """**新規則では当たり。**K-66 でおーちゃんが定義を変えた(意味が同じなら ○)。
+
+    `建具取付` と `建具取付け` は送り仮名の違いなので同じ工事である。
+    **緩めたのではなく、「文字が同じか」から「意味が同じか」へ測るものを変えた。**
+    緩めていないことは囮で測る(`benchmarks/measure_sameness.py`、囮の通過 0%)。
+    """
+    golden = (GoldenItem(work_item="建具取付", unit="箇所"),)
+
+    result = score_lines([_line("建具取付け", "箇所")], golden)
+
+    assert len(result.hit_lines) == 1
+    assert result.missed_items == ()
+
+
+def test_a_different_meaning_is_still_not_a_hit() -> None:
+    """**新規則でも、意味が違えば外れ。**(外壁と内壁、撤去と新設)"""
+    golden = (GoldenItem(work_item="内壁の塗装", unit="㎡"),)
+
+    assert score_lines([_line("外壁の塗装", "㎡")], golden).hit_lines == ()
+    assert score_lines([_line("内壁の塗装の撤去", "㎡")], golden).hit_lines == ()
 
 
 def test_a_different_unit_is_not_a_hit() -> None:
