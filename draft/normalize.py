@@ -8,8 +8,6 @@
 from __future__ import annotations
 
 import json
-import re
-import unicodedata
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -18,9 +16,15 @@ OTHER = "X99"
 
 
 def _flat(text: str) -> str:
-    text = unicodedata.normalize("NFKC", text or "")
-    text = text.replace("ビニール", "ビニル").replace("貼", "張").replace("幅木", "巾木")
-    return re.sub(r"[\s・、,/()「」\-ー~〜]", "", text)
+    """表記を揃える。**揃える処理は `sameness/normalize.py` の 1 か所だけ**(K-66 の条件 1)。
+
+    ここに書き写すと「貼→張」を決める場所が 2 か所になり、片方だけ直したときに
+    黙って食い違う。P011 の内訳 2,209 行で差し替えて測ったところ、
+    **細目 id が変わった行は 0 件**だったので、そのまま 1 か所へ寄せた。
+    """
+    from sameness.normalize import flatten
+
+    return flatten(text)
 
 
 def load_clues(path: str | Path | None = None) -> dict[str, list[tuple[list[str], str]]]:
