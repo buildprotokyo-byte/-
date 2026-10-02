@@ -176,6 +176,26 @@ def test_型は7つだけ() -> None:
     assert set(cards.SECONDS) == set(cards.TYPES)
 
 
+def test_決めると確定するを言い分ける() -> None:
+    """**K-65 追記 2。**欄が埋まることと、3 状態が確定に移ることは別。
+
+    P011 で 32 問すべてに答えても確定に移ったのは 1 項目だったので、
+    メーターは「決める」と書き、但し書きを必ず付ける。
+    """
+    graph = chain.build([_item("a")])
+    classified = uncertainty.classify([_item("a")])
+    built = cards.build_cards(
+        [{"鍵": "項目:a", "種類": "決められなかった所", "科目": "内装", "問い": "?",
+          "選択肢": ["ある", "ない"], "見る所": [1], "関係する項目": ["a"],
+          "位置": [{"ページ": 1, "位置": [0, 0, 1, 1]}]}],
+        [_item("a")], graph, classified)
+    meter = built["カード"][0]["メーター"]
+
+    assert "決める項目数" in meter
+    assert "確定する項目数" not in meter
+    assert "「確定」になることではない" in meter["但し書き"]
+
+
 def test_見込み精度は出さない() -> None:
     """**未較正のものを画面に出さない。**出すのは構造から出る数字だけ。"""
     graph = chain.build([_item("a")])
@@ -207,20 +227,20 @@ def test_機械の推す答えはカードに入らない() -> None:
 
 
 def test_原価表が無ければ金額ではなく項目数で出す() -> None:
-    rows = cards.cumulative([{"鍵": "k", "メーター": {"確定する項目数": {"合計": 1},
+    rows = cards.cumulative([{"鍵": "k", "メーター": {"決める項目数": {"合計": 1},
                                                  "回答時間の見積(秒)": 20,
-                                                 "確定する金額": "未取得(原価表なし)"},
+                                                 "決める金額": "未取得(原価表なし)"},
                               "連鎖": {"直接": ["a"], "連鎖": []}}], total=None, item_total=4)
 
     assert rows[0]["割合の中身"] == "項目数(金額ではない)"
-    assert rows[0]["確定の割合"] == 0.25
+    assert rows[0]["決める項目の割合"] == 0.25
 
 
 def test_止め線は時間だけで数の上限は無い() -> None:
     assert cards.STOP_LINES == (300, 600, 900)
-    rows = cards.cumulative([{"鍵": f"k{i}", "メーター": {"確定する項目数": {"合計": 1},
+    rows = cards.cumulative([{"鍵": f"k{i}", "メーター": {"決める項目数": {"合計": 1},
                                                      "回答時間の見積(秒)": 100,
-                                                     "確定する金額": "未取得"},
+                                                     "決める金額": "未取得"},
                               "連鎖": {"直接": [f"a{i}"], "連鎖": []}} for i in range(12)],
                             total=None, item_total=12)
 

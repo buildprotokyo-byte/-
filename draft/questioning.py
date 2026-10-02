@@ -44,11 +44,31 @@ def cost_rows_by_key(cost_table: Mapping[str, Any] | None) -> dict[str, Mapping[
     return out
 
 
+def other_values(items: Sequence[Mapping[str, Any]],
+                 other_runs: Sequence[Sequence[Mapping[str, Any]]]) -> dict[tuple[str, str, str, str], list[str]]:
+    """ほかの回の読みが出した数量(`数量` の型の選択肢に使う)。
+
+    **これは 3 回読んだときだけ在る。**1 回しか読んでいない本番では空になり、
+    `数量` のカードは選択肢が足りずに捨てられる(K-65 で実測)。
+    """
+    want = {unc.item_key(it) for it in items}
+    out: dict[tuple[str, str, str, str], list[str]] = {}
+    for run in other_runs:
+        for it in run:
+            key = unc.item_key(it)
+            if key not in want or it.get("数量") is None:
+                continue
+            text = f"{it['数量']:g}{nfkc(it.get('単位'))}"
+            if text not in out.setdefault(key, []):
+                out[key].append(text)
+    return out
+
+
 def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
           finish: Mapping[str, Any] | None, *, cost_table: Mapping[str, Any] | None = None,
           other_runs: Sequence[Sequence[Mapping[str, Any]]] = (),
           crops: Mapping[str, Any] | None = None, how: str = "連鎖の金額順",
-          seed: int = 65) -> dict[str, Any]:
+          checklist: Mapping[str, Any] | None = None, seed: int = 65) -> dict[str, Any]:
     items = list(understanding.get("項目") or ())
     classified = unc.classify(items, finish=finish, other_runs=other_runs,
                               cost_rows=cost_rows_by_key(cost_table))
@@ -65,19 +85,33 @@ def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
                     seen.add(q["鍵"])
                     raw.append(q)
 
-    built = cards_mod.build_cards(raw, items, graph, classified, amounts=amounts, total=total, crops=crops)
+    spots = unc.spot_check_ids(classified)
+    built = cards_mod.build_cards(raw, items, graph, classified, amounts=amounts, total=total,
+                                  crops=crops, other_values=other_values(items, other_runs),
+                                  spot_check_ids=spots)
     has_cost = bool(total)
-    ordered = cards_mod.order(built["カード"], how=how, has_cost=has_cost, seed=seed)
+    # K-65 の 0: 工事チェック表の「分からないこと」も問いにする。**原本に依らない問い。**
+    frames = [c for c in cards_mod.frame_cards(checklist, crops=crops) if not cards_mod.invalid_reasons(c)]
+    for c in frames:
+        c["メーター"] = {"決める項目数": {"直接": 0, "連鎖": 0, "合計": 0},
+                     "決める金額": "未取得(枠の有無を決める問いなので項目の金額では測れない)",
+                     "回答時間の見積(秒)": cards_mod.SECONDS["工事の有無"],
+                     "回答時間の見積は較正済みか": cards_mod.SECONDS_CALIBRATED,
+                     "見込み精度の変化": "出さない(未較正)",
+                     "但し書き": "枠の有無を決める問い。項目は決めない"}
+        c["連鎖"] = {"直接": [], "連鎖": [], "辿った辺の種類": []}
+    ordered = cards_mod.order(list(built["カード"]) + frames, how=how, has_cost=has_cost, seed=seed)
 
-    spots = set(unc.spot_check_ids(classified))
+    spot_set = set(spots)
     for c in ordered:
-        if spots & set(c.get("直接") or ()):
+        if spot_set & set(c.get("直接") or ()):
             c["抜き取り"] = True
 
     small = [c["鍵"] for c in ordered
-             if unc.small_effect((c.get("メーター", {}).get("確定する金額") or {}).get("直接")
-                                 if isinstance(c.get("メーター", {}).get("確定する金額"), Mapping) else None,
-                                 total, c.get("メーター", {}).get("確定する項目数", {}).get("合計", 0))]
+             if not c.get("抜き取り") and not c.get("枠の問い") and unc.small_effect(
+                 (c.get("メーター", {}).get("決める金額") or {}).get("直接")
+                 if isinstance(c.get("メーター", {}).get("決める金額"), Mapping) else None,
+                 total, c.get("メーター", {}).get("決める項目数", {}).get("合計", 0))]
     asked = [c for c in ordered if c["鍵"] not in set(small) or c.get("抜き取り")]
     rows = cards_mod.cumulative(asked, total=total, item_total=len(items) or None)
 
@@ -91,6 +125,7 @@ def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
         "捨てたカード": built["捨てたカード"],
         "畳んだカード": built["畳んだカード"],
         "抜き取りの問い": [c["鍵"] for c in asked if c.get("抜き取り")],
+        "枠の問い": [c["鍵"] for c in asked if c.get("枠の問い")],
         "聞かない(影響小)": small,
         "累積": rows,
         "止め線に入る問数": {f"{s // 60}分": cards_mod.within(rows, s) for s in cards_mod.STOP_LINES},

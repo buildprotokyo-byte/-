@@ -8,7 +8,10 @@
 **機械の推す答えはカードに入れない。**(`競っている読みの候補` には値を並べるが、
 どれが機械の推しかは書かない。書くと人がそれを選ぶ)
 
-**見込み精度は未較正なので出さない。**構造から出る数字(確定する項目数・金額比)だけ出す。
+**見込み精度は未較正なので出さない。**構造から出る数字(決める項目数・金額比)だけ出す。
+
+**「決める」は「確定する」ではない(追記 2)。**欄が埋まることと、3 状態が確定に移ることは
+別である。P011 で 32 問すべてに答えても、確定に移ったのは 1 項目だった。
 """
 
 from __future__ import annotations
@@ -85,16 +88,18 @@ def _meter(card: dict[str, Any], chain: chain_mod.Chain, amounts: Mapping[str, f
     a_chain = _amount(chained, amounts)
     seconds = SECONDS.get(card["型"], 30)
     meter: dict[str, Any] = {
-        "確定する項目数": {"直接": len(direct), "連鎖": len(chained), "合計": len(direct) + len(chained)},
+        "決める項目数": {"直接": len(direct), "連鎖": len(chained), "合計": len(direct) + len(chained)},
         "回答時間の見積(秒)": seconds,
         "回答時間の見積は較正済みか": SECONDS_CALIBRATED,
         "見込み精度の変化": "出さない(未較正。構造から出る数字だけを出す)",
+        "但し書き": "「決める」は欄が埋まることで、3 状態の「確定」になることではない"
+                 "(K-65 追記 2: 32 問答えて確定に移ったのは 1 項目)",
     }
     if total:
-        meter["確定する金額"] = {"直接": a_direct, "連鎖": a_chain,
-                            "総額比": round(((a_direct or 0) + (a_chain or 0)) / total, 4)}
+        meter["決める金額"] = {"直接": a_direct, "連鎖": a_chain,
+                           "総額比": round(((a_direct or 0) + (a_chain or 0)) / total, 4)}
     else:
-        meter["確定する金額"] = "未取得(原価表なし)。金額ではなく項目数で並べている"
+        meter["決める金額"] = "未取得(原価表なし)。金額ではなく項目数で並べている"
     card["連鎖"] = decided
     return meter
 
@@ -102,7 +107,9 @@ def _meter(card: dict[str, Any], chain: chain_mod.Chain, amounts: Mapping[str, f
 def build_cards(questions: Sequence[Mapping[str, Any]], items: Sequence[Mapping[str, Any]],
                 chain: chain_mod.Chain, classified: Mapping[str, Any], *,
                 amounts: Mapping[str, float] | None = None, total: float | None = None,
-                crops: Mapping[str, Any] | None = None) -> dict[str, Any]:
+                crops: Mapping[str, Any] | None = None,
+                other_values: Mapping[tuple[str, str, str, str], Sequence[str]] | None = None,
+                spot_check_ids: Sequence[str] = ()) -> dict[str, Any]:
     """`draft.stages.question_candidates` の問いをカードにする。
 
     **問いを新しく作らない。**型を決め、メーターを付け、無効なものを外すだけ。
@@ -113,7 +120,7 @@ def build_cards(questions: Sequence[Mapping[str, Any]], items: Sequence[Mapping[
     cards: list[dict[str, Any]] = []
     dropped: list[dict[str, Any]] = []
     for q in questions:
-        card = _to_card(q, items, uncertain, crops)
+        card = _to_card(q, items, uncertain, crops, other_values)
         if card is None:
             dropped.append({"鍵": q["鍵"], "理由": "型が決まらなかった"})
             continue
@@ -123,6 +130,10 @@ def build_cards(questions: Sequence[Mapping[str, Any]], items: Sequence[Mapping[
             dropped.append({"鍵": card["鍵"], "型": card["型"], "理由": "・".join(bad)})
             continue
         cards.append(card)
+    for card in spot_check_cards(spot_check_ids, items, crops):
+        card["メーター"] = _meter(card, chain, amounts, total)
+        if not invalid_reasons(card):
+            cards.append(card)
     merged, folded = _fold(cards)
     return {
         "カード": merged,
@@ -135,9 +146,15 @@ def build_cards(questions: Sequence[Mapping[str, Any]], items: Sequence[Mapping[
     }
 
 
+def _value_key(item: Mapping[str, Any]) -> tuple[str, str, str, str]:
+    return unc.item_key(item)
+
+
 def _to_card(q: Mapping[str, Any], items: Sequence[Mapping[str, Any]],
-             uncertain: Mapping[str, Mapping[str, Any]], crops: Mapping[str, Any]) -> dict[str, Any] | None:
+             uncertain: Mapping[str, Mapping[str, Any]], crops: Mapping[str, Any],
+             other_values: Mapping[tuple[str, str, str, str], Sequence[str]] | None = None) -> dict[str, Any] | None:
     by_id = {it["id"]: it for it in items}
+    other_values = dict(other_values or {})
     kind = q.get("種類")
     related = list(q.get("関係する項目") or ())
     first = by_id.get(related[0]) if related else None
@@ -157,10 +174,10 @@ def _to_card(q: Mapping[str, Any], items: Sequence[Mapping[str, Any]],
         type_ = "工事の有無"
     options = [str(o) for o in q.get("選択肢") or ()]
     if type_ == "数量":
-        options = _quantity_options(first, by_id)
+        options = _quantity_options(first, by_id, other_values.get(_value_key(first), ()) if first else ())
     if not any(NONE_OF_THESE[:4] in o or "分からない" in o for o in options):
         options.append(NONE_OF_THESE)
-    pages = sorted({int(p) for p in q.get("見る所") or () if isinstance(p, (int, float))})
+    pages = sorted(_page_numbers(q.get("見る所")))
     sig = [s for i in related for s in (uncertain.get(i, {}).get("信号") or ())]
     card = {
         "鍵": q["鍵"], "型": type_, "問い": q["問い"], "選択肢": options,
@@ -180,7 +197,23 @@ def _to_card(q: Mapping[str, Any], items: Sequence[Mapping[str, Any]],
     return card
 
 
-def _quantity_options(item: Mapping[str, Any] | None, by_id: Mapping[str, Mapping[str, Any]]) -> list[str]:
+def _page_numbers(values: Any) -> set[int]:
+    """ページ番号の集合。**保存した JSON を読み直すと鍵が文字になる**ので数字の文字も読む。"""
+    out: set[int] = set()
+    for v in values or ():
+        if isinstance(v, bool):
+            continue
+        if isinstance(v, (int, float)):
+            out.add(int(v))
+            continue
+        text = nfkc(v)
+        if text.isdigit():
+            out.add(int(text))
+    return out
+
+
+def _quantity_options(item: Mapping[str, Any] | None, by_id: Mapping[str, Mapping[str, Any]],
+                      other_values: Sequence[str] = ()) -> list[str]:
     """数量の選択肢。**3 回の読みの値・機械の値・縮尺で換算した値から選ぶ形。数字は打たせない。**
 
     いま手元にあるのは 1 回の読みなので、同じものと結ばれた項目の値を並べる。
@@ -196,6 +229,9 @@ def _quantity_options(item: Mapping[str, Any] | None, by_id: Mapping[str, Mappin
             continue
         text = f"{cand['数量']:g}{nfkc(cand.get('単位')) or unit}"
         if text not in values:
+            values.append(text)
+    for text in other_values:
+        if text and text not in values:
             values.append(text)
     return values
 
@@ -227,18 +263,18 @@ def _fold(cards: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], lis
 
 
 def priority(card: Mapping[str, Any], *, has_cost: bool) -> float:
-    """優先度 = 連鎖で確定する金額 × 不確実さ ÷ 回答時間。
+    """優先度 = 連鎖で決める金額 × 不確実さ ÷ 回答時間。
 
     金額が無い案件では金額の代わりに項目数を使う(報告にそう書く)。
     不確実さが 0 のときは**抜き取りでなければ最下位**にする(聞く理由が無い)。
     """
     meter = card.get("メーター") or {}
     seconds = max(1, int(meter.get("回答時間の見積(秒)") or 30))
-    if has_cost and isinstance(meter.get("確定する金額"), Mapping):
-        a = meter["確定する金額"]
+    if has_cost and isinstance(meter.get("決める金額"), Mapping):
+        a = meter["決める金額"]
         size = (a.get("直接") or 0) + (a.get("連鎖") or 0)
     else:
-        size = meter.get("確定する項目数", {}).get("合計", 0)
+        size = meter.get("決める項目数", {}).get("合計", 0)
     unsure = card.get("不確実さ") or 0.0
     if card.get("抜き取り"):
         unsure = max(unsure, 1 / len(unc.SIGNALS))
@@ -275,15 +311,15 @@ def cumulative(cards: Sequence[Mapping[str, Any]], *, total: float | None = None
         ids = set(c.get("連鎖", {}).get("直接") or ()) | set(c.get("連鎖", {}).get("連鎖") or ())
         new = ids - seen
         seen |= ids
-        if total and isinstance(meter.get("確定する金額"), Mapping):
-            a = meter["確定する金額"]
+        if total and isinstance(meter.get("決める金額"), Mapping):
+            a = meter["決める金額"]
             whole = (a.get("直接") or 0) + (a.get("連鎖") or 0)
             amount += whole * (len(new) / len(ids) if ids else 0)
         seconds += int(meter.get("回答時間の見積(秒)") or 30)
         share = (amount / total) if total else ((len(seen) / item_total) if item_total else None)
         rows.append({
-            "問数": i, "確定した項目数": len(seen),
-            "確定の割合": round(share, 4) if share is not None else None,
+            "問数": i, "決めた項目数": len(seen),
+            "決める項目の割合": round(share, 4) if share is not None else None,
             "割合の中身": "金額" if total else "項目数(金額ではない)",
             "回答時間の見積(秒)": seconds,
             "届いた精度": _reached(share),
@@ -305,3 +341,85 @@ def _reached(share: float | None) -> str:
 def within(rows: Sequence[Mapping[str, Any]], seconds: int) -> int:
     """止め線 ``seconds`` に入る問数。"""
     return sum(1 for r in rows if r["回答時間の見積(秒)"] <= seconds)
+
+
+#: 抜き取りの問いの選択肢(`工事の有無` の型の閉じた選択肢。基準 3 節の型の表から)。
+PRESENCE_OPTIONS = ("ある", "ない", "別の行に含む", "別途", "不明")
+
+
+def spot_check_cards(ids: Sequence[str], items: Sequence[Mapping[str, Any]],
+                     crops: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+    """確定の項目にも問いを作る(抜き取り)。**確度が高いのに外れた分を拾うため。**
+
+    もとの問いの候補は「決められなかった所」しか作らないので、確定の項目には
+    1 つも問いが無い。**印を付けるだけでは抜き取りは 1 件も出ない**(K-65 で実測)。
+    そこでここだけは問いを作る。**選択肢は `工事の有無` の閉じた 5 つに固定**で、
+    機械の読みをなぞらない(なぞると「はい」を押すだけの問いになる)。
+    """
+    by_id = {it["id"]: it for it in items}
+    crops = dict(crops or {})
+    out: list[dict[str, Any]] = []
+    for item_id in ids:
+        it = by_id.get(item_id)
+        if it is None:
+            continue
+        pages = sorted(_page_numbers([it.get("ページ")]))
+        key = f"抜き取り:{item_id}"
+        out.append({
+            "鍵": key, "型": "工事の有無", "抜き取り": True,
+            "問い": f"{it.get('ページ')}ページのこの場所の工事は、どれですか",
+            "選択肢": list(PRESENCE_OPTIONS),
+            "見る所": pages, "ページ": pages[0] if pages else None,
+            "位置": [{"ページ": it.get("ページ"), "位置": it.get("囲み")}],
+            "切り抜き": crops.get(key) or ({"ページ": pages[0], "位置": it.get("囲み")} if pages else None),
+            "直接": [item_id], "競っている読みの候補": [], "信号": [], "不確実さ": 0.0,
+            "科目": it.get("科目"), "工事": it.get("工事"), "品番": it.get("品番"),
+            "室": it.get("場所"), "部位": it.get("部位"),
+            "数字の入力": False, "自由記述": False, "推奨": None,
+            "図面全体への入口": {"任意": True, "ページ": pages[0] if pages else None},
+        })
+    return out
+
+
+#: 枠の問いの選択肢(`工事の有無` の閉じた 5 つ。基準 3 節の型の表から)。
+FRAME_OPTIONS = PRESENCE_OPTIONS
+
+
+def frame_cards(checklist: Mapping[str, Any] | None, *, max_pages: int = MAX_PAGES - 1,
+                crops: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+    """K-67 の工事チェック表から問いを作る(K-65 の 0)。
+
+    **これが必要な理由(K-65 で実測)。**項目から作る問いの 9 割は
+    「仕様書と図面のどちらを採るか」で、**仕上表の原本が無い版では質問が 29 問から 5 問へ減った。**
+    資料が欠けるほど質問が減る、つまり**いちばん分かっていない案件でいちばん黙る**という
+    逆向きの動きである。枠の問いは原本に依らないので、資料が欠けても残る。
+
+    枠の問いは項目を 1 つも決めない(枠の有無を決める)。**だから影響小では黙らせない。**
+    """
+    crops = dict(crops or {})
+    out: list[dict[str, Any]] = []
+    for frame in (checklist or {}).get("枠") or (checklist or {}).get("枠ごと") or ():
+        if frame.get("状態") == "確認できた":
+            continue
+        unknown = frame.get("分からないこと") or {}
+        raw_pages = unknown.get("候補ページ") or frame.get("候補ページ") or ()
+        pages = sorted(_page_numbers(
+            [p.get("ページ") if isinstance(p, Mapping) else p for p in raw_pages]))[:max_pages]
+        key = f"枠:{frame.get('枠')}"
+        reason_list = list(unknown.get("理由") or frame.get("理由") or ())
+        reasons = "・".join(str(r) for r in reason_list)
+        out.append({
+            "鍵": key, "型": "工事の有無", "枠の問い": True,
+            "問い": f"この案件に「{frame.get('枠')}」の工事はありますか({reasons})",
+            "選択肢": list(FRAME_OPTIONS),
+            "見る所": pages, "ページ": pages[0] if pages else None,
+            "位置": [{"ページ": p, "位置": None} for p in pages],
+            "切り抜き": crops.get(key) or ({"ページ": pages[0], "位置": None, "ページ全体": True}
+                                       if pages else None),
+            "直接": [], "競っている読みの候補": [], "信号": [], "不確実さ": 1.0,
+            "科目": frame.get("枠"), "工事": None, "品番": None, "室": None, "部位": None,
+            "枠の状態": frame.get("状態"), "理由": reason_list,
+            "数字の入力": False, "自由記述": False, "推奨": None,
+            "図面全体への入口": {"任意": True, "ページ": pages[0] if pages else None},
+        })
+    return out
