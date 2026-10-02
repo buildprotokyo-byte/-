@@ -283,6 +283,12 @@ def measure_misses(pdf: Path, reading: Mapping[int, Mapping[str, Any]], pages: S
     with pymupdf.open(pdf) as doc:
         for n in pages:
             page = doc.load_page(n - 1)
+            if is_image_only(page):
+                # K-64: 図形も文字の層も無い画像だけのページ(スキャン)は、ページ全体の画像 1 枚を 1 つの図形と数えてしまい、
+                # どう読んでも落ちが 100% になる。測れないので未取得とする(読み直しにも回さない。確度の旗では高を出さない)。
+                out[n] = {"数える図形": 0, "落ちた": 0, "拾えた": 0, "落ちた率": None, "囮が拾えた": 0,
+                          "注": "画像だけのページ(スキャン)。図形で数える落ちは測れない"}
+                continue
             _, s = ec.check_page(page, n, real.get(n, []), ERASE_AREA_CAP)
             _, d = ec.check_page(page, n, decoy.get(n, []), ERASE_AREA_CAP)
             out[n] = {
@@ -295,11 +301,17 @@ def measure_misses(pdf: Path, reading: Mapping[int, Mapping[str, Any]], pages: S
     return out
 
 
+def is_image_only(page: Any) -> bool:
+    """図形も文字の層も無く、画像だけがあるページか(pymupdf のページ)。"""
+    return bool(page.get_images()) and not page.get_drawings() and not page.get_text("words")
+
+
 def _totals(m: Mapping[int, Mapping[str, Any]]) -> dict[str, Any]:
     count = sum(v["数える図形"] for v in m.values())
     miss = sum(v["落ちた"] for v in m.values())
     got = sum(v["拾えた"] for v in m.values())
     decoy = sum(v["囮が拾えた"] for v in m.values())
+    unmeasured = sorted(n for n, v in m.items() if v["落ちた率"] is None)
     return {
         "数える図形": count,
         "落ちた": miss,
@@ -307,6 +319,7 @@ def _totals(m: Mapping[int, Mapping[str, Any]]) -> dict[str, Any]:
         "拾えた": got,
         "囮が拾えた": decoy,
         "拾えた − 囮": got - decoy,
+        **({"測れなかったページ": unmeasured} if unmeasured else {}),
     }
 
 
@@ -333,7 +346,7 @@ def read(ctx: Context, org: Mapping[str, Any]) -> dict[str, Any]:
     measured = [n for n in targets if "注" not in reading[n]]
     before = measure_misses(ctx.pdf, reading, measured) if got_any else {}
     ctx.timings["読む: 落ちを測る(機械、1回目)"] = round(time.perf_counter() - t, 1)
-    chosen = [n for n in targets if before.get(n, {}).get("落ちた率", 0) > REREAD_THRESHOLD]
+    chosen = [n for n in targets if (before.get(n, {}).get("落ちた率") or 0) > REREAD_THRESHOLD]
     answers = ctx.caller.map([reread_request(ctx, n) for n in chosen], ctx.parallel)
     ctx.timings["読む: 読み直し(AI、いちばん長い 1 ページ)"] = max((a.seconds or 0.0) for a in answers) if answers else 0.0
     reread_ok, reread_missing = [], []

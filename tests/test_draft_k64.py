@@ -43,3 +43,33 @@ def test_flag_off_keeps_output_and_flag_on_never_raises(tmp_path, machine_output
     assert code == 0 and b["まとめ"]["自動確定"] == 0
     assert b["まとめ"]["確度ごと"]["高"] <= a["まとめ"]["確度ごと"]["高"]
     assert b["まとめ"]["項目の数"] == a["まとめ"]["項目の数"]
+
+
+def _scan_pdf(path):
+    """文字の層も図形も無い、画像だけのページの PDF(合成)。"""
+    import pymupdf
+
+    src = _pdf(path.with_name("元.pdf"))
+    doc = pymupdf.open()
+    with pymupdf.open(src) as s:
+        for page in s:
+            pix = page.get_pixmap(dpi=50)
+            new = doc.new_page(width=page.rect.width, height=page.rect.height)
+            new.insert_image(new.rect, pixmap=pix)
+    doc.save(path)
+    return path
+
+
+def test_scan_pages_are_unmeasured_not_all_missed(tmp_path, machine_output):  # noqa: F811
+    pdf = _scan_pdf(tmp_path / "スキャン.pdf")
+    out = tmp_path / "出力"
+    client = FakeClient()
+    code = run([str(pdf), "--out", str(out), "--machine-output", str(machine_output), "--with-page-confidence"],
+               client=client)
+    r = json.loads((out / "下書き.json").read_text(encoding="utf-8"))
+    assert code == 0
+    pages = r["読む"]["ページ"]
+    assert all(v["落ちた率"] is None and v["読み落としの可能性が高い"] for v in pages.values())
+    assert "読み直し" not in client.calls  # 測れないページを全部読み直しに回さない
+    assert r["まとめ"]["確度ごと"]["高"] == 0
+    assert r["読む"]["読み直した後の落ち"]["落ちた率"] is None
