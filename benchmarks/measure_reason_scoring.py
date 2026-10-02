@@ -98,11 +98,20 @@ def control_1_no_loosening() -> dict:
 
     golden = (GoldenItem(work_item="建具取付", unit="箇所"),)
     return {
-        "1文字違いを当たりにしない": not score_lines(
-            [line("建具取付け", "箇所")], golden
+        # K-66(2026-10-02): おーちゃんが定義を変えた(意味が同じなら ○)。送り仮名 1 字の違いは
+        # **新規則では当たり**なので、この対照は旧規則で測る。緩めていないことは
+        # `benchmarks/measure_sameness.py` の囮(通過 0%)で測る。
+        "1文字違いを当たりにしない(旧規則)": not score_lines(
+            [line("建具取付け", "箇所")], golden, rule="旧"
+        ).hit_lines,
+        "送り仮名の違いは当たりにする(新規則)": bool(
+            score_lines([line("建具取付け", "箇所")], golden).hit_lines
+        ),
+        "意味が違えば当たりにしない(新規則)": not score_lines(
+            [line("外壁の塗装", "㎡")], (GoldenItem(work_item="内壁の塗装", unit="㎡"),)
         ).hit_lines,
         "単位違いを当たりにしない": not score_lines(
-            [line("建具取付", "㎡")], golden
+            [line("建具取付", "㎡")], golden, rule="旧"
         ).hit_lines,
         # **表記のゆれ(㎡ と m²)は吸収するが、別の語にはしない。**
         "単位の表記のゆれは当たりにする": bool(
