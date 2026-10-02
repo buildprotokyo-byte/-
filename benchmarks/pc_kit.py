@@ -1,0 +1,546 @@
+"""K-69: パソコン側(Codex-A)で、**保存された出力を読むだけ**で採点する道具。AI は 1 回も呼ばない。
+
+K-61〜K-67 の手順書の `...`(空欄)をここで埋める。正解ファイルはパソコンの中だけで開き、
+**出すのは件数と割合と、部品が出した理由の文だけ**(行の名前・室名・金額そのものは出さない)。
+
+使い方(どれも出力は JSON を標準出力へ)::
+
+    python -m benchmarks.pc_kit 列 正解.json                 # 列の名前と型と件数だけ(値は出さない)
+    python -m benchmarks.pc_kit k66 --run 回 --golden 正解.json
+    python -m benchmarks.pc_kit k67 --run 回 --golden 正解.json
+    python -m benchmarks.pc_kit k64 --run 回1 --run 回2 ... --golden 正解.json
+    python -m benchmarks.pc_kit カード --run full_R1 --other full_R2 --other full_R3 --checklist 表.json --out cards.json
+    python -m benchmarks.pc_kit k65 --run full_R1 --other full_R2 --other full_R3 \
+        --checklist 工事チェック表_full_R1.json --ideal 理想の答え.json --golden 正解.json
+
+「回」は `下書き.json` の入ったフォルダ(K-61 の `draft.run` の出力)。
+
+**分母は 93 件**(G001・G002・G003・G004・G006・G099 を除く。K-36 追記)。除いた数が 6 でなければ止める。
+
+正解の列の名前は既定で `code`・`work_item`・`unit`・`major_category`・`middle_category`・
+`quantity`・`amount`。違っていたら `列` で名前を見てから `--col 数量=列名` のように渡す。
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import math
+import random
+import sys
+import unicodedata
+from copy import deepcopy
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+EXCLUDED_CODES = ("G001", "G002", "G003", "G004", "G006", "G099")
+DENOMINATOR = 93
+DEFAULT_COLUMNS = {
+    "符号": "code", "品名": "work_item", "単位": "unit", "科目": "major_category",
+    "中科目": "middle_category", "数量": "quantity", "金額": "amount",
+}
+FLAG_STATES = ("仮説", "問い")
+"""「印が出ていた」とみなす状態。確度「低」と、検算の食い違いも印に数える(K-67 4 節の「未確定・低・要確認」)。"""
+MODES = ("概算", "通常", "精密")
+COUNTS = (0, 3, 5, 10, 20, 40, 60)
+SAME = "○"
+
+
+def nfkc(value: Any) -> str:
+    return unicodedata.normalize("NFKC", str(value or "")).strip()
+
+
+# --------------------------------------------------------------------------- 列の名前
+
+
+def columns(path: str | Path) -> dict[str, Any]:
+    """正解ファイルの**列の名前と型と件数だけ**を返す。値は 1 つも返さない。"""
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    top = {k: type(v).__name__ for k, v in payload.items()} if isinstance(payload, Mapping) else {}
+    items = payload.get("expected_items") if isinstance(payload, Mapping) else None
+    out: dict[str, Any] = {"一番上の欄": top}
+    if not isinstance(items, list):
+        out["expected_items"] = "無い(形が違う)"
+        return out
+    cols: dict[str, dict[str, int]] = {}
+    for row in items:
+        if not isinstance(row, Mapping):
+            continue
+        for k, v in row.items():
+            kind = "空" if v in (None, "") else type(v).__name__
+            cols.setdefault(k, {})[kind] = cols[k].get(kind, 0) + 1 if k in cols else 1
+    code_col = DEFAULT_COLUMNS["符号"]
+    codes = {nfkc(r.get(code_col)) for r in items if isinstance(r, Mapping)}
+    out.update({
+        "行の数": len(items),
+        "列(名前: 型ごとの件数)": cols,
+        "除く 6 件のうち符号が見つかった数": sum(1 for c in EXCLUDED_CODES if c in codes),
+        "除いた後の行の数": sum(1 for r in items if isinstance(r, Mapping) and nfkc(r.get(code_col)) not in EXCLUDED_CODES),
+        "既定の列の名前": DEFAULT_COLUMNS,
+        "既定の列のうち見つからなかったもの": [k for k, v in DEFAULT_COLUMNS.items() if v not in cols],
+    })
+    return out
+
+
+# --------------------------------------------------------------------------- 読み込み
+
+
+def parse_cols(pairs: Sequence[str]) -> dict[str, str]:
+    cols = dict(DEFAULT_COLUMNS)
+    for pair in pairs or ():
+        name, _, col = pair.partition("=")
+        if name not in cols or not col:
+            raise SystemExit(f"--col は 符号/品名/単位/科目/中科目/数量/金額=列名 の形: {pair!r}")
+        cols[name] = col
+    return cols
+
+
+def _number(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return None if isinstance(value, float) and math.isnan(value) else float(value)
+    text = nfkc(value).replace(",", "").replace("円", "")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+class Gold:
+    """93 件の正解。`items[i]` と `raw[i]` が同じ行(採点の部品は `items` だけを見る)。"""
+
+    def __init__(self, path: str | Path, cols: Mapping[str, str], *, allow_other_denominator: bool = False):
+        from estimating.scoring import GoldenItem
+
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        rows = [r for r in payload.get("expected_items") or () if isinstance(r, Mapping)]
+        kept = [r for r in rows if nfkc(r.get(cols["符号"])) not in EXCLUDED_CODES]
+        removed = len(rows) - len(kept)
+        if not allow_other_denominator and (removed != len(EXCLUDED_CODES) or len(kept) != DENOMINATOR):
+            raise SystemExit(f"分母が 93 になりません(除いた {removed} 件、残り {len(kept)} 件)。"
+                             "列の名前を `列` で確かめてください")
+        self.cols = dict(cols)
+        self.raw = kept
+        self.items = [GoldenItem(work_item=nfkc(r.get(cols["品名"])), unit=nfkc(r.get(cols["単位"])),
+                                 code=None, major_category=nfkc(r.get(cols["科目"])) or None) for r in kept]
+        # 符号は渡さない: 出力の行は符号を持たないので、符号で当てる道は使われない。
+        self.index = {id(item): i for i, item in enumerate(self.items)}
+        self.has = {name: any(col in r for r in kept) for name, col in cols.items()}
+
+    def fields(self, i: int) -> dict[str, Any]:
+        r = self.raw[i]
+        return {"工事項目": nfkc(r.get(self.cols["品名"])), "単位": nfkc(r.get(self.cols["単位"])),
+                "科目": nfkc(r.get(self.cols["科目"])), "中科目": nfkc(r.get(self.cols["中科目"]))}
+
+    def quantity(self, i: int) -> float | None:
+        return _number(self.raw[i].get(self.cols["数量"]))
+
+    def amount(self, i: int) -> float:
+        return _number(self.raw[i].get(self.cols["金額"])) or 0.0
+
+    def unit(self, i: int) -> str:
+        return nfkc(self.raw[i].get(self.cols["単位"]))
+
+
+class Line(dict):
+    """内訳の行(辞書)に、旧規則が読む属性を足したもの。**新規則は辞書として読む。**"""
+
+    work_item = property(lambda self: self.get("工事項目") or "")
+    unit = property(lambda self: self.get("単位") or "")
+    major_category = property(lambda self: self.get("科目") or "")
+    code = ""
+
+
+def as_lines(rows: Sequence[Mapping[str, Any]]) -> list[Line]:
+    return [Line(r) for r in rows]
+
+
+def load_run(path: str | Path) -> dict[str, Any]:
+    return json.loads((Path(path) / "下書き.json").read_text(encoding="utf-8"))
+
+
+def rows_of(draft: Mapping[str, Any]) -> list[dict[str, Any]]:
+    return as_lines(draft["組み立て"]["内訳の行"])
+
+
+def row_confidence(row: Mapping[str, Any], by_id: Mapping[str, Mapping[str, Any]]) -> str | None:
+    """行の確度 = まとめた項目の確度の**いちばん低いもの**(高は全部が高のときだけ)。"""
+    order = {"低": 0, "中": 1, "高": 2}
+    values = [by_id[i].get("確度") for i in row.get("項目") or () if i in by_id]
+    values = [v for v in values if v in order]
+    return min(values, key=order.__getitem__) if values else None
+
+
+def row_flagged(row: Mapping[str, Any], by_id: Mapping[str, Mapping[str, Any]]) -> bool:
+    """印 = 確度が低 / 状態が仮説・問い / 検算が食い違った / 数量が未取得 のどれか。"""
+    if row.get("数量") is None:
+        return True
+    for i in row.get("項目") or ():
+        it = by_id.get(i) or {}
+        if it.get("確度") == "低" or it.get("状態") in FLAG_STATES or it.get("検算"):
+            return True
+    return False
+
+
+# --------------------------------------------------------------------------- 突き合わせ
+
+
+def _clean_reason(match: Mapping[str, Any]) -> str:
+    """規則 8 の理由には品名が括弧で入るので、そこを伏せる。"""
+    if match.get("規則") == "細目8":
+        return "細目8: 構造は取れていないが、揃えた品名と単位が丸ごと同じ(品名は伏せた)"
+    return f"{match.get('規則')}: {match.get('理由')}"
+
+
+def pairs(result: Any, gold: Gold) -> list[tuple[Any, int, dict[str, Any] | None]]:
+    """当たった (行, 正解の番号, 理由) の組。`hit_lines` と `matched_items` は同じ順に積まれている。"""
+    sames = [m for m in result.matches if m.get("判定") == SAME] if result.rule == "新" else []
+    out = []
+    for n, (line, item) in enumerate(zip(result.hit_lines, result.matched_items)):
+        out.append((line, gold.index[id(item)], sames[n] if n < len(sames) else None))
+    return out
+
+
+def qverdict(line: Mapping[str, Any], gold: Gold, i: int):
+    from sameness import quantity_verdict
+
+    return quantity_verdict(line.get("数量"), gold.quantity(i), line.get("単位"), unit_b=gold.unit(i))
+
+
+def score(rows: Sequence[Mapping[str, Any]], gold: Gold, rule: str = "新"):
+    from estimating.scoring import score_lines
+
+    return score_lines(list(rows), gold.items, rule=rule)
+
+
+def _as_dict(result: Any) -> dict[str, Any]:
+    try:
+        return result.as_dict()
+    except Exception as exc:  # 理由別の集計が辞書の行を受け付けない版でも件数は出す
+        return {"言い当てた項目数": len(result.matched_items), "正解の項目数": result.total_items,
+                "言い当てた割合": result.coverage, "外した行": len(result.extra_lines),
+                "突き合わせの規則": result.rule, "as_dict が失敗した理由": type(exc).__name__}
+
+
+def detail_counts(result: Any, gold: Gold) -> dict[str, int]:
+    ps = pairs(result, gold)
+    return {"名前だけ": len(ps),
+            "数量あり": sum(1 for line, _, _ in ps if line.get("数量") is not None),
+            "数量が合った": sum(1 for line, i, _ in ps if qverdict(line, gold, i).hit)}
+
+
+def category_agreement(rows: Sequence[Mapping[str, Any]], gold: Gold, rule: str) -> dict[str, Any]:
+    """K-66 手順書 1 の 3 節: 正解の科目(93 件だと 8 つ)のうち、出した科目のどれかと同じだった数と金額の被覆。"""
+    from sameness import compare
+
+    gold_cats = sorted({gold.fields(i)["科目"] for i in range(len(gold.raw))} - {""})
+    out_cats = sorted({nfkc(r.get("科目")) for r in rows} - {""})
+    hit: set[str] = set()
+    for g in gold_cats:
+        for o in out_cats:
+            same = (o == g) if rule == "旧" else compare({"科目": o}, {"科目": g}, level="科目").value == SAME
+            if same:
+                hit.add(g)
+                break
+    total = sum(gold.amount(i) for i in range(len(gold.raw)))
+    covered = sum(gold.amount(i) for i in range(len(gold.raw)) if gold.fields(i)["科目"] in hit)
+    return {"一致": len(hit), "正解の科目の数": len(gold_cats),
+            "金額の被覆": round(covered / total, 4) if total else None}
+
+
+def strict_category(result: Any, gold: Gold, level: str) -> dict[str, Any]:
+    """当たった組のうち、行の科目(中科目)が正解と同じ(○)だった割合。分母は当たった組。"""
+    from sameness import compare
+
+    ps = pairs(result, gold)
+    if level == "中科目" and not gold.has["中科目"]:
+        return {"値": "未取得(正解に中科目の列が無い)", "分子": None, "分母": len(ps)}
+    same = sum(1 for line, i, _ in ps
+               if compare(dict(line), gold.fields(i), level=level).value == SAME)
+    return {"値": round(same / len(ps), 4) if ps else None, "分子": same, "分母": len(ps),
+            "参考: 93 件を分母にした値": round(same / DENOMINATOR, 4)}
+
+
+def amount_share(rows: Sequence[Mapping[str, Any]], gold: Gold, picked: Sequence[int] | None) -> dict[str, Any]:
+    """数量が許容差内の細目の金額 ÷ 総額。**`式` など判定しない単位は分子からも分母からも外す。**"""
+    from sameness.quantity import NOT_JUDGED
+
+    subset = [rows[n] for n in picked] if picked is not None else list(rows)
+    result = score(subset, gold)
+    judged = [i for i in range(len(gold.raw))
+              if qverdict({"数量": gold.quantity(i), "単位": gold.unit(i)}, gold, i).value != NOT_JUDGED]
+    total = sum(gold.amount(i) for i in judged)
+    hit = sum(gold.amount(i) for line, i, _ in pairs(result, gold) if i in set(judged) and qverdict(line, gold, i).hit)
+    return {"値": round(hit / total, 4) if total else None, "判定した細目": len(judged), "行": len(subset)}
+
+
+def mode_rows(draft: Mapping[str, Any], rows: Sequence[Mapping[str, Any]]) -> dict[str, list[int] | None]:
+    """段階ごとに拾う行の番号。K-61 の出力には番号が無いので、無ければ `stages.mode_outputs` で組み直す。"""
+    saved = draft["組み立て"].get("段階ごとの出力") or {}
+    if all("行の番号" in (saved.get(m) or {}) for m in MODES):
+        return {m: list(saved[m]["行の番号"]) for m in MODES}
+    from draft import stages
+
+    rebuilt = stages.mode_outputs(list(rows), draft["理解"]["項目"])
+    return {m: list(rebuilt[m]["行の番号"]) for m in MODES}
+
+
+# --------------------------------------------------------------------------- K-66 手順書 1
+
+
+def k66(run: Path, gold: Gold) -> dict[str, Any]:
+    draft = load_run(run)
+    rows = rows_of(draft)
+    new, old = score(rows, gold, "新"), score(rows, gold, "旧")
+    new_hit = {i: (line, m) for line, i, m in pairs(new, gold)}
+    old_hit = {i: line for line, i, _ in pairs(old, gold)}
+    from sameness import compare
+
+    gained = [_clean_reason(m) if m else "理由なし" for i, (_, m) in new_hit.items() if i not in old_hit]
+    lost = []
+    for i, line in old_hit.items():
+        if i in new_hit:
+            continue
+        v = compare(dict(line), gold.fields(i))
+        lost.append(_clean_reason({"規則": v.rule, "理由": v.reason}) + f"(判定 {v.value})")
+    return {
+        "対象": f"K-61 {run.name}",
+        "規則": {"旧": _as_dict(old), "新": _as_dict(new)},
+        "細目": {"旧": detail_counts(old, gold), "新": detail_counts(new, gold)},
+        "科目": {"旧": category_agreement(rows, gold, "旧"), "新": category_agreement(rows, gold, "新")},
+        "新で当たりになった組の理由": _tally(gained),
+        "新で外れになった組の理由": _tally(lost),
+        "新で外れになった組の数": len(lost),
+        "自動確定": draft["まとめ"].get("自動確定"),
+    }
+
+
+def _tally(texts: Sequence[str]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for t in texts:
+        out[t] = out.get(t, 0) + 1
+    return dict(sorted(out.items(), key=lambda kv: -kv[1]))
+
+
+# --------------------------------------------------------------------------- K-67 手順書 1
+
+
+def k67(run: Path, gold: Gold) -> dict[str, Any]:
+    draft = load_run(run)
+    rows = rows_of(draft)
+    by_id = {it["id"]: it for it in draft["理解"]["項目"]}
+    new, old = score(rows, gold, "新"), score(rows, gold, "旧")
+    shares = {m: amount_share(rows, gold, picked) for m, picked in mode_rows(draft, rows).items()}
+    extra = list(new.extra_lines)
+    hit_ids = {id(line) for line in new.hit_lines}
+    high = [r for r in rows if row_confidence(r, by_id) == "高"]
+    qhit = {id(line) for line, i, _ in pairs(new, gold) if qverdict(line, gold, i).hit}
+    from sameness.quantity import NOT_JUDGED
+
+    shiki = [i for i in range(len(gold.raw))
+             if qverdict({"数量": gold.quantity(i), "単位": gold.unit(i)}, gold, i).value == NOT_JUDGED]
+    total = sum(gold.amount(i) for i in range(len(gold.raw)))
+    new_set = {i for _, i, _ in pairs(new, gold)}
+    old_set = {i for _, i, _ in pairs(old, gold)}
+    table = [
+        ("科目(厳密)", 0.95, strict_category(new, gold, "科目")["値"]),
+        ("中科目(厳密)", 0.90, strict_category(new, gold, "中科目")["値"]),
+        ("細目(同じ意味。K-66)", 0.70, round(new.coverage, 4) if new.coverage is not None else None),
+        ("数量が合った細目の金額の割合(概算)", 0.50, shares["概算"]["値"]),
+        ("数量が合った細目の金額の割合(通常)", 0.70, shares["通常"]["値"]),
+        ("数量が合った細目の金額の割合(精密)", 0.90, shares["精密"]["値"]),
+        ("外れた項目に印が出ていた割合", 0.80,
+         round(sum(1 for r in extra if row_flagged(r, by_id)) / len(extra), 4) if extra else None),
+        ("確度「高」の的中率", 0.95, round(sum(1 for r in high if id(r) in hit_ids) / len(high), 4) if high else None),
+    ]
+    return {
+        "対象": f"K-61 {run.name}",
+        "表": [{"行": n, "合格ライン": line, "出た値": v,
+                "合否": "未取得" if not isinstance(v, (int, float)) else ("合格" if v >= line else "未達")}
+               for n, line, v in table],
+        "補い": {
+            "科目(厳密)の分子と分母": strict_category(new, gold, "科目"),
+            "中科目(厳密)の分子と分母": strict_category(new, gold, "中科目"),
+            "金額の割合の内訳": shares,
+            "精密と通常は同じ行で数えている(精密は検算の通過を別に見る)": True,
+            "概算の行の出どころ": ("保存された行の番号" if all("行の番号" in ((draft["組み立て"].get("段階ごとの出力") or {}).get(m) or {})
+                                         for m in MODES) else "保存に番号が無いので stages.mode_outputs で組み直した"),
+            "外れた行の数": len(extra), "出せなかった正解の数": len(new.missed_items),
+            "確度「高」の行の数": len(high),
+            "確度「高」で数量まで合った割合": round(sum(1 for r in high if id(r) in qhit) / len(high), 4) if high else None,
+        },
+        "式で判定しなかった細目": {"件数": len(shiki),
+                           "金額の割合": round(sum(gold.amount(i) for i in shiki) / total, 4) if total else None},
+        "旧と新で細目の当たりが変わった数": {"増えた": len(new_set - old_set), "減った": len(old_set - new_set)},
+        "減った組の理由": k66_lost_reasons(rows, gold, old, new) if old_set - new_set else {},
+        "自動確定": draft["まとめ"].get("自動確定"),
+    }
+
+
+def k66_lost_reasons(rows: Sequence[Mapping[str, Any]], gold: Gold, old: Any, new: Any) -> dict[str, int]:
+    from sameness import compare
+
+    new_set = {i for _, i, _ in pairs(new, gold)}
+    out = []
+    for line, i, _ in pairs(old, gold):
+        if i not in new_set:
+            v = compare(dict(line), gold.fields(i))
+            out.append(_clean_reason({"規則": v.rule, "理由": v.reason}) + f"(判定 {v.value})")
+    return _tally(out)
+
+
+# --------------------------------------------------------------------------- K-64 手順書 5 の 1
+
+
+def high_rows(draft: Mapping[str, Any], gold: Gold, *, flag: bool) -> dict[str, Any]:
+    from draft import stages
+
+    items = deepcopy(draft["理解"]["項目"])
+    capped = stages.cap_by_page_readability(items, draft["読む"]) if flag else None
+    by_id = {it["id"]: it for it in items}
+    rows = rows_of(draft)
+    result = score(rows, gold)
+    match = {id(line): i for line, i, _ in pairs(result, gold)}
+    high = [r for r in rows if row_confidence(r, by_id) == "高"]
+    right = [r for r in high if id(r) in match and qverdict(r, gold, match[id(r)]).hit]
+    name_only = [r for r in high if id(r) in match and r not in right]
+    return {"高の行": len(high), "正解の数量と合う": len(right),
+            "合わない": len(high) - len(right),
+            "合わないのうち名前は当たった": len(name_only),
+            "下げた項目": (capped or {}).get("高から中に下げた項目")}
+
+
+def k64(runs: Sequence[Path], gold: Gold) -> dict[str, Any]:
+    per = {}
+    for run in runs:
+        draft = load_run(run)
+        per[run.name] = {"旗オフ": high_rows(draft, gold, flag=False), "旗オン": high_rows(draft, gold, flag=True),
+                         "自動確定": draft["まとめ"].get("自動確定")}
+    s = lambda arm, key: sum(v[arm][key] for v in per.values())
+    off_wrong, on_wrong = s("旗オフ", "合わない"), s("旗オン", "合わない")
+    off_right, on_right = s("旗オフ", "正解の数量と合う"), s("旗オン", "正解の数量と合う")
+    return {"回ごと": per,
+            "合計": {"旗オフ": {"合う": off_right, "合わない": off_wrong},
+                   "旗オン": {"合う": on_right, "合わない": on_wrong}},
+            "線: 旗オンで高なのに違う行が減る": on_wrong < off_wrong,
+            "線: 旗オンの高で合う行が旗オフの半分以上残る": on_right * 2 >= off_right,
+            "注": "K-64 の線は 12 件の合計。ここは P011 v4 だけなので、案件 1 件ぶんの値"}
+
+
+# --------------------------------------------------------------------------- K-65 手順書 1 の 3
+
+
+def k65(run: Path, others: Sequence[Path], checklist: Path | None, ideal: Path, gold: Gold) -> dict[str, Any]:
+    from draft import questioning, stages, uncertainty  # questioning は K-65 のブランチにある
+
+    draft = load_run(run)
+    other_items = [load_run(p)["理解"]["項目"] for p in others]
+    check = json.loads(checklist.read_text(encoding="utf-8")) if checklist else None
+    raw = stages.question_candidates(draft["理解"], draft["仕上表"], draft["読む"], None)
+    answers = json.loads(ideal.read_text(encoding="utf-8")).get("回答") or []
+    by_key = {nfkc(a["鍵"]): a for a in answers}
+    out: dict[str, Any] = {"対象": f"K-61 {run.name}", "理想の答えの数": len(answers),
+                           "正しい値が選択肢に無かった(型ごと)": {}}
+    tables: dict[str, Any] = {}
+    for how in ("連鎖の金額順", "ランダム"):
+        built = questioning.build({"候補": raw}, draft["理解"], draft["仕上表"], other_runs=other_items,
+                                  how=how, checklist=check)
+        cards = built["カード"]
+        if how == "連鎖の金額順":
+            missing: dict[str, int] = {}
+            for c in cards:
+                a = by_key.get(nfkc(c["鍵"]))
+                if a and a.get("正しい値が選択肢に無かった"):
+                    missing[c["型"]] = missing.get(c["型"], 0) + 1
+            out["正しい値が選択肢に無かった(型ごと)"] = missing
+            out["カードの数"] = len(cards)
+            out["答えの無いカード"] = sum(1 for c in cards if nfkc(c["鍵"]) not in by_key)
+        table = []
+        for k in COUNTS:
+            chosen = [by_key[nfkc(c["鍵"])] for c in cards[:k] if nfkc(c["鍵"]) in by_key]
+            understanding, finish = deepcopy(draft["理解"]), deepcopy(draft["仕上表"])
+            stages.apply_answers(understanding, finish, {nfkc(a["鍵"]): a["選択肢"] for a in chosen})
+            rows = as_lines(stages.assembly_rows(understanding["項目"])[0])
+            new = score(rows, gold)
+            states = uncertainty.classify(understanding["項目"], finish=finish, other_runs=other_items)
+            table.append({
+                "問数": k, "戻した答え": len(chosen),
+                "科目(厳密)": strict_category(new, gold, "科目")["値"],
+                "中科目(厳密)": strict_category(new, gold, "中科目")["値"],
+                "細目(同じ意味)": round(new.coverage, 4) if new.coverage is not None else None,
+                "数量一致": detail_counts(new, gold)["数量が合った"],
+                "数量が合った金額の割合": amount_share(rows, gold, None)["値"],
+                "未確定の残り": states["3状態の分布"][uncertainty.UNSETTLED],
+                "回答時間(秒)": sum(a.get("秒") or 0 for a in chosen),
+            })
+        tables[how] = table
+    tables["質問ゼロ"] = [tables["連鎖の金額順"][0]]
+    out["表"] = tables
+    out["自動確定"] = draft["まとめ"].get("自動確定")
+    return out
+
+
+def cards(run: Path, others: Sequence[Path], checklist: Path | None) -> list[dict[str, Any]]:
+    """PC-4 の前段: 理想の答えを作るためのカードを書き出す(正解は読まない)。"""
+    from draft import questioning, stages
+
+    draft = load_run(run)
+    other_items = [load_run(p)["理解"]["項目"] for p in others]
+    check = json.loads(checklist.read_text(encoding="utf-8")) if checklist else None
+    raw = stages.question_candidates(draft["理解"], draft["仕上表"], draft["読む"], None)
+    return questioning.build({"候補": raw}, draft["理解"], draft["仕上表"], other_runs=other_items,
+                             checklist=check)["カード"]
+
+
+# --------------------------------------------------------------------------- 入口
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="what", required=True)
+    c = sub.add_parser("列")
+    c.add_argument("golden", type=Path)
+    k = sub.add_parser("カード")
+    k.add_argument("--run", type=Path, required=True)
+    k.add_argument("--other", type=Path, action="append", default=[])
+    k.add_argument("--checklist", type=Path, default=None)
+    k.add_argument("--out", type=Path, default=None)
+    for name in ("k66", "k67", "k64", "k65"):
+        s = sub.add_parser(name)
+        s.add_argument("--run", type=Path, action="append", required=True)
+        s.add_argument("--golden", type=Path, required=True)
+        s.add_argument("--col", action="append", default=[], help="符号/品名/単位/科目/中科目/数量/金額=列名")
+        s.add_argument("--out", type=Path, default=None)
+        if name == "k65":
+            s.add_argument("--other", type=Path, action="append", default=[])
+            s.add_argument("--checklist", type=Path, default=None)
+            s.add_argument("--ideal", type=Path, required=True)
+    a = p.parse_args(argv)
+    if a.what == "列":
+        result: Any = columns(a.golden)
+    elif a.what == "カード":
+        result = cards(a.run, a.other, a.checklist)
+    else:
+        gold = Gold(a.golden, parse_cols(a.col))
+        if a.what == "k66":
+            result = [k66(r, gold) for r in a.run]
+        elif a.what == "k67":
+            result = [k67(r, gold) for r in a.run]
+        elif a.what == "k64":
+            result = k64(a.run, gold)
+        else:
+            result = k65(a.run[0], a.other, a.checklist, a.ideal, gold)
+    text = json.dumps(result, ensure_ascii=False, indent=1)
+    if getattr(a, "out", None):
+        a.out.write_text(text + "\n", encoding="utf-8")
+    print(text)
+    autos = [r.get("自動確定") for r in (result if isinstance(result, list) else [result]) if isinstance(r, Mapping)]
+    if any(isinstance(x, int) and x > 0 for x in autos):
+        print("自動確定が 1 件以上あります。ここで止めて報告してください", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
