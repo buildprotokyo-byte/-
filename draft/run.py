@@ -194,6 +194,9 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     for part, flag in flag_parts.FLAGS.items():
         p.add_argument(flag, action="store_true", help=f"旗(既定はオフ): {part}をつなぐ(K-63)。出力は「旗の部品」の欄だけ")
     p.add_argument("--with-all", action="store_true", help="旗を全部オンにする(K-63 の比べる回)")
+    p.add_argument("--backend-per-stage", default=None,
+                   help="K-68 C 周 2: 段ごとの呼び出し口(例 通読=cloud,理解=cloud)。既定は全段 cloud。"
+                        "local にできるのは合格の記録(draft/local_passed.json)に載った段だけ。載っていなければ拒む(終了コード 3)")
     p.add_argument("--ocr", default=None,
                    help="OCR の結果の JSON(K-64。文字の層が無いページだけ文字の層の代わりに使う。既定は環境変数 DRAFT_OCR)")
     p.add_argument("--with-page-confidence", action="store_true",
@@ -203,13 +206,22 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     p.add_argument("--knowledge", default=None,
                    help=f"知識の表の JSON(--with-knowledge で使う。既定は環境変数 {KNOWLEDGE_ENV})")
     a = p.parse_args(argv)
+    from draft.ai import LocalNotPassed, load_local_passed, resolve_backend_plan
+
+    try:
+        backend_plan = resolve_backend_plan(a.backend_per_stage)
+    except (LocalNotPassed, ValueError) as exc:
+        # **AI を 1 回も呼ばず、何も書かずに拒む。**
+        print(f"呼び出し口の設定を拒んだ: {exc}", file=sys.stderr)
+        return 3
     on = [part for part, flag in flag_parts.FLAGS.items() if a.with_all or getattr(a, flag_parts.dest(flag))]
 
     started = time.perf_counter()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     answers_dir = Path(a.answers_dir) if a.answers_dir else out / "AIの答え"
-    caller = make_caller(answers_dir, client=client, batch=a.batch, poll_seconds=a.batch_poll_seconds)
+    caller = make_caller(answers_dir, client=client, batch=a.batch, poll_seconds=a.batch_poll_seconds,
+                         stage_backends=backend_plan)
     import os
 
     model = getattr(caller, "model", None) or os.environ.get(MODEL_ENV) or DEFAULT_MODEL
@@ -448,6 +460,9 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         **({"旗の部品": flag_out} if flag_out is not None else {}),
         "時間(秒)": ctx.timings,
         "AI を呼んだ記録": {"まとめ": caller.summary(model), "1回ずつ": [r.as_dict() for r in caller.records]},
+        "呼び出し口": {"local の段": sorted(k for k, v in backend_plan.items() if v == "local"),
+                    "合格の記録にある段": sorted(load_local_passed()),
+                    "注": "既定は全段 cloud(ローカルの AI は使えない前提)。local は合格の記録に載った段だけ"},
         "並列数の上限": a.parallel,
     }
     ctx.timings["通し全体(壁時計)"] = round(time.perf_counter() - started, 1)

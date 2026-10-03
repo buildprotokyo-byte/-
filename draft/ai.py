@@ -34,7 +34,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 DEFAULT_MODEL = "claude-opus-5-5"
 MODEL_ENV = "DRAFT_AI_MODEL"
@@ -158,6 +158,8 @@ class CallRecord:
     paid_now: bool = False
     #: 未取得の内訳(拒否 / 落ち / 待っている問い)。
     missing_kind: str = ""
+    #: 呼び出し口(cloud / local。K-68 C 周 2)。
+    backend: str = "cloud"
 
     @property
     def cost(self) -> float | None:
@@ -178,6 +180,7 @@ class CallRecord:
             "費用(ドル)": self.cost,
             "この通しで払った": self.paid_now,
             **({"未取得の内訳": self.missing_kind} if self.missing_kind else {}),
+            "呼び出し口": self.backend,
             **({"メモ": self.note} if self.note else {}),
         }
 
@@ -213,6 +216,11 @@ class AICaller:
         self.records: list[CallRecord] = []
         self.pending_written: list[Path] = []
         self._lock = threading.Lock()
+        #: 段ごとの呼び出し口(K-68 C 周 2)。載っていない段は cloud。
+        self.stage_backends: dict[str, str] = {}
+
+    def backend_for(self, stage: str) -> str:
+        return self.stage_backends.get(stage, "cloud")
 
     def model_for(self, stage: str) -> str:
         return model_for_stage(stage, self.model)
@@ -340,12 +348,15 @@ class AICaller:
             estimate_input_tokens(req), int(out_tokens / CHARS_PER_TOKEN), answer.seconds, answer.note,
             answer.model or self.model_for(req.stage), answer.usage, answer.source == SOURCE_API and answer.usage is not None,
             answer.missing_kind if answer.payload is None else "",
+            self.backend_for(req.stage),
         )
         with self._lock:
             self.records.append(record)
         return answer
 
     def _call_fresh(self, req: AIRequest, fp: str) -> AIAnswer:
+        if self.backend_for(req.stage) == "local":
+            return AIAnswer(None, SOURCE_MISSING, note=LOCAL_NOTE, missing_kind=MISSING_WAITING)
         return AIAnswer(None, SOURCE_MISSING, note="鍵が無いので呼んでいない。指示を書き出した",
                         missing_kind=MISSING_WAITING)
 
@@ -389,6 +400,7 @@ class AICaller:
                 src: sum(1 for r in self.records if r.source == src)
                 for src in (SOURCE_API, SOURCE_FILE, SOURCE_MISSING)
             },
+            "呼び出し口ごと": {b: sum(1 for r in self.records if r.backend == b) for b in BACKENDS},
             "未取得の内訳": {kind: sum(1 for r in self.records if r.source == SOURCE_MISSING and r.missing_kind == kind)
                            for kind in MISSING_KINDS},
             "段ごと": by_stage,
@@ -444,6 +456,8 @@ class ApiCaller(AICaller):
         todo: dict[str, AIRequest] = {}
         for r in reqs:
             fp = self.fingerprint(r)
+            if self.backend_for(r.stage) == "local":
+                continue  # ローカルの段はクラウドに送らない(K-68 C 周 2)
             if self._stored(fp) is None and fp not in self._prefetched:
                 todo[fp] = r
         if todo:
@@ -504,6 +518,9 @@ class ApiCaller(AICaller):
         return blocks
 
     def _call_fresh(self, req: AIRequest, fp: str) -> AIAnswer:
+        if self.backend_for(req.stage) == "local":
+            # ローカルの段はクラウドの口に 1 回も送らない。ローカルのモデルはまだ繋いでいないので、問いを書き出して待つ。
+            return AIAnswer(None, SOURCE_MISSING, note=LOCAL_NOTE, missing_kind=MISSING_WAITING)
         if self.batch and fp not in self._prefetched:
             self._run_batch({fp: req})  # 1 件だけの段(整理)も同じ処理方式で送る
         if fp in self._prefetched:
@@ -541,29 +558,96 @@ class ApiCaller(AICaller):
 
 BACKEND_ENV = "DRAFT_AI_BACKEND"
 BACKENDS = ("cloud", "local")
+LOCAL_NOTE = "ローカルの口(ローカルのモデルはまだ繋いでいない)。指示を書き出した"
+
+#: AI の段の名前(K-68 C 周 2 の段ごとの口の設定に使う)。V1・旗・V2・V3 の段。
+AI_STAGES = tuple(STAGE_ENV) + ("工事概略", "根拠探し", "語彙で読む")
+
+#: ローカルに切り替えてよい段の合格の記録(K-68 C 周 2)。**ここに載った段だけ local にできる。**
+LOCAL_PASSED_PATH = Path(__file__).with_name("local_passed.json")
+
+
+class LocalNotPassed(ValueError):
+    """合格の記録が無い段をローカルにしようとした。"""
+
+
+def load_local_passed(path: Path | None = None) -> dict[str, Any]:
+    """合格の記録 ``{"合格した段": {段: {記録}}}`` を読む。ファイルが無ければ 0 段。"""
+    p = Path(path or LOCAL_PASSED_PATH)
+    if not p.exists():
+        return {}
+    passed = json.loads(p.read_text(encoding="utf-8")).get("合格した段") or {}
+    return {str(k): v for k, v in passed.items() if v}
+
+
+def parse_backend_plan(text: str | None) -> dict[str, str]:
+    """``通読=cloud,理解=local`` を {段: 口} にする。知らない段・知らない口は拒む。"""
+    plan: dict[str, str] = {}
+    for part in (text or "").replace("、", ",").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "=" not in part:
+            raise ValueError(f"段ごとの口の設定は 段=cloud|local の形({part!r})")
+        stage, backend = (x.strip() for x in part.split("=", 1))
+        if stage not in AI_STAGES:
+            raise ValueError(f"知らない段 {stage!r}(段は {' / '.join(AI_STAGES)})")
+        backend = backend.lower()
+        if backend not in BACKENDS:
+            raise ValueError(f"知らない口 {backend!r}(口は {' / '.join(BACKENDS)})")
+        plan[stage] = backend
+    return plan
+
+
+def resolve_backend_plan(text: str | None = None, passed: Mapping[str, Any] | None = None) -> dict[str, str]:
+    """段ごとの口を決める。**既定は全段 cloud。local は合格の記録に載った段だけ。**載っていなければ拒む。
+
+    古い環境変数 ``DRAFT_AI_BACKEND=local`` は「全段を local」と同じに扱う(合格していない段があれば拒む)。
+    """
+    env = (os.environ.get(BACKEND_ENV) or "cloud").strip().lower()
+    if env not in BACKENDS:
+        raise ValueError(f"{BACKEND_ENV} は {' / '.join(BACKENDS)} のどれか({env!r} は無い)")
+    plan = {stage: env for stage in AI_STAGES}
+    plan.update(parse_backend_plan(text))
+    passed = load_local_passed() if passed is None else passed
+    refused = [stage for stage, backend in plan.items() if backend == "local" and stage not in passed]
+    if refused:
+        raise LocalNotPassed(
+            f"ローカルに切り替えてよいのは合格した段だけ。合格の記録({LOCAL_PASSED_PATH.name})に無い段: "
+            f"{' / '.join(refused)}(いま合格した段は {len(passed)} 段)")
+    return plan
 
 
 def make_caller(answers_dir: Path, client: Any = None, model: str | None = None, batch: bool = False,
-                poll_seconds: float = 30.0) -> AICaller:
+                poll_seconds: float = 30.0, stage_backends: Mapping[str, str] | None = None) -> AICaller:
     """鍵があれば `ApiCaller`、無ければ `FolderCaller`。``client`` を渡せば鍵を見ない(テスト用)。
 
-    AI の呼び出し口は環境変数 ``DRAFT_AI_BACKEND`` で切り替える(K-62 の追記 2)。
-    - ``cloud``(既定): 鍵があればクラウドの API、無ければ問いをフォルダに置く。
-    - ``local``: ローカルのモデルは**まだ繋いでいない**。問いをフォルダに置くだけにする
+    呼び出し口は段ごとに決める(K-68 C 周 2、``stage_backends`` = {段: cloud|local}、既定は全段 cloud)。
+    **合格の確かめは `resolve_backend_plan` で、一本道(`draft.run`)はそれを通してから渡す。**
+    - ``cloud``: 鍵があればクラウドの API、無ければ問いをフォルダに置く。
+    - ``local``: ローカルのモデルは**まだ繋いでいない**。その段は問いをフォルダに置くだけにし、クラウドには送らない
       (``待っている問い/*/指示.md`` を読んで ``答え/<指紋>.json`` を書けば、何が答えても同じに読み込む)。
+    古い環境変数 ``DRAFT_AI_BACKEND`` も読む(K-62 の追記 2。``local`` なら全段の問いをフォルダに置く)。
     """
     backend = (os.environ.get(BACKEND_ENV) or "cloud").strip().lower()
     if backend not in BACKENDS:
         raise ValueError(f"{BACKEND_ENV} は {' / '.join(BACKENDS)} のどれか({backend!r} は無い)")
     model = model or os.environ.get(MODEL_ENV) or DEFAULT_MODEL
-    if backend == "local" and client is None:
-        return FolderCaller(answers_dir, model)
-    if client is None:
-        if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
-            return FolderCaller(answers_dir, model)
-        try:
-            import anthropic  # noqa: PLC0415  入れていなくてもリポジトリは動く
-        except ImportError:
-            return FolderCaller(answers_dir, model)
-        client = anthropic.Anthropic()
-    return ApiCaller(answers_dir, client, model, batch=batch, poll_seconds=poll_seconds)
+    plan = dict(stage_backends) if stage_backends is not None else {stage: backend for stage in AI_STAGES}
+    caller: AICaller
+    if backend == "local" and client is None and stage_backends is None:
+        caller = FolderCaller(answers_dir, model)
+    elif client is None and not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
+        caller = FolderCaller(answers_dir, model)
+    else:
+        if client is None:
+            try:
+                import anthropic  # noqa: PLC0415  入れていなくてもリポジトリは動く
+            except ImportError:
+                caller = FolderCaller(answers_dir, model)
+                caller.stage_backends = {k: v for k, v in plan.items() if v != "cloud"}
+                return caller
+            client = anthropic.Anthropic()
+        caller = ApiCaller(answers_dir, client, model, batch=batch, poll_seconds=poll_seconds)
+    caller.stage_backends = {k: v for k, v in plan.items() if v != "cloud"}
+    return caller
