@@ -28,6 +28,8 @@ PRESENCE_ONLY = "有無だけの割れ"
 #: 単位の書き方だけが違う割れ(「か所」と「箇所」など)。**K-66 の辞書で揃えると値が同じなので、カードにしない。**
 #: 1 回目の測りでカードになっていた(基準 (a) の「名前だけの違いはカードにしない」に合わせて直した)。
 UNIT_NAME_ONLY = "名前だけの違い(単位の書き方)"
+#: K-71 作業 2 (d): 数が同じで単位だけ違う(`sameness.quantity.new_unit` で揃えると 1 つになる)数量のカード。外す。
+UNIT_DROPPED = "単位の同値で外した"
 def spelling(text: Any) -> str:
     """室の名前を K-66 の辞書の室の鍵(`sameness.rows.row_room`。横棒の字・括弧・空白などを揃える)にした形。
 
@@ -180,12 +182,16 @@ def _unit_ok(row_units: set[str], unit: Any) -> bool:
 
 def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
                 machine: Mapping[str, Mapping[str, Sequence[Mapping[str, Any]]]] | None = None,
-                scale: Mapping[str, Mapping[str, Sequence[Mapping[str, Any]]]] | None = None) -> dict[str, Any]:
+                scale: Mapping[str, Mapping[str, Sequence[Mapping[str, Any]]]] | None = None,
+                match: str | None = None, unit_equivalence: bool = False,
+                threshold: float | None = None) -> dict[str, Any]:
     """3 回の読みの割れた鍵を入れ先に分け、カードにできる組をカードの形にする。**値は 1 つも書き換えない。**
 
     ``runs`` は回の名前 → 項目の並び(順が回の順)。``machine``・``scale`` は回の名前 → 項目 id → 値の並び
     (`draft.questioning.machine_values_from`・`scale_values_from` の形)。
     """
+    if threshold is None:
+        from draft.position_match import THRESHOLD as threshold
     names = list(runs)
     lists = [list(runs[n]) for n in names]
     split = unc.readings_split(lists, rule="新")
@@ -233,86 +239,217 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
 
     cards: list[dict[str, Any]] = []
     not_made: list[dict[str, Any]] = []
+    unit_dropped: list[dict[str, Any]] = []
+    key_dest: dict[tuple[Any, ...], str] = {}
+    positional: list[list[list[Mapping[str, Any]]]] = []
+    matching: dict[str, Any] = {"使った組": 0, "鎖": 0, "鎖の線": {"回の行を 2 行以上持つ鎖": 0, "2 つ以上の鎖に入った行": 0},
+                                "行の行き先": {}, "1 行以下の組のカードで位置も重なる": 0,
+                                "1 行以下の組のカードで位置が重ならない": 0}
     for grp in groups:
         dim = grp["次元"]
         keys = set(grp["鍵たち"])
         counted = grp.get("割れた鍵たち") or grp["鍵たち"]
-        rows_by_run = [[it for k in keys for it in g.get(k, ())] for g in per_run]
+        rows_by_run = [sorted((it for k in keys for it in g.get(k, ())), key=lambda it: str(it.get("id")))
+                       for g in per_run]
         cid = card_id(dim, grp["組の鍵"])
-        if any(len(rows) >= 2 for rows in rows_by_run):
+        if not any(len(rows) >= 2 for rows in rows_by_run):
+            made = _make_card(dim, cid, [rows[0] if rows else None for rows in rows_by_run], names,
+                              machine, scale, unit_equivalence)
+            if match == "位置" and "カード" in made:
+                from draft import position_match as pm
+
+                present = [rows[0] for rows in rows_by_run if rows]
+                ok = all(pm.overlap(present[0], o) >= pm.THRESHOLD for o in present[1:])
+                matching["1 行以下の組のカードで位置も重なる" if ok else "1 行以下の組のカードで位置が重ならない"] += 1
+            _settle(made, cid, dim, counted, cards, not_made, unit_dropped, key_dest, set(counted))
+            continue
+        if match != "位置":
             not_made.append({"鍵": cid, "次元": dim, "理由": REASONS[0], "割れた鍵の数": len(counted)})
             continue
-        sources: dict[str, list[dict[str, Any]]] = {}
-        order: dict[str, tuple[float, str]] = {}
-        row_of: dict[str, str] = {}
-        rows: list[Mapping[str, Any]] = []
-        for name, run_rows in zip(names, rows_by_run):
-            if not run_rows:
-                continue
-            it = run_rows[0]
-            rows.append(it)
-            row_of[name] = it["id"]
-            v = dim_value(it, dim)
-            if v is None:
-                continue
-            if dim == "室":
-                # K-66 の室の鍵で同じ室は 1 つの選択肢にまとめる(先に出た書き方で見せる)。
-                v = next((seen for seen in sources if spelling(seen) == spelling(v)), v)
-            sources.setdefault(v, []).append({"出どころ": "3回の値", "辿る": {
-                "回": name, "項目": it["id"], "ページ": it.get("ページ")}})
-            order[v] = (_qty(it.get("数量")) or 0.0, v) if dim == "数量" else (0.0, v)
-        if dim == "数量":
-            from draft.questioning import unit_key
+        from draft import position_match as pm
 
-            units = {unit_key(r.get("単位")) for r in rows if unit_key(r.get("単位"))}
-            for source, table in (("機械の値", machine), ("縮尺で換算した値", scale)):
-                for name, it in zip(names, rows_by_run):
-                    if not it:
-                        continue
-                    for m in ((table or {}).get(name) or {}).get(it[0]["id"], ()):
-                        q = _qty(m.get("値"))
-                        if q is None or not _unit_ok(units, m.get("単位")):
-                            continue
-                        unit = nfkc(m.get("単位")) or nfkc(it[0].get("単位"))
-                        text = quantity_text(q, unit)
-                        sources.setdefault(text, []).append({"出どころ": source, "辿る": {
-                            "回": name, "項目": it[0]["id"], **dict(m.get("辿る") or {})}})
-                        order[text] = (q, text)
-        if len(sources) < 2:
-            not_made.append({"鍵": cid, "次元": dim, "理由": REASONS[1], "割れた鍵の数": len(counted)})
-            continue
-        crops = crops_of(rows)
-        if not crops:
-            not_made.append({"鍵": cid, "次元": dim, "理由": REASONS[2], "割れた鍵の数": len(counted)})
-            continue
-        values = sorted(sources, key=lambda t: order[t])
-        head = rows[0]
-        what = nfkc(head.get("何")) or nfkc(head.get("工事"))
-        question = {
-            "数量": f"「{what}」の数量は、どれですか",
-            "状態": f"「{what}」は、どの工事ですか(撤去・新設など)",
-            "室": f"「{what}」は、どの室の工事ですか",
-            "部位": f"「{what}」は、どの部位の工事ですか",
-        }[dim]
-        cards.append({
-            "鍵": cid, "次元": dim, "問い": question,
-            "選択肢": [*values, *TAIL],
-            "値の出どころ": sources,
-            "行": row_of,
-            "割れた鍵の数": len(counted),
-            "切り抜き": crops,
-            "見る所": sorted({c["ページ"] for c in crops}),
-            "推奨": None, "数字の入力": False, "自由記述": False, "見込み": None,
-        })
+        matching["使った組"] += 1
+        positional.append(rows_by_run)
+        got = pm.chains(rows_by_run, threshold=threshold)
+        check = pm.check_chains(rows_by_run, got["鎖"])
+        for k2, v in check.items():
+            matching["鎖の線"][k2] += v
+        for dest in got["行の行き先"].values():
+            matching["行の行き先"][dest] = matching["行の行き先"].get(dest, 0) + 1
+        matching["鎖"] += len(got["鎖"])
+        # 割れた鍵ごとに、行の行き先を集める(上の表の上のものを書く)。
+        rank: dict[tuple[Any, ...], int] = {}
+        order_of = {"カード": 0, UNIT_DROPPED: 1, REASONS[1]: 2, REASONS[2]: 3,
+                    pm.TIED: 4, pm.NO_PARTNER: 5}
+        def note(key: tuple[Any, ...], dest: str) -> None:
+            if key in counted_set and (key not in rank or order_of[dest] < rank[key]):
+                rank[key] = order_of[dest]
+        counted_set = set(counted)
+        for (r, j), dest in got["行の行き先"].items():
+            if dest != "鎖":
+                note(unc.agreement_item_key(rows_by_run[r][j]), dest)
+        for chain in got["鎖"]:
+            picked = [rows_by_run[r][j] if j is not None else None for r, j in enumerate(chain)]
+            ids = tuple(str(it["id"]) if it is not None else "" for it in picked)
+            ccid = card_id(dim, (grp["組の鍵"], ids))
+            made = _make_card(dim, ccid, picked, names, machine, scale, unit_equivalence)
+            chain_keys = {unc.agreement_item_key(it) for it in picked if it is not None}
+            dest = "カード" if "カード" in made else (UNIT_DROPPED if "外した" in made else made["理由"])
+            for k2 in chain_keys:
+                note(k2, dest)
+            if "カード" in made:
+                made["カード"]["割れた鍵の数"] = len(chain_keys & counted_set)
+                made["カード"]["組"] = cid
+                cards.append(made["カード"])
+            elif "外した" in made:
+                unit_dropped.append({"鍵": ccid, "組": cid, "次元": dim})
+        inv = {v: k for k, v in order_of.items()}
+        per_reason: dict[str, int] = {}
+        for k2 in counted:
+            dest = inv[rank[k2]] if k2 in rank else pm.NO_PARTNER
+            key_dest[k2] = dest
+            if dest not in ("カード", UNIT_DROPPED):
+                per_reason[dest] = per_reason.get(dest, 0) + 1
+        for reason, n in per_reason.items():
+            not_made.append({"鍵": cid, "次元": dim, "理由": reason, "割れた鍵の数": n})
     return {
         "割れた鍵": len(split_keys), "鍵の和": split["鍵の和"], "全部の回に出た鍵": split["全部の回に出た鍵"],
         "入れ先ごとの鍵": {**{d: sum(1 for v in assigned.values() if v == d) for d in DIMENSIONS},
                      UNIT_NAME_ONLY: sum(1 for v in assigned.values() if v == UNIT_NAME_ONLY),
                      PRESENCE_ONLY: len(presence)},
         "カード": cards, "カードにできなかった組": not_made,
+        "単位の同値で外したカード": unit_dropped,
+        "割れた鍵の行き先": _count_dest(key_dest),
+        "対応づけ": matching if match == "位置" else None,
+        "_位置で対応づけた組": positional,
         "名前だけの違い(辞書で解いた)": name_only(per_run, split_keys),
         "_回": names,
     }
+
+
+def _count_dest(key_dest: Mapping[tuple[Any, ...], str]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for v in key_dest.values():
+        out[v] = out.get(v, 0) + 1
+    return dict(sorted(out.items()))
+
+
+def _settle(made: Mapping[str, Any], cid: str, dim: str, counted: Sequence[Any], cards: list, not_made: list,
+            unit_dropped: list, key_dest: dict, keys: set) -> None:
+    """回の中で 1 行以下の組(前の周と同じ)の行き先を書く。"""
+    if "カード" in made:
+        made["カード"]["割れた鍵の数"] = len(counted)
+        made["カード"]["組"] = cid
+        cards.append(made["カード"])
+        dest = "カード"
+    elif "外した" in made:
+        unit_dropped.append({"鍵": cid, "組": cid, "次元": dim})
+        dest = UNIT_DROPPED
+    else:
+        not_made.append({"鍵": cid, "次元": dim, "理由": made["理由"], "割れた鍵の数": len(counted)})
+        dest = made["理由"]
+    for k in keys:
+        key_dest[k] = dest
+
+
+def same_by_new_unit(options: Sequence[str]) -> list[str]:
+    """数量の選択肢を `sameness.quantity.new_unit` の単位と数で揃え、同じになるものを先に出た 1 つにまとめる。
+
+    **単位の同値はここに表を置かない**(`new_unit` だけを使う)。数は等しいときだけ同じ(許容は使わない)。
+    """
+    from sameness.quantity import new_unit
+
+    seen: dict[tuple[float, str], str] = {}
+    out: list[str] = []
+    for o in options:
+        m = re.match(r"^\s*([0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)\s*(.*)$", nfkc(o))
+        sig = (float(m.group(1)), new_unit(m.group(2).strip())) if m else (float("nan"), o)
+        if m and sig in seen:
+            continue
+        seen[sig] = o
+        out.append(o)
+    return out
+
+
+def _make_card(dim: str, cid: str, picked: Sequence[Mapping[str, Any] | None], names: Sequence[str],
+               machine: Any, scale: Any, unit_equivalence: bool) -> dict[str, Any]:
+    """回ごとに 1 行まで(無ければ None)の行から、カードを作る。``{"カード": …}`` か ``{"理由": …}`` か ``{"外した": …}``。"""
+    sources: dict[str, list[dict[str, Any]]] = {}
+    order: dict[str, tuple[float, str]] = {}
+    row_of: dict[str, str] = {}
+    rows: list[Mapping[str, Any]] = []
+    for name, it in zip(names, picked):
+        if it is None:
+            continue
+        rows.append(it)
+        row_of[name] = it["id"]
+        v = dim_value(it, dim)
+        if v is None:
+            continue
+        if dim == "室":
+            # K-66 の室の鍵で同じ室は 1 つの選択肢にまとめる(先に出た書き方で見せる)。
+            v = next((seen for seen in sources if spelling(seen) == spelling(v)), v)
+        sources.setdefault(v, []).append({"出どころ": "3回の値", "辿る": {
+            "回": name, "項目": it["id"], "ページ": it.get("ページ")}})
+        order[v] = (_qty(it.get("数量")) or 0.0, v) if dim == "数量" else (0.0, v)
+    if dim == "数量":
+        from draft.questioning import unit_key
+
+        units = {unit_key(r.get("単位")) for r in rows if unit_key(r.get("単位"))}
+        for source, table in (("機械の値", machine), ("縮尺で換算した値", scale)):
+            for name, it in zip(names, picked):
+                if it is None:
+                    continue
+                for m in ((table or {}).get(name) or {}).get(it["id"], ()):
+                    q = _qty(m.get("値"))
+                    if q is None or not _unit_ok(units, m.get("単位")):
+                        continue
+                    unit = nfkc(m.get("単位")) or nfkc(it.get("単位"))
+                    text = quantity_text(q, unit)
+                    sources.setdefault(text, []).append({"出どころ": source, "辿る": {
+                        "回": name, "項目": it["id"], **dict(m.get("辿る") or {})}})
+                    order[text] = (q, text)
+    if len(sources) < 2:
+        return {"理由": REASONS[1]}
+    values = sorted(sources, key=lambda t: order[t])
+    if dim == "数量" and unit_equivalence:
+        kept = same_by_new_unit(values)
+        if len(kept) < 2:
+            return {"外した": UNIT_DROPPED}
+        if len(kept) < len(values):
+            # 揃えると同じになる選択肢は、先に出た書き方 1 つにまとめる(出どころは足し合わせる)。
+            from sameness.quantity import new_unit
+
+            def sig(o: str) -> tuple[float, str]:
+                m = re.match(r"^\s*([0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)\s*(.*)$", nfkc(o))
+                return (float(m.group(1)), new_unit(m.group(2).strip())) if m else (float("nan"), o)
+
+            merged: dict[str, list[dict[str, Any]]] = {}
+            for o in values:
+                head = next((k for k in kept if sig(k) == sig(o)), o)
+                merged.setdefault(head, []).extend(sources[o])
+            sources = merged
+            values = kept
+    crops = crops_of(rows)
+    if not crops:
+        return {"理由": REASONS[2]}
+    head = rows[0]
+    what = nfkc(head.get("何")) or nfkc(head.get("工事"))
+    question = {
+        "数量": f"「{what}」の数量は、どれですか",
+        "状態": f"「{what}」は、どの工事ですか(撤去・新設など)",
+        "室": f"「{what}」は、どの室の工事ですか",
+        "部位": f"「{what}」は、どの部位の工事ですか",
+    }[dim]
+    return {"カード": {
+        "鍵": cid, "次元": dim, "問い": question,
+        "選択肢": [*values, *TAIL],
+        "値の出どころ": sources,
+        "行": row_of,
+        "切り抜き": crops,
+        "見る所": sorted({c["ページ"] for c in crops}),
+        "推奨": None, "数字の入力": False, "自由記述": False, "見込み": None,
+    }}
 
 
 def name_only(per_run: Sequence[Mapping[tuple[Any, ...], Sequence[Mapping[str, Any]]]],
