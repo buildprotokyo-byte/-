@@ -75,6 +75,18 @@ FIXED_EFFECTS: dict[str, dict[str, tuple[str, dict[str, str]]]] = {
 DONT_KNOW_TEXT = "分からない(現地・設計者に確認する)"
 
 
+def quantity_of(choice: str, card: Mapping[str, Any]) -> tuple[float, str] | None:
+    """`数量` のカードの選択肢の文字から値と単位を取る。**カードの選択肢に無い文字は受け取らない。**"""
+    import re
+
+    if choice not in (card.get("選択肢") or ()):
+        return None
+    m = re.match(r"^\s*([0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)\s*(.*)$", nfkc(choice))
+    if not m:
+        return None
+    return float(m.group(1)), m.group(2).strip()
+
+
 def _decide(it: dict[str, Any], text: str, fields: Mapping[str, Any]) -> dict[str, Any]:
     """人の回答で 1 項目を決める。`draft.stages.apply_answers` の中の決め方と同じ(K-64 周 4)。"""
     old = {k: it.get(k) for k in ("数量", "単位", "確度", "状態", "区分", "科目")}
@@ -119,6 +131,15 @@ def apply(understanding: dict[str, Any], finish: dict[str, Any], cards: Sequence
             else:
                 recorded.append(key)
             continue
+        if type_ == "数量" and key.startswith("項目:"):
+            # K-68 B 周 3: 数量の値を選んだら、その項目の数量と単位をその値にする(人の回答で決める)。
+            value = quantity_of(choice, card)
+            target = by_id.get(key.split(":", 1)[1])
+            if value is None or target is None:
+                refused.append({"鍵": key, "理由": "数量の選択肢に無い答え" if value is None else "項目が無い"})
+                continue
+            decided.append(_decide(target, choice, {"数量": value[0], **({"単位": value[1]} if value[1] else {})}))
+            continue
         if not fixed:
             passthrough[key] = choice
             continue
@@ -151,6 +172,11 @@ def apply(understanding: dict[str, Any], finish: dict[str, Any], cards: Sequence
                 it["人の回答"] = choice
                 recorded.append(key)
     stage = apply_answers(understanding, finish, passthrough)
+    # K-64 の口に渡して戻らなかった答え(選択肢に無い文字など)。**黙って捨てない。**「分からない」は数えない。
+    back = set(stage.get("戻した鍵") or ())
+    for key, choice in passthrough.items():
+        if key not in back and choice != DONT_KNOW_TEXT:
+            refused.append({"鍵": key, "理由": "K-64 の口が受け取らなかった答え"})
     return {"固定の選択肢で決めた項目": decided, "固定の選択肢で外した項目": removed,
             "書くだけの答え": recorded, "戻せなかった答え": refused,
             "K-64 の口に渡した答え": len(passthrough), "K-64 の口": stage}

@@ -141,6 +141,7 @@ def build_all(drafts: Mapping[str, Mapping[str, Any]], pdf: Path | None, *,
                                       checklist=checklists.get(name), **extra)
         out[name]["_候補"] = raw
         out[name]["_ほかの回"] = other
+        out[name]["_チェック表"] = checklists.get(name)
     return out
 
 
@@ -247,7 +248,152 @@ def round2(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None, 
     return out
 
 
-ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2}
+def sources_of(drafts: Mapping[str, Mapping[str, Any]], paths: Mapping[str, Path] | None,
+               pdf: Path | None) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """機械の値(K-61 が保存した本番の形)と縮尺で換算した値(`draft.flags.scale_length`)。**AI は呼ばない。**"""
+    from draft import flags, questioning
+
+    machine, scale, scale_parts = {}, {}, {}
+    for name, draft in drafts.items():
+        path = (paths or {}).get(name)
+        prod = path / "本番の形.json" if path is not None else None
+        machine[name] = (questioning.machine_values_from(
+            json.loads(prod.read_text(encoding="utf-8")).get("工事項目") or ())
+            if prod is not None and prod.exists() else {})
+        if pdf is not None:
+            # 保存した JSON を読み直すとページの鍵が文字になるので、数に戻す(本番では数のまま)。
+            org = {**draft["整理"], "ページ": {int(n): v for n, v in draft["整理"]["ページ"].items()}}
+            part = flags.scale_length(pdf, org, draft["読む"], draft["理解"], draft["仕上表"])
+            scale_parts[name] = part
+            scale[name] = questioning.scale_values_from(part)
+        else:
+            scale[name] = {}
+    return machine, scale, scale_parts
+
+
+def _quantity_questions(draft: Mapping[str, Any], raw: Sequence[Mapping[str, Any]], other: Sequence[Any],
+                        qsources: Mapping[str, Any] | None) -> list[dict[str, Any]]:
+    """型が `数量` に決まった問い(捨てる前、畳む前)のカード。"""
+    from draft import cards as cards_mod
+    from draft.questioning import other_values
+
+    items = draft["理解"]["項目"]
+    classified = uncertainty.classify(items, finish=draft["仕上表"], other_runs=other)
+    uncertain = {r["id"]: r for r in classified["項目ごと"]}
+    values = other_values(items, other)
+    out = []
+    for q in raw:
+        card = cards_mod._to_card(q, items, uncertain, {}, values, qsources)
+        if card is not None and card["型"] == "数量":
+            out.append(card)
+    return out
+
+
+def _real(options: Sequence[str]) -> list[str]:
+    from benchmarks.measure_question_curve import NONE_WORDS
+
+    return [o for o in options if not any(w in o for w in NONE_WORDS)]
+
+
+def round3(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None,
+           paths: Mapping[str, Path] | None = None, **_: Any) -> dict[str, Any]:
+    """周 3: 数量の型の選択肢を、3 回の値・機械の値・縮尺で換算した値から作る。"""
+    from copy import deepcopy
+
+    from draft import answers_io, questioning
+
+    k65 = _k65()["回"]
+    machine, scale, scale_parts = sources_of(drafts, paths, pdf)
+    builts = build_all(drafts, pdf, machine_values=None, scale_values=None)  # 形だけ(候補とほかの回)
+    out: dict[str, Any] = {"回": {}}
+    for name, draft in drafts.items():
+        items = draft["理解"]["項目"]
+        raw, other = builts[name]["_候補"], builts[name]["_ほかの回"]
+        qs = questioning.quantity_sources(items, other, machine=machine[name], scale=scale[name])
+        old_cards = _quantity_questions(draft, raw, other, None)
+        new_cards = _quantity_questions(draft, raw, other, qs)
+        old_ok = sum(1 for c in old_cards if _real(c["選択肢"]))
+        new_ok = sum(1 for c in new_cards if _real(c["選択肢"]))
+        by_source: dict[str, int] = {s: 0 for s in questioning.QUANTITY_SOURCES}
+        traced_missing = 0
+        option_count = 0
+        for c in new_cards:
+            for o in _real(c["選択肢"]):
+                option_count += 1
+                src = c["数量の出どころ"].get(o) or []
+                if not src or not all(x.get("辿る") for x in src):
+                    traced_missing += 1
+                for x in src:
+                    by_source[x["出どころ"]] += 1
+        all_by_source: dict[str, int] = {s: 0 for s in questioning.QUANTITY_SOURCES}
+        for vs in qs.values():
+            for v in vs:
+                all_by_source[v["出どころ"]] += 1
+        no_qty = sum(1 for it in items if it.get("数量") is None)
+        zero = sum(1 for vs in qs.values() for v in vs if not v["値"] or v["値"] <= 0)
+        bad_input = sum(1 for c in new_cards if c.get("数字の入力") or c.get("自由記述") or c.get("推奨"))
+        # 聞くカード(周 3 の作り方)。
+        built = questioning.build({"候補": raw}, draft["理解"], draft["仕上表"], other_runs=other,
+                                  checklist=builts[name].get("_チェック表"),
+                                  machine_values=machine[name], scale_values=scale[name])
+        asked = built["カード"]
+        asked_qty = [c for c in asked if c["型"] == "数量"]
+        tried = refused = 0
+        for c in asked_qty:
+            for choice in c["選択肢"]:
+                u, f = deepcopy(draft["理解"]), deepcopy(draft["仕上表"])
+                res = answers_io.apply(u, f, [c], {c["鍵"]: choice})
+                tried += 1
+                refused += len(res["戻せなかった答え"])
+        first = {c["鍵"]: a for c in asked if (a := _first_real(c)) is not None}
+        auto = _auto_confirmed(draft, asked, first)
+        u, f = deepcopy(draft["理解"]), deepcopy(draft["仕上表"])
+        first_refused = answers_io.apply(u, f, asked, first)["戻せなかった答え"]
+        parts = scale_parts.get(name) or {}
+        scales = parts.get("縮尺") or []
+        out["回"][name] = {
+            "線1: 数量の型の問い(捨てる前・畳む前)": len(new_cards),
+            "線1: 値のある問い 旧(K-65 の作り方)": old_ok,
+            "線1: 値のある問い 新": new_ok,
+            "線1: 割合 旧": _ratio(old_ok, len(old_cards)),
+            "線1: 割合 新": _ratio(new_ok, len(new_cards)),
+            "値の数(数量の型の問いの選択肢、出どころごと)": by_source,
+            "数量が無い項目": no_qty,
+            "候補の値が 1 つ以上ある項目(数量が無い項目のうち)": len(qs),
+            "候補の値の数(数量が無い項目全部、出どころごと)": all_by_source,
+            "縮尺: 平面図のページ": len(scales),
+            "縮尺: 決まったページ": sum(1 for x in scales if str(x.get("縮尺", "")).startswith("1/")),
+            "縮尺: 値が 1 つに決まった理解の項目": len(scale[name]),
+            "縮尺: 照らし合わせ": parts.get("照らし合わせ"),
+            "機械の値のある理解の項目": len(machine[name]),
+            "線3: 出どころを辿れない選択肢": traced_missing,
+            "線3: 選択肢の値の数": option_count,
+            "線3: 数量が無いところから作った値(0 以下)": zero,
+            "線4: 数字・自由記述・推奨のある数量のカード": bad_input,
+            "聞くカード": {"K-65": k65[name]["カードの数"], "周3": len(asked)},
+            "聞くカードの型ごと": built["型ごと"],
+            "聞く数量のカード": len(asked_qty),
+            "線5: 聞く数量のカードの選択肢を 1 つずつ答えた数": tried,
+            "線5: そのうち戻せなかった答え": refused,
+            "線5: 聞くカード全部に 1 つ目で答えて戻せなかった答え": len(first_refused),
+            "線5: 戻せなかった理由ごと": _count([r["理由"] for r in first_refused]),
+            "線6: 自動確定": auto,
+        }
+    rows = out["回"]
+    full = [n for n in rows if n.startswith("full")]
+    out["線1(全部あり版で 20% 以上、5 版で旧を下回らない)"] = (
+        all((rows[n]["線1: 割合 新"] or 0) >= 0.20 for n in full)
+        and all((rows[n]["線1: 割合 新"] or 0) >= (rows[n]["線1: 割合 旧"] or 0) for n in rows))
+    out["線3"] = all(r["線3: 出どころを辿れない選択肢"] == 0 and r["線3: 数量が無いところから作った値(0 以下)"] == 0
+                    for r in rows.values())
+    out["線4"] = all(r["線4: 数字・自由記述・推奨のある数量のカード"] == 0 for r in rows.values())
+    out["線5"] = all(r["線5: そのうち戻せなかった答え"] == 0 and r["線5: 聞くカード全部に 1 つ目で答えて戻せなかった答え"] == 0
+                    for r in rows.values())
+    out["線6"] = all(r["線6: 自動確定"]["自動確定"] == 0 for r in rows.values())
+    return out
+
+
+ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2, 3: round3}
 
 
 def main() -> None:
@@ -258,7 +404,7 @@ def main() -> None:
     p.add_argument("--out", type=Path, default=None)
     a = p.parse_args()
     drafts = {path.name: load_run(path) for path in a.runs}
-    result = ROUNDS[a.round](drafts, pdf=a.pdf)
+    result = ROUNDS[a.round](drafts, pdf=a.pdf, paths={path.name: path for path in a.runs})
     whole: dict[str, Any] = {}
     if a.out and a.out.exists():
         whole = json.loads(a.out.read_text(encoding="utf-8"))

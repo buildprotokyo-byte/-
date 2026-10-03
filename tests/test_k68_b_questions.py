@@ -252,3 +252,123 @@ def test_仕様書と図面の問いはAIの選択肢のまま() -> None:
 
     assert built["カード"][0]["型"] == "仕様書と図面のどちらを採るか"
     assert built["カード"][0]["選択肢"][:2] == ["AI が書いた候補 1", "AI が書いた候補 2"]
+
+
+# 周 3 数量の型: 3 回の値・機械の値・縮尺で換算した値
+# ---------------------------------------------------------------------------
+
+
+def test_数量の候補は3回の値と機械と縮尺から() -> None:
+    it = _item("a", 数量=None)
+    other = [_item("x", 数量=12.5)]
+    machine = {"a": [{"値": 31.77, "単位": "㎡", "辿る": {"機械の行": 1}}]}
+    scale = {"a": [{"値": 10.0, "単位": "m2", "辿る": {"ページ": [5]}}]}
+    got = questioning.quantity_sources([it], [other], machine=machine, scale=scale)["a"]
+
+    by = {v["出どころ"]: v["値"] for v in got}
+    assert by["3回の値"] == 12.5
+    assert by["3回の値(K-66 の鍵)"] == 12.5
+    assert by["機械の値"] == 31.77
+    assert by["縮尺で換算した値"] == 10.0
+    assert all(v["辿る"] for v in got)
+
+
+def test_数量の候補に0や無い値や違う単位を入れない() -> None:
+    it = _item("a", 数量=None)
+    others = [[_item("x", 数量=None)], [_item("y", 数量=0.0)], [_item("z", 数量=3.0, 単位="m")]]
+
+    assert questioning.quantity_sources([it], others) == {}
+
+
+def test_K66の鍵は1行どうしのときだけ() -> None:
+    """粗い鍵で、ほかの回の別の行の値を拾わない。"""
+    it = _item("a", 数量=None)
+    other = [_item("x", 数量=12.5, 工事="床張替え工事"), _item("y", 数量=3.0, 工事="床張替え工事")]
+    got = questioning.quantity_sources([it], [other]).get("a", [])
+
+    assert not [v for v in got if v["出どころ"] == "3回の値(K-66 の鍵)"]
+    one = questioning.quantity_sources([it], [other[:1]])["a"]
+    assert [v["値"] for v in one if v["出どころ"] == "3回の値(K-66 の鍵)"] == [12.5]
+    assert not [v for v in one if v["出どころ"] == "3回の値"], "旧の鍵では言い換えを拾えない"
+
+
+def test_数量の選択肢は小さい順で出どころを残す() -> None:
+    options, sources = cards.quantity_options([
+        {"値": 20.0, "単位": "m2", "出どころ": "機械の値", "辿る": {"機械の行": 1}},
+        {"値": 12.5, "単位": "m2", "出どころ": "3回の値", "辿る": {"回": "ほかの回1"}},
+        {"値": 20.0, "単位": "m2", "出どころ": "縮尺で換算した値", "辿る": {"ページ": [5]}}])
+
+    assert options == ["12.5m2", "20m2"]
+    assert [s["出どころ"] for s in sources["20m2"]] == ["機械の値", "縮尺で換算した値"]
+
+
+def _qty_card():
+    it = _item("a", 状態="問い", 数量=None)
+    qs = {"a": [{"値": 12.5, "単位": "m2", "出どころ": "3回の値", "辿る": {"回": "ほかの回1"}}]}
+    graph = chain.build([it])
+    built = cards.build_cards([_q("a")], [it], graph, uncertainty.classify([it]), quantity_sources=qs)
+    return it, built["カード"][0]
+
+
+def test_数量のカードは値を選ばせ数字を打たせない() -> None:
+    _it, card = _qty_card()
+
+    assert card["型"] == "数量"
+    assert card["選択肢"] == ["12.5m2", cards.NONE_OF_THESE]
+    assert card["数字の入力"] is False and card["推奨"] is None
+    assert card["数量の出どころ"]["12.5m2"][0]["出どころ"] == "3回の値"
+
+
+def test_数量の答えは数量と単位を決める() -> None:
+    it, card = _qty_card()
+    understanding = {"項目": [copy.deepcopy(it)]}
+    out = answers_io.apply(understanding, {"照らし合わせ": []}, [card], {card["鍵"]: "12.5m2"})
+
+    got = understanding["項目"][0]
+    assert got["数量"] == 12.5 and got["単位"] == "m2" and got["根拠の種類"] == "人の回答"
+    assert not out["戻せなかった答え"]
+
+
+def test_数量のどれでもないは何も決めない() -> None:
+    it, card = _qty_card()
+    understanding = {"項目": [copy.deepcopy(it)]}
+    answers_io.apply(understanding, {"照らし合わせ": []}, [card], {card["鍵"]: cards.NONE_OF_THESE})
+
+    assert understanding["項目"][0]["数量"] is None
+
+
+def test_選択肢に無い数量は戻さず理由を残す() -> None:
+    it, card = _qty_card()
+    understanding = {"項目": [copy.deepcopy(it)]}
+    out = answers_io.apply(understanding, {"照らし合わせ": []}, [card], {card["鍵"]: "99m2"})
+
+    assert understanding["項目"][0]["数量"] is None
+    assert out["戻せなかった答え"] == [{"鍵": card["鍵"], "理由": "数量の選択肢に無い答え"}]
+
+
+def test_K64の口が受け取らなかった答えも数える() -> None:
+    """周 2 までは黙って捨てられていた(`stages.apply_answers` は AI の選択肢に無い文字を受け取らない)。"""
+    it = _item("a", 状態="問い", 場所="未確定", 選択肢=["洋室1"])
+    built = _cards_for([it], [_q("a")])
+    card = built["カード"][0]
+    understanding = {"項目": [copy.deepcopy(it)]}
+    out = answers_io.apply(understanding, {"照らし合わせ": []}, [card], {card["鍵"]: "AI が書いた候補 1"})
+
+    assert out["戻せなかった答え"] == [{"鍵": card["鍵"], "理由": "K-64 の口が受け取らなかった答え"}]
+
+
+def test_機械の値は保存した本番の形から() -> None:
+    rows = [{"番号": 66, "数量": None, "単位": "m2", "機械の検算": [{"機械の番号": 132, "数量": 31.77, "単位": "㎡"}],
+             "根拠": [{"根拠": "u-1,u-2"}]},
+            {"番号": 67, "数量": 5.0, "機械の検算": [{"機械の番号": 1, "数量": 6.0}], "根拠": [{"根拠": "u-3"}]}]
+    got = questioning.machine_values_from(rows)
+
+    assert set(got) == {"u-1", "u-2"}
+    assert got["u-1"][0]["値"] == 31.77
+
+
+def test_縮尺の値は1つに決まった室だけ() -> None:
+    part = {"足したもの": [{"数量": None, "単位": "m2", "理解の項目": ["a"], "根拠": {}},
+                       {"数量": 10.0, "単位": "m2", "理解の項目": ["b"], "根拠": {"ページ": [5], "測った量": "面積"}}]}
+
+    assert set(questioning.scale_values_from(part)) == {"b"}

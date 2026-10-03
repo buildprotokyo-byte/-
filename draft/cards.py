@@ -137,8 +137,12 @@ def build_cards(questions: Sequence[Mapping[str, Any]], items: Sequence[Mapping[
                 amounts: Mapping[str, float] | None = None, total: float | None = None,
                 crops: Mapping[str, Any] | None = None,
                 other_values: Mapping[tuple[str, str, str, str], Sequence[str]] | None = None,
-                spot_check_ids: Sequence[str] = ()) -> dict[str, Any]:
+                spot_check_ids: Sequence[str] = (),
+                quantity_sources: Mapping[str, Sequence[Mapping[str, Any]]] | None = None) -> dict[str, Any]:
     """`draft.stages.question_candidates` の問いをカードにする。
+
+    ``quantity_sources`` を渡すと、`数量` の型の選択肢をその値から作る(K-68 B 周 3。
+    `draft.questioning.quantity_sources`)。渡さなければ K-65 の作り方(同じものの値とほかの回の値)。
 
     **問いを新しく作らない。**型を決め、メーターを付け、無効なものを外すだけ。
     """
@@ -148,7 +152,7 @@ def build_cards(questions: Sequence[Mapping[str, Any]], items: Sequence[Mapping[
     cards: list[dict[str, Any]] = []
     dropped: list[dict[str, Any]] = []
     for q in questions:
-        card = _to_card(q, items, uncertain, crops, other_values)
+        card = _to_card(q, items, uncertain, crops, other_values, quantity_sources)
         if card is None:
             dropped.append({"鍵": q["鍵"], "理由": "型が決まらなかった"})
             continue
@@ -180,7 +184,8 @@ def _value_key(item: Mapping[str, Any]) -> tuple[str, str, str, str]:
 
 def _to_card(q: Mapping[str, Any], items: Sequence[Mapping[str, Any]],
              uncertain: Mapping[str, Mapping[str, Any]], crops: Mapping[str, Any],
-             other_values: Mapping[tuple[str, str, str, str], Sequence[str]] | None = None) -> dict[str, Any] | None:
+             other_values: Mapping[tuple[str, str, str, str], Sequence[str]] | None = None,
+             quantity_sources: Mapping[str, Sequence[Mapping[str, Any]]] | None = None) -> dict[str, Any] | None:
     by_id = {it["id"]: it for it in items}
     other_values = dict(other_values or {})
     kind = q.get("種類")
@@ -206,7 +211,10 @@ def _to_card(q: Mapping[str, Any], items: Sequence[Mapping[str, Any]],
     if type_ in FIXED_OPTIONS and kind != "読めなかった所":
         # K-68 B 周 2: AI が書いた選択肢を使わず、型の固定の選択肢にする。
         options = fixed_options(type_)
-    if type_ == "数量":
+    sources: dict[str, list[dict[str, Any]]] = {}
+    if type_ == "数量" and quantity_sources is not None:
+        options, sources = quantity_options(quantity_sources.get(first["id"], ()) if first else ())
+    elif type_ == "数量":
         options = _quantity_options(first, by_id, other_values.get(_value_key(first), ()) if first else ())
     if not any(NONE_OF_THESE[:4] in o or "分からない" in o for o in options):
         options.append(NONE_OF_THESE)
@@ -227,7 +235,29 @@ def _to_card(q: Mapping[str, Any], items: Sequence[Mapping[str, Any]],
         "数字の入力": False, "自由記述": False, "推奨": None,
         "図面全体への入口": {"任意": True, "ページ": pages[0] if pages else None},
     }
+    if type_ == "数量" and quantity_sources is not None:
+        card["数量の出どころ"] = sources
     return card
+
+
+def quantity_text(value: float, unit: str) -> str:
+    return f"{value:g}{unit}"
+
+
+def quantity_options(values: Sequence[Mapping[str, Any]]) -> tuple[list[str], dict[str, list[dict[str, Any]]]]:
+    """数量の選択肢(K-68 B 周 3)。**値の小さい順。どれが推しかは書かない。数字は打たせない。**
+
+    同じ値は 1 つの選択肢にまとめ、出どころを全部残す(`数量の出どころ`)。値が 1 つも無ければ選択肢は
+    「どれでもない」だけになり、`invalid_reasons` で捨てる(数字を打たせる方へ逃げない)。
+    """
+    sources: dict[str, list[dict[str, Any]]] = {}
+    order: dict[str, float] = {}
+    for v in values:
+        text = quantity_text(float(v["値"]), nfkc(v.get("単位")))
+        sources.setdefault(text, []).append({"出どころ": v["出どころ"], "辿る": dict(v.get("辿る") or {})})
+        order[text] = float(v["値"])
+    options = sorted(sources, key=lambda t: (order[t], t))
+    return options, sources
 
 
 def _page_numbers(values: Any) -> set[int]:

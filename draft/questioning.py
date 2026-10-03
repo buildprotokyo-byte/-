@@ -64,11 +64,135 @@ def other_values(items: Sequence[Mapping[str, Any]],
     return out
 
 
+#: 数量の選択肢の出どころ(K-68 B 周 3)。この順に集め、選択肢は値の小さい順に並べる(どれが推しかは書かない)。
+QUANTITY_SOURCES = ("同じものの値", "3回の値", "3回の値(K-66 の鍵)", "機械の値", "縮尺で換算した値")
+
+_UNIT_ALIASES = {"㎡": "m2", "m²": "m2", "ｍ２": "m2", "m^2": "m2"}
+
+
+def unit_key(unit: Any) -> str:
+    text = nfkc(unit).replace(" ", "")
+    return _UNIT_ALIASES.get(text, text)
+
+
+def _value(qty: Any) -> float | None:
+    """数量として使える値。**無い(未取得)・0 以下・数でないものは使わない**(0 を作らない)。"""
+    if isinstance(qty, bool) or not isinstance(qty, (int, float)):
+        return None
+    return float(qty) if qty > 0 else None
+
+
+def quantity_sources(items: Sequence[Mapping[str, Any]], other_runs: Sequence[Sequence[Mapping[str, Any]]] = (), *,
+                     machine: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+                     scale: Mapping[str, Sequence[Mapping[str, Any]]] | None = None) -> dict[str, list[dict[str, Any]]]:
+    """数量が無い項目ごとの、数量の候補の値(K-68 B 周 3)。**AI は呼ばない。値を作らない。**
+
+    1 つの値は ``{"値", "単位", "出どころ", "辿る"}``。``辿る`` はその値を読んだ回・項目・行・ページ。
+    ``machine`` と ``scale`` は項目 id ごとの ``{"値", "単位", "辿る"}`` の並び
+    (`machine_values_from` と `scale_values_from` で作る)。
+    単位が項目と違う値は使わない(項目に単位が無ければ値の単位のまま)。
+    """
+    by_id = {it["id"]: it for it in items}
+    old_index: list[dict[tuple[str, str, str, str], list[Mapping[str, Any]]]] = []
+    new_index: list[dict[tuple[Any, ...], list[Mapping[str, Any]]]] = []
+    for run in other_runs:
+        o: dict[tuple[str, str, str, str], list[Mapping[str, Any]]] = {}
+        n: dict[tuple[Any, ...], list[Mapping[str, Any]]] = {}
+        for it in run:
+            o.setdefault(unc.item_key(it), []).append(it)
+            n.setdefault(unc.agreement_item_key(it), []).append(it)
+        old_index.append(o)
+        new_index.append(n)
+    own_new: dict[tuple[Any, ...], int] = {}
+    for it in items:
+        k = unc.agreement_item_key(it)
+        own_new[k] = own_new.get(k, 0) + 1
+
+    out: dict[str, list[dict[str, Any]]] = {}
+    for it in items:
+        if it.get("数量") is not None:
+            continue
+        unit = unit_key(it.get("単位"))
+        found: list[dict[str, Any]] = []
+
+        def add(qty: Any, u: Any, source: str, trace: Mapping[str, Any]) -> None:
+            v = _value(qty)
+            if v is None or (unit and unit_key(u) and unit_key(u) != unit):
+                return
+            found.append({"値": v, "単位": nfkc(u) or nfkc(it.get("単位")), "出どころ": source, "辿る": dict(trace)})
+
+        for i in it.get("同じもの") or ():
+            if i in by_id:
+                add(by_id[i].get("数量"), by_id[i].get("単位"), "同じものの値", {"回": "この回", "項目": i})
+        for r, index in enumerate(old_index):
+            for other in index.get(unc.item_key(it), ()):
+                add(other.get("数量"), other.get("単位"), "3回の値", {"回": f"ほかの回{r + 1}", "項目": other.get("id")})
+        key = unc.agreement_item_key(it)
+        if own_new.get(key) == 1:
+            for r, index in enumerate(new_index):
+                rows = index.get(key, ())
+                if len(rows) == 1:
+                    add(rows[0].get("数量"), rows[0].get("単位"), "3回の値(K-66 の鍵)",
+                        {"回": f"ほかの回{r + 1}", "項目": rows[0].get("id")})
+        for source, table in (("機械の値", machine), ("縮尺で換算した値", scale)):
+            for m in (table or {}).get(it["id"], ()):
+                add(m.get("値"), m.get("単位"), source, m.get("辿る") or {})
+        if found:
+            out[it["id"]] = found
+    return out
+
+
+def machine_values_from(production_rows: Sequence[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """K-61 が保存した本番の形(`本番の形.json` の `工事項目`)から、機械の検算が並べた値を項目ごとに取る。
+
+    **機械を動かし直さない。**AI が数量を出さず、機械の数を並べた行(`機械の検算` の欄がある行)だけ。
+    1 行に機械の値が 2 つ以上あれば、どれも候補にする(足さない)。
+    """
+    out: dict[str, list[dict[str, Any]]] = {}
+    for row in production_rows:
+        if row.get("数量") is not None:
+            continue
+        machine = row.get("機械の検算") or (row.get("extra") or {}).get("機械の検算") or ()
+        ids = [i.strip() for b in row.get("根拠") or () if isinstance(b, Mapping)
+               for i in str(b.get("根拠") or "").split(",") if i.strip()]
+        for m in machine:
+            for i in ids:
+                out.setdefault(i, []).append({"値": m.get("数量"), "単位": m.get("単位"),
+                                              "辿る": {"機械の行": m.get("機械の番号"), "道": m.get("道"),
+                                                     "本番の形の行": row.get("番号")}})
+    return out
+
+
+def scale_values_from(part: Mapping[str, Any] | None) -> dict[str, list[dict[str, Any]]]:
+    """`draft.flags.scale_length` の出力から、縮尺で測った値を理解の項目ごとに取る。
+
+    **値が 1 つに決まらなかった室(`数量` が無い)は使わない。**
+    """
+    out: dict[str, list[dict[str, Any]]] = {}
+    for a in (part or {}).get("足したもの") or ():
+        if a.get("数量") is None:
+            continue
+        basis = a.get("根拠") or {}
+        for i in a.get("理解の項目") or ():
+            out.setdefault(i, []).append({"値": a["数量"], "単位": a.get("単位"),
+                                          "辿る": {"ページ": list(basis.get("ページ") or ()),
+                                                 "測った量": basis.get("測った量")}})
+    return out
+
+
 def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
           finish: Mapping[str, Any] | None, *, cost_table: Mapping[str, Any] | None = None,
           other_runs: Sequence[Sequence[Mapping[str, Any]]] = (),
           crops: Mapping[str, Any] | None = None, how: str = "連鎖の金額順",
-          checklist: Mapping[str, Any] | None = None, seed: int = 65) -> dict[str, Any]:
+          checklist: Mapping[str, Any] | None = None, seed: int = 65,
+          machine_values: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+          scale_values: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+          quantity_rule: str = "新") -> dict[str, Any]:
+    """問いの候補にカードとメーターを付ける。
+
+    ``quantity_rule`` は `数量` の型の選択肢の作り方。`新`(K-68 B 周 3)は `quantity_sources` の 5 つの出どころ、
+    `旧`(K-65)は同じものの値とほかの回の値(旧の鍵)だけ。比べるためだけに旧を残す。
+    """
     items = list(understanding.get("項目") or ())
     classified = unc.classify(items, finish=finish, other_runs=other_runs,
                               cost_rows=cost_rows_by_key(cost_table))
@@ -88,7 +212,10 @@ def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
     spots = unc.spot_check_ids(classified)
     built = cards_mod.build_cards(raw, items, graph, classified, amounts=amounts, total=total,
                                   crops=crops, other_values=other_values(items, other_runs),
-                                  spot_check_ids=spots)
+                                  spot_check_ids=spots,
+                                  quantity_sources=(quantity_sources(items, other_runs, machine=machine_values,
+                                                                     scale=scale_values)
+                                                    if quantity_rule == "新" else None))
     has_cost = bool(total)
     # K-65 の 0: 工事チェック表の「分からないこと」も問いにする。**原本に依らない問い。**
     frames = [c for c in cards_mod.frame_cards(checklist, crops=crops) if not cards_mod.invalid_reasons(c)]
