@@ -34,7 +34,7 @@ from typing import Any, Iterable, Sequence
 
 #: 図面を読んで素直に出た。**下の 4 つがどれも無いときだけ名乗れる。**
 REASON_OBSERVED = "観測"
-#: 知識のルールが効いて出た(会社のルール・基準・ガイドライン・波及のルール)。
+#: 知識のルールが効いて出た(図面に現れない行の決まり・基準・ガイドライン・波及のルール)。
 REASON_KNOWLEDGE_RULE = "知識のルール"
 #: 複数の経路・技術が一致して確度が上がった。
 REASON_PATHS_AGREED = "経路の一致"

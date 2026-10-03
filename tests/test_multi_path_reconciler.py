@@ -228,13 +228,13 @@ def test_経路ごとの得意分野の表が出る() -> None:
         _item("線から", "コンセント", source="pdf-A", category="記号を数える行", value=(12, 12), unit="個"),
         _item("線から", "スイッチ", source="pdf-A", category="記号を数える行", value=(6, 6), unit="個"),
         _item("線から", "床面積", source="pdf-A", category="形から出す行", value=(20, 20), unit="m2"),
-        _item("見積の型から", "仮設水道", path_kind="後ろから", source="見積書式-C", category="会社のルールの行", evidence="書式"),
+        _item("見積の型から", "仮設水道", path_kind="後ろから", source="見積書式-C", category="図面に現れない行", evidence="書式"),
     ]
     table = path_specialties(items)
     assert table["線から"]["記号を数える行"] == 2
     assert table["線から"]["形から出す行"] == 1
-    assert table["見積の型から"]["会社のルールの行"] == 1
-    assert "会社のルールの行" not in table["線から"]
+    assert table["見積の型から"]["図面に現れない行"] == 1
+    assert "図面に現れない行" not in table["線から"]
 
 
 def test_経路ごとの見つけた鍵が出る() -> None:

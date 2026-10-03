@@ -142,7 +142,7 @@ def test_a_standing_line_can_cite_the_knowledge_it_stands_on() -> None:
 
 
 def test_a_standing_line_without_a_citation_has_no_decisive_reason() -> None:
-    """**空は「決め手が無い」。**会社のルールの行を `観測` に化けさせない。"""
+    """**空は「決め手が無い」。**図面に現れない行を `観測` に化けさせない。"""
     ruleset = parse_rules(_standing_payload())
     result = apply_standing_lines(ruleset)
     assert result.lines
