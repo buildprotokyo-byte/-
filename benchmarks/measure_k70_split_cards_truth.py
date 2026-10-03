@@ -175,7 +175,7 @@ def measure(real: Mapping[str, Any], gold: Any, *, answer_text: str | None = Non
             v = verdicts[c["鍵"]]
             if policy == "理想":
                 right = v.get("正しい選択肢") or []
-                out[c["鍵"]] = (split_cards.real_options(c)[right[0] - 1] if len(right) == 1
+                out[c["鍵"]] = (split_cards.real_options(c)[right[0] - 1] if right
                                else split_cards.NONE_OF_THESE if v["照合"] else split_cards.DONT_KNOW)
             else:
                 out[c["鍵"]] = split_cards.real_options(c)[0]
