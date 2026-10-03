@@ -968,6 +968,8 @@ def questions(understanding: Mapping[str, Any], finish: Mapping[str, Any], readi
         "並べ方": "1 つ答えると確定する金額の大きい順" if has_cost else
         "金額の順ではない(原価表 未取得)。木工事・内装・電気設備を先に、その中は関係する項目の多い順",
         "候補の数": {k: sum(1 for q in qs if q["種類"] == k) for k in ("原本との違い", "決められなかった所", "読めなかった所")},
+        # K-65: 上限で切る前の候補を全部渡す(質問数の上限を置かない道のため)。段階ごとは今までのまま。
+        "候補": qs,
         "段階ごと": {mode: rank_questions(qs, mode, set(valid), has_cost, big["科目"]) for mode in MODES},
         "概算で拾う科目": big,
         "受け取った答え": [{"鍵": k, "答え": v} for k, v in valid.items()],
