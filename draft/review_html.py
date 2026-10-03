@@ -92,7 +92,7 @@ function summary(){const s=R["まとめ"]||{};let h=`<div>${esc(s["案件"]||"")
  document.getElementById("summary").innerHTML=h;
  document.getElementById("legend").innerHTML=Object.entries(COLORS).map(([k,c])=>`<span><i style="background:${c}"></i>${k}</span>`).join("")+'<span><i style="background:var(--c-rec)"></i>読んだ要素</span><span><i style="background:var(--c-miss)"></i>読めなかった所</span>';
  document.getElementById("tabs").innerHTML=VIEWS.map(([k,l])=>`<button data-v="${k}" class="${k==view?"on":""}">${l}</button>`).join("");
- document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{view=b.dataset.v;selected=null;render()})}
+ document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{view=b.dataset.v;selected=null;matSel=null;render()})}
 function pagebar(){document.getElementById("pagebar").innerHTML=DATA.pages.map(p=>{const l=loadOf(p.n);const c=l.score>=6?"load3":l.score>=3?"load2":l.score>=1.5?"load1":"";
  return `<button class="${c} ${p.n==page?"on":""}" data-p="${p.n}" title="落ちた率 ${l.miss==null?"未取得":(l.miss*100).toFixed(1)+"%"} / 問い ${l.q} / 確度低 ${l.low}">${p.n}</button>`}).join("");
  document.querySelectorAll("#pagebar button").forEach(b=>b.onclick=()=>{page=+b.dataset.p;render()})}
@@ -104,7 +104,7 @@ function boxesFor(){const out=[];const rd=(R["読む"]||{})["読み"]||{};
   for(const r of c["ひな型の根拠"]||[]){const it=itemById(r["項目"]);if(it&&it["ページ"]==page)for(const b of it["位置"])out.push({id:"f"+i,b,c:COLORS[it["根拠の種類"]]})}}}
  else if(view=="質問"){for(const q of allQuestions())for(const p of q["位置"]||[])if(p["ページ"]==page&&p["位置"])out.push({id:q["鍵"],b:p["位置"],c:"var(--c-miss)"})}
  return out}
-let _items=null;function itemById(id){if(!_items){_items={};for(const it of ((R["理解"]||{})["項目"]||[]))_items[it.id]=it}return _items[id]}
+let matSel=null;let _items=null;function itemById(id){if(!_items){_items={};for(const it of ((R["理解"]||{})["項目"]||[]))_items[it.id]=it}return _items[id]}
 function allQuestions(){const s=(R["質問"]||{})["段階ごと"]||{};return s[(R["まとめ"]||{})["段階"]||"通常"]||[]}
 function stage(){const p=pages[page];const img=document.getElementById("img");img.src=p.src;const svg=document.getElementById("svg");
  const sc=p.w/2000;svg.setAttribute("viewBox",`0 0 ${p.w} ${p.h}`);
@@ -129,15 +129,19 @@ function currentRows(){const rows=[];const rd=(R["読む"]||{})["読み"]||{};
   const pg=((c["原本の位置"]||[])[0]||{})["ページ"]||((c["ひな型の根拠"]||[])[0]||{})["ページ"];
   rows.push({key:"f"+i,ids,page:pg,c:d?"var(--c-miss)":"var(--c-rec)",html:`<b>${esc(c["室"])} ・ ${esc(c["部位"])}</b> ${badge(c["照らし合わせ"])}<table><tr><th>原本(画像を正とする)</th><th>ひな型(図面の読み)</th></tr><tr><td class="${d?"diff":""}">${unk(c["原本"])}</td><td class="${d?"diff":""}">${unk(c["ひな型"])}<div class="sub">確度 ${esc(c["ひな型の確度"])} ・ 根拠 ${(c["ひな型の根拠"]||[]).map(r=>esc(r["資料の種類"]+" "+r["ページ"]+"ページ")).join(", ")}</div></td></tr></table>${c["人の回答"]?"人の回答: "+esc(c["人の回答"]):""}`})}}
  else if(view=="質問"){const q=R["質問"]||{};for(const x of allQuestions())rows.push({key:x["鍵"],ids:[x["鍵"],...(x["関係する項目"]||[])],page:(x["見る所"]||[])[0],c:"var(--c-miss)",html:`<b>${esc(x["番号"])}</b> ${badge(x["種類"])}${badge(x["科目"])}${esc(x["問い"])}<ol>${x["選択肢"].map(o=>"<li>"+esc(o)+"</li>").join("")}</ol><div class="sub">見る所: ${(x["見る所"]||[]).join(", ")}ページ ・ 回答の鍵: ${esc(x["鍵"])}</div>`})}
- else if(view=="材料"){for(const [i,m] of (((R["組み立て"]||{})["材料表"])||[]).entries())rows.push({key:"m"+i,ids:m["項目"],page:(itemById(m["項目"][0])||{})["ページ"],c:"var(--c-rec)",html:`<b>${esc(m["品番"])}</b> ${esc(m["名称"])} ・ 合計(分かった分) ${unk(m["数量の合計(分かった分)"])} ${esc(m["単位"])}${m["未取得の件数"]?' ・ <span class="unk">未取得 '+m["未取得の件数"]+" 件(合計に入れていない)</span>":""}<div class="sub">場所: ${m["場所"].map(esc).join(", ")}(押すと関わる項目だけが光る)</div>`})}
+ else if(view=="材料"){const mats=((R["組み立て"]||{})["材料表"])||[];const sel=matSel==null?null:+matSel.slice(1);
+  for(const [i,m] of mats.entries()){if(sel!=null&&i!=sel)continue;rows.push({key:"m"+i,ids:m["項目"],page:(itemById(m["項目"][0])||{})["ページ"],c:"var(--c-rec)",html:`${badge(m["科目"]||"科目未定")}<b>${esc(m["品番"])}</b> ${esc(m["名称"])} ・ 合計(分かった分) ${unk(m["数量の合計(分かった分)"])} ${esc(m["単位"])}${m["未取得の件数"]?' ・ <span class="unk">未取得 '+m["未取得の件数"]+" 件(合計に入れていない)</span>":""}<div class="sub">場所: ${m["場所"].map(esc).join(", ")}${sel==null?"(押すと関わる行だけを抜き出す)":"(もう一度押すと全部に戻る)"}</div>`})}
+  if(sel!=null&&mats[sel]){const ids=new Set(mats[sel]["項目"]);
+   for(const [i,r] of (((R["組み立て"]||{})["内訳の行"])||[]).entries())if(r["項目"].some(x=>ids.has(x))){const it=itemById(r["項目"][0])||{};rows.push({key:"a"+i,ids:r["項目"],page:it["ページ"],c:"var(--c-put)",html:`${badge("内訳")}<b>${esc(r["工事項目"])}</b> ${esc(r["摘要"])} ・ ${esc(r["場所"]||"場所未確定")} ・ ${unk(r["数量"])} ${esc(r["単位"])}`})}
+   for(const id of ids){const it=itemById(id);if(it)rows.push({key:it.id,ids:[it.id],page:it["ページ"],c:COLORS[it["根拠の種類"]]||"var(--c-put)",html:`${badge("項目")}${badge("確度 "+it["確度"])}${esc(it["工事"]||it["何"])} ・ ${esc(it["場所"])} ・ ${unk(it["数量"])} ${esc(it["単位"])}<div class="sub">${it["ページ"]}ページ ・ ${esc(it["根拠の種類"])}</div>`})}}}
  else if(view=="時間"){for(const [i,t] of (((R["組み立て"]||{})["時間"])||[]).entries()){const r=((R["組み立て"]||{})["内訳の行"]||[])[i]||{};rows.push({key:"t"+i,ids:r["項目"]||[],page:(itemById((r["項目"]||[])[0])||{})["ページ"],c:"var(--c-rec)",html:`<b>${esc(t["工事項目"])}</b> ${esc(t["場所"])} ・ 数量 ${unk(t["数量"])} ${esc(t["単位"])}<div class="sub">1人1日あたり ${esc(t["1人1日あたり"])} ・ 人日 ${esc(t["人日"])} ・ 時間 ${esc(t["時間"])} ・ 作業費 ${esc(t["作業費"])}</div>`})}}
  return rows}
 function list(){const rows=currentRows();const el=document.getElementById("list");
  let head="";if(view=="質問"){const q=R["質問"]||{};head=`<div class="sub">並べ方: ${esc(q["並べ方"])} ・ 推奨は付けていない ・ 答えは「回答の鍵: 選んだ選択肢の文字」の JSON で戻す</div>`}
- if(view=="材料")head='<div class="sub">材料発注表の並び(品番順)。数量が未取得のものは合計に入れない。</div>';
+ if(view=="材料")head='<div class="sub">材料発注表の並び(科目 → 品番)。数量が未取得のものは合計に入れない。同じ並びの CSV は 材料発注表.csv。</div>';
  if(view=="時間")head='<div class="sub">歩掛(職人1人1日あたりの進み方)は公開基準に無いので空。入力があれば人日・時間・作業費を計算する。</div>';
  el.innerHTML=head+(rows.length?"":'<div class="sub">このページ・この表示には行がありません(未取得の段は上の注意を見てください)</div>')+rows.map(r=>`<div class="row ${linked(r.key)||r.ids.includes(selected)?"hl":""}" data-k="${esc(r.key)}" data-p="${r.page??""}" style="border-left-color:${r.c}">${r.html}</div>`).join("");
- el.querySelectorAll(".row").forEach(d=>d.onclick=e=>{if(e.target.closest("details"))return;selected=d.dataset.k;if(d.dataset.p)page=+d.dataset.p;render()});
+ el.querySelectorAll(".row").forEach(d=>d.onclick=e=>{if(e.target.closest("details"))return;if(view=="材料"&&/^m\d+$/.test(d.dataset.k))matSel=matSel==d.dataset.k?null:d.dataset.k;selected=d.dataset.k;if(d.dataset.p)page=+d.dataset.p;render()});
  const h=el.querySelector(".row.hl");if(h)h.scrollIntoView({block:"nearest"})}
 function render(){summary();pagebar();stage();list()}
 page=(R["整理"]||{})["読む順"]?.[0]||DATA.pages[0].n;render();
