@@ -404,3 +404,91 @@ def test_枠の問いも候補ページを黙って切らない() -> None:
     assert frames[0]["見る所"] == [1, 3, 5]
     assert frames[0]["他の見る所"] == [8, 12]
     assert frames[0]["他◯か所"] == "他2か所"
+
+
+# 周 5 矛盾検出の型を足す
+# ---------------------------------------------------------------------------
+
+
+def _ccard(key, **kw):
+    base = {"鍵": key, "型": "工事の有無", "室": "洋室1", "部位": "床", "直接": [], "選択肢": []}
+    base.update(kw)
+    return base
+
+
+def test_足した矛盾の型は4つ() -> None:
+    assert len(answers_io.CONTRADICTIONS_ADDED) == 4
+    assert not set(answers_io.CONTRADICTIONS_ADDED) & set(answers_io.CONTRADICTIONS)
+
+
+def test_外したのに同じ室部位で採った() -> None:
+    found = answers_io.contradictions(
+        [{"鍵": "項目:a", "選択肢": "ない"}, {"鍵": "項目:b", "選択肢": "新設"}],
+        [_ccard("項目:a"), _ccard("項目:b", 型="状態")], [_item("a"), _item("b")])
+
+    hit = [c for c in found if c["型"] == "外したのに同じ室・部位で採った"]
+    assert hit and hit[0]["鍵たち"] == ["項目:a", "項目:b"]
+
+
+def test_別の室なら外しても矛盾でない() -> None:
+    found = answers_io.contradictions(
+        [{"鍵": "項目:a", "選択肢": "ない"}, {"鍵": "項目:b", "選択肢": "ある"}],
+        [_ccard("項目:a"), _ccard("項目:b", 室="洋室2")], [_item("a"), _item("b")])
+
+    assert not found
+
+
+def test_3回とも読んだ物を外した() -> None:
+    it = _item("a")
+    others = [[_item("x")], [_item("y")]]
+    found = answers_io.contradictions([{"鍵": "項目:a", "選択肢": "ない"}], [_ccard("項目:a", 直接=["a"])], [it],
+                                      other_runs=others)
+
+    assert [c["型"] for c in found] == ["3回とも読んだ物を外した"]
+    # 1 回でも読まれていなければ言わない
+    assert not answers_io.contradictions([{"鍵": "項目:a", "選択肢": "ない"}], [_ccard("項目:a", 直接=["a"])], [it],
+                                         other_runs=[[_item("x")], [_item("y", 工事="照明器具交換", 部位="天井")]])
+
+
+def test_枠はないと答えたが読みにある() -> None:
+    checklist = {"枠": [{"枠": "左官", "件数": 2}, {"枠": "塗装", "件数": 0}]}
+    cs = [_ccard("枠:左官", 枠の問い=True, 室=None), _ccard("枠:塗装", 枠の問い=True, 室=None)]
+    found = answers_io.contradictions([{"鍵": "枠:左官", "選択肢": "ない"}, {"鍵": "枠:塗装", "選択肢": "ない"}],
+                                      cs, [], checklist=checklist)
+
+    assert [(c["型"], c["鍵"]) for c in found] == [("枠はないと答えたが読みにある", "枠:左官")]
+
+
+def test_同じ工事に2つの数量() -> None:
+    items = [_item("a", 数量=None), _item("b", 数量=None)]
+    cs = [_ccard("項目:a", 型="数量", 直接=["a"]), _ccard("項目:b", 型="数量", 直接=["b"], 室="洋室1")]
+    found = answers_io.contradictions([{"鍵": "項目:a", "選択肢": "12m2"}, {"鍵": "項目:b", "選択肢": "15m2"}],
+                                      cs, items)
+
+    assert [c["型"] for c in found] == ["同じ工事に2つの数量"]
+
+
+def test_矛盾の検出は項目を書き換えない() -> None:
+    items = [_item("a"), _item("b")]
+    before = copy.deepcopy(items)
+    answers_io.contradictions([{"鍵": "項目:a", "選択肢": "ない"}, {"鍵": "項目:b", "選択肢": "新設"}],
+                              [_ccard("項目:a", 直接=["a"]), _ccard("項目:b", 型="状態", 直接=["b"])], items,
+                              other_runs=[[_item("x")]], checklist={"枠": []})
+
+    assert items == before
+
+
+def test_K65の3型だけに絞れる() -> None:
+    found = answers_io.contradictions(
+        [{"鍵": "項目:a", "選択肢": "ない"}, {"鍵": "項目:b", "選択肢": "新設"}],
+        [_ccard("項目:a"), _ccard("項目:b", 型="状態")], [_item("a"), _item("b")], types="K-65")
+
+    assert not found
+
+
+def test_検出率と誤検出を一緒に出す() -> None:
+    found = [{"型": "外したのに同じ室・部位で採った", "鍵たち": ["k1", "k2"]}]
+    out = answers_io.wrong_answer_detection([{"鍵": "k1"}, {"鍵": "k2"}, {"鍵": "k3"}], ["k1"], found)
+
+    assert out["矛盾で見つけた"] == 1 and out["見つけた割合"] == 1.0
+    assert out["誤って挙げた"] == 1 and out["間違えていない答え"] == 2

@@ -183,8 +183,16 @@ def apply(understanding: dict[str, Any], finish: dict[str, Any], cards: Sequence
 
 
 def contradictions(answers: Sequence[Mapping[str, Any]], cards: Sequence[Mapping[str, Any]],
-                   items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
-    """矛盾を検出する。**見つけた分は再質問に回す。検出できない矛盾があることも報告する。**"""
+                   items: Sequence[Mapping[str, Any]], *,
+                   other_runs: Sequence[Sequence[Mapping[str, Any]]] = (),
+                   checklist: Mapping[str, Any] | None = None, types: str = "全部") -> list[dict[str, Any]]:
+    """矛盾を検出する。**見つけた分は再質問に回す。検出できない矛盾があることも報告する。**
+
+    K-65 の 3 型(同じ鍵に違う答え・入らないと採るの両方・撤去と新設の両方)に、K-68 B 周 5 で 4 型を足した
+    (`外したのに同じ室・部位で採った`・`3回とも読んだ物を外した`・`枠はないと答えたが読みにある`・
+    `同じ工事に2つの数量`)。``types="K-65"`` で K-65 の 3 型だけにする(比べるため)。
+    **項目の値は 1 つも書き換えない。**
+    """
     by_key = {c["鍵"]: c for c in cards}
     by_id = {it["id"]: it for it in items}
     out: list[dict[str, Any]] = []
@@ -197,6 +205,7 @@ def contradictions(answers: Sequence[Mapping[str, Any]], cards: Sequence[Mapping
         seen[a["鍵"]] = a["選択肢"]
 
     scope: dict[tuple[str, str], set[str]] = {}
+    scope_keys: dict[tuple[str, str], set[str]] = {}
     for a in answers:
         card = by_key.get(a["鍵"])
         if card is None:
@@ -204,11 +213,15 @@ def contradictions(answers: Sequence[Mapping[str, Any]], cards: Sequence[Mapping
         key = (room_key(card.get("室")), nfkc(card.get("部位")))
         if "入らない" in a["選択肢"]:
             scope.setdefault(key, set()).add("入らない")
+            scope_keys.setdefault(key, set()).add(a["鍵"])
         if "図面の読みのとおり" in a["選択肢"] or "原本" in a["選択肢"]:
             scope.setdefault(key, set()).add("採る")
+            scope_keys.setdefault(key, set()).add(a["鍵"])
     for key, kinds in scope.items():
         if {"入らない", "採る"} <= kinds:
-            out.append({"型": "入らないと採るの両方", "室": key[0], "部位": key[1]})
+            # 鍵たち: K-68 B 周 5 で足した(どの答えを再質問に回すか)。
+            out.append({"型": "入らないと採るの両方", "室": key[0], "部位": key[1],
+                        "鍵たち": sorted(scope_keys[key])})
 
     phase: dict[str, set[str]] = {}
     for a in answers:
@@ -224,6 +237,102 @@ def contradictions(answers: Sequence[Mapping[str, Any]], cards: Sequence[Mapping
         if {"撤去", "新設"} <= kinds:
             out.append({"型": "撤去と新設の両方", "項目": item_id,
                         "場所": nfkc(by_id.get(item_id, {}).get("場所"))})
+    if types == "K-65":
+        return out
+    already = {(c["室"], c["部位"]) for c in out if c["型"] == "入らないと採るの両方"}
+    out.extend(c for c in _more_contradictions(answers, by_key, by_id, other_runs, checklist)
+               if not (c["型"] == "外したのに同じ室・部位で採った" and (c["室"], c["部位"]) in already))
+    return out
+
+
+#: K-68 B 周 5 で足した矛盾の型(K-65 の `CONTRADICTIONS` 3 型とは別に持つ)。
+CONTRADICTIONS_ADDED = ("外したのに同じ室・部位で採った", "3回とも読んだ物を外した", "枠はないと答えたが読みにある",
+                        "同じ工事に2つの数量")
+
+#: 「外す」答え(K-68 B 周 5)。
+_OUT_EXACT = ("ない",)
+_OUT_WORDS = ("入らない", "既存のまま")
+#: 何も決めない答え・外しも採りもしない答え。
+_NEUTRAL_WORDS = ("どれでもない", "分からない", "別の行に含む", "別途")
+
+
+def _is_out(choice: str) -> bool:
+    return choice in _OUT_EXACT or any(w in choice for w in _OUT_WORDS)
+
+
+def _is_take(card: Mapping[str, Any], choice: str) -> bool:
+    if _is_out(choice) or any(w in choice for w in _NEUTRAL_WORDS):
+        return False
+    if card.get("型") == "まとめ方" or str(card.get("鍵", "")).startswith("読めない:"):
+        return False
+    return True
+
+
+def _more_contradictions(answers: Sequence[Mapping[str, Any]], by_key: Mapping[str, Mapping[str, Any]],
+                         by_id: Mapping[str, Mapping[str, Any]],
+                         other_runs: Sequence[Sequence[Mapping[str, Any]]],
+                         checklist: Mapping[str, Any] | None) -> list[dict[str, Any]]:
+    """K-68 B 周 5 で足した 4 型。"""
+    from draft import uncertainty as unc
+
+    out: list[dict[str, Any]] = []
+    last = {a["鍵"]: str(a["選択肢"]) for a in answers}
+
+    # 1. 外したのに同じ室・部位で採った(すべての型の答えで)。
+    groups: dict[tuple[str, str], dict[str, list[str]]] = {}
+    for key, choice in last.items():
+        card = by_key.get(key)
+        if card is None or card.get("枠の問い"):
+            continue
+        room = room_key(card.get("室"))
+        if room in ("", "未確定", "未取得"):
+            continue
+        g = groups.setdefault((room, nfkc(card.get("部位"))), {"外す": [], "採る": []})
+        if _is_out(choice):
+            g["外す"].append(key)
+        elif _is_take(card, choice):
+            g["採る"].append(key)
+    for (room, part), g in groups.items():
+        if g["外す"] and g["採る"] and set(g["外す"]) != set(g["採る"]):
+            out.append({"型": "外したのに同じ室・部位で採った", "室": room, "部位": part,
+                        "鍵たち": sorted({*g["外す"], *g["採る"]})})
+
+    # 2. 3 回とも読んだ物を外した。
+    if other_runs:
+        seen_keys = [{unc.agreement_item_key(it) for it in run} for run in other_runs]
+        for key, choice in last.items():
+            card = by_key.get(key)
+            if card is None or not _is_out(choice):
+                continue
+            read = [i for i in card.get("直接") or () if i in by_id
+                    and all(unc.agreement_item_key(by_id[i]) in keys for keys in seen_keys)]
+            if read:
+                out.append({"型": "3回とも読んだ物を外した", "鍵": key, "項目たち": read[:10],
+                            "ほかの回": len(other_runs)})
+
+    # 3. 枠はないと答えたが読みにある。
+    frames = {f"枠:{f.get('枠')}": f for f in (checklist or {}).get("枠") or ()}
+    for key, choice in last.items():
+        card = by_key.get(key)
+        if card is None or not card.get("枠の問い") or choice != "ない":
+            continue
+        frame = frames.get(key)
+        if frame is not None and (frame.get("件数") or len(frame.get("分かったこと") or ())):
+            out.append({"型": "枠はないと答えたが読みにある", "鍵": key,
+                        "読みにある項目の数": frame.get("件数") or len(frame.get("分かったこと") or ())})
+
+    # 4. 同じ工事に 2 つの数量(同じ回で K-66 の鍵が同じ項目に、違う値を答えた)。
+    values: dict[tuple[Any, ...], dict[str, str]] = {}
+    for key, choice in last.items():
+        card = by_key.get(key)
+        if card is None or card.get("型") != "数量" or any(w in choice for w in _NEUTRAL_WORDS):
+            continue
+        for i in (card.get("直接") or ())[:1]:
+            if i in by_id:
+                values.setdefault(unc.agreement_item_key(by_id[i]), {})[key] = choice
+    for k, got in values.items():
+        if len(set(got.values())) > 1:
+            out.append({"型": "同じ工事に2つの数量", "鍵たち": sorted(got), "答え": sorted(set(got.values()))})
     return out
 
 
@@ -280,12 +389,24 @@ def wrong_answer_detection(answers: Sequence[Mapping[str, Any]], wrong_keys: Seq
     """間違えた答えのうち、矛盾の検出が見つけた割合。**0% でもそのまま出す。**"""
     wrong = set(wrong_keys)
     caught: set[str] = set()
-    for c in found:
-        if c.get("鍵") in wrong:
-            caught.add(c["鍵"])
-        for item_id in (c.get("項目"),):
-            if item_id in wrong:
-                caught.add(item_id)
+    flagged = flagged_keys(found)
+    caught = flagged & wrong
+    right = {a["鍵"] for a in answers} - wrong
+    false = flagged & right
     return {"間違えた答え": len(wrong), "矛盾で見つけた": len(caught),
             "見つけた割合": round(len(caught) / len(wrong), 4) if wrong else None,
-            "但し書き": "矛盾の検出は 3 つの型だけなので、見つけられない間違いがある"}
+            "間違えていない答え": len(right), "誤って挙げた": len(false),
+            "誤って挙げた割合": round(len(false) / len(right), 4) if right else None,
+            "但し書き": "矛盾の検出で見つけられない間違いがある(型に当たらない間違い)"}
+
+
+def flagged_keys(found: Sequence[Mapping[str, Any]]) -> set[str]:
+    """矛盾の検出が再質問に回す鍵。"""
+    out: set[str] = set()
+    for c in found:
+        if c.get("鍵"):
+            out.add(c["鍵"])
+        out.update(c.get("鍵たち") or ())
+        if c.get("項目"):
+            out.add(f"項目:{c['項目']}")
+    return out

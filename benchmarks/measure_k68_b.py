@@ -457,7 +457,72 @@ def round4(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None, 
     return out
 
 
-ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2, 3: round3, 4: round4}
+def _wrong_answers(draft: Mapping[str, Any], cards: Sequence[Mapping[str, Any]], other: Sequence[Any],
+                   checklist: Mapping[str, Any] | None, *, share: float, n: int = 40,
+                   seed: int = 65) -> dict[str, Any]:
+    """K-65 と同じ作り方の間違い(1 つ目の選択肢を「正しい」とし、``share`` を別の選択肢に替える)。"""
+    import random
+
+    from draft import answers_io
+
+    chosen = list(cards[:n])
+    right = {c["鍵"]: a for c in chosen if (a := _first_real(c)) is not None}
+    rng = random.Random(seed)
+    keys = sorted(right)
+    wrong_keys = rng.sample(keys, max(1, int(len(keys) * share))) if keys else []
+    wrong = dict(right)
+    for key in wrong_keys:
+        card = next(c for c in chosen if c["鍵"] == key)
+        others = [o for o in card["選択肢"] if o != right[key]]
+        if others:
+            wrong[key] = others[0]
+    answered = [{"鍵": k, "選択肢": v} for k, v in wrong.items()]
+    items = draft["理解"]["項目"]
+    new = answers_io.contradictions(answered, chosen, items, other_runs=other, checklist=checklist)
+    old = answers_io.contradictions(answered, chosen, items, types="K-65")
+    return {
+        "間違えた割合": share, "答えた問数": len(right), "間違えた問数": len(wrong_keys),
+        "間違えた答えの型ごと": _count([next(c for c in chosen if c["鍵"] == k)["型"] for k in wrong_keys]),
+        "K-65 の 3 型": answers_io.wrong_answer_detection(answered, wrong_keys, old),
+        "周5(7 型)": answers_io.wrong_answer_detection(answered, wrong_keys, new),
+        "見つけた矛盾の型ごと": _count([c["型"] for c in new]),
+        "自動確定": _auto_confirmed(draft, chosen, wrong)["自動確定"],
+    }
+
+
+def round5(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None, **_: Any) -> dict[str, Any]:
+    """周 5: 矛盾検出の型を足し、間違った答えの検出率を測り直す(カードは周 4 の作り方)。"""
+    checklists = checklists_of(drafts, pdf)
+    builts = build_all(drafts, pdf)
+    k65 = _k65()["回"]
+    out: dict[str, Any] = {"回": {}}
+    for name, built in builts.items():
+        out["回"][name] = {
+            "K-65 の数字(そのときのカード)": [x["矛盾の検出"] for x in k65[name]["間違えた答え"]],
+            "周5": [_wrong_answers(drafts[name], built["カード"], built["_ほかの回"], checklists.get(name), share=s)
+                   for s in (0.1, 0.2)],
+        }
+    tot = {"K-65 の 3 型": [0, 0, 0, 0], "周5(7 型)": [0, 0, 0, 0]}
+    for r in out["回"].values():
+        for x in r["周5"]:
+            for arm in tot:
+                d = x[arm]
+                tot[arm][0] += d["矛盾で見つけた"]
+                tot[arm][1] += d["間違えた答え"]
+                tot[arm][2] += d["誤って挙げた"]
+                tot[arm][3] += d["間違えていない答え"]
+    out["5版×2割合のまとめ"] = {
+        arm: {"見つけた": v[0], "間違えた答え": v[1], "検出率": _ratio(v[0], v[1]),
+              "誤って挙げた": v[2], "間違えていない答え": v[3], "誤検出率": _ratio(v[2], v[3])}
+        for arm, v in tot.items()}
+    m = out["5版×2割合のまとめ"]["周5(7 型)"]
+    out["線1(検出率 0.30 以上)"] = (m["検出率"] or 0) >= 0.30
+    out["線2(誤検出率 0.10 以下)"] = m["誤検出率"] is not None and m["誤検出率"] <= 0.10
+    out["線3(自動確定 0)"] = all(x["自動確定"] == 0 for r in out["回"].values() for x in r["周5"])
+    return out
+
+
+ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5}
 
 
 def main() -> None:
