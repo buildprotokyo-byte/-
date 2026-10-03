@@ -42,7 +42,7 @@ from sameness.judge import (
 )
 from sameness.keys import StructureKey, structure_key
 from sameness.normalize import canonical_unit, flatten, room_key
-from sameness.quantity import QuantityVerdict, quantity_verdict
+from sameness.quantity import QuantityVerdict, quantity_verdict, quantity_verdicts
 from sameness.terms import Terms, load_terms
 
 __all__ = [
@@ -63,6 +63,7 @@ __all__ = [
     "judge_with_ai",
     "load_terms",
     "quantity_verdict",
+    "quantity_verdicts",
     "room_key",
     "structure_key",
 ]

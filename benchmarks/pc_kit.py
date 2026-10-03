@@ -12,6 +12,7 @@ K-61〜K-67 の手順書の `...`(空欄)をここで埋める。正解ファイ
     python -m benchmarks.pc_kit カード --run full_R1 --other full_R2 --other full_R3 --checklist 表.json --out cards.json
     python -m benchmarks.pc_kit k65 --run full_R1 --other full_R2 --other full_R3 \
         --checklist 工事チェック表_full_R1.json --ideal 理想の答え.json --golden 正解.json
+    python -m benchmarks.pc_kit k71 --run 回 --golden 正解.json --errata 正誤表_区分.json   # K-71 性質ごとの線
 
 「回」は `下書き.json` の入ったフォルダ(K-61 の `draft.run` の出力)。
 
@@ -38,6 +39,7 @@ DENOMINATOR = 93
 DEFAULT_COLUMNS = {
     "符号": "code", "品名": "work_item", "単位": "unit", "科目": "major_category",
     "中科目": "middle_category", "数量": "quantity", "金額": "amount",
+    "区分": "expected_source_type",
 }
 FLAG_STATES = ("仮説", "問い")
 """「印が出ていた」とみなす状態。確度「低」と、検算の食い違いも印に数える(K-67 4 節の「未確定・低・要確認」)。"""
@@ -90,7 +92,7 @@ def parse_cols(pairs: Sequence[str]) -> dict[str, str]:
     for pair in pairs or ():
         name, _, col = pair.partition("=")
         if name not in cols or not col:
-            raise SystemExit(f"--col は 符号/品名/単位/科目/中科目/数量/金額=列名 の形: {pair!r}")
+            raise SystemExit(f"--col は 符号/品名/単位/科目/中科目/数量/金額/区分=列名 の形: {pair!r}")
         cols[name] = col
     return cols
 
@@ -110,7 +112,8 @@ def _number(value: Any) -> float | None:
 class Gold:
     """93 件の正解。`items[i]` と `raw[i]` が同じ行(採点の部品は `items` だけを見る)。"""
 
-    def __init__(self, path: str | Path, cols: Mapping[str, str], *, allow_other_denominator: bool = False):
+    def __init__(self, path: str | Path, cols: Mapping[str, str], *, allow_other_denominator: bool = False,
+                 errata: Mapping[str, Any] | None = None):
         from estimating.scoring import GoldenItem
 
         payload = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -121,6 +124,12 @@ class Gold:
             raise SystemExit(f"分母が 93 になりません(除いた {removed} 件、残り {len(kept)} 件)。"
                              "列の名前を `列` で確かめてください")
         self.cols = dict(cols)
+        kept = [dict(r) for r in kept]  # 正誤表で区分を直すので写しにする(元のファイルは変えない)
+        self.errata_result = None
+        if errata is not None:
+            from estimating.row_nature import apply_errata
+
+            self.errata_result = apply_errata(kept, errata, code_col=cols["符号"], source_col=cols["区分"])
         self.raw = kept
         self.items = [GoldenItem(work_item=nfkc(r.get(cols["品名"])), unit=nfkc(r.get(cols["単位"])),
                                  code=None, major_category=nfkc(r.get(cols["科目"])) or None) for r in kept]
@@ -141,6 +150,12 @@ class Gold:
 
     def unit(self, i: int) -> str:
         return nfkc(self.raw[i].get(self.cols["単位"]))
+
+    def source(self, i: int) -> str:
+        return nfkc(self.raw[i].get(self.cols["区分"]))
+
+    def code(self, i: int) -> str:
+        return nfkc(self.raw[i].get(self.cols["符号"]))
 
 
 class Line(dict):
@@ -493,6 +508,279 @@ def cards(run: Path, others: Sequence[Path], checklist: Path | None) -> list[dic
                              checklist=check)["カード"]
 
 
+
+# --------------------------------------------------------------------------- K-71 作業1 性質ごとの線
+
+
+def natures_of(gold: Gold) -> list[Any]:
+    """正解の 93 行の性質(訂正後の区分で)。`estimating.row_nature.classify` だけを使う。"""
+    from estimating.row_nature import classify
+
+    return [classify(gold.fields(i), gold.source(i)) for i in range(len(gold.raw))]
+
+
+def nature_table(gold: Gold, natures: Sequence[Any]) -> dict[str, Any]:
+    from estimating.row_nature import UNCLASSIFIED
+
+    counts = {str(k): 0 for k in (1, 2, 3, 4, 5, 6)}
+    counts[UNCLASSIFIED] = 0
+    reasons: dict[str, int] = {}
+    unclassified = []
+    for i, nat in enumerate(natures):
+        counts[str(nat.value)] += 1
+        reasons[f"{nat.value}: {nat.reason}"] = reasons.get(f"{nat.value}: {nat.reason}", 0) + 1
+        if nat.value == UNCLASSIFIED:
+            unclassified.append(f"{gold.code(i)}: {nat.reason}")  # G 番号と理由だけ(名前は出さない)
+    return {"件数": counts, "合計": sum(counts.values()), "未分類の数": counts[UNCLASSIFIED],
+            "未分類の理由(1 行ずつ)": unclassified, "振り分けの根拠ごとの件数": dict(sorted(reasons.items()))}
+
+
+def _ratio(num: int, den: int) -> dict[str, Any]:
+    return {"値": round(num / den, 4) if den else None, "分子": num, "分母": den}
+
+
+def k71(run: Path, gold: Gold, natures: Sequence[Any] | None = None) -> dict[str, Any]:
+    """K-71 作業1: 性質ごとの線で採点し、旧い線と並べる(`docs/k71_scoring_lines_criteria.md`)。"""
+    from draft import scorecard
+    from estimating.row_nature import UNCLASSIFIED, row_reasons
+    from sameness.quantity import (BY_REASON, MATCH, MISSING, NEAR, NOT_JUDGED, new_unit,
+                                   quantity_verdicts)
+
+    natures = list(natures if natures is not None else natures_of(gold))
+    nat = [n.value for n in natures]
+    draft = load_run(run)
+    rows = rows_of(draft)
+    by_id = {it["id"]: it for it in draft["理解"]["項目"]}
+    checks = list(((draft.get("機械の検算") or {}).get("行ごとの要確認")) or [])
+    position = {id(r): n for n, r in enumerate(rows)}
+    reasons_of = lambda line: row_reasons(line, by_id, checks[position[id(line)]] if position.get(id(line), 10**9) < len(checks) else None)
+
+    new, old = score(rows, gold, "新"), score(rows, gold, "旧")
+    hit = {i: line for line, i, _ in pairs(new, gold)}
+    verdict = {i: quantity_verdicts(line.get("数量"), gold.quantity(i), line.get("単位"), unit_b=gold.unit(i),
+                                    nature=nat[i] if isinstance(nat[i], int) else None)
+               for i, line in hit.items()}
+
+    # --- 性質ごと ---
+    per: dict[str, Any] = {}
+    for k in (1, 2, 3):
+        idx = [i for i in range(len(gold.raw)) if nat[i] == k]
+        got = [i for i in idx if i in hit]
+        row = {"正解の行": len(idx), "当たった": len(got),
+               "数量あり": sum(1 for i in got if hit[i].get("数量") is not None),
+               "新: 合う": sum(1 for i in got if verdict[i]["新"].value == MATCH),
+               "新: 近い(±30%)": sum(1 for i in got if verdict[i]["新"].value == NEAR),
+               "新: 違う": sum(1 for i in got if verdict[i]["新"].value == "違う"),
+               "新: 比較不能(未取得)": sum(1 for i in got if verdict[i]["新"].value == MISSING),
+               "旧: 合う(±1 / ±5%、単位の同値なし)": sum(1 for i in got if verdict[i]["旧"].hit),
+               "理由つきの分からない(数量が未取得で理由つき。合否の分子に入れない)":
+                   sum(1 for i in got if hit[i].get("数量") is None and reasons_of(hit[i])),
+               "数量が未取得で理由も無い": sum(1 for i in got if hit[i].get("数量") is None and not reasons_of(hit[i])),
+               "出していない": len(idx) - len(got)}
+        row["合否の割合(新: 合う ÷ 正解の行)"] = _ratio(row["新: 合う"], len(idx))
+        row["参考: 旧の線で同じ割合"] = _ratio(row["旧: 合う(±1 / ±5%、単位の同値なし)"], len(idx))
+        per[f"性質{k}"] = row
+    idx45 = [i for i in range(len(gold.raw)) if nat[i] in (4, 5)]
+    passed = [i for i in idx45 if i in hit and reasons_of(hit[i])]
+    no_reason = [i for i in idx45 if i in hit and not reasons_of(hit[i])]
+    kinds: dict[str, int] = {}
+    for i in passed:
+        for r in reasons_of(hit[i]):
+            kinds[r] = kinds.get(r, 0) + 1
+    per["性質4・5"] = {"正解の行": len(idx45), "性質4": sum(1 for i in idx45 if nat[i] == 4),
+                     "性質5": sum(1 for i in idx45 if nat[i] == 5),
+                     "理由で合格": len(passed), "理由なし": len(no_reason),
+                     "出していない": len(idx45) - len(passed) - len(no_reason),
+                     "理由なしのうち数量を出していた(根拠なしの数量)": sum(1 for i in no_reason if hit[i].get("数量") is not None),
+                     "理由の種類(重なる)": kinds, "合否の割合": _ratio(len(passed), len(idx45))}
+    idx6 = [i for i in range(len(gold.raw)) if nat[i] == 6]
+    per["性質6"] = {"正解の行": len(idx6), "名前で当たった": sum(1 for i in idx6 if i in hit),
+                   "合否の割合": _ratio(sum(1 for i in idx6 if i in hit), len(idx6))}
+    unclassified = sum(1 for v in nat if v == UNCLASSIFIED)
+
+    # --- 根拠なしの数量(当たった行。合否に使わない) ---
+    from estimating.row_nature import output_counts
+
+    no_basis = {}
+    for i, line in hit.items():
+        if line.get("数量") is not None and not reasons_of(line):
+            no_basis[str(nat[i])] = no_basis.get(str(nat[i]), 0) + 1
+
+    # --- 確度(4 節) ---
+    high = [r for r in rows if row_confidence(r, by_id) == "高"]
+    hit_ids = {id(line): i for i, line in hit.items()}
+    high_hit = [r for r in high if id(r) in hit_ids]
+    high_q = [r for r in high_hit if r.get("数量") is not None and nat[hit_ids[id(r)]] in (1, 2, 3)]
+    high_q_new = sum(1 for r in high_q if verdict[hit_ids[id(r)]]["新"].value == MATCH)
+    high_q_old = sum(1 for r in high_q if verdict[hit_ids[id(r)]]["旧"].hit)
+    confidence = {
+        "「高」の行": len(high), "正解の行に当たった": len(high_hit),
+        "当たらなかった(正解に無い行。誤りに数えない)": len(high) - len(high_hit),
+        "名前・有無・状態の的中": _ratio(len(high_hit), len(high_hit)),
+        "数量の的中(性質1〜3、新の線)": _ratio(high_q_new, len(high_q)),
+        "数量の的中(性質1〜3、旧の線)": _ratio(high_q_old, len(high_q)),
+        "旧い測り方(高の行のうち当たった割合)": _ratio(len(high_hit), len(high)),
+    }
+
+    # --- 外れた項目に印(新: 数量が違う行に理由) ---
+    wrong = [i for i in hit if nat[i] in (1, 2, 3) and verdict[i]["新"].value == "違う"]
+    flagged_new = sum(1 for i in wrong if reasons_of(hit[i]))
+    extra = list(new.extra_lines)
+    flagged_old = sum(1 for r in extra if row_flagged(r, by_id))
+
+    # --- 金額(仮)(5 節) ---
+    money = amount_by_category(gold, nat, hit)
+
+    # --- 金額の割合 旧・新 ---
+    shares = {}
+    for m, picked in mode_rows(draft, rows).items():
+        shares[m] = {"旧": amount_share(rows, gold, picked)["値"], "新": amount_share_new(rows, gold, picked, nat)}
+
+    # --- 診断: 単位が違う ---
+    pairs_old: dict[str, int] = {}
+    pairs_new: dict[str, int] = {}
+    for i, line in hit.items():
+        v = verdict[i]
+        if v["新"].value in (MATCH, BY_REASON, "有無だけ"):
+            continue
+        a, b = canonical(line.get("単位")), canonical(gold.unit(i))
+        if a != b:
+            pairs_old[f"{a or '(空)'} → {b or '(空)'}"] = pairs_old.get(f"{a or '(空)'} → {b or '(空)'}", 0) + 1
+        na, nb = new_unit(line.get("単位")), new_unit(gold.unit(i))
+        if na and nb and na != nb:
+            pairs_new[f"{na} → {nb}"] = pairs_new.get(f"{na} → {nb}", 0) + 1
+
+    values = {
+        "科目(厳密)": strict_category(new, gold, "科目")["値"],
+        "中科目(厳密)": strict_category(new, gold, "中科目")["値"],
+        "細目(同じ意味。K-66)": round(new.coverage, 4) if new.coverage is not None else None,
+        "性質1 個数(±10%、少ないとき±1)": per["性質1"]["合否の割合(新: 合う ÷ 正解の行)"]["値"],
+        "性質2 面積・長さ(±10%)": per["性質2"]["合否の割合(新: 合う ÷ 正解の行)"]["値"],
+        "性質3 派生(±15%)": per["性質3"]["合否の割合(新: 合う ÷ 正解の行)"]["値"],
+        "性質4・5 理由で合格": per["性質4・5"]["合否の割合"]["値"],
+        "性質6 波及の有無": per["性質6"]["合否の割合"]["値"],
+        "未分類の行": unclassified,
+        "外れた項目に印が出ていた割合": round(flagged_new / len(wrong), 4) if wrong else None,
+        "確度「高」の的中率": confidence["名前・有無・状態の的中"]["値"],
+        "確度「高」の的中率(数量、性質1〜3)": confidence["数量の的中(性質1〜3、新の線)"]["値"],
+    }
+    values = {k: ("未取得(分母が 0)" if v is None else v) for k, v in values.items()}
+    card = scorecard.build(golden=values)
+    stage3 = [r for r in card["行"] if r["段階"] == 3 or r["名前"] in values]
+    return {
+        "対象": f"K-61 {run.name}",
+        "性質ごと": per,
+        "未分類の行": unclassified,
+        "段階3の表": stage3,
+        "段階3の判定": card["段階ごと"].get("段階3 下書き"),
+        "旧と新": {
+            "細目の数量が合った件数": {"旧": detail_counts(new, gold)["数量が合った"],
+                              "新": sum(1 for i in hit if verdict[i]["新"].value == MATCH),
+                              "分母(当たった組)": len(hit)},
+            "数量が合った細目の金額の割合": shares,
+            "確度「高」の的中率": {"旧": confidence["旧い測り方(高の行のうち当たった割合)"],
+                            "新(名前・有無・状態)": confidence["名前・有無・状態の的中"],
+                            "新(数量、性質1〜3)": confidence["数量の的中(性質1〜3、新の線)"]},
+            "外れた項目に印": {"旧(正解に無い行のうち印)": _ratio(flagged_old, len(extra)),
+                         "新(数量が違う行のうち理由つき)": _ratio(flagged_new, len(wrong))},
+        },
+        "確度": confidence,
+        "根拠なしの数量(当たった行、性質ごと。合否に使わない)": no_basis,
+        "出力側の数(正解を使わない)": output_counts(draft),
+        "金額(仮)": money,
+        "診断: 数量が合わなかった細目の単位の組(出力 → 正解)": {"旧の正規形": pairs_old, "新の同値を通した後": pairs_new},
+        "旧規則(文字)の参考": {"名前だけ": detail_counts(old, gold)["名前だけ"]},
+        "自動確定": draft["まとめ"].get("自動確定"),
+    }
+
+
+def canonical(unit: Any) -> str:
+    from sameness.normalize import canonical_unit
+
+    return canonical_unit(unit)
+
+
+def amount_share_new(rows: Sequence[Mapping[str, Any]], gold: Gold, picked: Sequence[int] | None,
+                     nat: Sequence[Any]) -> dict[str, Any]:
+    """新: 性質 1〜3 の細目の金額のうち、新の線で数量が合った細目の金額の割合。"""
+    from sameness.quantity import MATCH, quantity_verdict
+
+    subset = [rows[n] for n in picked] if picked is not None else list(rows)
+    result = score(subset, gold)
+    judged = {i for i in range(len(gold.raw)) if nat[i] in (1, 2, 3)}
+    total = sum(gold.amount(i) for i in judged)
+    got = sum(gold.amount(i) for line, i, _ in pairs(result, gold) if i in judged and quantity_verdict(
+        line.get("数量"), gold.quantity(i), line.get("単位"), unit_b=gold.unit(i), side="新", nature=nat[i]).value == MATCH)
+    return {"値": round(got / total, 4) if total else None, "判定した細目": len(judged), "行": len(subset)}
+
+
+LOW_COVERAGE = 0.50
+"""被覆がこれ未満の科目は近さを出さない(基準の仮の判断 3)。"""
+
+
+def amount_by_category(gold: Gold, nat: Sequence[Any], hit: Mapping[int, Mapping[str, Any]]) -> dict[str, Any]:
+    """金額(仮)。数量に正解の参考単価を借りる。**単価の当たり外れは測らない。**科目の名前は番号に置き換える。"""
+    cats: dict[str, list[int]] = {}
+    for i in range(len(gold.raw)):
+        cats.setdefault(gold.fields(i)["科目"] or "(空)", []).append(i)
+
+    def near(est: float, ref: float) -> dict[str, Any]:
+        if not ref:
+            return {"±15%": None, "±30%": None, "比": None}
+        r = est / ref
+        return {"±15%": abs(r - 1) <= 0.15 + 1e-9, "±30%": abs(r - 1) <= 0.30 + 1e-9, "比": round(r, 4)}
+
+    out = []
+    all_est = all_ref = 0.0
+    skipped = 0
+    for n, (_, idx) in enumerate(sorted(cats.items(), key=lambda kv: -sum(gold.amount(i) for i in kv[1]))):
+        total = sum(gold.amount(i) for i in idx)
+        picked = []
+        for i in idx:
+            line = hit.get(i)
+            q = gold.quantity(i)
+            if nat[i] in (1, 2, 3) and line is not None and line.get("数量") is not None and q:
+                try:
+                    picked.append((i, float(line["数量"]) * gold.amount(i) / q))
+                except (TypeError, ValueError):
+                    skipped += 1
+        ref = sum(gold.amount(i) for i, _ in picked)
+        est = sum(e for _, e in picked)
+        all_est += est
+        all_ref += ref
+        coverage = ref / total if total else None
+        row = {"科目": f"科目{n + 1}(金額の大きい順)", "正解の行": len(idx), "拾えた行": len(picked),
+               "被覆": round(coverage, 4) if coverage is not None else None}
+        if coverage is None or coverage < LOW_COVERAGE:
+            row["近さ"] = "被覆が低いので出さない"
+        else:
+            row["近さ"] = near(est, ref)
+        out.append(row)
+    return {"科目ごと": out, "全体の合計の近さ(参考。拾えた行の合計で)": near(all_est, all_ref),
+            "全体の被覆(参考)": round(all_ref / sum(gold.amount(i) for i in range(len(gold.raw))), 4)
+            if sum(gold.amount(i) for i in range(len(gold.raw))) else None,
+            "数に読めず外した行": skipped,
+            "注": "単価は正解から借りる(利益の幅はこの測定に入らない)。被覆が 0.50 未満の科目は近さを出さない"}
+
+
+def load_errata(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        default = Path("正誤表_区分.json")
+        if not default.exists():
+            raise SystemExit("正誤表_区分.json が見つかりません(荷物A の一番上にあります)。--errata で場所を渡してください")
+        path = default
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def k71_all(runs: Sequence[Path], gold: Gold, errata: Mapping[str, Any]) -> dict[str, Any]:
+    from estimating.row_nature import errata_counts
+
+    natures = natures_of(gold)
+    return {"正誤表(機械形だけから数えた件数)": errata_counts(errata),
+            "正誤表を当てた結果": gold.errata_result,
+            "性質の振り分け": nature_table(gold, natures),
+            "回ごと": [k71(r, gold, natures) for r in runs]}
+
 # --------------------------------------------------------------------------- 入口
 
 
@@ -506,12 +794,14 @@ def main(argv: list[str] | None = None) -> int:
     k.add_argument("--other", type=Path, action="append", default=[])
     k.add_argument("--checklist", type=Path, default=None)
     k.add_argument("--out", type=Path, default=None)
-    for name in ("k66", "k67", "k64", "k65"):
+    for name in ("k66", "k67", "k64", "k65", "k71"):
         s = sub.add_parser(name)
         s.add_argument("--run", type=Path, action="append", required=True)
         s.add_argument("--golden", type=Path, required=True)
-        s.add_argument("--col", action="append", default=[], help="符号/品名/単位/科目/中科目/数量/金額=列名")
+        s.add_argument("--col", action="append", default=[], help="符号/品名/単位/科目/中科目/数量/金額/区分=列名")
         s.add_argument("--out", type=Path, default=None)
+        if name == "k71":
+            s.add_argument("--errata", type=Path, default=None, help="正誤表_区分.json(既定は今のフォルダ)")
         if name == "k65":
             s.add_argument("--other", type=Path, action="append", default=[])
             s.add_argument("--checklist", type=Path, default=None)
@@ -521,6 +811,9 @@ def main(argv: list[str] | None = None) -> int:
         result: Any = columns(a.golden)
     elif a.what == "カード":
         result = cards(a.run, a.other, a.checklist)
+    elif a.what == "k71":
+        errata = load_errata(a.errata)
+        result = k71_all(a.run, Gold(a.golden, parse_cols(a.col), errata=errata), errata)
     else:
         gold = Gold(a.golden, parse_cols(a.col))
         if a.what == "k66":
@@ -535,7 +828,8 @@ def main(argv: list[str] | None = None) -> int:
     if getattr(a, "out", None):
         a.out.write_text(text + "\n", encoding="utf-8")
     print(text)
-    autos = [r.get("自動確定") for r in (result if isinstance(result, list) else [result]) if isinstance(r, Mapping)]
+    found = result if isinstance(result, list) else (result.get("回ごと") if isinstance(result, Mapping) and "回ごと" in result and isinstance(result["回ごと"], list) else [result])
+    autos = [r.get("自動確定") for r in found if isinstance(r, Mapping)]
     if any(isinstance(x, int) and x > 0 for x in autos):
         print("自動確定が 1 件以上あります。ここで止めて報告してください", file=sys.stderr)
         return 2
