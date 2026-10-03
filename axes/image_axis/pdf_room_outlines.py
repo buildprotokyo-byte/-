@@ -58,7 +58,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -78,6 +78,22 @@ ROOM_MAX_SQM = 200.0
 #: 室とみなす**最小の幅**(ミリメートル)。``2 × 面積 ÷ 周長`` で測る。
 #: 壁の中身(150mm 前後)と室・廊下(600mm 以上)を分けるための条件。
 ROOM_MIN_WIDTH_MM = 400.0
+
+#: 室名を「弱い」と記録しはじめる、1 ページの閉じた面の数。
+#:
+#: **暫定値。2 ページでしか確かめていない**(`docs/provisional_decisions.md`)。
+#: 周1-4 の測定(`docs/loop_round1d_closed_face_report.md`)で、
+#: **閉じた面が 663 個のページでは、輪郭の中の文字を室名にするやり方が
+#: 当てずっぽうとほとんど区別が付かなかった**(本物 28 個に対し囮 23 個)。
+#: 面が 180 個のページでは効いていた(本物 9 個に対し囮 4 個)。
+#: **その間のどこかに線があるはずだが、2 点しか無いので決められない。**
+#: **窓(`ROOM_MIN_SQM` ほか)は変えていない。落とさずに、弱いと記録するだけ。**
+ROOM_NAME_WEAK_FACE_COUNT = 300
+
+#: `RoomOutline.name_strength` が取る値。
+NAME_STRENGTH_NONE = "名前なし"
+NAME_STRENGTH_STRONG = "強い"
+NAME_STRENGTH_WEAK = "弱い"
 
 #: 端点を同じ点として寄せる許容差(ミリメートル・実寸)。
 SNAP_MM = 20.0
@@ -134,6 +150,18 @@ class RoomOutline:
     """輪郭のうち、**こちらが仮に閉じた**辺の本数。0 なら図面の線だけ。"""
 
     page_index: int
+    page_face_count: int = 0
+    """そのページで取れた閉じた面の数。**名前の確からしさの分母になる。**"""
+
+    name_strength: str = NAME_STRENGTH_NONE
+    """室名の確からしさ。``名前なし`` / ``強い`` / ``弱い``。
+
+    **面が多いページでは、輪郭の中に文字が 1 つだけ入ることが偶然でも起きる。**
+    だから面の数で弱さを分ける。**弱くても名前は落とさない。**印を付けるだけ。
+    **いまのところ、この欄を読んで判定を変える場所は 1 か所も無い**
+    (記録するところまでが、2026-09-25 におーちゃんが選んだ範囲)。
+    """
+
     method_id: str = METHOD_ROOM_OUTLINE
     area_basis_note: str = ""
     """``area_basis`` がそう決まった理由。**決められなかった理由もここに残す。**"""
@@ -843,6 +871,7 @@ def find_room_outlines(
     max_gap_mm: float = MAX_GAP_MM,
     exclude_tables: bool = True,
     area_basis: AreaBasis = "不明",
+    weak_face_count: int = ROOM_NAME_WEAK_FACE_COUNT,
 ) -> list[RoomOutline]:
     """線で囲まれた閉じた領域を、室の候補として返す。
 
@@ -946,7 +975,42 @@ def find_room_outlines(
             )
         )
     out.sort(key=lambda r: (-r.area_sqm, round(r.polygon_pt[0][1], 1), round(r.polygon_pt[0][0], 1)))
-    return out
+    return _mark_name_strength(out, weak_face_count)
+
+
+def _mark_name_strength(
+    outlines: list[RoomOutline], weak_face_count: int
+) -> list[RoomOutline]:
+    """そのページの面の数を全部の輪郭に入れ、室名に弱さの印を付ける。
+
+    **名前は落とさない。**弱いと書くだけである。
+    理由は `name_basis` の末尾に、人の読める言葉で足す。
+    """
+    total = len(outlines)
+    marked: list[RoomOutline] = []
+    for outline in outlines:
+        if outline.name is None:
+            strength = NAME_STRENGTH_NONE
+            basis = outline.name_basis
+        elif total >= weak_face_count:
+            strength = NAME_STRENGTH_WEAK
+            basis = (
+                f"{outline.name_basis}。ただし、このページは閉じた面が {total} 個あり、"
+                f"{weak_face_count} 個以上なので、この名前は**弱い**"
+                "(面が多いページでは、輪郭の中に文字が 1 つだけ入ることが偶然でも起きる)"
+            )
+        else:
+            strength = NAME_STRENGTH_STRONG
+            basis = outline.name_basis
+        marked.append(
+            replace(
+                outline,
+                page_face_count=total,
+                name_strength=strength,
+                name_basis=basis,
+            )
+        )
+    return marked
 
 
 # ---------------------------------------------------------------------------
