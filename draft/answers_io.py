@@ -55,6 +55,107 @@ def load(path: str | Path) -> dict[str, Any]:
             "答えた数": len(good), "秒の合計": sum(r["秒"] or 0 for r in good)}
 
 
+#: 固定の選択肢の答えが下書きに何をするか(K-68 B 周 2)。**表に無い答えは戻さない(理由を残す)。**
+#: - `決める`: その項目を人の回答で決める(状態「観測」・確度「高」・根拠「人の回答」。K-64 周 4 と同じ)。
+#:   値の欄があればその値にする。
+#: - `外す`: 内訳から外す印を付ける(**消さない**。外した理由を残す)。
+#: - `書くだけ`: 人の回答を書くだけで、項目は決めない。
+FIXED_EFFECTS: dict[str, dict[str, tuple[str, dict[str, str]]]] = {
+    "工事の有無": {"ある": ("決める", {}), "ない": ("外す", {}),
+              "別の行に含む": ("外す", {}), "別途": ("外す", {})},
+    "状態": {"撤去": ("決める", {"区分": "撤去"}), "新設": ("決める", {"区分": "新設"}),
+           "改修(既存を活かす)": ("決める", {"区分": "改修"}), "既存のまま(工事しない)": ("外す", {})},
+    "まとめ方": {"1 行にまとめる": ("書くだけ", {}), "分けて数える": ("書くだけ", {})},
+    "どの科目か": {k: ("決める", {"科目": k}) for k in (
+        "仮設", "撤去", "木工事", "内装", "塗装", "建具", "金属", "タイル", "家具・器具",
+        "機械設備", "電気設備", "雑")},
+}
+
+#: 「どれでもない」を K-64 の答えの口に渡すときの書き方(**「分からない」と同じく何も決めない**)。
+DONT_KNOW_TEXT = "分からない(現地・設計者に確認する)"
+
+
+def _decide(it: dict[str, Any], text: str, fields: Mapping[str, Any]) -> dict[str, Any]:
+    """人の回答で 1 項目を決める。`draft.stages.apply_answers` の中の決め方と同じ(K-64 周 4)。"""
+    old = {k: it.get(k) for k in ("数量", "単位", "確度", "状態", "区分", "科目")}
+    it["人の回答"] = text
+    it["状態"] = "観測"
+    it["確度"] = "高"
+    it["根拠の種類"] = "人の回答"
+    for k, v in fields.items():
+        it[k] = float(v) if k == "数量" else nfkc(v)
+    it.pop("確度の上限", None)
+    return {"項目": it["id"], "前": old, "後": {k: it.get(k) for k in old}}
+
+
+def apply(understanding: dict[str, Any], finish: dict[str, Any], cards: Sequence[Mapping[str, Any]],
+          answers: Mapping[str, str]) -> dict[str, Any]:
+    """カードの答えを下書きに戻す(K-68 B 周 2)。**AI は呼ばない。**
+
+    固定の選択肢の型(`工事の有無`・`状態`・`まとめ方`・`どの科目か`)の答えは、ここで
+    `FIXED_EFFECTS` の表のとおりに戻す。それ以外(仕上の問い・読めなかった所・室の問いなど)は、
+    K-64 周 4 の `draft.stages.apply_answers` にそのまま渡す。
+
+    **「どれでもない」は何も決めない**(K-64 の「分からない」と同じ扱いで渡す)。
+    戻せなかった答えは `戻せなかった答え` に理由と一緒に残す(**黙って捨てない**)。
+    """
+    from draft import cards as cards_mod
+    from draft.stages import apply_answers
+
+    by_key = {c["鍵"]: c for c in cards}
+    by_id = {it["id"]: it for it in understanding["項目"]}
+    passthrough: dict[str, Any] = {}
+    decided: list[dict[str, Any]] = []
+    removed: list[str] = []
+    recorded: list[str] = []
+    refused: list[dict[str, Any]] = []
+    for key, choice in answers.items():
+        card = by_key.get(key)
+        type_ = (card or {}).get("型")
+        fixed = card is not None and type_ in cards_mod.FIXED_OPTIONS and not cards_mod._is_unreadable(card)
+        if choice == cards_mod.NONE_OF_THESE:
+            if key.startswith(("項目:", "仕上:")):
+                passthrough[key] = DONT_KNOW_TEXT
+            else:
+                recorded.append(key)
+            continue
+        if not fixed:
+            passthrough[key] = choice
+            continue
+        effect = FIXED_EFFECTS.get(type_, {}).get(choice)
+        if effect is None:
+            refused.append({"鍵": key, "理由": "固定の選択肢に無い答え"})
+            continue
+        what, fields = effect
+        targets = [by_id[i] for i in ([key.split(":", 1)[1]] if key.startswith(("項目:", "抜き取り:")) else ())
+                   if i in by_id]
+        if not targets:
+            # 枠の問いなど、項目を持たない問い。**答えを書くだけ。**
+            recorded.append(key)
+            continue
+        if key.startswith("抜き取り:"):
+            # 抜き取りは確定の項目への問い。**答えで項目を書き換えない**(食い違いだけ残す)。
+            for it in targets:
+                it["抜き取りの回答"] = choice
+            recorded.append(key)
+            continue
+        for it in targets:
+            if what == "決める":
+                decided.append(_decide(it, choice, fields))
+            elif what == "外す":
+                it["人の回答"] = choice
+                it["外す"] = f"人の回答: {choice}"
+                it["根拠の種類"] = "人の回答"
+                removed.append(it["id"])
+            else:
+                it["人の回答"] = choice
+                recorded.append(key)
+    stage = apply_answers(understanding, finish, passthrough)
+    return {"固定の選択肢で決めた項目": decided, "固定の選択肢で外した項目": removed,
+            "書くだけの答え": recorded, "戻せなかった答え": refused,
+            "K-64 の口に渡した答え": len(passthrough), "K-64 の口": stage}
+
+
 def contradictions(answers: Sequence[Mapping[str, Any]], cards: Sequence[Mapping[str, Any]],
                    items: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """矛盾を検出する。**見つけた分は再質問に回す。検出できない矛盾があることも報告する。**"""

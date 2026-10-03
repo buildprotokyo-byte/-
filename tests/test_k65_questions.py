@@ -171,8 +171,9 @@ def test_切り抜きが無ければ無効() -> None:
     assert "切り抜きが無い" in cards.invalid_reasons(_card(切り抜き=None))
 
 
-def test_型は7つだけ() -> None:
-    assert len(cards.TYPES) == 7
+def test_型は8つだけ() -> None:
+    """K-65 の 7 つに、K-68 B 周 2 で `どの科目か` を足した(科目も固定の選択肢で聞くため)。"""
+    assert len(cards.TYPES) == 8
     assert set(cards.SECONDS) == set(cards.TYPES)
 
 

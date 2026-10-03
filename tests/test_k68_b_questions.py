@@ -119,3 +119,136 @@ def test_K66の囮は新規則で割れと言う() -> None:
         right = _item("b", 工事=pair.right, 部位="", 区分="", 科目="", 数量=pair.right_quantity or 10.0,
                       単位=unit)
         assert uncertainty.readings_disagree([[left], [right]], rule="新"), pair
+
+
+# 周 2 状態・有無・まとめ方・科目は固定の選択肢+「どれでもない」
+# ---------------------------------------------------------------------------
+
+from draft import answers_io, cards, chain, questioning  # noqa: E402
+
+
+def _q(item_id: str, **kw):
+    base = {"鍵": f"項目:{item_id}", "種類": "決められなかった所", "科目": "内装", "問い": "?",
+            "選択肢": ["AI が書いた候補 1", "AI が書いた候補 2"], "見る所": [1], "関係する項目": [item_id],
+            "位置": [{"ページ": 1, "位置": [0, 0, 1, 1]}]}
+    base.update(kw)
+    return base
+
+
+def _cards_for(items, questions):
+    graph = chain.build(items)
+    classified = uncertainty.classify(items)
+    return cards.build_cards(questions, items, graph, classified)
+
+
+def test_4つの型は固定の選択肢とどれでもないだけ() -> None:
+    items = [_item("a", 状態="問い"),  # 工事の有無
+             _item("b", 状態="問い", 工事="床撤去"),  # 状態
+             _item("c", 状態="問い", 科目="未確定")]  # どの科目か
+    built = _cards_for(items, [_q("a"), _q("b"), _q("c")])
+    by_type = {c["型"]: c for c in built["カード"]}
+
+    assert set(by_type) == {"工事の有無", "状態", "どの科目か"}
+    for type_, card in by_type.items():
+        assert card["選択肢"] == [*cards.FIXED_OPTIONS[type_], cards.NONE_OF_THESE]
+        assert not any("AI が書いた" in o for o in card["選択肢"])
+        assert card["数字の入力"] is False and card["自由記述"] is False and card["推奨"] is None
+
+
+def test_まとめ方の固定の選択肢() -> None:
+    assert cards.fixed_options("まとめ方") == ["1 行にまとめる", "分けて数える", cards.NONE_OF_THESE]
+
+
+def test_固定の型で選択肢が違えば無効() -> None:
+    card = {"鍵": "項目:a", "型": "状態", "問い": "?", "選択肢": ["撤去", "新設"], "見る所": [1],
+            "切り抜き": {"ページ": 1}, "直接": ["a"]}
+    assert "固定の選択肢と違う" in cards.invalid_reasons(card)
+
+
+def test_読めなかった所は段の閉じた選択肢のまま() -> None:
+    from draft.stages import UNREADABLE_OPTIONS
+
+    q = {"鍵": "読めない:1:1", "種類": "読めなかった所", "科目": "未確定", "問い": "?",
+         "選択肢": list(UNREADABLE_OPTIONS), "見る所": [1], "関係する項目": [],
+         "位置": [{"ページ": 1, "位置": [0, 0, 1, 1]}]}
+    built = _cards_for([_item("a")], [q])
+
+    assert built["カード"][0]["選択肢"] == list(UNREADABLE_OPTIONS)
+
+
+def test_抜き取りと枠の問いも有無の固定の選択肢() -> None:
+    assert list(cards.PRESENCE_OPTIONS) == cards.fixed_options("工事の有無")
+    frames = cards.frame_cards({"枠": [{"枠": "左官", "状態": "記載が見当たらない",
+                                       "分からないこと": {"理由": ["記載が見当たらない"], "候補ページ": [3]}}]})
+    assert frames[0]["選択肢"] == cards.fixed_options("工事の有無")
+
+
+def test_科目の型は連鎖を辿らない() -> None:
+    assert chain.TRAVERSAL["どの科目か"] == ()
+
+
+def _apply_one(type_item, choice):
+    items = [type_item]
+    built = _cards_for(items, [_q(type_item["id"])])
+    card = built["カード"][0]
+    understanding = {"項目": copy.deepcopy(items)}
+    finish = {"照らし合わせ": []}
+    out = answers_io.apply(understanding, finish, [card], {card["鍵"]: choice})
+    return card, understanding["項目"][0], out
+
+
+def test_固定の選択肢の答えは黙って捨てない() -> None:
+    """**どの選択肢を答えても、決める・外す・書くだけ・分からない のどれかになる。**"""
+    for item in (_item("a", 状態="問い"), _item("b", 状態="問い", 工事="床撤去"),
+                 _item("c", 状態="問い", 科目="未確定")):
+        card, _it, _out = _apply_one(item, "ある")
+        for choice in card["選択肢"]:
+            _card, it, out = _apply_one(item, choice)
+            assert not out["戻せなかった答え"], (card["型"], choice)
+            assert it.get("人の回答"), (card["型"], choice)
+
+
+def test_ないは消さずに外す印を付ける() -> None:
+    _card, it, out = _apply_one(_item("a", 状態="問い"), "ない")
+
+    assert it["外す"] == "人の回答: ない"
+    assert out["固定の選択肢で外した項目"] == ["a"]
+
+
+def test_科目の答えは科目欄だけを決める() -> None:
+    _card, it, _out = _apply_one(_item("c", 状態="問い", 科目="未確定", 数量=None), "内装")
+
+    assert it["科目"] == "内装"
+    assert it["根拠の種類"] == "人の回答"
+    assert it["数量"] is None, "数量は決めない(未取得を 0 にしない)"
+
+
+def test_どれでもないは何も決めない() -> None:
+    _card, it, _out = _apply_one(_item("a", 状態="問い"), cards.NONE_OF_THESE)
+
+    assert it["状態"] == "問い"
+    assert "外す" not in it
+
+
+def test_抜き取りの答えで確定の項目を書き換えない() -> None:
+    items = [_item("a")]
+    card = cards.spot_check_cards(["a"], items)[0]
+    understanding = {"項目": copy.deepcopy(items)}
+    answers_io.apply(understanding, {"照らし合わせ": []}, [card], {card["鍵"]: "ない"})
+
+    assert "外す" not in understanding["項目"][0]
+    assert understanding["項目"][0]["抜き取りの回答"] == "ない"
+
+
+def test_室が未確定なら科目より先に室を聞く() -> None:
+    built = _cards_for([_item("a", 状態="問い", 場所="未確定", 科目="未確定")], [_q("a")])
+
+    assert built["カード"][0]["型"] == "どの室・部位か"
+
+
+def test_仕様書と図面の問いはAIの選択肢のまま() -> None:
+    """固定の選択肢にするのは 4 つの型だけ(仕様書と図面のどちらを採るか は原本の文字が選択肢)。"""
+    built = _cards_for([_item("a", 状態="問い")], [_q("a", 種類="原本との違い")])
+
+    assert built["カード"][0]["型"] == "仕様書と図面のどちらを採るか"
+    assert built["カード"][0]["選択肢"][:2] == ["AI が書いた候補 1", "AI が書いた候補 2"]

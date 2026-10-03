@@ -23,13 +23,14 @@ from draft import chain as chain_mod
 from draft import uncertainty as unc
 from draft.stages import nfkc, room_key
 
-#: 質問の型(この 7 つだけ)。
+#: 質問の型(この 8 つだけ)。`どの科目か` は K-68 B 周 2 で足した(科目も固定の選択肢で聞くため)。
 TYPES = ("工事の有無", "どの室・部位か", "状態", "数量", "まとめ方", "仕様書と図面のどちらを採るか",
-         "同じ物か別の物か")
+         "同じ物か別の物か", "どの科目か")
 
 #: 型ごとの回答時間の見積(秒)。**未較正。**section 7 の本物の人の回答で較正する。
+#: `どの科目か` の 20 秒は K-68 B の仮の判断(`工事の有無` と同じ 1 タップの問いとして置いた)。
 SECONDS = {"工事の有無": 20, "どの室・部位か": 30, "状態": 20, "数量": 40, "まとめ方": 30,
-           "仕様書と図面のどちらを採るか": 30, "同じ物か別の物か": 40}
+           "仕様書と図面のどちらを採るか": 30, "同じ物か別の物か": 40, "どの科目か": 20}
 SECONDS_CALIBRATED = False
 
 #: 時間の止め線(秒)。**質問数の上限は置かない**(K-60 の 3/5/10 は MODES に残すが既定では使わない)。
@@ -40,6 +41,31 @@ MAX_PAGES = 4
 
 NONE_OF_THESE = "どれでもない(現地・設計者に確認する)"
 NOT_IN_SCOPE = "この室・部位は今回の工事に入らない"
+
+#: 科目の固定の選択肢(`draft/prompts/工事概略.txt` の 12 科目。公共建築工事内訳書の科目)。
+KAMOKU_OPTIONS = ("仮設", "撤去", "木工事", "内装", "塗装", "建具", "金属", "タイル", "家具・器具",
+                  "機械設備", "電気設備", "雑")
+
+#: 固定の選択肢(K-68 B 周 2)。**AI が書いた選択肢は使わない。**最後に必ず「どれでもない」を足す。
+#: 表は `docs/k68_b_questions_criteria.md` 周 2 で、測る前に決めた。
+FIXED_OPTIONS: dict[str, tuple[str, ...]] = {
+    "工事の有無": ("ある", "ない", "別の行に含む", "別途"),
+    "状態": ("撤去", "新設", "改修(既存を活かす)", "既存のまま(工事しない)"),
+    "まとめ方": ("1 行にまとめる", "分けて数える"),
+    "どの科目か": KAMOKU_OPTIONS,
+}
+
+
+def fixed_options(type_: str) -> list[str]:
+    """型の固定の選択肢+「どれでもない」。固定の型でなければ空。"""
+    if type_ not in FIXED_OPTIONS:
+        return []
+    return [*FIXED_OPTIONS[type_], NONE_OF_THESE]
+
+
+def _is_unreadable(card: Mapping[str, Any]) -> bool:
+    """「読めなかった所」の問い。選択肢は `draft/stages.UNREADABLE_OPTIONS`(これも閉じた固定の選択肢)。"""
+    return str(card.get("鍵", "")).startswith("読めない:")
 
 #: 到達する精度の段階(K-60 の表の許容誤差をそのまま使う)。
 PRECISION = (("概算", 0.50, "±15%"), ("通常", 0.75, "±10%"), ("精密", 0.90, "±5%"))
@@ -61,6 +87,8 @@ def invalid_reasons(card: Mapping[str, Any]) -> list[str]:
         out.append("切り抜きが無い")
     if len(card.get("見る所") or ()) >= MAX_PAGES:
         out.append(f"見る所が {MAX_PAGES} ページ以上(通読しないと答えられない)")
+    if card.get("型") in FIXED_OPTIONS and not _is_unreadable(card) and options != fixed_options(card["型"]):
+        out.append("固定の選択肢と違う")
     return out
 
 
@@ -166,6 +194,8 @@ def _to_card(q: Mapping[str, Any], items: Sequence[Mapping[str, Any]],
         type_ = "同じ物か別の物か"
     elif first is not None and room_key(first.get("場所")) in ("", "未確定", "未取得"):
         type_ = "どの室・部位か"
+    elif first is not None and nfkc(first.get("科目")) in ("", "未確定", "未取得"):
+        type_ = "どの科目か"
     elif first is not None and first.get("数量") is None:
         type_ = "数量"
     elif first is not None and any(w in nfkc(first.get("工事")) for w in ("撤去", "新設", "改修")):
@@ -173,6 +203,9 @@ def _to_card(q: Mapping[str, Any], items: Sequence[Mapping[str, Any]],
     else:
         type_ = "工事の有無"
     options = [str(o) for o in q.get("選択肢") or ()]
+    if type_ in FIXED_OPTIONS and kind != "読めなかった所":
+        # K-68 B 周 2: AI が書いた選択肢を使わず、型の固定の選択肢にする。
+        options = fixed_options(type_)
     if type_ == "数量":
         options = _quantity_options(first, by_id, other_values.get(_value_key(first), ()) if first else ())
     if not any(NONE_OF_THESE[:4] in o or "分からない" in o for o in options):
@@ -343,8 +376,9 @@ def within(rows: Sequence[Mapping[str, Any]], seconds: int) -> int:
     return sum(1 for r in rows if r["回答時間の見積(秒)"] <= seconds)
 
 
-#: 抜き取りの問いの選択肢(`工事の有無` の型の閉じた選択肢。基準 3 節の型の表から)。
-PRESENCE_OPTIONS = ("ある", "ない", "別の行に含む", "別途", "不明")
+#: 抜き取りの問いの選択肢(`工事の有無` の固定の選択肢+「どれでもない」。K-68 B 周 2 でそろえた。
+#: K-65 では最後が「不明」だった)。
+PRESENCE_OPTIONS = tuple(fixed_options("工事の有無"))
 
 
 def spot_check_cards(ids: Sequence[str], items: Sequence[Mapping[str, Any]],

@@ -108,7 +108,146 @@ def decoy_check() -> dict[str, Any]:
     }
 
 
-ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1}
+def _k65() -> dict[str, Any]:
+    return json.loads(K65_RESULT.read_text(encoding="utf-8"))
+
+
+def checklists_of(drafts: Mapping[str, Mapping[str, Any]], pdf: Path | None) -> dict[str, Any]:
+    """K-67 の工事チェック表(K-65 の測り方と同じ。文字の層だけ読む。AI は呼ばない)。"""
+    if pdf is None:
+        return {}
+    from draft import work_checklist
+
+    out = {}
+    for name, draft in drafts.items():
+        pages = sorted({int(n) for n in (draft["読む"].get("読み") or {})})
+        out[name] = work_checklist.build(draft["理解"]["項目"], pdf=pdf, pages=pages)
+    return out
+
+
+def build_all(drafts: Mapping[str, Mapping[str, Any]], pdf: Path | None, *,
+              how: str = "連鎖の金額順", **extra: Any) -> dict[str, dict[str, Any]]:
+    """5 版それぞれのカード(K-65 と同じ形: ほかの 4 版を「ほかの回」にする)。"""
+    from benchmarks.measure_question_curve import candidates_of
+    from draft import questioning
+
+    checklists = checklists_of(drafts, pdf)
+    items_by_run = {name: d["理解"]["項目"] for name, d in drafts.items()}
+    out = {}
+    for name, draft in drafts.items():
+        other = [v for k, v in items_by_run.items() if k != name]
+        raw = candidates_of(draft, None)
+        out[name] = questioning.build({"候補": raw}, draft["理解"], draft["仕上表"], other_runs=other, how=how,
+                                      checklist=checklists.get(name), **extra)
+        out[name]["_候補"] = raw
+        out[name]["_ほかの回"] = other
+    return out
+
+
+def _auto_confirmed(draft: Mapping[str, Any], cards: Sequence[Mapping[str, Any]],
+                    answers: Mapping[str, str]) -> dict[str, Any]:
+    """答えを戻した下書きを組み立て、本番の入口(機械の検算)に通して自動確定を数える。"""
+    from copy import deepcopy
+
+    from draft import answers_io, stages
+    from draft.run import machine_check
+
+    understanding = deepcopy(draft["理解"])
+    finish = deepcopy(draft["仕上表"])
+    applied = answers_io.apply(understanding, finish, cards, answers)
+    rows, _ = stages.assembly_rows(understanding["項目"])
+    check = machine_check(rows, None, None, "P011")
+    return {"自動確定": check["自動確定"], "戻せなかった答え": len(applied["戻せなかった答え"]),
+            "外した項目": len(applied["固定の選択肢で外した項目"]) + len(applied["K-64 の口"]["内訳から外した項目"])}
+
+
+def _first_real(card: Mapping[str, Any]) -> str | None:
+    from benchmarks.measure_question_curve import _first_real_option
+
+    return _first_real_option(card)
+
+
+def made_cards(draft: Mapping[str, Any], built: Mapping[str, Any], pdf_checklist: Mapping[str, Any] | None
+               ) -> list[dict[str, Any]]:
+    """作ったカード全部(聞く分+「聞かない(影響小)」で黙らせた分)。捨てたカードは入れない。"""
+    from draft import cards as cards_mod
+    from draft import chain as chain_mod
+    from draft.questioning import other_values
+
+    items = draft["理解"]["項目"]
+    classified = uncertainty.classify(items, finish=draft["仕上表"], other_runs=built["_ほかの回"])
+    graph = chain_mod.build(items, finish=draft["仕上表"])
+    bc = cards_mod.build_cards(built["_候補"], items, graph, classified,
+                               other_values=other_values(items, built["_ほかの回"]),
+                               spot_check_ids=uncertainty.spot_check_ids(classified))
+    frames = [c for c in cards_mod.frame_cards(pdf_checklist) if not cards_mod.invalid_reasons(c)]
+    return list(bc["カード"]) + frames
+
+
+def _count(values: Sequence[str]) -> dict[str, int]:
+    out: dict[str, int] = {}
+    for v in values:
+        out[v] = out.get(v, 0) + 1
+    return dict(sorted(out.items()))
+
+
+def round2(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None, **_: Any) -> dict[str, Any]:
+    """周 2: 状態・有無・まとめ方・科目を固定の選択肢+「どれでもない」にする。"""
+    from copy import deepcopy
+
+    from benchmarks.measure_question_curve import NONE_WORDS
+    from draft import answers_io, cards as cards_mod
+
+    k65 = _k65()["回"]
+    checklists = checklists_of(drafts, pdf)
+    builts = build_all(drafts, pdf)
+    out: dict[str, Any] = {"回": {}}
+    for name, built in builts.items():
+        cards = built["カード"]
+        made = made_cards(drafts[name], built, checklists.get(name))
+        small = set(built["聞かない(影響小)"])
+        fixed = [c for c in made if c["型"] in cards_mod.FIXED_OPTIONS and not cards_mod._is_unreadable(c)]
+        not_fixed = [c for c in fixed if c["選択肢"] != cards_mod.fixed_options(c["型"])]
+        bad_input = [c for c in made if c.get("数字の入力") or c.get("自由記述") or c.get("推奨")]
+        # 固定の選択肢の 1 つ 1 つを答えて、黙って捨てられる答えが無いか(実案件の 5 版で。黙らせた分も含む)。
+        refused = 0
+        tried = 0
+        for c in fixed:
+            for choice in c["選択肢"]:
+                u, f = deepcopy(drafts[name]["理解"]), deepcopy(drafts[name]["仕上表"])
+                res = answers_io.apply(u, f, [c], {c["鍵"]: choice})
+                tried += 1
+                refused += len(res["戻せなかった答え"])
+        first = {c["鍵"]: a for c in cards if (a := _first_real(c)) is not None}
+        reals = {c["鍵"]: [o for o in c["選択肢"] if not any(w in o for w in NONE_WORDS)] for c in cards}
+        second = {k: v[1] for k, v in reals.items() if len(v) > 1}
+        out["回"][name] = {
+            "カードの数(聞く分)": {"K-65": k65[name]["カードの数"], "周2": len(cards)},
+            "型ごと(聞く分)": {"K-65": k65[name]["型ごと"], "周2": built["型ごと"]},
+            "作ったカードの数(聞く分+影響小で黙らせた分)": len(made),
+            "作ったカードの型ごと": _count([c["型"] for c in made]),
+            "影響小で黙らせたカードの型ごと": _count([c["型"] for c in made if c["鍵"] in small]),
+            "固定の型のカード(作った分)": len(fixed),
+            "線1: 固定の表と違うカード": len(not_fixed),
+            "線2: 数字・自由記述・推奨のあるカード": len(bad_input),
+            "線3: 固定の選択肢を 1 つずつ答えた数": tried,
+            "線3: 戻せなかった答え": refused,
+            "捨てたカードの数": {"K-65": k65[name]["捨てたカードの数"], "周2": len(built["捨てたカード"])},
+            "捨てたカードの型と理由ごと": _count([f"{d.get('型')}|{d['理由']}" for d in built["捨てたカード"]]),
+            "聞かない(影響小)の数": {"K-65": k65[name]["聞かない(影響小)の数"], "周2": len(small)},
+            "線4: 聞くカードに 1 つ目の選択肢で答えて組み立てた自動確定": _auto_confirmed(drafts[name], cards, first),
+            "線4: 聞くカードに 2 つ目の選択肢で答えて組み立てた自動確定": _auto_confirmed(drafts[name], cards, second),
+        }
+    out["線1〜4(5版すべて)"] = {
+        "線1": all(r["線1: 固定の表と違うカード"] == 0 for r in out["回"].values()),
+        "線2": all(r["線2: 数字・自由記述・推奨のあるカード"] == 0 for r in out["回"].values()),
+        "線3": all(r["線3: 戻せなかった答え"] == 0 for r in out["回"].values()),
+        "線4": all(r[k]["自動確定"] == 0 for r in out["回"].values() for k in r if k.startswith("線4")),
+    }
+    return out
+
+
+ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2}
 
 
 def main() -> None:
