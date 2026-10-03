@@ -94,11 +94,19 @@ def test_信号の色() -> None:
 
 # ---- 工事チェック表 ----
 
-def test_枠は毎回16個出る() -> None:
+def test_枠は毎回全部出る() -> None:
+    """K-70 で 16 → 大枠 18・小枠 5(おーちゃんの一覧の順)。K-67 の 16 枠は別のファイルに残した。"""
     result = work_checklist.build([])
-    assert result["枠の数"] == 16
-    assert [f["枠"] for f in result["枠"]][0] == "仮設"
-    assert [f["枠"] for f in result["枠"]][-1] == "その他"
+    assert result["枠の数"] == 18
+    assert result["小枠の数"] == 5
+    assert [f["枠"] for f in result["枠"]] == [
+        "仮設", "解体・撤去", "木工・大工", "建具", "内装仕上", "左官", "タイル", "塗装", "防水", "断熱",
+        "電気", "給排水衛生", "住宅設備", "ガス", "防災", "クリーニング", "諸経費", "その他",
+    ]
+    subs = {f["枠"]: [s["枠"] for s in f.get("小枠", [])] for f in result["枠"] if f.get("小枠")}
+    assert subs == {"建具": ["外部建具", "内部建具"], "電気": ["照明", "電気配線", "空調・換気"]}
+    old = work_checklist.build([], frames_path=work_checklist.DEFAULT_FRAMES.with_name("工事の枠_K67_16枠.json"))
+    assert old["枠の数"] == 16
 
 
 def test_空の枠も出て記載が見当たらないと書く() -> None:
@@ -106,6 +114,73 @@ def test_空の枠も出て記載が見当たらないと書く() -> None:
     for row in result["枠"]:
         assert row["状態"] == work_checklist.NOT_FOUND
         assert row["分からないこと"]["理由"] == ["記載が見当たらない"]
+    for row in result["枠"]:
+        for sub in row.get("小枠", []):
+            assert sub["状態"] == work_checklist.NOT_FOUND
+            assert sub["分からないこと"]["理由"] == ["記載が見当たらない"]
+
+
+# ---- K-70 作業2: 大枠と小枠・迷い ----
+
+def _item(name: str, **extra):
+    return {"工事": name, "数量": 1.0, "単位": "箇所", "ページ": 3, "位置": [1, 2, 3, 4], **extra}
+
+
+def test_K70_小枠まで振り分け当たらないものは大枠に直接置く() -> None:
+    result = work_checklist.build([_item("玄関ドア交換"), _item("室内ドア新設"), _item("建具の調整"),
+                                   _item("ダウンライト新設"), _item("コンセント増設"), _item("エアコン移設")])
+    rows = {r["枠"]: r for r in result["枠"]}
+    door = {s["枠"]: s["件数"] for s in rows["建具"]["小枠"]}
+    assert door == {"外部建具": 1, "内部建具": 1}
+    assert rows["建具"]["大枠に直接置いた件数"] == 1
+    assert rows["建具"]["件数"] == 3
+    elec = {s["枠"]: s["件数"] for s in rows["電気"]["小枠"]}
+    assert elec == {"照明": 1, "電気配線": 1, "空調・換気": 1}
+    assert all(r["枠"] != "空調換気" for r in result["枠"])
+
+
+def test_K70_大枠の状態は小枠から集計する() -> None:
+    W = work_checklist
+    assert W.aggregate_state([W.CONFIRMED, W.CONFIRMED]) == W.CONFIRMED
+    assert W.aggregate_state([W.CONFIRMED, W.NOT_FOUND]) == W.PARTIAL
+    assert W.aggregate_state([W.NOT_FOUND, W.MISSING_SOURCE]) == W.MISSING_SOURCE
+    assert W.aggregate_state([W.NOT_FOUND, W.NOT_FOUND]) == W.NOT_FOUND
+    result = W.build([_item("ダウンライト新設")])
+    elec = [r for r in result["枠"] if r["枠"] == "電気"][0]
+    assert [s["状態"] for s in elec["小枠"]] == [W.CONFIRMED, W.NOT_FOUND, W.NOT_FOUND]
+    assert elec["状態"] == W.PARTIAL
+
+
+def test_K70_住宅設備と給排水衛生にまたがる項目は迷いとして両方に紐付ける() -> None:
+    result = work_checklist.build([_item("キッチン取替 給排水接続共"), _item("キッチン取替"), _item("排水管 更新")])
+    rows = {r["枠"]: r for r in result["枠"]}
+    assert result["迷い"]["件数"] == 1
+    assert rows["住宅設備"]["件数"] == 2
+    assert rows["給排水衛生"]["件数"] == 2
+    both = [f for f in rows["給排水衛生"]["分かったこと"] if f.get("迷い")]
+    assert both and both[0]["迷い"] == ["住宅設備", "給排水衛生"]
+
+
+def test_K70_重設工事は住宅設備() -> None:
+    result = work_checklist.build([_item("重設工事")])
+    assert [r["枠"] for r in result["枠"] if r["件数"]] == ["住宅設備"]
+
+
+def test_K70_枠の語は候補の印と根拠を持つ() -> None:
+    config = work_checklist.load_config()
+    for frame in config["枠"]:
+        for f in [frame, *frame.get("小枠", [])]:
+            assert f["印"] == "候補" and f["根拠"], f["名前"]
+    sub = [s for f in config["枠"] for s in f.get("小枠", []) if s["名前"] == "空調・換気"][0]
+    assert "機械設備" in sub["公共書式の科目"] and "機械設備" in sub["公共書式の注"]
+
+
+def test_K70_小枠でもないと言わない() -> None:
+    result = work_checklist.build([])
+    assert result["語が見つかるのに記載が見当たらないとした枠"] == []
+    for row in result["枠"]:
+        for sub in row.get("小枠", []):
+            assert set(sub["分からないこと"]["理由"]) <= set(work_checklist.REASONS)
 
 
 def test_振り分けの根拠が残る() -> None:

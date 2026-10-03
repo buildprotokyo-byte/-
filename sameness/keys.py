@@ -69,6 +69,11 @@ _MATERIAL_BRIDGE: dict[tuple[str, str], str] = {
 #: 撤去の細目 id。品名に撤去の語があるときは、状態を `撤去` と読む。
 _REMOVAL_CODES = tuple(f"T{n:02d}" for n in range(1, 11))
 
+#: 撤去の手がかり(T 系の細目 id)を引く状態。K-70(c) で `解体`・`取外し` を `撤去` と別の状態に
+#: 分けたが、**どれも「今ある物を外す」工事なので、細目 id は撤去の手がかりから引く**。
+#: 状態は別のまま鍵に残るので、`撤去` と `解体` は判定で `×` のまま(統合しない)。
+_REMOVAL_STATES = frozenset({"JO_撤去", "JO_解体", "JO_取外"})
+
 
 @dataclass(frozen=True)
 class StructureKey:
@@ -172,13 +177,13 @@ def structure_key(
         if code:
             origins.append("辞書:工事の種類")
     if not code:
-        removal = 状態 == "JO_撤去" or fields.get("区分") == "撤去" or fields.get("科目") == "撤去"
+        removal = 状態 in _REMOVAL_STATES or fields.get("区分") == "撤去" or fields.get("科目") == "撤去"
         code = _code_from_clues(text, removal, clues)
         if code:
             origins.append("手がかり")
 
     # 3b. 材料+部位の橋(K-68 A)。撤去のときは使わない
-    if not code and 材料 and 部位 and 状態 != "JO_撤去":
+    if not code and 材料 and 部位 and 状態 not in _REMOVAL_STATES:
         code = _MATERIAL_BRIDGE.get((材料, 部位))
         if code:
             origins.append("橋:材料+部位")
@@ -194,6 +199,14 @@ def structure_key(
             状態 = 状態 or answer.get("状態")
             材料 = 材料 or answer.get("材料")
             origins.append("AI")
+
+    # K-70 2 周目: 品名**丸ごと**が辞書の科目の語(`造作工事`・`産廃処分` など)なら、その組を科目にする。
+    # 細目 id から引いた科目(`M10` → 木工事)で上書きすると、K-70(b) で分けた組が科目の段で
+    # 同じに戻ってしまうため。**部分一致は使わない**(丸ごと一致だけ)。
+    if not 科目:
+        科目 = terms.exact("科目", text)
+        if 科目:
+            origins.append("辞書:科目(丸ごと)")
 
     # 細目 id から埋められるもの(欄や辞書で取れていないときだけ)
     if code:

@@ -23,7 +23,7 @@ from sameness import (
 )
 from sameness.decoys import decoy_pairs, paraphrase_pairs
 from sameness.normalize import canonical_unit, flatten, room_key
-from sameness.terms import load_terms
+from sameness.terms import default_terms, load_terms
 
 
 # ---- (a) 機械で揃える ----
@@ -155,9 +155,85 @@ def test_囮は1件も通らない() -> None:
 
 
 def test_言い換えの合格率は測った値を下回らない() -> None:
-    """2026-10-02 に測った 32/36。**下がる変更が入ったら落ちる。**"""
-    合格 = sum(1 for p in paraphrase_pairs() if compare(p.left, p.right, level=p.level).hit)
-    assert 合格 >= 32
+    """2026-10-02 に測った 32/36(外れ 4 件まで)。**下がる変更が入ったら落ちる。**
+
+    K-70(b)(c) でおーちゃんが「同じにしない」と決めた 11 対(`K70_RULED_NOT_SAME`)は
+    正しい言い換えではなくなったので、**残りの 25 対で外れ 4 件まで**(25 − 4 = 21)を見る。
+    決めた 11 対は、逆に **1 件も `○` にならない**ことを確かめる(下の K-70 のテスト)。
+    """
+    from sameness.decoys import K70_RULED_NOT_SAME
+
+    ruled = set(K70_RULED_NOT_SAME)
+    rest = [p for p in paraphrase_pairs() if (p.left, p.right) not in ruled]
+    assert len(rest) == 25
+    合格 = sum(1 for p in rest if compare(p.left, p.right, level=p.level).hit)
+    assert 合格 >= 21
+
+
+def test_K70_同じにしないと決めた対は丸にならない() -> None:
+    """K-70(b)(c): おーちゃんが「同じにしない」と決めた対。**1 件でも `○` なら辞書の分け方が間違い。**"""
+    from sameness.decoys import K70_RULED_NOT_SAME
+
+    from sameness.decoys import PARAPHRASES
+
+    levels = {(l, r): lv for l, r, lv in PARAPHRASES}
+    丸 = [(l, r) for l, r in K70_RULED_NOT_SAME if compare(l, r, level=levels[(l, r)]).hit]
+    assert 丸 == []
+
+
+@pytest.mark.parametrize("left, right", [
+    ("内装工事", "内装仕上工事"), ("造作工事", "大工工事"), ("LGS工事", "軽天・ボード工事"),
+    ("美装", "清掃"), ("清掃", "クリーニング"), ("美装", "クリーニング"), ("産廃処分", "発生材処理"),
+    ("吸音", "断熱"), ("サッシ工事", "建具工事"), ("床工事", "内装工事"),
+    ("諸経費", "現場管理費"), ("諸経費", "一般管理費"), ("諸経費", "共通仮設費"),
+    ("電気空調設備工事", "設備工事"), ("共通仮設", "仮設工事"),
+])
+def test_K70b_足すが同じにしない科目(left: str, right: str) -> None:
+    terms = default_terms()
+    a, b = terms.find("科目", left), terms.find("科目", right)
+    assert a and b, (left, right)
+    assert terms.relation("科目", a, b) != "同じ"
+    assert compare(left, right, level="科目").value != SAME
+
+
+@pytest.mark.parametrize("left, right", [
+    ("解体工事", "解体・撤去工事"), ("大工工事", "木工事"), ("木工事", "木工・大工工事"),
+    ("内装仕上工事", "内装仕上げ工事"), ("建具工事", "建具改修"), ("電気工事", "電気設備工事"),
+    ("給排水設備工事", "給排水衛生設備工事"), ("仮設工事", "直接仮設"), ("塗装工事", "塗装改修"),
+])
+def test_K70a_同じ意味の科目(left: str, right: str) -> None:
+    assert compare(left, right, level="科目").value == SAME
+
+
+def test_K70a_墨出費は墨出し() -> None:
+    from sameness.keys import structure_key
+
+    assert structure_key("墨出費").工事の種類 == structure_key("墨出し").工事の種類 == "K02"
+
+
+@pytest.mark.parametrize("left, right", [
+    ("解体", "撤去"), ("撤去", "取外し"), ("取外し", "脱着"), ("設置", "取付"), ("取付", "施工"),
+    ("設置", "施工"), ("交換", "更新"), ("更新", "改修"), ("交換", "改修"),
+    ("既存利用", "既存流用"), ("既存流用", "残し"), ("既存利用", "残し"), ("移設", "脱着"),
+])
+def test_K70c_状態の語は別の状態(left: str, right: str) -> None:
+    terms = default_terms()
+    a, b = terms.find("状態", left), terms.find("状態", right)
+    assert a and b and a != b, (left, right, a, b)
+
+
+def test_K70c_新設と新規は状態コードが共通の候補() -> None:
+    terms = default_terms()
+    assert terms.find("状態", "新設") == terms.find("状態", "新規") == "JO_新設"
+
+
+def test_K70c_解体と取外しも撤去の手がかりで細目を引くが状態は別() -> None:
+    from sameness.keys import structure_key
+
+    a, b = structure_key("壁ボード撤去"), structure_key("壁ボードの解体")
+    assert a.工事の種類 == b.工事の種類 and a.工事の種類.startswith("T")
+    assert a.状態 != b.状態
+    assert compare("壁ボード撤去", "壁ボードの解体").value != SAME
 
 
 def test_表記を揃える処理は1か所だけ() -> None:
