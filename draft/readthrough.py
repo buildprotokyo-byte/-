@@ -75,17 +75,18 @@ def _is_numeric_word(text: str) -> bool:
     return bool(text) and bool(_NUMERIC.match(text)) and any(c.isdigit() for c in text)
 
 
-def _table_rects(page: Any) -> tuple[list[tuple[float, float, float, float]], str]:
-    """罫線の表の四角。**平面図を表と誤認する欠陥(周21)を避ける守りを通す。**
+def _ruled_tables(page: Any) -> tuple[list[dict[str, Any]], str]:
+    """罫線の表(四角と升目の四角)。**平面図を表と誤認する欠陥(周21)を避ける守りを通す。**
 
     守りに落ちた(升目の埋まりが足りない)ものは表として数えない。
     表が 1 つも残らなかったページは「表は測れない」と出す(**0 と書かない**)。
+    座標はページの表示の向き(pt)。
     """
     try:
         found = page.find_tables()
     except Exception as error:  # pragma: no cover - pymupdf の版で例外が違う
         return [], f"{CANNOT_MEASURE}(表を探せなかった: {type(error).__name__})"
-    rects: list[tuple[float, float, float, float]] = []
+    tables: list[dict[str, Any]] = []
     dropped = 0
     for table in found.tables:
         cells = [cell for row in table.extract() for cell in row]
@@ -96,15 +97,38 @@ def _table_rects(page: Any) -> tuple[list[tuple[float, float, float, float]], st
         if filled / len(cells) < TABLE_MIN_FILL:
             dropped += 1
             continue
-        rects.append(tuple(float(v) for v in table.bbox))
-    if not rects:
+        tables.append({"四角": tuple(float(v) for v in table.bbox),
+                       "升目": [tuple(float(v) for v in c) for c in table.cells if c]})
+    if not tables:
         return [], f"{CANNOT_MEASURE}(罫線の表が無い。守りに落ちた表 {dropped} 個)"
-    return rects, f"罫線の表 {len(rects)} 個(守りに落ちた表 {dropped} 個)"
+    return tables, f"罫線の表 {len(tables)} 個(守りに落ちた表 {dropped} 個)"
+
+
+def _table_rects(page: Any) -> tuple[list[tuple[float, float, float, float]], str]:
+    """罫線の表の四角(`_ruled_tables` の四角だけ)。"""
+    tables, note = _ruled_tables(page)
+    return [t["四角"] for t in tables], note
 
 
 def _inside(bbox: Sequence[float], rects: Sequence[Sequence[float]], scale: float) -> bool:
     cx, cy = (bbox[0] + bbox[2]) / 2 / scale, (bbox[1] + bbox[3]) / 2 / scale
     return any(r[0] <= cx <= r[2] and r[1] <= cy <= r[3] for r in rects)
+
+
+def line_ink_length(prim: Any, rect_perimeter: bool = True) -> float:
+    """「線(長さ)」に入れる墨の長さ。
+
+    直線・曲線・ハッチングは ``erase_check`` の長さ。**矩形・四角形は ``erase_check`` では長さ 0(面積だけ)なので、
+    周長で数える**(K-71 作業 3 周 2。長さ 0 のままだと墨があるのに分母にも分子にも入らない。測り方の誤りの直し)。
+    """
+    if rect_perimeter and prim.kind == "矩形":
+        x0, y0, x1, y1 = prim.bbox
+        return 2.0 * ((x1 - x0) + (y1 - y0))
+    if rect_perimeter and prim.kind == "四角形":
+        ul, ur, ll, lr = (prim.points[i] for i in range(4))
+        ring = (ul, ur, lr, ll, ul)
+        return float(sum(((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 for a, b in zip(ring, ring[1:])))
+    return float(prim.length)
 
 
 def why_cannot_measure(page: Any, counted: int, words: int) -> str | None:
@@ -199,11 +223,21 @@ def page_readthrough(
     *,
     cap: float = DEFAULT_CAP,
     with_unread: bool = True,
+    machine_grid: bool = True,
+    rect_perimeter: bool = True,
 ) -> dict[str, Any]:
-    """1 ページの読了率・内訳・未読の一覧。"""
+    """1 ページの読了率・内訳・未読の一覧。
+
+    台帳は AI の要素に、**AI が中身を読んだ罫線の表の罫線を機械が図形の層から読んだもの**を足したもの(K-71 作業 3 周 1、
+    `draft/table_grid.py`)。物差し(面積の上限・余白・見本の点)は変えない。``machine_grid=False`` で AI の要素だけで数える。
+    """
     from benchmarks import erase_check as ec
+    from draft import table_grid
 
     words = len(page.get_text("words"))
+    grid_record: dict[str, Any] = {"機械が足した罫線": 0, "表ごと": []}
+    if machine_grid:
+        elements, grid_record = table_grid.ledger(page, number, list(elements), cap)
     prims, summary = ec.check_page(page, number, list(elements), cap)
     counted = summary["数える図形"]
     cannot = why_cannot_measure(page, counted, words)
@@ -216,6 +250,7 @@ def page_readthrough(
         "数える図形": counted,
         "除外": summary["除外"],
         "面積の上限": cap,
+        "機械が読んだ罫線(表)": grid_record,
     }
     if cannot:
         out.update({"読了率": None, "信号": GREY, "測れない理由": cannot,
@@ -241,7 +276,7 @@ def page_readthrough(
     for p_ in live:
         if p_.category == "線":
             bucket = ink.setdefault("線(長さ)", {"全部": 0.0, "拾えた": 0.0})
-            amount = p_.length
+            amount = line_ink_length(p_, rect_perimeter)
         elif p_.category == "点・小さい図形":
             bucket = ink.setdefault("点・小さい図形(面積)", {"全部": 0.0, "拾えた": 0.0})
             x0, y0, x1, y1 = p_.bbox
@@ -306,6 +341,8 @@ def readthrough(
     cap: float = DEFAULT_CAP,
     with_unread: bool = True,
     unobtained: Sequence[int] = (),
+    machine_grid: bool = True,
+    rect_perimeter: bool = True,
 ) -> dict[str, Any]:
     """案件全体の読了率。**ページごとの信号と、案件全体の警告も出す。**
 
@@ -324,7 +361,8 @@ def readthrough(
                 continue
             page = doc.load_page(number - 1)
             elements = [e for e in (reading.get(number, {}) or {}).get("要素", []) if e.get("位置")]
-            per_page.append(page_readthrough(page, number, elements, cap=cap, with_unread=with_unread))
+            per_page.append(page_readthrough(page, number, elements, cap=cap, with_unread=with_unread,
+                                             machine_grid=machine_grid, rect_perimeter=rect_perimeter))
 
     measured = [p for p in per_page if p["読了率"] is not None]
     page_count = len(per_page)
@@ -393,6 +431,7 @@ def readthrough(
         "種類ごと(重なりなし)": kinds,
         "墨の量で見た読了率": ink_summary,
         "別の切り口(重なる)": slices,
+        "機械が読んだ罫線(表)": sum((p.get("機械が読んだ罫線(表)") or {}).get("機械が足した罫線", 0) for p in per_page),
         "未読の数": len(unread),
         "未読の所在が指せた": locatable,
         "未読の所在が指せた割合": round(locatable / len(unread), 4) if unread else 1.0,
