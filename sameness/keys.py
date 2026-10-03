@@ -55,6 +55,17 @@ _CODE_KAMOKU: dict[str, str] = {
     "E": "KA_機械設備", "L": "KA_電気設備", "X": "KA_雑",
 }
 
+#: 材料+部位 → 細目 id の橋(K-68 A、K-66 の仮の判断 1)。`draft/vocab/default.json` の細目の名前が
+#: 「部位の材料張」と言っているものだけ(**推測で足さない**)。撤去の状態では使わない。
+_MATERIAL_BRIDGE: dict[tuple[str, str], str] = {
+    ("ZA_クッションフロア", "BU_床"): "N01", ("ZA_タイルカーペット", "BU_床"): "N02",
+    ("ZA_フロアタイル", "BU_床"): "N03", ("ZA_フローリング", "BU_床"): "N07",
+    ("ZA_クロス", "BU_壁"): "N04", ("ZA_クロス", "BU_内壁"): "N04", ("ZA_クロス", "BU_天井"): "N05",
+    ("ZA_石膏ボード", "BU_壁"): "M02", ("ZA_石膏ボード", "BU_内壁"): "M02", ("ZA_石膏ボード", "BU_天井"): "M04",
+    ("ZA_タイル", "BU_壁"): "Y01", ("ZA_タイル", "BU_内壁"): "Y01", ("ZA_タイル", "BU_床"): "Y02",
+    ("ZA_塗料", "BU_壁"): "P01", ("ZA_塗料", "BU_内壁"): "P01", ("ZA_塗料", "BU_天井"): "P02",
+}
+
 #: 撤去の細目 id。品名に撤去の語があるときは、状態を `撤去` と読む。
 _REMOVAL_CODES = tuple(f"T{n:02d}" for n in range(1, 11))
 
@@ -165,6 +176,12 @@ def structure_key(
         code = _code_from_clues(text, removal, clues)
         if code:
             origins.append("手がかり")
+
+    # 3b. 材料+部位の橋(K-68 A)。撤去のときは使わない
+    if not code and 材料 and 部位 and 状態 != "JO_撤去":
+        code = _MATERIAL_BRIDGE.get((材料, 部位))
+        if code:
+            origins.append("橋:材料+部位")
 
     # 4. それでも取れなければ AI に 1 回だけ聞く(キャッシュ)
     if not code and (ask_ai or cache is not None):
