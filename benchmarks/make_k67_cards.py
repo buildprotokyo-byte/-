@@ -32,8 +32,13 @@ SEED = 67
 VIEW_WIDTH = 1100
 
 
-def _crop(pdf: Path, page_no: int, box: list[float], scale_width: int = 2000, pad: int = 140) -> str:
-    """未読の場所の周りを切り出した画像(そこだけ見れば済むように)。"""
+def _crop(pdf: Path, page_no: int, box: list[float], scale_width: int = 2000,
+          pad: int = 140) -> tuple[str, list[float]]:
+    """未読の場所の周りを切り出した画像と、**切り出しの中での四角の位置(%)**。
+
+    位置の % を呼ぶ側で計算すると、拡大率をかけ忘れて印が本文とずれる
+    (K-65 で実際にずれていた)。**画像と印を同じ場所で作る。**
+    """
     import pymupdf
     from PIL import Image
 
@@ -42,14 +47,32 @@ def _crop(pdf: Path, page_no: int, box: list[float], scale_width: int = 2000, pa
         zoom = scale_width / page.rect.width
         pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom))
         image = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
-    x0, y0, x1, y1 = box
-    crop = image.crop((max(int(x0) - pad, 0), max(int(y0) - pad, 0),
-                       min(int(x1) + pad, image.width), min(int(y1) + pad, image.height)))
+    # **位置は PDF の点(ページは 1190×842 点)なので、拡大率をかけてから切る。**
+    # K-65 で見つけた間違い: かけずに切ると、いつもページの左上あたりを切ってしまう。
+    a, b, c, d = (v * zoom for v in box)
+    # **左右・上下がひっくり返った四角が混ざっている**ので、ここで正しい向きに直す。
+    x0, x1 = min(a, c), max(a, c)
+    y0, y1 = min(b, d), max(b, d)
+    # **紙の外へ出ている四角もある**(ページを回したものや、紙より大きい図形)。
+    # 画像の中へ収め、幅・高さが 0 にならないようにする。
+    x0 = min(max(x0, 0.0), image.width - 1.0)
+    x1 = min(max(x1, x0 + 1.0), float(image.width))
+    y0 = min(max(y0, 0.0), image.height - 1.0)
+    y1 = min(max(y1, y0 + 1.0), float(image.height))
+    left, top = max(int(x0) - pad, 0), max(int(y0) - pad, 0)
+    right = min(int(x1) + pad, image.width)
+    bottom = min(int(y1) + pad, image.height)
+    crop = image.crop((left, top, max(right, left + 1), max(bottom, top + 1)))
+    marker = [round((int(x0) - left) / crop.width * 100, 2),
+              round((int(y0) - top) / crop.height * 100, 2),
+              round((x1 - x0) / crop.width * 100, 2),
+              round((y1 - y0) / crop.height * 100, 2)]
     if crop.width > VIEW_WIDTH:
         crop = crop.resize((VIEW_WIDTH, int(crop.height * VIEW_WIDTH / crop.width)))
     buf = io.BytesIO()
     crop.save(buf, "JPEG", quality=70)
-    return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    url = "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    return url, marker
 
 
 def _page_image(pdf: Path, page_no: int) -> str:
@@ -195,19 +218,14 @@ def main(argv: list[str] | None = None) -> int:
     cards: list[dict[str, Any]] = []
     for index, row in enumerate(picked, 1):
         pad = 140
-        x0, y0, x1, y1 = row["位置"]
-        img = _crop(args.pdf, row["ページ"], row["位置"], pad=pad)
-        # 切り出しの中での四角の位置(%)
-        cw = (x1 - x0) + pad * 2
-        ch = (y1 - y0) + pad * 2
+        img, marker = _crop(args.pdf, row["ページ"], row["位置"], pad=pad)
         cards.append({
             "番号": index, "種類": "未読の確認",
             "問い": f"{row['ページ']} ページのこの四角の中に、何か描かれていますか",
             "補足": f"機械は読めていないと言っている。種類 {row['種類']}・大きさ {row['大きさ']} 画素"
                     + (f"・文字「{row['文字']}」" if row["文字"] else ""),
             "画像": img,
-            "marker": [round(pad / cw * 100, 2), round(pad / ch * 100, 2),
-                       round((x1 - x0) / cw * 100, 2), round((y1 - y0) / ch * 100, 2)],
+            "marker": marker,
             "選択肢": UNREAD_CHOICES,
             "記録": {"ページ": row["ページ"], "図形の番号": row["図形の番号"], "種類": row["種類"]},
         })
