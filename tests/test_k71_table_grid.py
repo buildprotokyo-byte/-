@@ -126,3 +126,24 @@ def test_升目の縁に乗らない線は足さない(tmp_path: Path) -> None:
         inner_y = (Y0 + 8) * s
         assert added, "縁の罫線は足す"
         assert not any(abs(e["位置"][1] - inner_y) < 1 and abs(e["位置"][3] - inner_y) < 1 for e in added)
+
+
+def test_線の長さで矩形を周長で数える(tmp_path: Path) -> None:
+    """K-71 周 2: 種類「線」に入った矩形は、線(長さ)の分母に周長で入る(前は長さ 0 で入らなかった)。"""
+    doc = pymupdf.open()
+    page = doc.new_page(width=W, height=H)
+    page.draw_line((50, 50), (250, 50))
+    page.draw_rect(pymupdf.Rect(300, 100, 400, 200))  # 大きい矩形 → 種類「線」
+    page.insert_text((50, 300), "A1", fontsize=10)  # 文字の層が無いと「測れない」になるので 1 語置く
+    target = tmp_path / "矩形.pdf"
+    doc.save(target)
+    doc.close()
+    s = _scale()
+    with pymupdf.open(target) as d:
+        p = d.load_page(0)
+        line_only = [{"種類": "線", "位置": [50 * s, 47 * s, 250 * s, 53 * s]}]
+        old = rt.page_readthrough(p, 1, line_only, with_unread=False, rect_perimeter=False)["墨の量で見た読了率"]["線(長さ)"]
+        new = rt.page_readthrough(p, 1, line_only, with_unread=False)["墨の量で見た読了率"]["線(長さ)"]
+    assert old["読了率"] == 1.0, "前は矩形の墨が分母に入っていなかった"
+    assert abs(new["全部"] - old["全部"] - 2 * (100 + 100) * s) < 1.0
+    assert new["読了率"] < 1.0, "読んでいない矩形の墨は落ちとして見える"

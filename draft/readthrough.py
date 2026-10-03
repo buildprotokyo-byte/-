@@ -115,6 +115,22 @@ def _inside(bbox: Sequence[float], rects: Sequence[Sequence[float]], scale: floa
     return any(r[0] <= cx <= r[2] and r[1] <= cy <= r[3] for r in rects)
 
 
+def line_ink_length(prim: Any, rect_perimeter: bool = True) -> float:
+    """「線(長さ)」に入れる墨の長さ。
+
+    直線・曲線・ハッチングは ``erase_check`` の長さ。**矩形・四角形は ``erase_check`` では長さ 0(面積だけ)なので、
+    周長で数える**(K-71 作業 3 周 2。長さ 0 のままだと墨があるのに分母にも分子にも入らない。測り方の誤りの直し)。
+    """
+    if rect_perimeter and prim.kind == "矩形":
+        x0, y0, x1, y1 = prim.bbox
+        return 2.0 * ((x1 - x0) + (y1 - y0))
+    if rect_perimeter and prim.kind == "四角形":
+        ul, ur, ll, lr = (prim.points[i] for i in range(4))
+        ring = (ul, ur, lr, ll, ul)
+        return float(sum(((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2) ** 0.5 for a, b in zip(ring, ring[1:])))
+    return float(prim.length)
+
+
 def why_cannot_measure(page: Any, counted: int, words: int) -> str | None:
     """このページは測れないか。測れるなら `None`。"""
     if counted == 0:
@@ -208,6 +224,7 @@ def page_readthrough(
     cap: float = DEFAULT_CAP,
     with_unread: bool = True,
     machine_grid: bool = True,
+    rect_perimeter: bool = True,
 ) -> dict[str, Any]:
     """1 ページの読了率・内訳・未読の一覧。
 
@@ -259,7 +276,7 @@ def page_readthrough(
     for p_ in live:
         if p_.category == "線":
             bucket = ink.setdefault("線(長さ)", {"全部": 0.0, "拾えた": 0.0})
-            amount = p_.length
+            amount = line_ink_length(p_, rect_perimeter)
         elif p_.category == "点・小さい図形":
             bucket = ink.setdefault("点・小さい図形(面積)", {"全部": 0.0, "拾えた": 0.0})
             x0, y0, x1, y1 = p_.bbox
@@ -325,6 +342,7 @@ def readthrough(
     with_unread: bool = True,
     unobtained: Sequence[int] = (),
     machine_grid: bool = True,
+    rect_perimeter: bool = True,
 ) -> dict[str, Any]:
     """案件全体の読了率。**ページごとの信号と、案件全体の警告も出す。**
 
@@ -344,7 +362,7 @@ def readthrough(
             page = doc.load_page(number - 1)
             elements = [e for e in (reading.get(number, {}) or {}).get("要素", []) if e.get("位置")]
             per_page.append(page_readthrough(page, number, elements, cap=cap, with_unread=with_unread,
-                                             machine_grid=machine_grid))
+                                             machine_grid=machine_grid, rect_perimeter=rect_perimeter))
 
     measured = [p for p in per_page if p["読了率"] is not None]
     page_count = len(per_page)
