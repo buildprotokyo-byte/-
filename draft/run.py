@@ -157,6 +157,9 @@ DEFAULT_PASS1_BATCH = 3
 #: 旗の部品の表のパスを渡す環境変数(K-63)。表はリポジトリの外に置く。
 LEGEND_ENV = "DRAFT_LEGEND_LOOKUP"
 KNOWLEDGE_ENV = "DRAFT_KNOWLEDGE"
+#: K-73 作業 4 の室の表(K-37 の室と、辺の写し)。表はリポジトリの外に置く。
+ROOM_NAMES_ENV = "DRAFT_ROOM_NAMES"
+ROOM_SIDES_ENV = "DRAFT_ROOM_SIDES"
 
 
 def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
@@ -205,6 +208,11 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
                    help=f"凡例の対照表の JSON(--with-legend-lookup で使う。既定は環境変数 {LEGEND_ENV})")
     p.add_argument("--knowledge", default=None,
                    help=f"知識の表の JSON(--with-knowledge で使う。既定は環境変数 {KNOWLEDGE_ENV})")
+    p.add_argument("--with-room-unknown", action="store_true",
+                   help="旗(既定はオフ、K-73 作業 4): 図面に室の寸法が無い行に「分からない」と探したページを付け、室ごとに 1 問を作る")
+    p.add_argument("--room-names", default=None, help=f"K-37 の室の表(--with-room-unknown で使う。既定は環境変数 {ROOM_NAMES_ENV})")
+    p.add_argument("--room-sides", default=None, help=f"室の辺の写し(--with-room-unknown で使う。既定は環境変数 {ROOM_SIDES_ENV})")
+    p.add_argument("--room-answers", default=None, help="室の寸法の問いへの人の答え(--with-room-unknown で使う)")
     a = p.parse_args(argv)
     from draft.ai import LocalNotPassed, load_local_passed, resolve_backend_plan
 
@@ -350,10 +358,15 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     if on:
         flag_out = _flag_parts(on, a, ctx, org, reading, understanding, finish, assembly,
                               machine_seen[0] if machine_seen else None)
+    room_out = None
+    if a.with_room_unknown:
+        room_out = _guarded(ctx, "室の寸法が無い", lambda: _room_unknown(a, ctx, org, understanding, assembly, cost_table,
+                                                                      machine_seen[0] if machine_seen else None), None)
     if pool is not None:
         pool.shutdown(wait=False)
     auto = check["自動確定"] if check else stages.UNKNOWN
     flag_auto = (flag_out or {}).get("検算(旗の行を足した)", {}).get("自動確定")
+    room_auto = (room_out or {}).get("検算(人の入力の行を足した)", {}).get("自動確定")
 
     warn = []
     flagged = [n for n, v in reading["ページ"].items() if v.get("読み落としの可能性が高い")]
@@ -458,6 +471,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
         "機械の検算": check,
         "つなげなかった部品": [{"部品": n, "理由": w} for n, w in NOT_CONNECTED],
         **({"旗の部品": flag_out} if flag_out is not None else {}),
+        **({"室の寸法が無い": room_out if room_out is not None else {"動いたか": "止まった(「止まった所」を見る)"}}
+           if a.with_room_unknown else {}),
         "時間(秒)": ctx.timings,
         "AI を呼んだ記録": {"まとめ": caller.summary(model), "1回ずつ": [r.as_dict() for r in caller.records]},
         "呼び出し口": {"local の段": sorted(k for k, v in backend_plan.items() if v == "local"),
@@ -481,6 +496,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
                       "未取得の内訳": caller.summary(model)["未取得の内訳"],
                       **({"旗": on, "旗の行を足した自動確定": flag_auto} if on else {})}, ensure_ascii=False))
     if isinstance(flag_auto, int) and flag_auto > 0:
+        return 2
+    if isinstance(room_auto, int) and room_auto > 0:
         return 2
     return 2 if isinstance(auto, int) and auto > 0 else 0
 
@@ -523,6 +540,35 @@ def _flag_parts(on: Sequence[str], a: argparse.Namespace, ctx: stages.Context, o
                                  if res else {"自動確定": stages.UNKNOWN, "注": "検算が止まった"})
     else:
         out["検算(旗の行を足した)"] = {"自動確定": 0, "足した行": 0, "注": "数量が増えた行が無いので、組み立ての検算と同じ"}
+    return out
+
+
+def _room_unknown(a: argparse.Namespace, ctx: stages.Context, org: Mapping[str, Any], understanding: dict[str, Any],
+                  assembly: dict[str, Any], cost_table: Any, machine: Mapping[str, Any] | None) -> dict[str, Any]:
+    """K-73 作業 4(旗オンのときだけ)。**数量は書き換えない。** 人の入力の行は本番の入口に通して自動確定 0 を確かめる。"""
+    import os
+
+    from draft import room_unknown as ru
+
+    names = a.room_names or os.environ.get(ROOM_NAMES_ENV)
+    sides = a.room_sides or os.environ.get(ROOM_SIDES_ENV)
+    if not names or not sides:
+        return {"動いたか": "室の表が無い(未取得)", "旗": "--with-room-unknown"}
+    out = ru.run(ctx.pdf, org, understanding, _load_json(names), _load_json(sides), _load_json(a.room_answers),
+                 cost_table, assembly.get("内訳の行"))
+    ru.annotate(understanding, assembly.get("内訳の行") or [], out)
+    if out["段階ごと"]["精密"]:
+        out["携帯で答える PDF"] = str(ru.card_pdf(out["段階ごと"]["精密"], Path(a.out) / "室の寸法の問い.pdf"))
+    human = (out.get("答えの往復") or {}).get("確定した行") or []
+    if a.no_machine_check:
+        out["検算(人の入力の行を足した)"] = {"自動確定": stages.UNKNOWN, "注": "機械の検算を飛ばした"}
+    elif human:
+        rows = [{"工事項目": h["工事"] or "", "場所": h["場所"] or "", "数量": h["数量"], "単位": h["単位"],
+                 "メモ": ru.HUMAN, "項目": [h["項目"]]} for h in human]
+        res = machine_check(list(assembly.get("内訳の行") or []) + rows, a.machine_output, machine, a.case_id)
+        out["検算(人の入力の行を足した)"] = {"自動確定": res["自動確定"], "足した行": len(rows)}
+    else:
+        out["検算(人の入力の行を足した)"] = {"自動確定": 0, "足した行": 0, "注": "人の入力で確定した行が無い"}
     return out
 
 
