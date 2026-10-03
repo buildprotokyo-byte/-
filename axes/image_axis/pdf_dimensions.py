@@ -91,6 +91,10 @@ MM_PER_POINT = 25.4 / 72.0
 METHOD_DIMENSION_TEXT = "pdf_dimension_text"
 
 #: 手法ID。記入された寸法から計算したそのページの縮尺。
+#: **この縮尺を入れたのは機械である**(周4)。人が入れた値は
+#: `intake/start_kit.py` の `ReferencePoint.entered_by` に入り、**欄の名前が別**。
+SET_BY_MACHINE = "機械(図面に記入された寸法から出した比)"
+
 #: **表題欄の印字(`pdf_text_scale`)とは別の手法として名前を分けてある。**
 #: 突き合わせる相手にするには、別の名前でなければならない。
 METHOD_DIMENSION_SCALE = "pdf_dimension_scale"
@@ -322,6 +326,24 @@ class DimensionScale:
     """比の出どころにした寸法の、図面の文字そのまま。"""
 
     @property
+    def set_by(self) -> str:
+        """**この縮尺を入れたのは機械である**(2026-09-25、周4)。
+
+        おーちゃんの決まり: **AI が基準を入れたら、必ずそう記録する。
+        人が入れたものと混ぜない。**縮尺の基準となる長さは、本来は人が決める
+        作業である(K-34)。人の入力が空のあいだ、機械が代わりに出している。
+
+        **書き換えられる口を持たせない。**定数を返すだけにしてあるので、
+        ここに人の名前が入ることはない。人が入れた値は
+        `intake/start_kit.py` の `ReferencePoint.entered_by` に入り、
+        **欄の名前が別である。**
+
+        **いまのところ、この欄を読んで判定を変える場所は 1 か所も無い**
+        (記録するところまでが、2026-09-25 の周4 の範囲)。
+        """
+        return SET_BY_MACHINE
+
+    @property
     def mm_per_point(self) -> float:
         return self.denominator * MM_PER_POINT
 
@@ -332,6 +354,7 @@ class DimensionScale:
             "total_count": self.total_count,
             "outlier_values_mm": list(self.outlier_values_mm),
             "source_text": self.source_text,
+            "set_by": self.set_by,
             "limitation": (
                 "図面に記入された寸法どうしの一致から出した比。"
                 "表題欄の印字は読んでいない。**未校正の手法である**"

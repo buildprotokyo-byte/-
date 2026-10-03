@@ -399,6 +399,32 @@ def test_dimension_readings_are_ordered_deterministically(tmp_path: Path) -> Non
     assert len(first) == 3
 
 
+def test_記入寸法から出した縮尺には機械が出したと書いてある() -> None:
+    """周4(2026-09-25)。**人が入れたものと混ぜない。**
+
+    この縮尺は**人が物差しを当てた値ではなく、機械が図面の数字から出した比**である。
+    根拠にそう書いていないと、人の入力と同じ重みで読まれうる。
+    """
+    from axes.image_axis.pdf_dimensions import SET_BY_MACHINE, DimensionScale
+
+    scale = DimensionScale(
+        denominator=50.0,
+        agreeing_count=3,
+        total_count=4,
+        outlier_values_mm=(1.0,),
+        source_text="3000",
+    )
+    assert scale.set_by == SET_BY_MACHINE
+    assert scale.provenance()["set_by"] == SET_BY_MACHINE
+
+
+def test_機械が出したという欄に人の名前は入らない() -> None:
+    """**この欄は書き換えられる口を持たない。**定数を返すだけにしてある。"""
+    from axes.image_axis.pdf_dimensions import SET_BY_MACHINE
+
+    assert "機械" in SET_BY_MACHINE
+    assert "人" not in SET_BY_MACHINE
+
 def _drawing_frame(page: pymupdf.Page) -> None:
     """**図面枠**を描く。外枠と、下側の表題欄の罫線だけ。
 
