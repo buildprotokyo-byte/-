@@ -131,14 +131,22 @@ def apply(understanding: dict[str, Any], finish: dict[str, Any], cards: Sequence
             else:
                 recorded.append(key)
             continue
-        if type_ == "数量" and key.startswith("項目:"):
+        if type_ == "数量" and (key.startswith("項目:") or (card or {}).get("枠の問い")):
             # K-68 B 周 3: 数量の値を選んだら、その項目の数量と単位をその値にする(人の回答で決める)。
+            # 周 6: 工事チェック表の理由から作った数量の問い(`枠:◯:数量:項目`)も同じ。項目はカードの `直接`。
             value = quantity_of(choice, card)
-            target = by_id.get(key.split(":", 1)[1])
+            target = by_id.get(((card or {}).get("直接") or [key.split(":", 1)[1]])[0])
             if value is None or target is None:
                 refused.append({"鍵": key, "理由": "数量の選択肢に無い答え" if value is None else "項目が無い"})
                 continue
             decided.append(_decide(target, choice, {"数量": value[0], **({"単位": value[1]} if value[1] else {})}))
+            continue
+        if not fixed and key.startswith("枠:"):
+            # 周 6: 「どのページの記載を採るか」など、枠の問いの答えは書くだけ(項目を決めない)。
+            if choice in ((card or {}).get("選択肢") or ()):
+                recorded.append(key)
+            else:
+                refused.append({"鍵": key, "理由": "枠の問いの選択肢に無い答え"})
             continue
         if not fixed:
             passthrough[key] = choice

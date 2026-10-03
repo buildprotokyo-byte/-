@@ -501,3 +501,83 @@ def test_仕上の名前に既存のままが入っても外す答えと取り�
                                       other_runs=[[_item("x")]])
 
     assert not found
+
+
+# 周 6 工事チェック表の「分からない理由」から質問を作る
+# ---------------------------------------------------------------------------
+
+
+def _frame(name, reasons, pages=(), state="一部確認"):
+    return {"枠": name, "状態": state, "件数": 0,
+            "分からないこと": {"理由": list(reasons), "候補ページ": [{"ページ": p} for p in pages]}}
+
+
+def test_有無の理由は1枠1問() -> None:
+    out = cards.reason_cards({"枠": [_frame("内装", ["読めていない頁がある", "資料が足りない"], [3, 5])]})
+
+    assert [c["鍵"] for c in out["カード"]] == ["枠:内装"]
+    assert out["カード"][0]["選択肢"] == cards.fixed_options("工事の有無")
+    assert {r["理由"] for r in out["理由ごと"]} == {"読めていない頁がある", "資料が足りない"}
+    assert all(r["作った鍵"] == ["枠:内装"] for r in out["理由ごと"])
+
+
+def test_候補が複数ならページを選ばせる() -> None:
+    out = cards.reason_cards({"枠": [_frame("内装", ["候補が複数で決まらない"], [7, 3, 5, 9])]})
+
+    card = out["カード"][0]
+    assert card["鍵"] == "枠:内装:ページ"
+    assert card["選択肢"] == ["3ページ", "5ページ", "7ページ", cards.NONE_OF_THESE]
+    assert card["他◯か所"] == "他1か所"
+
+
+def test_候補ページが1つなら作れなかった理由を残す() -> None:
+    out = cards.reason_cards({"枠": [_frame("内装", ["候補が複数で決まらない"], [3])]})
+
+    assert not out["カード"]
+    assert out["理由ごと"][0]["作れなかった理由"] == ["候補ページが 2 つ未満(選ぶ所が無い)"]
+
+
+def test_記載が見当たらない枠は切り抜きが無ければ作れなかった理由を残す() -> None:
+    out = cards.reason_cards({"枠": [_frame("左官", ["記載が見当たらない"], [], state="記載が見当たらない")]})
+
+    assert not out["カード"]
+    assert out["理由ごと"][0]["作れなかった理由"] == ["切り抜きが無い"]
+
+
+def test_数量の根拠が足りない枠は項目ごとに数量を聞く() -> None:
+    items = [_item("a", 数量=None, 工事="床フローリング張替", 科目="内装"), _item("b", 数量=None, 工事="床フローリング張替",
+                                                                     科目="内装", 場所="洋室2")]
+    from draft import work_checklist
+
+    name = work_checklist.frame_of(items[0], work_checklist.load_frames())["枠"]
+    qs = {"a": [{"値": 12.5, "単位": "m2", "出どころ": "3回の値", "辿る": {"回": "ほかの回1"}}]}
+    out = cards.reason_cards({"枠": [_frame(name, ["数量の根拠が足りない"])]}, items, quantity_sources=qs)
+
+    assert [c["鍵"] for c in out["カード"]] == [f"枠:{name}:数量:a"]
+    card = out["カード"][0]
+    assert card["型"] == "数量" and card["直接"] == ["a"] and card["選択肢"] == ["12.5m2", cards.NONE_OF_THESE]
+    rec = out["理由ごと"][0]
+    assert rec["作った鍵"] == [card["鍵"]] and rec["作れなかった理由"] == ["数量の無い項目 1 個に候補の値が無い"]
+
+    understanding = {"項目": copy.deepcopy(items)}
+    res = answers_io.apply(understanding, {"照らし合わせ": []}, [card], {card["鍵"]: "12.5m2"})
+    assert understanding["項目"][0]["数量"] == 12.5 and not res["戻せなかった答え"]
+
+
+def test_ページの答えは書くだけで項目を決めない() -> None:
+    card = cards.reason_cards({"枠": [_frame("内装", ["候補が複数で決まらない"], [3, 5])]})["カード"][0]
+    items = [_item("a")]
+    understanding = {"項目": copy.deepcopy(items)}
+    res = answers_io.apply(understanding, {"照らし合わせ": []}, [card], {card["鍵"]: "3ページ"})
+
+    assert res["書くだけの答え"] == [card["鍵"]] and not res["戻せなかった答え"]
+    assert understanding["項目"] == items
+
+
+def test_理由から作った問いは影響小で黙らない() -> None:
+    items = [_item("a", 状態="問い")]
+    checklist = {"枠": [_frame("内装", ["読めていない頁がある"], [3])]}
+    built = questioning.build({"候補": []}, {"項目": items}, {"照らし合わせ": []}, checklist=checklist)
+
+    assert "枠:内装" in [c["鍵"] for c in built["カード"]]
+    assert built["枠の理由ごと"][0]["作った鍵"] == ["枠:内装"]

@@ -504,3 +504,126 @@ def frame_cards(checklist: Mapping[str, Any] | None, *, max_pages: int = MAX_PAG
             "図面全体への入口": {"任意": True, "ページ": pages[0] if pages else None},
         })
     return out
+
+
+#: `工事の有無` の問いにする理由(K-68 B 周 6)。1 枠 1 問にまとめる(同じ枠の有無を 2 回聞かない)。
+PRESENCE_REASONS = ("記載が見当たらない", "読めていない頁がある", "資料が足りない")
+PAGE_REASON = "候補が複数で決まらない"
+QUANTITY_REASON = "数量の根拠が足りない"
+
+
+def reason_cards(checklist: Mapping[str, Any] | None, items: Sequence[Mapping[str, Any]] = (), *,
+                 quantity_sources: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
+                 crops: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """工事チェック表の「分からない理由」ごとに問いを作る(K-68 B 周 6)。**AI は呼ばない。**
+
+    - 記載が見当たらない・読めていない頁がある・資料が足りない → `工事の有無`(1 枠 1 問。固定の選択肢)
+    - 候補が複数で決まらない → どのページの記載を採るか(候補ページの先頭 3 つ+どれでもない。答えは書くだけ)
+    - 数量の根拠が足りない → その枠に振り分けた数量の無い項目ごとに `数量`(周 3 の候補の値。値が無ければ作らない)
+
+    作れなかった理由は `理由ごと` に残す(**黙って落とさない**)。カードは無効の理由を調べてから返す。
+    """
+    crops = dict(crops or {})
+    qsources = dict(quantity_sources or {})
+    out: list[dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
+    frames_def = None
+    by_frame: dict[str, list[Mapping[str, Any]]] = {}
+    for frame in (checklist or {}).get("枠") or (checklist or {}).get("枠ごと") or ():
+        if frame.get("状態") == "確認できた":
+            continue
+        name = frame.get("枠")
+        unknown = frame.get("分からないこと") or {}
+        reason_list = [str(r) for r in (unknown.get("理由") or frame.get("理由") or ())]
+        raw_pages = unknown.get("候補ページ") or frame.get("候補ページ") or ()
+        all_pages = sorted(_page_numbers([p.get("ページ") if isinstance(p, Mapping) else p for p in raw_pages]))
+        shown = shown_pages(all_pages)
+        pages = shown["見る所"]
+
+        def base(key: str, type_: str, question: str, options: list[str]) -> dict[str, Any]:
+            return {
+                "鍵": key, "型": type_, "枠の問い": True, "問い": question, "選択肢": options,
+                "見る所": pages, "ページ": pages[0] if pages else None,
+                "他の見る所": shown["他の見る所"], "他◯か所": shown["他◯か所"],
+                "位置": [{"ページ": p, "位置": None} for p in pages],
+                "切り抜き": crops.get(key) or ({"ページ": pages[0], "位置": None, "ページ全体": True}
+                                           if pages else None),
+                "直接": [], "競っている読みの候補": [], "信号": [], "不確実さ": 1.0,
+                "科目": name, "工事": None, "品番": None, "室": None, "部位": None,
+                "枠の状態": frame.get("状態"), "理由": reason_list,
+                "数字の入力": False, "自由記述": False, "推奨": None,
+                "図面全体への入口": {"任意": True, "ページ": pages[0] if pages else None},
+            }
+
+        def keep(card: dict[str, Any], reason: str) -> None:
+            bad = invalid_reasons(card)
+            if bad:
+                records.append({"枠": name, "理由": reason, "作った鍵": [], "作れなかった理由": bad})
+            else:
+                out.append(card)
+                records.append({"枠": name, "理由": reason, "作った鍵": [card["鍵"]], "作れなかった理由": []})
+
+        presence = [r for r in reason_list if r in PRESENCE_REASONS]
+        if presence:
+            if "読めていない頁がある" in presence:
+                q = f"候補ページに「{name}」の工事の記載がありますか"
+            elif "資料が足りない" in presence:
+                q = f"資料が足りないまま聞きます。この案件に「{name}」の工事はありますか"
+            else:
+                q = f"この案件に「{name}」の工事はありますか"
+            card = base(f"枠:{name}", "工事の有無", f"{q}({'・'.join(reason_list)})", fixed_options("工事の有無"))
+            bad = invalid_reasons(card)
+            if not bad:
+                out.append(card)
+            for r in presence:
+                records.append({"枠": name, "理由": r, "作った鍵": [] if bad else [card["鍵"]],
+                                "作れなかった理由": bad})
+        if PAGE_REASON in reason_list:
+            if len(all_pages) < 2:
+                records.append({"枠": name, "理由": PAGE_REASON, "作った鍵": [],
+                                "作れなかった理由": ["候補ページが 2 つ未満(選ぶ所が無い)"]})
+            else:
+                options = [f"{p}ページ" for p in pages] + [NONE_OF_THESE]
+                keep(base(f"枠:{name}:ページ", "どの室・部位か",
+                          f"「{name}」の記載は、どのページのものを採りますか", options), PAGE_REASON)
+        if QUANTITY_REASON in reason_list:
+            if frames_def is None:
+                from draft import work_checklist
+
+                frames_def = work_checklist.load_frames()
+                for it in items:
+                    if it.get("数量") is None:
+                        by_frame.setdefault(work_checklist.frame_of(it, frames_def)["枠"], []).append(it)
+            made, no_value, bad_all = [], 0, []
+            for it in by_frame.get(name, ()):
+                options, sources = quantity_options(qsources.get(it["id"], ()))
+                if not options:
+                    no_value += 1
+                    continue
+                page = it.get("ページ")
+                key = f"枠:{name}:数量:{it['id']}"
+                card = base(key, "数量", f"{page}ページ: {it.get('何') or it.get('工事')}({it.get('場所')})の数量は、どれですか",
+                            [*options, NONE_OF_THESE])
+                card.update({"見る所": [page] if page else [], "ページ": page, "他の見る所": [], "他◯か所": None,
+                             "位置": [{"ページ": page, "位置": it.get("囲み")}],
+                             "切り抜き": crops.get(key) or ({"ページ": page, "位置": it.get("囲み")} if page else None),
+                             "直接": [it["id"]], "数量の出どころ": sources, "工事": it.get("工事"),
+                             "品番": it.get("品番"), "室": it.get("場所"), "部位": it.get("部位"),
+                             "不確実さ": 1.0})
+                bad = invalid_reasons(card)
+                if bad:
+                    bad_all.extend(bad)
+                    continue
+                out.append(card)
+                made.append(key)
+            why = []
+            if no_value:
+                why.append(f"数量の無い項目 {no_value} 個に候補の値が無い")
+            if not by_frame.get(name):
+                why.append("数量の無い項目が理解に見つからない(枠の振り分けが合わない)")
+            why.extend(sorted(set(bad_all)))
+            records.append({"枠": name, "理由": QUANTITY_REASON, "作った鍵": made, "作れなかった理由": why})
+        for r in reason_list:
+            if r not in (*PRESENCE_REASONS, PAGE_REASON, QUANTITY_REASON):
+                records.append({"枠": name, "理由": r, "作った鍵": [], "作れなかった理由": ["理由が K-67 の 5 つに無い"]})
+    return {"カード": out, "理由ごと": records}

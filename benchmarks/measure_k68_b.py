@@ -143,6 +143,7 @@ def build_all(drafts: Mapping[str, Mapping[str, Any]], pdf: Path | None, *,
         out[name]["_候補"] = raw
         out[name]["_ほかの回"] = other
         out[name]["_チェック表"] = checklists.get(name)
+        out[name]["枠の理由ごと"] = out[name].get("枠の理由ごと", [])
     return out
 
 
@@ -522,7 +523,80 @@ def round5(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None, 
     return out
 
 
-ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5}
+def round6(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None, **_: Any) -> dict[str, Any]:
+    """周 6: 工事チェック表の「分からない理由」から質問を作る(機械の値・縮尺の値は渡さない。周 4 と同じ)。"""
+    from copy import deepcopy
+
+    from draft import answers_io
+
+    before = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
+    prev4 = (before.get("周4") or {}).get("回") or {}
+    checklists = checklists_of(drafts, pdf)
+    builts = build_all(drafts, pdf)
+    out: dict[str, Any] = {"回": {}}
+    for name, built in builts.items():
+        asked = built["カード"]
+        checklist = checklists.get(name) or {}
+        records = built["枠の理由ごと"]
+        have = {(r["枠"], r["理由"]) for r in records}
+        want = [(f["枠"], r) for f in checklist.get("枠") or () if f.get("状態") != "確認できた"
+                for r in (f.get("分からないこと") or {}).get("理由") or ()]
+        silent = [w for w in want if w not in have]
+        made_keys = {k for r in records for k in r["作った鍵"]}
+        reason_cards = [c for c in asked if c["鍵"] in made_keys]
+        tried = refused = 0
+        for c in reason_cards:
+            for choice in c["選択肢"]:
+                u, f = deepcopy(drafts[name]["理解"]), deepcopy(drafts[name]["仕上表"])
+                tried += 1
+                refused += len(answers_io.apply(u, f, [c], {c["鍵"]: choice})["戻せなかった答え"])
+        by_reason: dict[str, dict[str, Any]] = {}
+        for r in records:
+            row = by_reason.setdefault(r["理由"], {"理由の数": 0, "問いにした": 0, "作れなかった": 0, "カード": set(),
+                                               "作れなかった理由": {}})
+            row["理由の数"] += 1
+            if r["作った鍵"]:
+                row["問いにした"] += 1
+                row["カード"].update(r["作った鍵"])
+            else:
+                row["作れなかった"] += 1
+            for why in r["作れなかった理由"]:
+                w = why if "個に候補の値が無い" not in why else "数量の無い項目に候補の値が無い"
+                row["作れなかった理由"][w] = row["作れなかった理由"].get(w, 0) + 1
+        for row in by_reason.values():
+            row["カード"] = len(row["カード"])
+        qty = [c for c in reason_cards if c["型"] == "数量"]
+        first = {c["鍵"]: a for c in asked if (a := _first_real(c)) is not None}
+        out["回"][name] = {
+            "確認できなかった枠": sum(1 for f in checklist.get("枠") or () if f.get("状態") != "確認できた"),
+            "理由の和": len(want),
+            "線1: 問いにも作れなかった理由にもならなかった理由": len(silent),
+            "理由ごと": by_reason,
+            "線2: 数量の根拠が足りないから作った数量のカード": len(qty),
+            "線3: 理由から作ったカードの選択肢を 1 つずつ答えた数": tried,
+            "線3: 戻せなかった答え": refused,
+            "理由から作った聞くカードの型ごと": _count([c["型"] for c in reason_cards]),
+            "聞くカード 周4→周6": {"周4": ((prev4.get(name) or {}).get("聞くカード 周3→周4") or {}).get("周4"),
+                               "周6": len(asked)},
+            "聞くカードの型ごと": built["型ごと"],
+            "線5: 自動確定": _auto_confirmed(drafts[name], asked, first),
+        }
+    rows = out["回"]
+    full = [n for n in rows if n.startswith("full")]
+    hidden = [n for n in rows if not n.startswith("full")]
+    base = min(rows[n]["聞くカード 周4→周6"]["周6"] for n in full) if full else None
+    out["線1"] = all(r["線1: 問いにも作れなかった理由にもならなかった理由"] == 0 for r in rows.values())
+    out["線2"] = all(rows[n]["線2: 数量の根拠が足りないから作った数量のカード"] >= 1 for n in full)
+    out["線3"] = all(r["線3: 戻せなかった答え"] == 0 for r in rows.values())
+    out["線4"] = {"全部あり版のいちばん少ない聞くカード": base,
+                 "隠した版の聞くカード": {n: rows[n]["聞くカード 周4→周6"]["周6"] for n in hidden},
+                 "合否": all(rows[n]["聞くカード 周4→周6"]["周6"] >= base for n in hidden) if base is not None else None}
+    out["線5"] = all(r["線5: 自動確定"]["自動確定"] == 0 for r in rows.values())
+    return out
+
+
+ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5,
+                                                    6: round6}
 
 
 def main() -> None:

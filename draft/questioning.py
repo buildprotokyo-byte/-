@@ -210,24 +210,32 @@ def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
                     raw.append(q)
 
     spots = unc.spot_check_ids(classified)
+    qsrc = (quantity_sources(items, other_runs, machine=machine_values, scale=scale_values)
+            if quantity_rule == "新" else None)
     built = cards_mod.build_cards(raw, items, graph, classified, amounts=amounts, total=total,
                                   crops=crops, other_values=other_values(items, other_runs),
-                                  spot_check_ids=spots,
-                                  quantity_sources=(quantity_sources(items, other_runs, machine=machine_values,
-                                                                     scale=scale_values)
-                                                    if quantity_rule == "新" else None))
+                                  spot_check_ids=spots, quantity_sources=qsrc)
     has_cost = bool(total)
     # K-65 の 0: 工事チェック表の「分からないこと」も問いにする。**原本に依らない問い。**
-    frames = [c for c in cards_mod.frame_cards(checklist, crops=crops) if not cards_mod.invalid_reasons(c)]
+    # K-68 B 周 6: 理由ごとに問いの形を変える(`cards.reason_cards`)。
+    reasons = cards_mod.reason_cards(checklist, items, quantity_sources=qsrc or {}, crops=crops)
+    frames = reasons["カード"]
     for c in frames:
+        if c["型"] == "数量":
+            c["メーター"] = cards_mod._meter(c, graph, amounts, total)  # 連鎖も付く
+            continue
         c["メーター"] = {"決める項目数": {"直接": 0, "連鎖": 0, "合計": 0},
                      "決める金額": "未取得(枠の有無を決める問いなので項目の金額では測れない)",
-                     "回答時間の見積(秒)": cards_mod.SECONDS["工事の有無"],
+                     "回答時間の見積(秒)": cards_mod.SECONDS[c["型"]],
                      "回答時間の見積は較正済みか": cards_mod.SECONDS_CALIBRATED,
                      "見込み精度の変化": "出さない(未較正)",
-                     "但し書き": "枠の有無を決める問い。項目は決めない"}
+                     "但し書き": "枠の分からないことを埋める問い。項目は決めない"}
         c["連鎖"] = {"直接": [], "連鎖": [], "辿った辺の種類": []}
-    ordered = cards_mod.order(list(built["カード"]) + frames, how=how, has_cost=has_cost, seed=seed)
+    # 同じ項目の数量の問いは 1 枚にする(理由から作った方を残す。影響小で黙らないため)。
+    framed = {i for c in frames if c["型"] == "数量" for i in c["直接"]}
+    item_cards = [c for c in built["カード"]
+                  if not (c["型"] == "数量" and set(c.get("直接") or ()) & framed)]
+    ordered = cards_mod.order(item_cards + frames, how=how, has_cost=has_cost, seed=seed)
 
     spot_set = set(spots)
     for c in ordered:
@@ -253,6 +261,7 @@ def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
         "畳んだカード": built["畳んだカード"],
         "抜き取りの問い": [c["鍵"] for c in asked if c.get("抜き取り")],
         "枠の問い": [c["鍵"] for c in asked if c.get("枠の問い")],
+        "枠の理由ごと": reasons["理由ごと"],
         "聞かない(影響小)": small,
         "累積": rows,
         "止め線に入る問数": {f"{s // 60}分": cards_mod.within(rows, s) for s in cards_mod.STOP_LINES},
