@@ -36,8 +36,18 @@ SECONDS_CALIBRATED = False
 #: 時間の止め線(秒)。**質問数の上限は置かない**(K-60 の 3/5/10 は MODES に残すが既定では使わない)。
 STOP_LINES = (300, 600, 900)
 
-#: 「見る所」がこのページ数以上だと、資料を通読しないと答えられないので無効。
+#: 画面に出す「見る所」がこのページ数以上だと、資料を通読しないと答えられないので無効。
 MAX_PAGES = 4
+#: 画面に出す見る所の数(K-68 B 周 4)。見る所が 4 ページ以上の問いは**捨てず**、先頭 3 か所+「他◯か所」で出す。
+SHOWN_PAGES = MAX_PAGES - 1
+
+
+def shown_pages(pages: Sequence[int]) -> dict[str, Any]:
+    """見る所を、画面に出す先頭 3 か所と残りに分ける。**残りは消さない**(`他の見る所` に全部残す)。"""
+    pages = list(pages)
+    rest = pages[SHOWN_PAGES:]
+    return {"見る所": pages[:SHOWN_PAGES], "他の見る所": rest,
+            "他◯か所": f"他{len(rest)}か所" if rest else None}
 
 NONE_OF_THESE = "どれでもない(現地・設計者に確認する)"
 NOT_IN_SCOPE = "この室・部位は今回の工事に入らない"
@@ -86,7 +96,8 @@ def invalid_reasons(card: Mapping[str, Any]) -> list[str]:
     if not card.get("切り抜き"):
         out.append("切り抜きが無い")
     if len(card.get("見る所") or ()) >= MAX_PAGES:
-        out.append(f"見る所が {MAX_PAGES} ページ以上(通読しないと答えられない)")
+        # K-68 B 周 4 からは、カードを作るときに先頭 3 か所+「他◯か所」にするので、ここには来ない。
+        out.append(f"画面に出す見る所が {MAX_PAGES} ページ以上(通読しないと答えられない)")
     if card.get("型") in FIXED_OPTIONS and not _is_unreadable(card) and options != fixed_options(card["型"]):
         out.append("固定の選択肢と違う")
     return out
@@ -218,11 +229,14 @@ def _to_card(q: Mapping[str, Any], items: Sequence[Mapping[str, Any]],
         options = _quantity_options(first, by_id, other_values.get(_value_key(first), ()) if first else ())
     if not any(NONE_OF_THESE[:4] in o or "分からない" in o for o in options):
         options.append(NONE_OF_THESE)
-    pages = sorted(_page_numbers(q.get("見る所")))
+    all_pages = sorted(_page_numbers(q.get("見る所")))
+    shown = shown_pages(all_pages)
+    pages = shown["見る所"]
     sig = [s for i in related for s in (uncertain.get(i, {}).get("信号") or ())]
     card = {
         "鍵": q["鍵"], "型": type_, "問い": q["問い"], "選択肢": options,
         "見る所": pages, "ページ": pages[0] if pages else None,
+        "他の見る所": shown["他の見る所"], "他◯か所": shown["他◯か所"],
         "位置": list(q.get("位置") or ()),
         "切り抜き": crops.get(q["鍵"]) or ({"ページ": pages[0], "位置": (q.get("位置") or [{}])[0].get("位置")}
                                       if pages else None),
@@ -467,8 +481,10 @@ def frame_cards(checklist: Mapping[str, Any] | None, *, max_pages: int = MAX_PAG
             continue
         unknown = frame.get("分からないこと") or {}
         raw_pages = unknown.get("候補ページ") or frame.get("候補ページ") or ()
-        pages = sorted(_page_numbers(
-            [p.get("ページ") if isinstance(p, Mapping) else p for p in raw_pages]))[:max_pages]
+        all_pages = sorted(_page_numbers(
+            [p.get("ページ") if isinstance(p, Mapping) else p for p in raw_pages]))
+        # K-68 B 周 4: 先頭 max_pages か所+「他◯か所」。**K-65 までは残りを黙って切っていた。**
+        pages, rest = all_pages[:max_pages], all_pages[max_pages:]
         key = f"枠:{frame.get('枠')}"
         reason_list = list(unknown.get("理由") or frame.get("理由") or ())
         reasons = "・".join(str(r) for r in reason_list)
@@ -477,6 +493,7 @@ def frame_cards(checklist: Mapping[str, Any] | None, *, max_pages: int = MAX_PAG
             "問い": f"この案件に「{frame.get('枠')}」の工事はありますか({reasons})",
             "選択肢": list(FRAME_OPTIONS),
             "見る所": pages, "ページ": pages[0] if pages else None,
+            "他の見る所": rest, "他◯か所": f"他{len(rest)}か所" if rest else None,
             "位置": [{"ページ": p, "位置": None} for p in pages],
             "切り抜き": crops.get(key) or ({"ページ": pages[0], "位置": None, "ページ全体": True}
                                        if pages else None),

@@ -23,6 +23,7 @@ from benchmarks.measure_question_curve import load_run
 from draft import uncertainty
 
 K65_RESULT = Path(__file__).resolve().parents[1] / "docs" / "k65_question_curve_result.json"
+RESULT = Path(__file__).resolve().parents[1] / "docs" / "k68_b_questions_result.json"
 
 
 def _ratio(part: int, whole: int) -> float | None:
@@ -393,7 +394,70 @@ def round3(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None,
     return out
 
 
-ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2, 3: round3}
+def round4(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None, **_: Any) -> dict[str, Any]:
+    """周 4: 見る所が 4 ページ以上の問いを捨てず、先頭 3 か所+「他◯か所」で出す。
+
+    機械の値・縮尺の値は渡さない(周 3 で、聞くカードを 1 枚も変えなかったため。縮尺は 1 版 1 分半かかる)。
+    """
+    from draft import cards as cards_mod
+
+    before = json.loads(RESULT.read_text(encoding="utf-8")) if RESULT.exists() else {}
+    prev2 = (before.get("周2") or {}).get("回") or {}
+    prev3 = (before.get("周3") or {}).get("回") or {}
+    checklists = checklists_of(drafts, pdf)
+    builts = build_all(drafts, pdf)
+    out: dict[str, Any] = {"回": {}}
+    for name, built in builts.items():
+        asked = built["カード"]
+        made = made_cards(drafts[name], built, checklists.get(name))
+        small = set(built["聞かない(影響小)"])
+        # 同じ鍵の問いの候補が 2 つ以上あることがある(見る所が違う)ので、鍵ごとに全部の見る所を持つ。
+        raw_pages: dict[str, list[list[int]]] = {}
+        for q in built["_候補"]:
+            raw_pages.setdefault(q["鍵"], []).append(sorted(cards_mod._page_numbers(q.get("見る所"))))
+        for c in cards_mod.frame_cards(checklists.get(name)):
+            raw_pages.setdefault(c["鍵"], []).append(sorted([*c["見る所"], *c["他の見る所"]]))
+        lost = [c["鍵"] for c in made if c["鍵"] in raw_pages
+                and sorted([*c["見る所"], *(c.get("他の見る所") or ())]) not in raw_pages[c["鍵"]]]
+        dup_keys = sum(1 for v in raw_pages.values() if len(v) > 1)
+        label_bad = [c["鍵"] for c in made if (c.get("他の見る所") or c.get("他◯か所"))
+                     and c.get("他◯か所") != f"他{len(c.get('他の見る所') or ())}か所"]
+        long_ = [c for c in made if c.get("他の見る所")]
+        dropped_long = [d for d in built["捨てたカード"] if "ページ以上" in d["理由"]]
+        first = {c["鍵"]: a for c in asked if (a := _first_real(c)) is not None}
+        out["回"][name] = {
+            "線1: 見る所が 4 ページ以上で捨てたカード": len(dropped_long),
+            "捨てたカード 周2→周4": {"周2": (prev2.get(name) or {}).get("捨てたカードの数", {}).get("周2"),
+                                "周4": len(built["捨てたカード"])},
+            "捨てたカードの型と理由ごと": _count([f"{d.get('型')}|{d['理由']}" for d in built["捨てたカード"]]),
+            "線2: 画面に出す見る所が 4 ページ以上のカード": sum(1 for c in made if len(c["見る所"]) >= cards_mod.MAX_PAGES),
+            "線2: 他◯か所を付けたカード(作った分)": len(long_),
+            "線2: 他◯か所を付けたカードの型ごと": _count([c["型"] for c in long_]),
+            "線2: 他◯か所の数が合わないカード": len(label_bad),
+            "線2: ページを落としたカード": len(lost),
+            "同じ鍵の問いの候補が 2 つ以上ある鍵": dup_keys,
+            "他の見る所のページ数(最小・最大)": ([min(len(c["他の見る所"]) for c in long_),
+                                      max(len(c["他の見る所"]) for c in long_)] if long_ else None),
+            "聞くカード 周3→周4": {"周3": (prev3.get(name) or {}).get("聞くカード", {}).get("周3"), "周4": len(asked)},
+            "聞くカードの型ごと 周3→周4": {"周3": (prev3.get(name) or {}).get("聞くカードの型ごと"),
+                                    "周4": built["型ごと"]},
+            "聞く他◯か所のカード": sum(1 for c in asked if c.get("他の見る所")),
+            "作ったカード 周2→周4": {"周2": (prev2.get(name) or {}).get("作ったカードの数(聞く分+影響小で黙らせた分)"),
+                                "周4": len(made)},
+            "聞かない(影響小) 周2→周4": {"周2": (prev2.get(name) or {}).get("聞かない(影響小)の数", {}).get("周2"),
+                                    "周4": len(small)},
+            "影響小で黙らせた他◯か所のカード": sum(1 for c in long_ if c["鍵"] in small),
+            "線4: 自動確定": _auto_confirmed(drafts[name], asked, first),
+        }
+    rows = out["回"]
+    out["線1"] = all(r["線1: 見る所が 4 ページ以上で捨てたカード"] == 0 for r in rows.values())
+    out["線2"] = all(r["線2: 画面に出す見る所が 4 ページ以上のカード"] == 0 and r["線2: 他◯か所の数が合わないカード"] == 0
+                    and r["線2: ページを落としたカード"] == 0 for r in rows.values())
+    out["線4"] = all(r["線4: 自動確定"]["自動確定"] == 0 for r in rows.values())
+    return out
+
+
+ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2, 3: round3, 4: round4}
 
 
 def main() -> None:
