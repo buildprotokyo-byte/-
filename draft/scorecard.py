@@ -173,16 +173,18 @@ def build(
 
     # --- 段階 2 概略書 ---
     frames = (checklist or {}).get("枠") or []
-    with_state = sum(1 for f in frames if f.get("状態"))
-    rows.append(Row(2, "16 枠に状態が付く", "状態が付いた枠 ÷ 16", 1.0,
-                    round(with_state / 16, 4) if frames else UNKNOWN))
+    # K-70: 枠は大枠 18・小枠 5(K-67 は 16)。分母は枠のファイルの枠の数(小枠を含む)。
+    all_frames = list(frames) + [s for f in frames for s in (f.get("小枠") or [])]
+    with_state = sum(1 for f in all_frames if f.get("状態"))
+    rows.append(Row(2, "全部の枠に状態が付く", "状態が付いた枠 ÷ 枠の数(大枠と小枠。K-67 は 16)", 1.0,
+                    round(with_state / len(all_frames), 4) if all_frames else UNKNOWN))
     located = [i for i in items if i.get("ページ") and i.get("位置")]
     rows.append(Row(2, "出典の実在", "項目のうち、ページと位置の両方を持つ割合", 0.95,
                     round(len(located) / len(items), 4) if items else UNKNOWN))
     if frames:
         legal = all(
             set(f["分からないこと"]["理由"]) <= set(__import__("draft.work_checklist", fromlist=["REASONS"]).REASONS)
-            for f in frames
+            for f in all_frames
         )
         wrongly = (checklist or {}).get("語が見つかるのに記載が見当たらないとした枠") or []
         rows.append(Row(2, "「分からない」の理由の妥当性", "理由が決めた 5 つの中にあり、語が見つかるのに「記載が見当たらない」と言った枠が 0",
