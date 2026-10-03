@@ -187,11 +187,12 @@ def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
           checklist: Mapping[str, Any] | None = None, seed: int = 65,
           machine_values: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
           scale_values: Mapping[str, Sequence[Mapping[str, Any]]] | None = None,
-          quantity_rule: str = "新") -> dict[str, Any]:
+          quantity_rule: str = "新", calibration: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """問いの候補にカードとメーターを付ける。
 
     ``quantity_rule`` は `数量` の型の選択肢の作り方。`新`(K-68 B 周 3)は `quantity_sources` の 5 つの出どころ、
     `旧`(K-65)は同じものの値とほかの回の値(旧の鍵)だけ。比べるためだけに旧を残す。
+    ``calibration`` はメーターの較正の結果(K-68 B 周 7)。無ければ見込みは画面に出さない。
     """
     items = list(understanding.get("項目") or ())
     classified = unc.classify(items, finish=finish, other_runs=other_runs,
@@ -249,6 +250,7 @@ def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
                  total, c.get("メーター", {}).get("決める項目数", {}).get("合計", 0))]
     asked = [c for c in ordered if c["鍵"] not in set(small) or c.get("抜き取り")]
     rows = cards_mod.cumulative(asked, total=total, item_total=len(items) or None)
+    shown = cards_mod.apply_meter_display(asked, calibration)
 
     return {
         "3状態": {k: v for k, v in classified.items() if k != "項目ごと"},
@@ -262,6 +264,7 @@ def build(questions: Mapping[str, Any], understanding: Mapping[str, Any],
         "抜き取りの問い": [c["鍵"] for c in asked if c.get("抜き取り")],
         "枠の問い": [c["鍵"] for c in asked if c.get("枠の問い")],
         "枠の理由ごと": reasons["理由ごと"],
+        "見込みを画面に出すか": shown,
         "聞かない(影響小)": small,
         "累積": rows,
         "止め線に入る問数": {f"{s // 60}分": cards_mod.within(rows, s) for s in cards_mod.STOP_LINES},

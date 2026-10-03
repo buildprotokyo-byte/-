@@ -595,8 +595,102 @@ def round6(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None, 
     return out
 
 
+def _after(draft: Mapping[str, Any], cards: Sequence[Mapping[str, Any]], answers: Mapping[str, str],
+           other: Sequence[Any], *, machine: bool = False) -> dict[str, Any]:
+    """答えを本番の口(`answers_io.apply`)で戻した後の 3 状態。``machine`` なら自動確定も数える。"""
+    from copy import deepcopy
+
+    from draft import answers_io, stages
+
+    understanding = deepcopy(draft["理解"])
+    finish = deepcopy(draft["仕上表"])
+    applied = answers_io.apply(understanding, finish, cards, answers)
+    c = uncertainty.classify(understanding["項目"], finish=finish, other_runs=other)
+    out = {"3状態": c["3状態の分布"], "未確定の項目": {r["id"] for r in c["項目ごと"] if r["3状態"] == uncertainty.UNSETTLED},
+           "戻せなかった答え": len(applied["戻せなかった答え"])}
+    if machine:
+        from draft.run import machine_check
+
+        rows, _ = stages.assembly_rows(understanding["項目"])
+        out["自動確定"] = machine_check(rows, None, None, "P011")["自動確定"]
+    return out
+
+
+COUNTS = (0, 3, 5, 10, 20, 40, 60)
+
+
+def round7(drafts: Mapping[str, Mapping[str, Any]], *, pdf: Path | None = None, **_: Any) -> dict[str, Any]:
+    """周 7: 質問の曲線とメーターの較正を、本番の口で答えを戻して測り直す(カードは周 6 の作り方)。"""
+    k65 = _k65()["回"]
+    by_how = {how: build_all(drafts, pdf, how=how) for how in ("連鎖の金額順", "ランダム")}
+    out: dict[str, Any] = {"回": {}}
+    for name, draft in drafts.items():
+        row: dict[str, Any] = {"曲線": {}}
+        for how, builts in by_how.items():
+            built = builts[name]
+            asked, other = built["カード"], built["_ほかの回"]
+            base = _after(draft, asked, {}, other)
+            points = []
+            for k in [*COUNTS, len(asked)]:
+                chosen = asked[:k]
+                answers = {c["鍵"]: a for c in chosen if (a := _first_real(c)) is not None}
+                got = _after(draft, asked, answers, other, machine=True)
+                points.append({"問数": min(k, len(asked)), "答えた数": len(answers),
+                               "戻せなかった答え": got["戻せなかった答え"], "3状態(後)": got["3状態"],
+                               "未確定が減った数": len(base["未確定の項目"]) - len(got["未確定の項目"]),
+                               "自動確定": got["自動確定"]})
+            row["曲線"][how] = {"聞くカード": len(asked), "3状態(前)": base["3状態"], "点": points}
+        built = by_how["連鎖の金額順"][name]
+        asked, other = built["カード"], built["_ほかの回"]
+        base = _after(draft, asked, {}, other)["未確定の項目"]
+        cal_rows = []
+        for c in asked[:60]:
+            pick = _first_real(c)
+            if pick is None:
+                continue
+            now = _after(draft, asked, {c["鍵"]: pick}, other)["未確定の項目"]
+            actual = len(base - now)
+            promised = c["メーター"]["決める項目数"]["合計"]
+            cal_rows.append({"型": c["型"], "見込み": promised, "実際": actual,
+                             "ずれ": abs(promised - actual) / promised if promised else None})
+        gaps = sorted(r["ずれ"] for r in cal_rows if r["ずれ"] is not None)
+        median = round(gaps[len(gaps) // 2], 4) if gaps else None
+        by_type = {}
+        for t in sorted({r["型"] for r in cal_rows}):
+            g = sorted(r["ずれ"] for r in cal_rows if r["型"] == t and r["ずれ"] is not None)
+            if g:
+                by_type[t] = {"問数": len(g), "ずれの中央値": round(g[len(g) // 2], 4)}
+        calibration = {"測った問数": len(cal_rows), "見込みのある問": len(gaps),
+                       "見込みの合計": sum(r["見込み"] for r in cal_rows), "実際の合計": sum(r["実際"] for r in cal_rows),
+                       "ずれの中央値": median, "実際が 0 だった問": sum(1 for r in cal_rows if r["実際"] == 0),
+                       "型ごと": by_type}
+        from draft import questioning
+
+        rebuilt = questioning.build({"候補": built["_候補"]}, draft["理解"], draft["仕上表"], other_runs=other,
+                                    checklist=built.get("_チェック表"), calibration=calibration)
+        row["較正"] = {"K-65": {"ずれの中央値": k65[name]["メーターの較正"]["ずれの中央値"],
+                              "見込みの合計": k65[name]["メーターの較正"]["見込みの合計"],
+                              "実際の合計": k65[name]["メーターの較正"]["実際の合計"]},
+                     "周7": calibration,
+                     "見込みを画面に出すか": rebuilt["見込みを画面に出すか"],
+                     "線2: 画面に出す見込みのあるカード": sum(1 for c in rebuilt["カード"]
+                                                    if c["メーター"].get("画面に出す見込み") is not None)}
+        k65_curve = k65[name]["曲線"]["連鎖の金額順"]["行"]
+        row["K-65 の曲線(連鎖の金額順、未確定が減った数)"] = {str(x["問数"]): x["未確定が減った数"] for x in k65_curve}
+        out["回"][name] = row
+    rows = out["回"]
+    full = [n for n in rows if n.startswith("full")]
+    out["線1"] = all(rows[n]["曲線"]["連鎖の金額順"]["点"][-1]["未確定が減った数"]
+                    > max(rows[n]["K-65 の曲線(連鎖の金額順、未確定が減った数)"].values()) for n in full)
+    out["線2"] = all((r["較正"]["線2: 画面に出す見込みのあるカード"] == 0)
+                    if (r["較正"]["周7"]["ずれの中央値"] is None or r["較正"]["周7"]["ずれの中央値"] > 0.20) else True
+                    for r in rows.values())
+    out["線3"] = all(p["自動確定"] == 0 for r in rows.values() for c in r["曲線"].values() for p in c["点"])
+    return out
+
+
 ROUNDS: dict[int, Callable[..., dict[str, Any]]] = {1: round1, 2: round2, 3: round3, 4: round4, 5: round5,
-                                                    6: round6}
+                                                    6: round6, 7: round7}
 
 
 def main() -> None:

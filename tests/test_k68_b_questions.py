@@ -581,3 +581,30 @@ def test_理由から作った問いは影響小で黙らない() -> None:
 
     assert "枠:内装" in [c["鍵"] for c in built["カード"]]
     assert built["枠の理由ごと"][0]["作った鍵"] == ["枠:内装"]
+
+
+# 周 7 見込みは較正のずれが 20% 超なら出さない
+# ---------------------------------------------------------------------------
+
+
+def test_未較正なら見込みを出さない() -> None:
+    assert cards.meter_display(None)["出す"] is False
+    assert cards.meter_display({"ずれの中央値": None})["出す"] is False
+
+
+def test_ずれが20パーセント超なら見込みを出さない() -> None:
+    assert cards.meter_display({"ずれの中央値": 0.21})["出す"] is False
+    assert cards.meter_display({"ずれの中央値": 0.20})["出す"] is True
+
+
+def test_見込みを出さないカードは画面の見込みが空() -> None:
+    items = [_item("a", 状態="問い")]
+    checklist = {"枠": [_frame("内装", ["読めていない頁がある"], [3])]}
+    built = questioning.build({"候補": [_q("a")]}, {"項目": items}, {"照らし合わせ": []}, checklist=checklist)
+
+    assert built["カード"]
+    assert all(c["メーター"]["画面に出す見込み"] is None for c in built["カード"])
+    assert all(c["メーター"]["見込みを出さない理由"] for c in built["カード"])
+    good = questioning.build({"候補": [_q("a")]}, {"項目": items}, {"照らし合わせ": []}, checklist=checklist,
+                             calibration={"ずれの中央値": 0.1})
+    assert all(c["メーター"]["画面に出す見込み"] is not None for c in good["カード"])

@@ -627,3 +627,30 @@ def reason_cards(checklist: Mapping[str, Any] | None, items: Sequence[Mapping[st
             if r not in (*PRESENCE_REASONS, PAGE_REASON, QUANTITY_REASON):
                 records.append({"枠": name, "理由": r, "作った鍵": [], "作れなかった理由": ["理由が K-67 の 5 つに無い"]})
     return {"カード": out, "理由ごと": records}
+
+
+#: 見込みを画面に出してよい、ずれの中央値の上限(K-65 基準 6 節・K-68 B 周 7)。
+METER_MAX_GAP = 0.20
+
+
+def meter_display(calibration: Mapping[str, Any] | None) -> dict[str, Any]:
+    """メーターの見込み(`決める項目数`)を画面に出すか。**較正の結果が無ければ出さない。**
+
+    ``calibration`` は較正の結果(``{"ずれの中央値": 0.xx, ...}``)。ずれの中央値が 20% を超えたら出さない。
+    """
+    if not calibration or calibration.get("ずれの中央値") is None:
+        return {"出す": False, "理由": "未較正(較正の結果が無い)"}
+    gap = float(calibration["ずれの中央値"])
+    if gap > METER_MAX_GAP:
+        return {"出す": False, "理由": f"較正のずれの中央値 {gap:.0%} が {METER_MAX_GAP:.0%} を超えた"}
+    return {"出す": True, "理由": f"較正のずれの中央値 {gap:.0%}"}
+
+
+def apply_meter_display(cards: Sequence[dict[str, Any]], calibration: Mapping[str, Any] | None) -> dict[str, Any]:
+    """カードの `画面に出す見込み` を決める。**並べ方には内部の数字を使い続ける**(画面に出さないだけ)。"""
+    shown = meter_display(calibration)
+    for c in cards:
+        meter = c.setdefault("メーター", {})
+        meter["画面に出す見込み"] = dict(meter.get("決める項目数") or {}) if shown["出す"] else None
+        meter["見込みを出さない理由"] = None if shown["出す"] else shown["理由"]
+    return shown
