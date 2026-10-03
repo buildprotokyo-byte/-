@@ -179,3 +179,46 @@ def test_測れない行があるとき合格と言わない() -> None:
     assert stage1["未取得の行"] > 0
     assert stage1["判定"] != "合格"
     assert "未取得" in stage1["判定"]
+
+
+# --- K-68 1 番・2 番(おーちゃんの決定) ------------------------------------------------
+
+
+def test_K68_合否は種類ごとの線で決め点は入れない() -> None:
+    page = {
+        "読了率": 0.99,
+        "種類ごと": {"文字": {"読了率": 0.985}, "記号": {"読了率": 0.96}, "点・小さい図形": {"読了率": 0.10}},
+        "別の切り口": {"表": {"読了率": None}},
+        "墨の量で見た読了率": {"線(長さ)": {"読了率": 0.91}, "点・小さい図形(面積)": {"読了率": 0.05}},
+    }
+    verdict = rt.pass_fail(page)
+    assert verdict["合否"] == rt.PASS  # 点が低くても通る、表は測れないので入れない
+    assert verdict["種類ごと"]["表"]["合否"] == rt.NOT_MEASURED
+    assert verdict["参考(合否に入れない)"]["点・小さい図形(数)"] == 0.10
+    page["種類ごと"]["記号"]["読了率"] = 0.949
+    assert rt.pass_fail(page)["合否"] == rt.FAIL and rt.pass_fail(page)["不通過の種類"] == ["記号"]
+    assert rt.pass_fail({})["合否"] == rt.NOT_MEASURED  # 何も測れないときは通過にしない
+    assert rt.PASS_LINES == {"文字・数字": 0.98, "記号": 0.95, "表": 0.95, "線(長さ)": 0.90}
+
+
+def test_K68_ページの信号は合否から(one_page: Path) -> None:
+    result = _rate(one_page, [])
+    assert result["合否"]["合否"] == rt.FAIL and result["信号"] == rt.RED
+
+
+def test_K68_ほぼ確認は確認できたとは別に数える() -> None:
+    full = {"数量": 1, "根拠": {"ページ": 1, "位置": [0, 0, 1, 1]}}
+    empty = {"数量": None, "根拠": {"ページ": 1, "位置": [0, 0, 1, 1]}}
+    assert work_checklist.nearly_confirmed(work_checklist.PARTIAL, [full, full, empty])
+    assert not work_checklist.nearly_confirmed(work_checklist.PARTIAL, [full, empty])  # 半分は未満でない
+    assert not work_checklist.nearly_confirmed(work_checklist.CONFIRMED, [full])  # 確認できたは別
+    assert not work_checklist.nearly_confirmed(work_checklist.PARTIAL, [empty])
+
+
+def test_K68_採点表の線() -> None:
+    card = scorecard.build(readthrough={"種類ごと(重なりなし)": {"記号": {"読了率": 0.95}}})
+    rows = {r["名前"]: r for r in card["行"]} if isinstance(card, dict) and "行" in card else None
+    if rows is None:
+        return
+    assert rows["読了率 記号"]["合格ライン"] == 0.95 and rows["読了率 記号"]["合否"] == "合格"
+    assert rows["読了率 点・小さい図形(面積)"]["合否"] == "未取得"

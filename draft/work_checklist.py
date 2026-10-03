@@ -34,6 +34,20 @@ PARTIAL = "一部確認"
 NOT_FOUND = "記載が見当たらない"
 MISSING_SOURCE = "資料が足りない"
 
+#: 「ほぼ確認(未較正)」(K-68 2 番)。**状態ではなく別の表示。**「確認できた」の定義は今のまま。
+#: 一部確認の枠のうち、数量と位置を持つ項目が 1 件以上あり、数量の無い項目が半分未満のもの。
+#: 的中率はパソコン側で測ってから、どちらを「確認できた」にするか決める。それまでは信じない。
+NEARLY_CONFIRMED = "ほぼ確認(未較正)"
+
+
+def nearly_confirmed(state: str, found: Sequence[Mapping[str, Any]]) -> bool:
+    if state != PARTIAL or not found:
+        return False
+    complete = [f for f in found if f.get("数量") is not None and f["根拠"].get("ページ") and f["根拠"].get("位置")]
+    missing_qty = [f for f in found if f.get("数量") is None]
+    return bool(complete) and len(missing_qty) * 2 < len(found)
+
+
 #: 分からないことの理由。**この 5 つしか使わない。**
 REASONS = (
     "記載が見当たらない",
@@ -187,6 +201,7 @@ def build(
         rows.append({
             "枠": name,
             "状態": state,
+            NEARLY_CONFIRMED: nearly_confirmed(state, found),
             "明記された「なし」": EXPLICIT_NONE if explicit_none else "",
             "分かったこと": found,
             "件数": len(found),
@@ -210,6 +225,9 @@ def build(
         "但し書き": "下書き(人が直す前提)。「ない」とは言っていない。空の枠は「記載が見当たらない」",
         "枠の数": len(rows),
         "状態の分布": states,
+        f"{NEARLY_CONFIRMED}の枠": sum(1 for row in rows if row[NEARLY_CONFIRMED]),
+        f"{NEARLY_CONFIRMED}の注": "一部確認のうち、数量と位置を持つ項目が 1 件以上あり数量の無い項目が半分未満の枠。"
+                                   "確認できたとは別に数える。的中率は未測定",
         "足りない資料": list(missing_sources),
         "語が見つかるのに記載が見当たらないとした枠": said_none_wrongly,
         "枠": rows,
