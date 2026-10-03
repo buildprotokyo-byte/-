@@ -419,3 +419,72 @@ def flagged_keys(found: Sequence[Mapping[str, Any]]) -> set[str]:
         if c.get("項目"):
             out.add(f"項目:{c['項目']}")
     return out
+
+
+# --- K-70 作業 3: 番号の文字で返った答え(「1-3、2-1 …」)を読む ----------------------------
+
+#: 読めなかった答えの理由(この 5 つだけ)。**読めない書き方は捨てずに数える。**
+NUMBERED_REASONS = ("形が読めない", "カードの番号が無い", "選択肢の番号が無い", "同じカードに違う答え",
+                    "答えの無いカード")
+
+#: 横棒として読む文字(全角・長音・数学の負号・ダッシュなど)。
+_DASHES = "-‐‑‒–—―ー－−﹣ｰ\u00ad"
+#: 区切りとして読む文字。
+_SEPARATORS = r"[、,，;；。/／\s]+"
+
+
+def parse_numbered(text: str, cards: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    """「1-3、2-1 …」(カードの番号 - 選択肢の番号)を読む。``cards`` は画面に出した順(1 から)。
+
+    返すのは ``{"答え": {カードの鍵: 選択肢の文字}, "戻せなかった答え": [...], "答えの無いカード": [...]}``。
+    **読めない書き方は `戻せなかった答え` に、元の文字と理由を付けて残す**(黙って捨てない)。
+    同じカードに違う答えが 2 つあれば、**どちらも戻さない**(どちらが本当か決めない)。
+    """
+    import re
+    import unicodedata
+
+    raw = unicodedata.normalize("NFKC", str(text or ""))
+    for d in _DASHES:
+        raw = raw.replace(d, "-")
+    raw = re.sub(r"\s*-\s*", "-", raw)
+    tokens = [t for t in re.split(_SEPARATORS, raw) if t]
+    got: dict[int, list[tuple[int, str]]] = {}
+    refused: list[dict[str, Any]] = []
+    for token in tokens:
+        m = re.fullmatch(r"(\d+)-(\d+)", token)
+        if not m:
+            refused.append({"文字": token, "理由": "形が読めない"})
+            continue
+        n, k = int(m.group(1)), int(m.group(2))
+        if not 1 <= n <= len(cards):
+            refused.append({"文字": token, "理由": "カードの番号が無い"})
+            continue
+        options = list(cards[n - 1].get("選択肢") or ())
+        if not 1 <= k <= len(options):
+            refused.append({"文字": token, "理由": "選択肢の番号が無い"})
+            continue
+        got.setdefault(n, []).append((k, token))
+    answers: dict[str, str] = {}
+    used: list[str] = []
+    for n, picks in sorted(got.items()):
+        if len({k for k, _ in picks}) > 1:
+            for _, token in picks:
+                refused.append({"文字": token, "理由": "同じカードに違う答え"})
+            continue
+        card = cards[n - 1]
+        answers[card["鍵"]] = card["選択肢"][picks[0][0] - 1]
+        used.extend(token for _, token in picks)
+    unanswered = [i for i in range(1, len(cards) + 1) if cards[i - 1]["鍵"] not in answers]
+    return {"答え": answers, "戻せなかった答え": refused, "答えの無いカード": unanswered,
+            "読んだ文字の数": len(tokens), "戻した文字": used}
+
+
+def numbered_text(cards: Sequence[Mapping[str, Any]], picks: Mapping[str, str]) -> str:
+    """答え(カードの鍵 → 選択肢の文字)を「1-3、2-1 …」の文字にする(合成の答えを口に通すため)。"""
+    parts = []
+    for i, c in enumerate(cards, 1):
+        choice = picks.get(c["鍵"])
+        if choice is None:
+            continue
+        parts.append(f"{i}-{list(c['選択肢']).index(choice) + 1}")
+    return "、".join(parts)
