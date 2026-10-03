@@ -57,6 +57,9 @@ DEFINITION = (
 #: 「測れない」の理由。**高い数字も低い数字も出さない。**
 CANNOT_MEASURE = "測れない"
 
+#: 読みの答えが無いページの理由(K-68 C 周 1)。**0 と数えない。**
+UNOBTAINED = f"{CANNOT_MEASURE}(読みが未取得。AI の答えが無い)"
+
 #: 数字だけの語とみなす文字(寸法の見込み)。
 _NUMERIC = re.compile(r"^[0-9０-９\s\.,，、\-ー―~〜×xX*/:+()（）φΦRr@＠°%‰mｍ]+$")
 
@@ -302,18 +305,29 @@ def readthrough(
     *,
     cap: float = DEFAULT_CAP,
     with_unread: bool = True,
+    unobtained: Sequence[int] = (),
 ) -> dict[str, Any]:
-    """案件全体の読了率。**ページごとの信号と、案件全体の警告も出す。**"""
+    """案件全体の読了率。**ページごとの信号と、案件全体の警告も出す。**
+
+    ``unobtained`` は読み(AI の答え)が未取得のページ(K-68 C 周 1)。**読了率を 0 と数えず「未取得」(灰)と出す。**
+    案件全体の読了率・種類ごとの数には入れないが、案件全体の警告では「読めていないページ」(赤と同じ側)に数える。
+    """
     import pymupdf
 
+    missing = sorted(set(int(n) for n in unobtained))
     per_page: list[dict[str, Any]] = []
     with pymupdf.open(pdf) as doc:
-        for number in pages:
+        for number in sorted(set(pages) | set(missing)):
+            if number in missing:
+                per_page.append({"ページ": number, "数える図形": None, "読了率": None, "信号": GREY,
+                                 "測れない理由": UNOBTAINED, "読み": "未取得"})
+                continue
             page = doc.load_page(number - 1)
             elements = [e for e in (reading.get(number, {}) or {}).get("要素", []) if e.get("位置")]
             per_page.append(page_readthrough(page, number, elements, cap=cap, with_unread=with_unread))
 
     measured = [p for p in per_page if p["読了率"] is not None]
+    page_count = len(per_page)
     counted = sum(p["数える図形"] for p in measured)
     got = sum(p.get("拾えた", 0) for p in measured)
     colours = {GREEN: 0, YELLOW: 0, RED: 0, GREY: 0}
@@ -360,7 +374,8 @@ def readthrough(
 
     unread = [u for p in per_page for u in p.get("未読", [])]
     locatable = sum(p.get("未読の所在が指せた") or 0 for p in per_page)
-    red_share = colours[RED] / len(per_page) if per_page else 0.0
+    # 読みが未取得のページも「読めていない」側に数える(灰にしたことで警告が消えないように。K-68 C 周 1)。
+    red_share = (colours[RED] + len(missing)) / page_count if page_count else 0.0
 
     return {
         "定義": DEFINITION,
@@ -371,6 +386,7 @@ def readthrough(
         "拾えた": got,
         "測れたページ": len(measured),
         "測れないページ": len(per_page) - len(measured),
+        "読みが未取得のページ": missing,
         "信号の分布": colours,
         "赤の割合": round(red_share, 4),
         "案件全体の警告": CASE_WARNING if red_share >= CASE_WARNING_SHARE else "",

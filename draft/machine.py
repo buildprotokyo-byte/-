@@ -84,7 +84,7 @@ def prepare(pdf: str | Path, cache: str | Path | None = None, ocr: bool = False)
     """ページの画像・文字の層・白紙の見分け。**キャッシュにあれば作り直さない。**"""
     import pymupdf
 
-    from draft.pages import WIDTH_PX, render
+    from draft.pages import WIDTH_PX, render, words_in_image
 
     pdf = Path(pdf)
     d = case_dir(pdf, cache)
@@ -97,9 +97,8 @@ def prepare(pdf: str | Path, cache: str | Path | None = None, ocr: bool = False)
     with pymupdf.open(pdf) as doc:
         for info in infos:
             page = doc.load_page(info.number - 1)
-            zoom = WIDTH_PX / page.rect.width
-            words = [[w[4], [round(w[0] * zoom, 1), round(w[1] * zoom, 1), round(w[2] * zoom, 1), round(w[3] * zoom, 1)]]
-                     for w in page.get_text("words")]
+            # 回転のあるページも画像の座標に合わせる(K-68 C 周 1)。
+            words = [[text, [round(v, 1) for v in box]] for text, box in words_in_image(page)]
             source = "文字の層"
             if not words and not info.blank:
                 if ocr:

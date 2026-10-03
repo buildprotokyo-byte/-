@@ -71,12 +71,27 @@ def hide_pages(pdf_path: str | Path, pages: Sequence[int], out_pdf: str | Path) 
     return Path(out_pdf)
 
 
+def words_in_image(page: Any) -> list[tuple[str, tuple[float, float, float, float]]]:
+    """文字の層の語を、`render` が描いた画像(幅 ``WIDTH_PX`` 画素)の座標で返す。
+
+    **回転のあるページでも画像に合わせる**(K-68 C 周 1)。``get_text("words")`` の座標は回転の前のページの座標で、
+    描いた画像は回転の後なので、``page.rotation_matrix`` を掛けてから縮尺を掛ける(`benchmarks/erase_check.py` と同じ)。
+    """
+    import pymupdf
+
+    zoom = WIDTH_PX / page.rect.width
+    m = page.rotation_matrix * pymupdf.Matrix(zoom, zoom)
+    out = []
+    for w in page.get_text("words"):
+        r = (pymupdf.Rect(w[:4]) * m).normalize()
+        out.append((w[4], (r.x0, r.y0, r.x1, r.y1)))
+    return out
+
+
 def positioned_words(pdf_path: str | Path, number: int) -> list[list[Any]]:
-    """文字の層の語を、幅 ``WIDTH_PX`` 画素の画像の座標で返す(``[語, x0, y0, x1, y1]``)。"""
+    """文字の層の語を、幅 ``WIDTH_PX`` 画素の画像の座標で返す(``[語, x0, y0, x1, y1]``)。回転のあるページも画像に合う。"""
     import pymupdf
 
     with pymupdf.open(pdf_path) as doc:
         page = doc.load_page(number - 1)
-        zoom = WIDTH_PX / page.rect.width
-        return [[w[4], round(w[0] * zoom), round(w[1] * zoom), round(w[2] * zoom), round(w[3] * zoom)]
-                for w in page.get_text("words")]
+        return [[text, round(b[0]), round(b[1]), round(b[2]), round(b[3])] for text, b in words_in_image(page)]
