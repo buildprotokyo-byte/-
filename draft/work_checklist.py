@@ -147,6 +147,11 @@ def frame_of(item: Mapping[str, Any], frames: Sequence[Mapping[str, Any]], terms
         for word in _all_of(frame, "語"):
             if flatten(word) and flatten(word) in text:
                 return {"枠": frame["名前"], "根拠": f"語「{word}」が品名にある", "当て方": "語"}
+    # K-70 2 周目: 中身の決まらない上位の科目(機械設備など)は、語で決まらなかったときだけ使う。
+    for frame in frames:
+        if key.科目 and key.科目 in (frame.get("科目(語の後)") or ()):
+            return {"枠": frame["名前"], "根拠": f"科目 {terms.group('科目', key.科目).代表}(語で決まらなかった)",
+                    "当て方": "科目(語の後)"}
     return {"枠": "その他", "根拠": "細目・科目・語のどれにも当たらなかった", "当て方": "受け皿"}
 
 
