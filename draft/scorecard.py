@@ -18,6 +18,23 @@ from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 UNKNOWN = "未取得"
+
+#: 正解が要る行(段階 3 と共通の一部)。K-71 作業1 e。(段階, 名前, 測るもの, 合格ライン, 向き)
+#: 合格ラインのうち性質ごとの行は K-67 の線を借りた(基準の仮の判断 4)。
+GOLDEN_ROWS: tuple[tuple[Any, str, str, Any, str], ...] = (
+    (3, "科目(厳密)", "出した科目が正解の科目と同じ割合", 0.95, "以上"),
+    (3, "中科目(厳密)", "同じ", 0.90, "以上"),
+    (3, "細目(同じ意味。K-66)", "K-66 の部品で当たりとした細目 ÷ 正解の細目", 0.70, "以上"),
+    (3, "性質1 個数(±10%、少ないとき±1)", "性質 1 の正解の行のうち、当たった出力の数量が新の線で合う割合", 0.70, "以上"),
+    (3, "性質2 面積・長さ(±10%)", "性質 2 の正解の行のうち、新の線で合う割合(±30% の近いは別に数える)", 0.70, "以上"),
+    (3, "性質3 派生(±15%)", "性質 3 の正解の行のうち、新の線で合う割合", 0.70, "以上"),
+    (3, "性質4・5 理由で合格", "性質 4・5 の正解の行のうち、当たった出力の行が理由つき(未確定・要確認・根拠が図面に無い・会社ルールが要る)の割合", 0.80, "以上"),
+    (3, "性質6 波及の有無", "性質 6 の正解の行のうち、名前で当たった出力の行がある割合", 0.70, "以上"),
+    (3, "未分類の行", "性質 1〜6 に振り分けられなかった正解の行の数", 0, "ちょうど"),
+    ("共通", "外れた項目に印が出ていた割合", "当たった行のうち新の線で数量が違う(性質 1〜3)行に、理由(未確定・要確認など)が出ていた割合", 0.80, "以上"),
+    ("共通", "確度「高」の的中率", "確度が高で正解の行に当たった行のうち、名前・有無・状態が当たった割合(正解に無い行は誤りに数えない)", 0.95, "以上"),
+    ("共通", "確度「高」の的中率(数量、性質1〜3)", "確度が高で正解の行(性質 1〜3)に当たり数量を出した行のうち、新の線で合う割合", 0.95, "以上"),
+)
 NEEDS_GOLDEN = "未取得(正解が要る。パソコン側)"
 NEEDS_HUMAN = "未取得(人が要る)"
 
@@ -134,8 +151,14 @@ def build(
     items: Sequence[Mapping[str, Any]] = (),
     timings: Mapping[str, Any] | None = None,
     fabricated: Any = UNKNOWN,
+    golden: Mapping[str, Any] | None = None,
+    reference: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """採点表を組む。渡されなかったものは `未取得` のまま残る。"""
+    """採点表を組む。渡されなかったものは `未取得` のまま残る。
+
+    `golden` … 正解が要る行の値(行の名前 → 値。パソコン側の `pc_kit k71` が渡す)。
+    `reference` … 合否に入れない参考(根拠なしの数量・金額(仮)・旧い線の値)。表の行とは別の欄に出す。
+    """
     kinds = (readthrough or {}).get("種類ごと(重なりなし)") or {}
     slices = (readthrough or {}).get("別の切り口(重なる)") or {}
     ink = (readthrough or {}).get("墨の量で見た読了率") or {}
@@ -203,16 +226,19 @@ def build(
     rows.append(Row(2, "根拠のない主張", "根拠の種類も位置も無い項目の件数", 0,
                     len(unfounded) if items else UNKNOWN, 向き="ちょうど"))
 
-    # --- 段階 3 下書き(正解が要る) ---
-    rows.append(Row(3, "科目(厳密)", "出した科目が正解の科目と同じ割合", 0.95, NEEDS_GOLDEN))
-    rows.append(Row(3, "中科目(厳密)", "同じ", 0.90, NEEDS_GOLDEN))
-    rows.append(Row(3, "細目(同じ意味。K-66)", "K-66 の部品で当たりとした細目 ÷ 正解の細目", 0.70, NEEDS_GOLDEN))
-    for mode, line in (("概算", 0.50), ("通常", 0.70), ("精密", 0.90)):
-        rows.append(Row(3, f"数量が合った細目の金額の割合({mode})", "数量が許容差内の細目の金額 ÷ 総額", line, NEEDS_GOLDEN))
+    # --- 段階 3 下書き(正解が要る)。K-71 作業1 e で作り直した(`docs/k71_scoring_lines_criteria.md` 6 節) ---
+    # 性質 1〜3 は数量の線で合否、4・5 は理由、6 は有無。値はパソコン側(`pc_kit k71`)が同じ名前で埋める。
+    filled = dict(golden or {})
+    for stage, name, measure, line, direction in GOLDEN_ROWS:
+        if stage != 3:
+            continue
+        rows.append(Row(3, name, measure, line, filled.get(name, NEEDS_GOLDEN), 向き=direction))
 
     # --- 共通 ---
-    rows.append(Row("共通", "外れた項目に印が出ていた割合", "外れた項目のうち「未確定・低・要確認」と出ていた割合", 0.80, NEEDS_GOLDEN))
-    rows.append(Row("共通", "確度「高」の的中率", "確度が高の項目のうち当たっていた割合", 0.95, NEEDS_GOLDEN))
+    for stage, name, measure, line, direction in GOLDEN_ROWS:
+        if stage != "共通":
+            continue
+        rows.append(Row("共通", name, measure, line, filled.get(name, NEEDS_GOLDEN), 向き=direction))
     rows.append(Row("共通", "全項目が図面の位置へ辿れる", "項目のうちページと位置を持つ割合", 1.0,
                     round(len(located) / len(items), 4) if items else UNKNOWN))
     rows.append(Row("共通", "手直し時間 ÷ 最初から作る時間", "人が直した時間と、人が最初から作る時間の比", 1 / 3, NEEDS_HUMAN, 向き="以下"))
@@ -247,7 +273,8 @@ def build(
             "満足度の目安": SHARE.get(stage) if isinstance(stage, int) else None,
         }
     return {
-        "但し書き": "下書き(人が直す前提)。合格ラインはおーちゃんの K-67 4 節のまま。未取得は 0 にしない",
+        "但し書き": "下書き(人が直す前提)。合格ラインはおーちゃんの K-67 4 節のまま(段階 3 は K-71 の性質ごと)。未取得は 0 にしない",
+        "参考(合否に入れない)": dict(reference or {}),
         "段階ごと": per_stage,
         "行": [r.as_dict() for r in rows],
     }
