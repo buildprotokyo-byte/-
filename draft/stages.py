@@ -373,7 +373,9 @@ def read(ctx: Context, org: Mapping[str, Any]) -> dict[str, Any]:
     if reread_missing:
         ctx.stop("読む", f"読み直しの答えが未取得のページ {reread_missing}(通読の読みのまま進めた)")
     t = time.perf_counter()
-    after = measure_misses(ctx.pdf, reading, targets) if reading else {}
+    # 読みが未取得のページ(「注」がある)は測らない。測ると「全部落ちた(100%)」と数字が出て、未取得が 0 の読みに化ける(K-68 C 周 1)。
+    obtained = [n for n in targets if "注" not in reading[n]]
+    after = measure_misses(ctx.pdf, reading, obtained) if obtained else {}
     ctx.timings["読む: 落ちを測る(機械、2回目)"] = round(time.perf_counter() - t, 1)
     pages_out = {}
     for n in targets:
@@ -384,6 +386,7 @@ def read(ctx: Context, org: Mapping[str, Any]) -> dict[str, Any]:
             "落ちた率": rate,
             "読み直した": n in reread_ok,
             "読み落としの可能性が高い": rate is None or rate > HIGH_MISS_FLAG,
+            **({"読み": UNKNOWN} if "注" in reading[n] else {}),
         }
     ctx.timings["読む(合計の壁時計)"] = round(time.perf_counter() - started, 1)
     return {
@@ -393,6 +396,7 @@ def read(ctx: Context, org: Mapping[str, Any]) -> dict[str, Any]:
         "読み直した後の落ち": _totals(after) if after else UNKNOWN,
         "読み直したページ": reread_ok,
         "読み直しが未取得のページ": reread_missing,
+        "読みが未取得のページ": sorted(n for n in targets if "注" in reading[n]),
     }
 
 
