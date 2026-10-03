@@ -83,11 +83,13 @@ def _move_elements(row: dict[str, Any], index: dict[tuple[int, str], Mapping[str
     row["要素"] = new_ids
 
 
-def decoy(real: Mapping[str, Any], kind: str, *, with_elements: bool, element_check: bool = True) -> dict[str, Any]:
+def decoy(real: Mapping[str, Any], kind: str, *, with_elements: bool, element_check: bool = True,
+          check_text: bool = False) -> dict[str, Any]:
     """囮(基準 2 節)。1 つの回(2 回目、次に 3 回目)の行を動かして、対応づけをやり直す。
 
     ``with_elements`` が偽なら K-71 と同じ形(行の箱だけ)。真なら要素の箱も同じだけ動かす(2-2)。
     ``element_check`` が偽なら位置だけで対応づける(K-71 のやり方。並べるため)。
+    ``check_text`` が真なら、読んだ文字が同じことも見る(K-73 作業 3(a))。動かした要素の文字は元のまま写す。
     """
     from sameness.rows import row_room
 
@@ -102,7 +104,7 @@ def decoy(real: Mapping[str, Any], kind: str, *, with_elements: bool, element_ch
     def run_chains(rows_by_run, dim, idx):
         if idx is None:
             return pm.chains(rows_by_run)
-        return pm.chains(rows_by_run, elements=idx, check_room=dim != "室")
+        return pm.chains(rows_by_run, elements=idx, check_room=dim != "室", check_text=check_text)
 
     for r in range(1, len(names)):
         run_rows = real["runs"][names[r]]
@@ -164,6 +166,7 @@ def decoy(real: Mapping[str, Any], kind: str, *, with_elements: bool, element_ch
     rate = k71._ratio(wrong, moved)
     verdict = ("判定できない" if moved < DECOY_MIN_ROWS else ("合格" if (rate or 0) <= DECOY_MAX else "不合格"))
     return {"囮": kind, "要素ごと動かす": with_elements, "要素の重なりを見る": element_check,
+            "読んだ文字を見る": check_text,
             "回ごと": by_run, "動かした行(和)": moved, "誤って対応づけた行(和)": wrong,
             "移せなかった行(和)": unmovable, "誤って対応づけた割合": [wrong, moved, rate], "判定": verdict}
 
@@ -180,7 +183,7 @@ def reference_sizes(real: Mapping[str, Any]) -> dict[str, Any]:
     return out
 
 
-def measure(real: Mapping[str, Any]) -> dict[str, Any]:
+def measure(real: Mapping[str, Any], *, check_text: bool = False) -> dict[str, Any]:
     out = k71.measure(real)
     # K-71 の囮(位置だけ)は捨て、この周の囮に替える。
     out.pop("囮1 ずらす")
@@ -191,10 +194,10 @@ def measure(real: Mapping[str, Any]) -> dict[str, Any]:
                      "近い大きさ": f"幅・高さそれぞれ 小さい方÷大きい方 {pm.SIZE_RATIO} 以上",
                      "要素の箱が重なる": "重なった面積 > 0", "行の要素の組のうち": "1 組以上"}
     decoys = {
-        "囮1 ずらす": decoy(real, "ずらす", with_elements=False),
-        "囮2 別の室へ移す": decoy(real, "別の室へ移す", with_elements=False),
-        "囮1' ずらす(要素ごと)": decoy(real, "ずらす", with_elements=True),
-        "囮2' 別の室へ移す(要素ごと)": decoy(real, "別の室へ移す", with_elements=True),
+        "囮1 ずらす": decoy(real, "ずらす", with_elements=False, check_text=check_text),
+        "囮2 別の室へ移す": decoy(real, "別の室へ移す", with_elements=False, check_text=check_text),
+        "囮1' ずらす(要素ごと)": decoy(real, "ずらす", with_elements=True, check_text=check_text),
+        "囮2' 別の室へ移す(要素ごと)": decoy(real, "別の室へ移す", with_elements=True, check_text=check_text),
     }
     out.update(decoys)
     out["位置だけ(K-71 のやり方)で同じ囮"] = {

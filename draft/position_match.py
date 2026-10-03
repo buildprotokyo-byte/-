@@ -10,10 +10,15 @@ K-72 作業 A(基準は `docs/k72_card_element_criteria.md`。測る前にコミ
 (ページ, 要素の id) → 要素)を渡したときだけ、候補に **要素の重なり** を足す。同じページ・同じ室(室の組では見ない)・
 同じ種類・近い大きさ(幅・高さそれぞれ 2 倍まで)・要素の箱が重なる、を全部満たす要素の組が 1 つ以上ある対だけを候補にする。
 渡さなければ K-71 と同じ動き。
+
+K-73 作業 3(a)(基準は `docs/k73_card_text_criteria.md`。測る前にコミットした): ``check_text`` を真にしたときだけ、
+上の 1〜5 を満たす**同じ要素の組**に、6「読んだ文字が同じ」(要素の ``内容`` を NFKC・空白を除く・小文字に揃えて、
+空でなく完全に一致)を足す。どの種類の要素にもかける。既定は偽(K-72 と同じ動き)。読んだ文字は返さない(同じかどうかだけ)。
 """
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Any, Callable, Mapping, Sequence
 
 #: 面積の重なり率のしきい(測る前に固定)。
@@ -25,6 +30,8 @@ TIED = "同点で決まらない"
 NO_PARTNER = "位置の重なる行がほかの回に無い"
 #: K-72: 重なり率 0.50 以上の行はあるが、どれも要素が重ならなかった。
 ELEMENT_MISMATCH = "位置は重なるが要素が重ならない"
+#: K-73: 1〜5 を満たす要素の組はあるが、どの組も読んだ文字が違った。
+TEXT_MISMATCH = "要素は重なるが読んだ文字が違う"
 #: K-72: 要素の「近い大きさ」(幅どうし・高さどうしの 小さい方 ÷ 大きい方 の下限。2 倍まで)。測る前に固定。
 SIZE_RATIO = 0.5
 #: 幅・高さがこれ未満の箱は、この大きさとして比べる(線の要素は高さ 0 がある)。
@@ -80,8 +87,28 @@ def _sides(box: Sequence[float]) -> list[float]:
     return [x0, y0, x1, y1]
 
 
-def same_element(a: Mapping[str, Any], b: Mapping[str, Any], *, size_ratio: float = SIZE_RATIO) -> bool:
-    """回をまたいで「同じ要素」か(同じ種類・近い大きさ・箱が重なる)。ページは呼ぶ側で揃える。"""
+def normalized_text(text: Any) -> str:
+    """読んだ文字の正規化(K-73 基準 1-1 の 6): NFKC → 空白を全部除く → casefold。文字列でなければ空。"""
+    if not isinstance(text, str):
+        return ""
+    return "".join(ch for ch in unicodedata.normalize("NFKC", text) if not ch.isspace()).casefold()
+
+
+def same_text(a: Mapping[str, Any], b: Mapping[str, Any]) -> bool:
+    """2 つの要素の読んだ文字が同じか(空は同じでない)。"""
+    ta = normalized_text(a.get("内容"))
+    return bool(ta) and ta == normalized_text(b.get("内容"))
+
+
+def same_element(a: Mapping[str, Any], b: Mapping[str, Any], *, size_ratio: float = SIZE_RATIO,
+                 check_text: bool = False) -> bool:
+    """回をまたいで「同じ要素」か(同じ種類・近い大きさ・箱が重なる。``check_text`` なら読んだ文字も同じ)。
+    ページは呼ぶ側で揃える。"""
+    return _shape_same(a, b, size_ratio=size_ratio) and (not check_text or same_text(a, b))
+
+
+def _shape_same(a: Mapping[str, Any], b: Mapping[str, Any], *, size_ratio: float = SIZE_RATIO) -> bool:
+    """K-72 の 3〜5(同じ種類・近い大きさ・箱が重なる)。"""
     if not a.get("種類") or a.get("種類") != b.get("種類"):
         return False
     pa, pb = a.get("位置"), b.get("位置")
@@ -111,20 +138,39 @@ def _elements_of(item: Mapping[str, Any], index: Mapping[tuple[int, str], Mappin
     return out
 
 
-def elements_match(a: Mapping[str, Any], b: Mapping[str, Any],
-                   index_a: Mapping[tuple[int, str], Mapping[str, Any]],
-                   index_b: Mapping[tuple[int, str], Mapping[str, Any]], *,
-                   check_room: bool = True, size_ratio: float = SIZE_RATIO) -> bool:
-    """2 行の要素が重なるか(K-72 基準 1-1)。要素が 1 つも引けない行は、どの行とも重ならない。"""
+def match_reason(a: Mapping[str, Any], b: Mapping[str, Any],
+                 index_a: Mapping[tuple[int, str], Mapping[str, Any]],
+                 index_b: Mapping[tuple[int, str], Mapping[str, Any]], *,
+                 check_room: bool = True, size_ratio: float = SIZE_RATIO, check_text: bool = False) -> str | None:
+    """2 行の要素が重なれば None。重ならなければ理由(``ELEMENT_MISMATCH`` / ``TEXT_MISMATCH``)。
+
+    ``TEXT_MISMATCH`` は、K-72 の 1〜5 を満たす要素の組はあるが、どの組も読んだ文字が違うとき(``check_text`` のときだけ)。
+    """
     if a.get("ページ") in (None, "") or a.get("ページ") != b.get("ページ"):
-        return False
+        return ELEMENT_MISMATCH
     if check_room:
         from sameness.rows import row_room
 
         if (row_room(a) or "") != (row_room(b) or ""):
-            return False
+            return ELEMENT_MISMATCH
     ea, eb = _elements_of(a, index_a), _elements_of(b, index_b)
-    return any(same_element(x, y, size_ratio=size_ratio) for x in ea for y in eb)
+    shape = False
+    for x in ea:
+        for y in eb:
+            if _shape_same(x, y, size_ratio=size_ratio):
+                if not check_text or same_text(x, y):
+                    return None
+                shape = True
+    return TEXT_MISMATCH if shape else ELEMENT_MISMATCH
+
+
+def elements_match(a: Mapping[str, Any], b: Mapping[str, Any],
+                   index_a: Mapping[tuple[int, str], Mapping[str, Any]],
+                   index_b: Mapping[tuple[int, str], Mapping[str, Any]], *,
+                   check_room: bool = True, size_ratio: float = SIZE_RATIO, check_text: bool = False) -> bool:
+    """2 行の要素が重なるか(K-72 基準 1-1。``check_text`` なら K-73 の 6 も)。要素が 1 つも引けない行は、どの行とも重ならない。"""
+    return match_reason(a, b, index_a, index_b, check_room=check_room, size_ratio=size_ratio,
+                        check_text=check_text) is None
 
 
 def element_index(reading: Mapping[str, Any]) -> dict[tuple[int, str], Mapping[str, Any]]:
@@ -138,25 +184,35 @@ def element_index(reading: Mapping[str, Any]) -> dict[tuple[int, str], Mapping[s
 
 
 def pair(left: Sequence[Mapping[str, Any]], right: Sequence[Mapping[str, Any]], *,
-         threshold: float = THRESHOLD, accept: Callable[[int, int], bool] | None = None) -> dict[str, Any]:
+         threshold: float = THRESHOLD, accept: Callable[[int, int], Any] | None = None) -> dict[str, Any]:
     """2 つの回の行を 1 対 1 に対応づける。
 
     ``accept``(左の位置, 右の位置)を渡すと、重なり率がしきい以上でも、それが偽の対は候補にしない(K-72 の要素の重なり)。
 
     返すもの: ``対``(左の位置, 右の位置, 重なり率)・``同点``(同点で対応づけなかった左右の位置の組)・
-    ``要素で落とした``(重なり率はしきい以上だが ``accept`` で落とした対のある左右の位置)。
+    ``要素で落とした``(重なり率はしきい以上だが ``accept`` で落とした対のある左右の位置)・
+    ``文字で落とした``(そのうち ``accept`` が ``TEXT_MISMATCH`` を返した対のある左右の位置)。
+
+    ``accept`` は真(``True``)なら候補にする。それ以外は落とす(文字列なら落とした理由)。
     """
     cands = []
     rejected_l: set[int] = set()
     rejected_r: set[int] = set()
+    text_l: set[int] = set()
+    text_r: set[int] = set()
     for i, a in enumerate(left):
         for j, b in enumerate(right):
             v = overlap(a, b)
             if v >= threshold:
-                if accept is not None and not accept(i, j):
-                    rejected_l.add(i)
-                    rejected_r.add(j)
-                    continue
+                if accept is not None:
+                    ok = accept(i, j)
+                    if ok is not True:
+                        rejected_l.add(i)
+                        rejected_r.add(j)
+                        if ok == TEXT_MISMATCH:
+                            text_l.add(i)
+                            text_r.add(j)
+                        continue
                 cands.append((v, element_overlap(a, b), i, j))
     cands.sort(key=lambda c: (-c[0], -c[1], c[2], c[3]))
     used_l: set[int] = set()
@@ -187,13 +243,14 @@ def pair(left: Sequence[Mapping[str, Any]], right: Sequence[Mapping[str, Any]], 
         pairs.append((i, j, v))
         k += 1
     return {"対": pairs, "同点": {"左": sorted(blocked_l - used_l), "右": sorted(blocked_r - used_r)},
-            "要素で落とした": {"左": sorted(rejected_l), "右": sorted(rejected_r)}}
+            "要素で落とした": {"左": sorted(rejected_l), "右": sorted(rejected_r)},
+            "文字で落とした": {"左": sorted(text_l), "右": sorted(text_r)}}
 
 
 def chains(rows_by_run: Sequence[Sequence[Mapping[str, Any]]], *,
            threshold: float = THRESHOLD,
            elements: Sequence[Mapping[tuple[int, str], Mapping[str, Any]]] | None = None,
-           check_room: bool = True, size_ratio: float = SIZE_RATIO) -> dict[str, Any]:
+           check_room: bool = True, size_ratio: float = SIZE_RATIO, check_text: bool = False) -> dict[str, Any]:
     """回ごとの行の並び(1 つ目が基準の回)から、鎖(回ごとに 1 行まで)を作る。
 
     返すもの:
@@ -202,17 +259,24 @@ def chains(rows_by_run: Sequence[Sequence[Mapping[str, Any]]], *,
       ``位置は重なるが要素が重ならない``(``elements`` を渡したときだけ) / ``位置の重なる行がほかの回に無い``。
 
     ``elements`` は回ごとの (ページ, 要素の id) → 要素(`element_index`)。``check_room`` は室の組で偽にする。
+    ``check_text`` は K-73 の「読んだ文字が同じ」(行の行き先に ``要素は重なるが読んだ文字が違う`` が出る)。
     """
     n = len(rows_by_run)
     status: dict[tuple[int, int], str] = {}
     tied: set[tuple[int, int]] = set()
     rejected: set[tuple[int, int]] = set()
+    text_rej: set[tuple[int, int]] = set()
 
-    def acceptor(r: int, s: int, li: Sequence[int], ri: Sequence[int]) -> Callable[[int, int], bool] | None:
+    def acceptor(r: int, s: int, li: Sequence[int], ri: Sequence[int]) -> Callable[[int, int], Any] | None:
         if elements is None:
             return None
-        return lambda i, j: elements_match(rows_by_run[r][li[i]], rows_by_run[s][ri[j]], elements[r], elements[s],
-                                           check_room=check_room, size_ratio=size_ratio)
+
+        def accept(i: int, j: int) -> Any:
+            why = match_reason(rows_by_run[r][li[i]], rows_by_run[s][ri[j]], elements[r], elements[s],
+                               check_room=check_room, size_ratio=size_ratio, check_text=check_text)
+            return True if why is None else why
+
+        return accept
 
     out: list[list[int | None]] = []
     if n == 0:
@@ -228,6 +292,7 @@ def chains(rows_by_run: Sequence[Sequence[Mapping[str, Any]]], *,
             taken[r].add(j)
         tied |= {(0, i) for i in got["同点"]["左"]} | {(r, j) for j in got["同点"]["右"]}
         rejected |= {(0, i) for i in got["要素で落とした"]["左"]} | {(r, j) for j in got["要素で落とした"]["右"]}
+        text_rej |= {(0, i) for i in got["文字で落とした"]["左"]} | {(r, j) for j in got["文字で落とした"]["右"]}
     for chain in star.values():
         if sum(1 for x in chain if x is not None) >= 2:
             out.append(chain)
@@ -249,12 +314,16 @@ def chains(rows_by_run: Sequence[Sequence[Mapping[str, Any]]], *,
             tied |= {(r, left_idx[a]) for a in got["同点"]["左"]} | {(s, right_idx[b]) for b in got["同点"]["右"]}
             rejected |= ({(r, left_idx[a]) for a in got["要素で落とした"]["左"]}
                          | {(s, right_idx[b]) for b in got["要素で落とした"]["右"]})
+            text_rej |= ({(r, left_idx[a]) for a in got["文字で落とした"]["左"]}
+                         | {(s, right_idx[b]) for b in got["文字で落とした"]["右"]})
     for r in range(n):
         for j in range(len(rows_by_run[r])):
             if j in taken[r]:
                 status[(r, j)] = "鎖"
             elif (r, j) in tied:
                 status[(r, j)] = TIED
+            elif (r, j) in text_rej:
+                status[(r, j)] = TEXT_MISMATCH
             elif (r, j) in rejected:
                 status[(r, j)] = ELEMENT_MISMATCH
             else:

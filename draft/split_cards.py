@@ -186,7 +186,7 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
                 match: str | None = None, unit_equivalence: bool = False,
                 threshold: float | None = None,
                 elements: Mapping[str, Mapping[tuple[int, str], Mapping[str, Any]]] | None = None,
-                size_ratio: float | None = None) -> dict[str, Any]:
+                size_ratio: float | None = None, text_match: bool = False) -> dict[str, Any]:
     """3 回の読みの割れた鍵を入れ先に分け、カードにできる組をカードの形にする。**値は 1 つも書き換えない。**
 
     ``runs`` は回の名前 → 項目の並び(順が回の順)。``machine``・``scale`` は回の名前 → 項目 id → 値の並び
@@ -194,6 +194,8 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
 
     K-72 作業 A: ``elements``(回の名前 → (ページ, 要素の id) → 要素。`draft.position_match.element_index`)を
     渡すと、``match="位置"`` の対応づけに要素の重なりを足す(室の組では室を見ない)。渡さなければ K-71 と同じ。
+
+    K-73 作業 3(a): ``text_match`` を真にすると、要素の重なりに「読んだ文字が同じ」を足す(``elements`` を渡したときだけ効く)。
     """
     if threshold is None:
         from draft.position_match import THRESHOLD as threshold
@@ -281,6 +283,8 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
             elem_kw = {"elements": [elements.get(n) or {} for n in names], "check_room": dim != "室"}
             if size_ratio is not None:
                 elem_kw["size_ratio"] = size_ratio
+            if text_match:
+                elem_kw["check_text"] = True
         positional_dims.append(dim)
         got = pm.chains(rows_by_run, threshold=threshold, **elem_kw)
         check = pm.check_chains(rows_by_run, got["鎖"])
@@ -292,7 +296,7 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
         # 割れた鍵ごとに、行の行き先を集める(上の表の上のものを書く)。
         rank: dict[tuple[Any, ...], int] = {}
         order_of = {"カード": 0, UNIT_DROPPED: 1, REASONS[1]: 2, REASONS[2]: 3,
-                    pm.TIED: 4, pm.ELEMENT_MISMATCH: 5, pm.NO_PARTNER: 6}
+                    pm.TIED: 4, pm.TEXT_MISMATCH: 5, pm.ELEMENT_MISMATCH: 6, pm.NO_PARTNER: 7}
         def note(key: tuple[Any, ...], dest: str) -> None:
             if key in counted_set and (key not in rank or order_of[dest] < rank[key]):
                 rank[key] = order_of[dest]
