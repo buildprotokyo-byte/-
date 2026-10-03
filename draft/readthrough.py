@@ -75,10 +75,32 @@ def _is_numeric_word(text: str) -> bool:
     return bool(text) and bool(_NUMERIC.match(text)) and any(c.isdigit() for c in text)
 
 
-def _ruled_tables(page: Any) -> tuple[list[dict[str, Any]], str]:
+#: 図を表と誤認したとみなす、升目 1 つあたりの「升目の縁に乗らない線」の本数(K-72 作業 B。測る前に決めた。
+#: `docs/k72_readrate_guard_criteria.md`)。本物の表の升目には文字か小さい見本の図 1 つが入る。図は升目 1 つに何百本も入る。
+DRAWING_LINES_PER_CELL = 100
+#: 罫線か図の線かを数える線の仲間(`erase_check` の元の種類)。
+_LINE_KINDS = ("直線", "曲線", "矩形", "四角形", "ハッチング")
+
+
+def _drawing_lines_per_cell(table: Mapping[str, Any], prims: Sequence[Any], scale: float) -> float:
+    """表の中(中心が四角に入る、除外されていない)の線の仲間のうち、升目の縁に乗らない線の本数 ÷ 升目の数。"""
+    from draft import table_grid
+
+    cells = table["升目"]
+    if not cells:
+        return 0.0
+    horizontal, vertical = table_grid._cell_edges(cells, scale)
+    inside = [p for p in prims if not p.excluded and p.kind in _LINE_KINDS and _inside(p.bbox, [table["四角"]], scale)]
+    off = sum(1 for p in inside if not table_grid.is_ruling(p, horizontal, vertical))
+    return off / len(cells)
+
+
+def _ruled_tables(page: Any, drawing_guard: bool = True) -> tuple[list[dict[str, Any]], str]:
     """罫線の表(四角と升目の四角)。**平面図を表と誤認する欠陥(周21)を避ける守りを通す。**
 
     守りに落ちた(升目の埋まりが足りない)ものは表として数えない。
+    **図を表と誤認したもの(升目 1 つあたり、升目の縁に乗らない線が ``DRAWING_LINES_PER_CELL`` 本以上)も表として数えない**
+    (K-72 作業 B。図形の層だけで決め、AI の読みに依らない。``drawing_guard=False`` で前の守りに戻す)。
     表が 1 つも残らなかったページは「表は測れない」と出す(**0 と書かない**)。
     座標はページの表示の向き(pt)。
     """
@@ -88,6 +110,9 @@ def _ruled_tables(page: Any) -> tuple[list[dict[str, Any]], str]:
         return [], f"{CANNOT_MEASURE}(表を探せなかった: {type(error).__name__})"
     tables: list[dict[str, Any]] = []
     dropped = 0
+    drawings = 0
+    prims: list[Any] | None = None
+    scale = 0.0
     for table in found.tables:
         cells = [cell for row in table.extract() for cell in row]
         if len(cells) < 4:
@@ -97,16 +122,28 @@ def _ruled_tables(page: Any) -> tuple[list[dict[str, Any]], str]:
         if filled / len(cells) < TABLE_MIN_FILL:
             dropped += 1
             continue
-        tables.append({"四角": tuple(float(v) for v in table.bbox),
-                       "升目": [tuple(float(v) for v in c) for c in table.cells if c]})
+        entry = {"四角": tuple(float(v) for v in table.bbox),
+                 "升目": [tuple(float(v) for v in c) for c in table.cells if c]}
+        if drawing_guard:
+            if prims is None:
+                from benchmarks import erase_check as ec
+
+                scale = ec.WIDTH_PX / page.rect.width
+                prims = ec.extract_primitives(page, 0)
+                ec.mark_exclusions(prims, page.rect.width * scale, page.rect.height * scale)
+            if _drawing_lines_per_cell(entry, prims, scale) >= DRAWING_LINES_PER_CELL:
+                drawings += 1
+                continue
+        tables.append(entry)
+    counts = f"守りに落ちた表 {dropped} 個" + (f"、図と見た表 {drawings} 個" if drawing_guard else "")
     if not tables:
-        return [], f"{CANNOT_MEASURE}(罫線の表が無い。守りに落ちた表 {dropped} 個)"
-    return tables, f"罫線の表 {len(tables)} 個(守りに落ちた表 {dropped} 個)"
+        return [], f"{CANNOT_MEASURE}(罫線の表が無い。{counts})"
+    return tables, f"罫線の表 {len(tables)} 個({counts})"
 
 
-def _table_rects(page: Any) -> tuple[list[tuple[float, float, float, float]], str]:
+def _table_rects(page: Any, drawing_guard: bool = True) -> tuple[list[tuple[float, float, float, float]], str]:
     """罫線の表の四角(`_ruled_tables` の四角だけ)。"""
-    tables, note = _ruled_tables(page)
+    tables, note = _ruled_tables(page, drawing_guard)
     return [t["四角"] for t in tables], note
 
 
@@ -225,6 +262,7 @@ def page_readthrough(
     with_unread: bool = True,
     machine_grid: bool = True,
     rect_perimeter: bool = True,
+    drawing_guard: bool = True,
 ) -> dict[str, Any]:
     """1 ページの読了率・内訳・未読の一覧。
 
@@ -237,7 +275,7 @@ def page_readthrough(
     words = len(page.get_text("words"))
     grid_record: dict[str, Any] = {"機械が足した罫線": 0, "表ごと": []}
     if machine_grid:
-        elements, grid_record = table_grid.ledger(page, number, list(elements), cap)
+        elements, grid_record = table_grid.ledger(page, number, list(elements), cap, drawing_guard=drawing_guard)
     prims, summary = ec.check_page(page, number, list(elements), cap)
     counted = summary["数える図形"]
     cannot = why_cannot_measure(page, counted, words)
@@ -293,7 +331,7 @@ def page_readthrough(
     }
 
     # 別の切り口(重なる): 表 と 数字だけの語
-    rects, table_note = _table_rects(page)
+    rects, table_note = _table_rects(page, drawing_guard)
     slices: dict[str, Any] = {"表の見つかり方": table_note}
     if rects:
         in_table = [p for p in live if _inside(p.bbox, rects, scale)]
@@ -343,6 +381,7 @@ def readthrough(
     unobtained: Sequence[int] = (),
     machine_grid: bool = True,
     rect_perimeter: bool = True,
+    drawing_guard: bool = True,
 ) -> dict[str, Any]:
     """案件全体の読了率。**ページごとの信号と、案件全体の警告も出す。**
 
@@ -362,7 +401,8 @@ def readthrough(
             page = doc.load_page(number - 1)
             elements = [e for e in (reading.get(number, {}) or {}).get("要素", []) if e.get("位置")]
             per_page.append(page_readthrough(page, number, elements, cap=cap, with_unread=with_unread,
-                                             machine_grid=machine_grid, rect_perimeter=rect_perimeter))
+                                             machine_grid=machine_grid, rect_perimeter=rect_perimeter,
+                                             drawing_guard=drawing_guard))
 
     measured = [p for p in per_page if p["読了率"] is not None]
     page_count = len(per_page)

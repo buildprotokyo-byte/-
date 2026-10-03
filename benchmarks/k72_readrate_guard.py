@@ -263,6 +263,23 @@ def candidate_table_boxes(reading: Mapping[int, Mapping[str, Any]], pdf: Path) -
     return out
 
 
+def dropped_tables(pdf: Path, pages: Sequence[int]) -> list[dict[str, Any]]:
+    """新しい守りで外れた表(ページ番号と数だけ。読みに依らない)。"""
+    import pymupdf
+
+    from draft.readthrough import _ruled_tables
+
+    out = []
+    with pymupdf.open(pdf) as doc:
+        for number in pages:
+            page = doc.load_page(number - 1)
+            old, _ = _ruled_tables(page, drawing_guard=False)
+            new, _ = _ruled_tables(page)
+            if len(old) != len(new):
+                out.append({"ページ": number, "前の守りを通った表": len(old), "後も残った表": len(new)})
+    return out
+
+
 SETTINGS = {"前": {"drawing_guard": False}, "後": {"drawing_guard": True}}
 
 
@@ -281,8 +298,10 @@ def measure(pdf: Path, reading: Mapping[int, Mapping[str, Any]]) -> dict[str, An
             got[label] = rates(result)
             got[label]["表の測れないページ"] = (result["別の切り口(重なる)"].get("表") or {}).get("測れないページ")
             got[label]["表の数える図形"] = (result["別の切り口(重なる)"].get("表") or {}).get("数える")
+            got[label]["表の拾えた"] = (result["別の切り口(重なる)"].get("表") or {}).get("拾えた")
         return got
 
+    out["外れた表(図と見た表)"] = dropped_tables(pdf, pages)
     out["本物"] = both(reading)
     decoys = {"囮1 でたらめに置き直した版": scatter(reading, pdf),
               "囮2 ページを覆う大きい箱で囲んだ版": big_boxes(reading, pdf),

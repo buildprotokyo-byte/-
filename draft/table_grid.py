@@ -2,7 +2,7 @@
 
 基準は `docs/k71_readrate_criteria.md` の周 1(測る前にコミット済み)。
 
-- 対象の表は `draft.readthrough._table_rects` が返す罫線の表(平面図を表と誤認しない守りを通ったもの)。
+- 対象の表は `draft.readthrough._table_rects` が返す罫線の表(平面図を表と誤認しない守りと、K-72 の図を表と誤認しない守りを通ったもの)。
 - **AI が中身を読んだ証拠**: 表の中の文字の層の語のうち、AI の「文字」「数字」の要素(面積の上限 1% 以内。
   印の付け方は `benchmarks/erase_check.py` と同じ)で印が付く語の割合が ``MIN_READ_SHARE`` 以上。
   満たさない表には何も足さない。**AI が読んでいない表を、機械だけで「読めた」にしない**(囮で稼がない)。
@@ -73,12 +73,12 @@ def is_ruling(prim: Any, horizontal: Sequence[tuple[float, float, float]], verti
 
 
 def grid_elements(page: Any, number: int, elements: Sequence[Mapping[str, Any]],
-                  cap: float = 0.01) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+                  cap: float = 0.01, drawing_guard: bool = True) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """機械が読んだ罫線の要素と、表ごとの記録(証拠の割合・足した数)を返す。"""
     from benchmarks import erase_check as ec
     from draft.readthrough import _inside, _ruled_tables
 
-    tables, _ = _ruled_tables(page)
+    tables, _ = _ruled_tables(page, drawing_guard)
     if not tables:
         return [], []
     scale = ec.WIDTH_PX / page.rect.width
@@ -120,8 +120,11 @@ def grid_elements(page: Any, number: int, elements: Sequence[Mapping[str, Any]],
 
 
 def ledger(page: Any, number: int, elements: Sequence[Mapping[str, Any]],
-           cap: float = 0.01) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """台帳 = AI の要素 + 機械が読んだ罫線。記録(表ごとの証拠と足した数)も返す。"""
-    added, notes = grid_elements(page, number, elements, cap)
+           cap: float = 0.01, drawing_guard: bool = True) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """台帳 = AI の要素 + 機械が読んだ罫線。記録(表ごとの証拠と足した数)も返す。
+
+    対象の表は `_ruled_tables` の守り(K-72: 図を表と誤認したものを外す)を通ったもの。``drawing_guard=False`` で前の守り。
+    """
+    added, notes = grid_elements(page, number, elements, cap, drawing_guard)
     record = {"機械が足した罫線": len(added), "表ごと": notes}
     return list(elements) + added, record
