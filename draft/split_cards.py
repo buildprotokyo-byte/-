@@ -184,11 +184,16 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
                 machine: Mapping[str, Mapping[str, Sequence[Mapping[str, Any]]]] | None = None,
                 scale: Mapping[str, Mapping[str, Sequence[Mapping[str, Any]]]] | None = None,
                 match: str | None = None, unit_equivalence: bool = False,
-                threshold: float | None = None) -> dict[str, Any]:
+                threshold: float | None = None,
+                elements: Mapping[str, Mapping[tuple[int, str], Mapping[str, Any]]] | None = None,
+                size_ratio: float | None = None) -> dict[str, Any]:
     """3 回の読みの割れた鍵を入れ先に分け、カードにできる組をカードの形にする。**値は 1 つも書き換えない。**
 
     ``runs`` は回の名前 → 項目の並び(順が回の順)。``machine``・``scale`` は回の名前 → 項目 id → 値の並び
     (`draft.questioning.machine_values_from`・`scale_values_from` の形)。
+
+    K-72 作業 A: ``elements``(回の名前 → (ページ, 要素の id) → 要素。`draft.position_match.element_index`)を
+    渡すと、``match="位置"`` の対応づけに要素の重なりを足す(室の組では室を見ない)。渡さなければ K-71 と同じ。
     """
     if threshold is None:
         from draft.position_match import THRESHOLD as threshold
@@ -242,6 +247,7 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
     unit_dropped: list[dict[str, Any]] = []
     key_dest: dict[tuple[Any, ...], str] = {}
     positional: list[list[list[Mapping[str, Any]]]] = []
+    positional_dims: list[str] = []
     matching: dict[str, Any] = {"使った組": 0, "鎖": 0, "鎖の線": {"回の行を 2 行以上持つ鎖": 0, "2 つ以上の鎖に入った行": 0},
                                 "行の行き先": {}, "1 行以下の組のカードで位置も重なる": 0,
                                 "1 行以下の組のカードで位置が重ならない": 0}
@@ -270,7 +276,13 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
 
         matching["使った組"] += 1
         positional.append(rows_by_run)
-        got = pm.chains(rows_by_run, threshold=threshold)
+        elem_kw: dict[str, Any] = {}
+        if elements is not None:
+            elem_kw = {"elements": [elements.get(n) or {} for n in names], "check_room": dim != "室"}
+            if size_ratio is not None:
+                elem_kw["size_ratio"] = size_ratio
+        positional_dims.append(dim)
+        got = pm.chains(rows_by_run, threshold=threshold, **elem_kw)
         check = pm.check_chains(rows_by_run, got["鎖"])
         for k2, v in check.items():
             matching["鎖の線"][k2] += v
@@ -280,7 +292,7 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
         # 割れた鍵ごとに、行の行き先を集める(上の表の上のものを書く)。
         rank: dict[tuple[Any, ...], int] = {}
         order_of = {"カード": 0, UNIT_DROPPED: 1, REASONS[1]: 2, REASONS[2]: 3,
-                    pm.TIED: 4, pm.NO_PARTNER: 5}
+                    pm.TIED: 4, pm.ELEMENT_MISMATCH: 5, pm.NO_PARTNER: 6}
         def note(key: tuple[Any, ...], dest: str) -> None:
             if key in counted_set and (key not in rank or order_of[dest] < rank[key]):
                 rank[key] = order_of[dest]
@@ -322,6 +334,7 @@ def find_splits(runs: Mapping[str, Sequence[Mapping[str, Any]]], *,
         "割れた鍵の行き先": _count_dest(key_dest),
         "対応づけ": matching if match == "位置" else None,
         "_位置で対応づけた組": positional,
+        "_位置で対応づけた組の次元": positional_dims,
         "名前だけの違い(辞書で解いた)": name_only(per_run, split_keys),
         "_回": names,
     }
