@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 from sameness import compare, quantity_verdict
-from sameness.decoys import Pair, decoy_pairs, paraphrase_pairs
+from sameness.decoys import K70_RULED_NOT_SAME, Pair, decoy_pairs, paraphrase_pairs
 from sameness.terms import default_terms
 
 
@@ -68,6 +68,12 @@ def main(argv: list[str] | None = None) -> int:
         bucket["件数"] += 1
         bucket["通った"] += 1 if row["行として○"] else 0
 
+    # K-70: おーちゃんが「同じにしない」と決めた対と、残りの対を分けて数える(36 組そのものは変えない)。
+    ruled = set(K70_RULED_NOT_SAME)
+    para_pairs = list(paraphrase_pairs())
+    ruled_rows = [r for p, r in zip(para_pairs, paras) if (p.left, p.right) in ruled]
+    rest_rows = [r for p, r in zip(para_pairs, paras) if (p.left, p.right) not in ruled]
+
     para_values: dict[str, int] = {}
     for row in paras:
         para_values[row["新規則"]] = para_values.get(row["新規則"], 0) + 1
@@ -87,6 +93,12 @@ def main(argv: list[str] | None = None) -> int:
             "旧規則の合格": len(old_hit),
             "旧規則の合格率": len(old_hit) / len(paras) if paras else None,
             "判定の内訳": para_values,
+            "K-70 で同じにしないと決めた対": {
+                "件数": len(ruled_rows),
+                "○になった": sum(1 for r in ruled_rows if r["行として○"]),
+                "判定の内訳": {v: sum(1 for r in ruled_rows if r["新規則"] == v) for v in sorted({r["新規則"] for r in ruled_rows})},
+            },
+            "残りの対": {"件数": len(rest_rows), "合格": sum(1 for r in rest_rows if r["行として○"])},
             "外れた対": [
                 {"左": r["理由"], "新規則": r["新規則"], "規則": r["規則"]}
                 for r in paras if not r["行として○"]
