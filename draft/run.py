@@ -121,6 +121,35 @@ def machine_check(rows: Sequence[Mapping[str, Any]], machine_output: str | None,
     }
 
 
+SOURCE_PRESENT, SOURCE_ABSENT = "あり", "なし"
+
+
+def source_presence(org: Mapping[str, Any], finish: Mapping[str, Any], cost_table: Any, stage: int = 3) -> dict[str, str]:
+    """資料の有無(K-68 C 周 1)。**分からないものは「なし」と言い切らず「未取得」と書く。**
+
+    - 仕上表: 原本ありなら「あり」。原本のページがあって書き写しが無ければ「未取得」。ページが無いとき、整理が AI なら「なし」、
+      整理が未取得(文字の層の語で探しただけ)なら「未取得」。段階 1 は仕上表の段を動かさないので「未取得」。
+    - 仕様書: 整理の段(AI)の種類に「仕様書」のページがあれば「あり」、無ければ「なし」。整理が未取得なら「未取得」。
+    - 原価表: 渡されれば「あり」、無ければ「未取得」(今までの「原価表: 未取得」と同じ)。
+    """
+    unknown = stages.UNKNOWN
+    from_ai = org.get("出どころ") == "AI"
+    status = finish.get("原本")
+    if stage < 2:
+        finish_state = f"{unknown}(段階 1 なので仕上表の段を動かしていない)"
+    elif status == "原本あり":
+        finish_state = SOURCE_PRESENT
+    elif finish.get("原本のページ"):
+        finish_state = f"{unknown}(原本のページはあるが書き写しが未取得)"
+    else:
+        finish_state = SOURCE_ABSENT if from_ai else f"{unknown}(整理が未取得。文字の層の語では見つからなかった)"
+    if from_ai:
+        spec_state = SOURCE_PRESENT if stages.pages_of_kind(org, "仕様書") else SOURCE_ABSENT
+    else:
+        spec_state = f"{unknown}(整理が未取得)"
+    return {"仕上表": finish_state, "仕様書": spec_state, "原価表": SOURCE_PRESENT if cost_table else unknown}
+
+
 #: 通読の 1 回に渡すページ数(K-61 の判断 1「分ける」)。P011 は 1 ページの読みが平均 1.6〜2.1 万字あり、
 #: 34 ページを 1 回で読ませると 1 回の出力の上限を超える。3 ページなら上限の内に収まる見込み(パソコン側で確かめる)。
 DEFAULT_PASS1_BATCH = 3
@@ -333,11 +362,15 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     from draft import search_check
     from draft import work_checklist
 
-    read_pages = sorted(int(n) for n in (reading.get("読み") or {}))
+    # 読みが未取得のページ(通読の答えが無い)は読了率・検索で 0 と数えない(K-68 C 周 1)。
+    unobtained_pages = sorted(int(n) for n, v in (reading.get("読み") or {}).items() if "注" in v)
+    read_pages = sorted(int(n) for n in (reading.get("読み") or {}) if int(n) not in set(unobtained_pages))
+    if unobtained_pages:
+        warn.insert(0, f"読みが未取得のページ {len(unobtained_pages)}(読了率・検索に 0 として入れていない。未取得のまま)")
     t = time.perf_counter()
     rt = _guarded(ctx, "読了率",
                   lambda: rt_part.readthrough(pdf, {int(n): v for n, v in (reading.get("読み") or {}).items()},
-                                              read_pages),
+                                              read_pages, unobtained=unobtained_pages),
                   None)
     ctx.timings["段: 読了率"] = round(time.perf_counter() - t, 1)
     if rt and rt.get("案件全体の警告"):
@@ -351,12 +384,11 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     ctx.timings["段: 検索の正答率"] = round(time.perf_counter() - t, 1)
 
     # --- K-67: 工事チェック表(段階 2 から) ---
-    missing_sources = []
-    if finish.get("原本") != "原本あり":
-        missing_sources.append("仕上表なし")
-    if not cost_table:
-        missing_sources.append("原価表なし")
+    sources = source_presence(org, finish, cost_table, a.stage)
+    missing_sources = [f"{name}{'なし' if state == SOURCE_ABSENT else '未取得'}"
+                       for name, state in sources.items() if state != SOURCE_PRESENT]
     red_pages = [p_["ページ"] for p_ in ((rt or {}).get("ページごと") or []) if p_.get("信号") == rt_part.RED]
+    red_pages += [n for n in unobtained_pages if n not in red_pages]
     checklist = None
     if a.stage >= 2:
         t = time.perf_counter()
@@ -379,6 +411,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "段階の目安": stages.MODES[a.mode],
             "自動確定": auto,
             "原価表": f"あり({len(cost_table['行'])} 行、{cost_table['形']})" if cost_table else stages.UNKNOWN,
+            "資料の有無": sources,
             "概要の別紙": stages.UNKNOWN,
             "精度の注意": warn,
             "項目の数": len(items),
@@ -391,6 +424,8 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
             "段階(K-67)": f"段階 {a.stage} {card_part.STAGES[a.stage]}",
             "採点表の見出し": card_part.headline(card) if card else stages.UNKNOWN,
             "読了率": (rt or {}).get("読了率", stages.UNKNOWN),
+            # K-68 C 周 1: 読了率は読みが取れたページだけで数える。分母を並べて、少ないページの高い数字に見えないようにする。
+            "読みが取れたページ": f"{len(read_pages)} / {len(read_pages) + len(unobtained_pages)}",
         },
         "止まった所": ctx.stops,
         "段の中の例外": ctx.state.get("例外", []),
@@ -428,6 +463,7 @@ def run(argv: Sequence[str] | None = None, client: Any = None) -> int:
     pending = sorted((answers_dir / "待っている問い").glob("*/指示.md")) if (answers_dir / "待っている問い").exists() else []
     print(json.dumps({"出力": str(out), "自動確定": auto, "止まった所": len(ctx.stops), "待っている問い": len(pending),
                       "AI": caller.summary(model)["答えの出どころ"],
+                      "未取得の内訳": caller.summary(model)["未取得の内訳"],
                       **({"旗": on, "旗の行を足した自動確定": flag_auto} if on else {})}, ensure_ascii=False))
     if isinstance(flag_auto, int) and flag_auto > 0:
         return 2

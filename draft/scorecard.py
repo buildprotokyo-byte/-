@@ -155,6 +155,12 @@ def build(
     rows.append(Row(1, "読了率 線(長さ)", "墨の量で見た読了率", PASS_LINES["線(長さ)"], _rate(ink.get("線(長さ)"))))
     rows.append(Row(1, "読了率 点・小さい図形(面積)", "墨の量で見た読了率", "参考(合否に入れない)",
                     _rate(ink.get("点・小さい図形(面積)")), 備考="K-68 1 番: 参考値として表示するだけ"))
+    if readthrough and "読みが未取得のページ" in readthrough:
+        # K-68 C 周 1: 読みが未取得のページは読了率に入らない。入らないことで段階 1 が合格に見えないよう、取れたページの割合を並べる。
+        total = len(readthrough.get("ページごと") or [])
+        got = total - len(readthrough["読みが未取得のページ"])
+        rows.append(Row(1, "読みが取れたページ", "AI の読みの答えがあったページ ÷ 読むページ", 1.0,
+                        round(got / total, 4) if total else UNKNOWN))
     rows.append(Row(1, "未読の所在", "未読の図形のうち、ページと位置で指せる割合", 1.0,
                     _rate(readthrough, "未読の所在が指せた割合")))
     rows.append(Row(1, "「どこに書いてあるか」検索", "文字の層から自動で 100 問", 0.90,

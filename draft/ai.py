@@ -94,6 +94,17 @@ SOURCE_API = "その場で呼んだ"
 SOURCE_FILE = "置かれた答え"
 SOURCE_MISSING = "未取得"
 
+#: 未取得の内訳(K-68 C 周 1)。答えの出どころは「未取得」のまま、なぜ無いかを別の印で数える。
+MISSING_REFUSED = "拒否"
+"""AI が安全判定などで答えを返さなかった(API の ``stop_reason == "refusal"``、または置かれた「断られた」印)。"""
+MISSING_DROPPED = "落ち"
+"""呼んだが答えが取れなかった(呼び出しの失敗・形の違う答え・まとめて送った 1 件の errored/expired/canceled・結果に無い)。"""
+MISSING_WAITING = "待っている問い"
+"""鍵が無くて呼んでいない(指示を書き出して答えを待っている)。"""
+MISSING_KINDS = (MISSING_REFUSED, MISSING_DROPPED, MISSING_WAITING)
+#: 置かれた答えのフォルダで「断られた」ことを示す印のファイル(``答え/<指紋>.拒否.json``、中身は {"理由": "..."})。
+REFUSAL_MARK = ".拒否.json"
+
 
 @dataclass
 class AIRequest:
@@ -126,6 +137,8 @@ class AIAnswer:
     model: str = ""
     #: API が返した使用量(入力・出力・キャッシュに書いた・キャッシュから読んだ)。置かれた答えでは前の記録から読む。
     usage: dict[str, int] | None = None
+    #: 未取得のとき、その内訳(拒否 / 落ち / 待っている問い)。答えがあれば空。
+    missing_kind: str = ""
 
 
 @dataclass
@@ -143,6 +156,8 @@ class CallRecord:
     usage: dict[str, int] | None = None
     #: この通しで API を呼んで払ったか(置かれた答えなら False)。
     paid_now: bool = False
+    #: 未取得の内訳(拒否 / 落ち / 待っている問い)。
+    missing_kind: str = ""
 
     @property
     def cost(self) -> float | None:
@@ -162,6 +177,7 @@ class CallRecord:
             "使用量": self.usage,
             "費用(ドル)": self.cost,
             "この通しで払った": self.paid_now,
+            **({"未取得の内訳": self.missing_kind} if self.missing_kind else {}),
             **({"メモ": self.note} if self.note else {}),
         }
 
@@ -225,6 +241,16 @@ class AICaller:
             return json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return None
+
+    def _refusal_mark(self, fp: str) -> str | None:
+        """置かれた「断られた」印の理由(無ければ None)。作業役の起動が分類器に断られたときに置く。"""
+        path = self.answers_dir / "答え" / f"{fp}{REFUSAL_MARK}"
+        if not path.exists():
+            return None
+        try:
+            return str(json.loads(path.read_text(encoding="utf-8")).get("理由") or "理由の書き込みなし")
+        except (json.JSONDecodeError, AttributeError):
+            return "理由の書き込みなし"
 
     def write_pending(self, req: AIRequest, fp: str) -> Path:
         """指示を、別の作業役がそのまま読める形で書き出す。"""
@@ -292,8 +318,13 @@ class AICaller:
                     answer.model = m.get("モデル") or answer.model
                 except json.JSONDecodeError:
                     pass
+        elif self._refusal_mark(fp) is not None:
+            answer = AIAnswer(None, SOURCE_MISSING, note=f"AI が答えを断った(置かれた印: {self._refusal_mark(fp)})",
+                              model=self.model_for(req.stage), missing_kind=MISSING_REFUSED)
         else:
             answer = self._call_fresh(req, fp)
+            if answer.payload is None and not answer.missing_kind:
+                answer.missing_kind = MISSING_WAITING if isinstance(self, FolderCaller) else MISSING_DROPPED
             if answer.payload is not None and answer.source == SOURCE_API:
                 path = self.answer_path(fp)
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -308,13 +339,15 @@ class AICaller:
             req.stage, req.key, fp, answer.source, len(req.images),
             estimate_input_tokens(req), int(out_tokens / CHARS_PER_TOKEN), answer.seconds, answer.note,
             answer.model or self.model_for(req.stage), answer.usage, answer.source == SOURCE_API and answer.usage is not None,
+            answer.missing_kind if answer.payload is None else "",
         )
         with self._lock:
             self.records.append(record)
         return answer
 
     def _call_fresh(self, req: AIRequest, fp: str) -> AIAnswer:
-        return AIAnswer(None, SOURCE_MISSING, note="鍵が無いので呼んでいない。指示を書き出した")
+        return AIAnswer(None, SOURCE_MISSING, note="鍵が無いので呼んでいない。指示を書き出した",
+                        missing_kind=MISSING_WAITING)
 
     def map(self, reqs: Sequence[AIRequest], parallel: int, fn: Callable[[AIRequest], AIAnswer] | None = None) -> list[AIAnswer]:
         """並べて呼ぶ。順番は渡した順のまま返す。"""
@@ -356,6 +389,8 @@ class AICaller:
                 src: sum(1 for r in self.records if r.source == src)
                 for src in (SOURCE_API, SOURCE_FILE, SOURCE_MISSING)
             },
+            "未取得の内訳": {kind: sum(1 for r in self.records if r.source == SOURCE_MISSING and r.missing_kind == kind)
+                           for kind in MISSING_KINDS},
             "段ごと": by_stage,
             "費用の概算(ドル)": {
                 "モデル": model,
@@ -428,7 +463,7 @@ class ApiCaller(AICaller):
         except Exception as exc:  # noqa: BLE001  失敗しても止めず、1 件ずつの未取得にする
             note = f"まとめて送るのに失敗した: {type(exc).__name__}: {exc}"
             for fp in ids.values():
-                self._prefetched[fp] = AIAnswer(None, SOURCE_MISSING, None, note)
+                self._prefetched[fp] = AIAnswer(None, SOURCE_MISSING, None, note, missing_kind=MISSING_DROPPED)
             return
         seconds = round(time.perf_counter() - started, 1)
         for res in results:
@@ -438,14 +473,16 @@ class ApiCaller(AICaller):
             body = getattr(res, "result", None)
             if getattr(body, "type", "") != "succeeded":
                 self._prefetched[fp] = AIAnswer(None, SOURCE_MISSING, seconds,
-                                                f"まとめて送った 1 件が {getattr(body, 'type', '不明')}")
+                                                f"まとめて送った 1 件が {getattr(body, 'type', '不明')}",
+                                                missing_kind=MISSING_DROPPED)
                 continue
             ans = self._parse(body.message, self.model_for(todo[fp].stage), seconds)
             if ans.usage is not None:
                 ans.usage[BATCH_KEY] = 1
             self._prefetched[fp] = ans
         for fp in ids.values():
-            self._prefetched.setdefault(fp, AIAnswer(None, SOURCE_MISSING, seconds, "まとめて送った結果に無かった"))
+            self._prefetched.setdefault(fp, AIAnswer(None, SOURCE_MISSING, seconds, "まとめて送った結果に無かった",
+                                                     missing_kind=MISSING_DROPPED))
 
     def content(self, req: AIRequest) -> list[dict[str, Any]]:
         blocks: list[dict[str, Any]] = []
@@ -478,17 +515,17 @@ class ApiCaller(AICaller):
                 response = stream.get_final_message()
         except Exception as exc:  # noqa: BLE001  呼び出しの失敗も止めずに理由を残す
             return AIAnswer(None, SOURCE_MISSING, round(time.perf_counter() - started, 1),
-                            f"呼び出しが失敗した: {type(exc).__name__}: {exc}")
+                            f"呼び出しが失敗した: {type(exc).__name__}: {exc}", missing_kind=MISSING_DROPPED)
         return self._parse(response, model, round(time.perf_counter() - started, 1))
 
     def _parse(self, response: Any, model: str, seconds: float | None) -> AIAnswer:
         if getattr(response, "stop_reason", None) == "refusal":
-            return AIAnswer(None, SOURCE_MISSING, seconds, "AI が答えを断った")
+            return AIAnswer(None, SOURCE_MISSING, seconds, "AI が答えを断った", missing_kind=MISSING_REFUSED)
         text = "".join(b.text for b in response.content if getattr(b, "type", "") == "text")
         try:
             payload = _json_object(text)
         except (ValueError, json.JSONDecodeError) as exc:
-            return AIAnswer(None, SOURCE_MISSING, seconds, f"答えの形が違う: {exc}")
+            return AIAnswer(None, SOURCE_MISSING, seconds, f"答えの形が違う: {exc}", missing_kind=MISSING_DROPPED)
         note = "長さの上限で切れた" if getattr(response, "stop_reason", None) == "max_tokens" else ""
         u = getattr(response, "usage", None)
         usage = None

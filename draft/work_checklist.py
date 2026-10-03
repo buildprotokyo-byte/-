@@ -94,7 +94,7 @@ def _page_words(pdf: Path | None, pages: Iterable[int]) -> dict[int, list[tuple[
         return {}
     import pymupdf
 
-    from benchmarks import erase_check as ec
+    from draft.pages import words_in_image
 
     out: dict[int, list[tuple[str, list[float]]]] = {}
     with pymupdf.open(pdf) as doc:
@@ -102,10 +102,8 @@ def _page_words(pdf: Path | None, pages: Iterable[int]) -> dict[int, list[tuple[
             if number - 1 >= doc.page_count:
                 continue
             page = doc.load_page(number - 1)
-            scale = ec.WIDTH_PX / page.rect.width
-            out[number] = [
-                (w[4], [round(w[i] * scale, 1) for i in range(4)]) for w in page.get_text("words")
-            ]
+            # 回転のあるページも画像の座標に合わせる(K-68 C 周 1)。
+            out[number] = [(text, [round(v, 1) for v in box]) for text, box in words_in_image(page)]
     return out
 
 
