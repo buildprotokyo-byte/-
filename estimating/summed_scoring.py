@@ -40,12 +40,29 @@ def _number(value: Any) -> float | None:
         return None
 
 
-def row_key(row: Mapping[str, Any], position: int, *, terms: Any = None) -> tuple[Any, ...]:
-    """足し上げの鍵。**室(場所)は入れない。**工事の種類が取れなければ揃えた品名、それも無ければ 1 行で 1 組。"""
+_KEY_FIELDS = ("工事項目", "工事", "品名", "名前", "摘要", "何", "仕様", "科目", "中科目", "区分", "部位", "細目")
+_KEYS: dict[tuple[Any, ...], Any] = {}
+_CLUES: list[Any] = []
+
+
+def skey(row: Mapping[str, Any], *, terms: Any = None) -> Any:
+    """`sameness.keys.structure_key` と同じ値。**同じ欄の行は 1 回だけ作る**(手がかりの表も 1 回だけ読む)。"""
+    from draft.normalize import load_clues
     from sameness.keys import structure_key
 
+    if not _CLUES:
+        _CLUES.append(load_clues())
+    sig = (id(terms),) + tuple(str(row.get(f) or "") for f in _KEY_FIELDS)
+    if sig not in _KEYS:
+        _KEYS[sig] = structure_key({f: row.get(f) for f in _KEY_FIELDS if row.get(f) not in (None, "")},
+                                   terms=terms, clues=_CLUES[0])
+    return _KEYS[sig]
+
+
+def row_key(row: Mapping[str, Any], position: int, *, terms: Any = None) -> tuple[Any, ...]:
+    """足し上げの鍵。**室(場所)は入れない。**工事の種類が取れなければ揃えた品名、それも無ければ 1 行で 1 組。"""
     unit = new_unit(row.get("単位"))
-    key = structure_key(dict(row), terms=terms)
+    key = skey(row, terms=terms)
     if key.工事の種類:
         return ("構造", key.工事の種類, key.部位, key.状態, key.材料, key.科目, unit)
     name = flatten(row.get("工事項目") or row.get("工事") or "")
@@ -124,16 +141,15 @@ def grain_upgrade(gold_fields: Mapping[str, Any], candidates: Sequence[Group], *
     返す: `{"判定": Verdict または None, "組": [番号], "合計": 数 / None, "理由": 文}`。
     """
     from sameness.judge import GRAIN, SAME, compare, compare_keys
-    from sameness.keys import structure_key
     from sameness.quantity import MATCH, quantity_verdict
     from sameness.terms import default_terms
 
     terms = terms or default_terms()
-    gold_key = structure_key(dict(gold_fields), terms=terms)
+    gold_key = skey(gold_fields, terms=terms)
     picked: list[int] = []
     verdict = None
     for n, g in enumerate(candidates):
-        v = compare_keys(structure_key(dict(g.rows[0]), terms=terms), gold_key, terms=terms)
+        v = compare_keys(skey(g.rows[0], terms=terms), gold_key, terms=terms)
         if v.value != GRAIN:
             continue
         place = compare({"科目": g.rows[0].get("科目") or ""}, {"科目": gold_fields.get("科目") or ""},
