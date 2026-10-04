@@ -263,11 +263,13 @@ def page_readthrough(
     machine_grid: bool = True,
     rect_perimeter: bool = True,
     drawing_guard: bool = True,
+    text_match: bool = True,
 ) -> dict[str, Any]:
     """1 ページの読了率・内訳・未読の一覧。
 
     台帳は AI の要素に、**AI が中身を読んだ罫線の表の罫線を機械が図形の層から読んだもの**を足したもの(K-71 作業 3 周 1、
     `draft/table_grid.py`)。物差し(面積の上限・余白・見本の点)は変えない。``machine_grid=False`` で AI の要素だけで数える。
+    ``text_match=False`` で機械の罫線の証拠を前(K-71: 位置だけ)に戻す(K-73 作業 3(b))。
     """
     from benchmarks import erase_check as ec
     from draft import table_grid
@@ -275,7 +277,8 @@ def page_readthrough(
     words = len(page.get_text("words"))
     grid_record: dict[str, Any] = {"機械が足した罫線": 0, "表ごと": []}
     if machine_grid:
-        elements, grid_record = table_grid.ledger(page, number, list(elements), cap, drawing_guard=drawing_guard)
+        elements, grid_record = table_grid.ledger(page, number, list(elements), cap, drawing_guard=drawing_guard,
+                                                     text_match=text_match)
     prims, summary = ec.check_page(page, number, list(elements), cap)
     counted = summary["数える図形"]
     cannot = why_cannot_measure(page, counted, words)
@@ -382,6 +385,7 @@ def readthrough(
     machine_grid: bool = True,
     rect_perimeter: bool = True,
     drawing_guard: bool = True,
+    text_match: bool = True,
 ) -> dict[str, Any]:
     """案件全体の読了率。**ページごとの信号と、案件全体の警告も出す。**
 
@@ -402,7 +406,7 @@ def readthrough(
             elements = [e for e in (reading.get(number, {}) or {}).get("要素", []) if e.get("位置")]
             per_page.append(page_readthrough(page, number, elements, cap=cap, with_unread=with_unread,
                                              machine_grid=machine_grid, rect_perimeter=rect_perimeter,
-                                             drawing_guard=drawing_guard))
+                                             drawing_guard=drawing_guard, text_match=text_match))
 
     measured = [p for p in per_page if p["読了率"] is not None]
     page_count = len(per_page)
