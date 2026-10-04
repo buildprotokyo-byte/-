@@ -13,6 +13,8 @@ K-61〜K-67 の手順書の `...`(空欄)をここで埋める。正解ファイ
     python -m benchmarks.pc_kit k65 --run full_R1 --other full_R2 --other full_R3 \
         --checklist 工事チェック表_full_R1.json --ideal 理想の答え.json --golden 正解.json
     python -m benchmarks.pc_kit k71 --run 回 --golden 正解.json --errata 正誤表_区分.json   # K-71 性質ごとの線
+    python -m benchmarks.pc_kit k73 --run 旗オンの回 --golden 正解.json --errata 正誤表_区分.json  # K-73 旗 × 足し上げ
+    python -m benchmarks.pc_kit k73-出力側 --run 旗オンの回                                   # 正解を使わない数
 
 「回」は `下書き.json` の入ったフォルダ(K-61 の `draft.run` の出力)。
 
@@ -539,24 +541,98 @@ def _ratio(num: int, den: int) -> dict[str, Any]:
     return {"値": round(num / den, 4) if den else None, "分子": num, "分母": den}
 
 
-def k71(run: Path, gold: Gold, natures: Sequence[Any] | None = None) -> dict[str, Any]:
-    """K-71 作業1: 性質ごとの線で採点し、旧い線と並べる(`docs/k71_scoring_lines_criteria.md`)。"""
+def summed_hits(rows: Sequence[Mapping[str, Any]], gold: Gold, nat: Sequence[Any]) -> dict[str, Any]:
+    """K-73 作業2: 行を同じ鍵で足し上げた組で突き合わせる(`docs/k73_flags_sum_criteria.md` 3.2)。
+
+    ① 組 ↔ 正解の 1 行を今の規則(符号 → 構造のキー `○` → 規則 8)で当てる(1 組は 1 行まで)。
+    ② 当たらなかった正解の行に、まだ使っていない `△粒度` の組を集めて合計し、合計と位置が合えば格上げする。
+    返す: 組の行(`lines`)・当たり(`hit`: 正解の番号 → 組の行)・内訳(`members`: id(組の行) → まとめる前の行)と数。
+    """
+    from estimating.summed_scoring import HAS_MISSING, grain_upgrade, group_line, group_rows, merge
+
+    groups = group_rows(list(rows))
+    lines = as_lines([group_line(g) for g in groups])
+    members = {id(line): g.rows for line, g in zip(lines, groups)}
+    index = {id(line): n for n, line in enumerate(lines)}
+    result = score(lines, gold, "新")
+    hit = {i: line for line, i, _ in pairs(result, gold)}
+    taken = {index[id(line)] for line in hit.values()}
+    promoted = stopped = 0
+    for i in range(len(gold.raw)):
+        if i in hit:
+            continue
+        free = [n for n in range(len(groups)) if n not in taken]
+        res = grain_upgrade(gold.fields(i), [groups[n] for n in free], gold_quantity=gold.quantity(i),
+                            gold_unit=gold.unit(i), nature=nat[i])
+        if res["判定"] is not None:
+            picked = [free[k] for k in res["組"]]
+            merged = merge([groups[n] for n in picked])
+            line = Line(group_line(merged))
+            line["格上げ"] = res["理由"]
+            members[id(line)] = merged.rows
+            hit[i] = line
+            taken.update(picked)
+            promoted += 1
+        elif res["組"] and str(res["理由"]).startswith(HAS_MISSING):
+            stopped += 1
+    return {"lines": lines, "hit": hit, "members": members, "result": result,
+            "数": {"組の数": len(groups), "格上げで当たった": promoted, "格上げの候補が未取得ありで止まった": stopped,
+                  "未取得ありで当たった組": sum(1 for line in hit.values() if line.get("合計の状態") == HAS_MISSING),
+                  "当たった組に入った行の最大": max((len(members[id(line)]) for line in hit.values()), default=0)}}
+
+
+def shares_from_hit(hit: Mapping[int, Mapping[str, Any]], gold: Gold, nat: Sequence[Any]) -> dict[str, Any]:
+    """金額の割合(旧の線・新の線)を、足し上げの当たりから数える(`amount_share`・`amount_share_new` と同じ分子・分母)。"""
+    from sameness.quantity import MATCH, NOT_JUDGED, quantity_verdict
+
+    judged = [i for i in range(len(gold.raw))
+              if qverdict({"数量": gold.quantity(i), "単位": gold.unit(i)}, gold, i).value != NOT_JUDGED]
+    total = sum(gold.amount(i) for i in judged)
+    got = sum(gold.amount(i) for i in judged if i in hit and qverdict(hit[i], gold, i).hit)
+    judged_new = [i for i in range(len(gold.raw)) if nat[i] in (1, 2, 3)]
+    total_new = sum(gold.amount(i) for i in judged_new)
+    got_new = sum(gold.amount(i) for i in judged_new if i in hit and quantity_verdict(
+        hit[i].get("数量"), gold.quantity(i), hit[i].get("単位"), unit_b=gold.unit(i), side="新", nature=nat[i]).value == MATCH)
+    return {"旧": round(got / total, 4) if total else None,
+            "新": {"値": round(got_new / total_new, 4) if total_new else None, "判定した細目": len(judged_new)}}
+
+
+def k71(run: Path, gold: Gold, natures: Sequence[Any] | None = None, *, rows: Sequence[Mapping[str, Any]] | None = None,
+        extra_items: Mapping[str, Mapping[str, Any]] | None = None, summed: bool = False,
+        draft: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """K-71 作業1: 性質ごとの線で採点し、旧い線と並べる(`docs/k71_scoring_lines_criteria.md`)。
+
+    K-73: `rows`(採点用の行。旗の見方)と `extra_items`(旗が足したものの id → 状態・確度)を渡せる。
+    `summed=True` で内訳の足し上げを入れる(`docs/k73_flags_sum_criteria.md` 3 節)。既定は今までと同じ。
+    """
     from draft import scorecard
     from estimating.row_nature import UNCLASSIFIED, row_reasons
+    from estimating.summed_scoring import HAS_MISSING, all_reasons
     from sameness.quantity import (BY_REASON, MATCH, MISSING, NEAR, NOT_JUDGED, new_unit,
                                    quantity_verdicts)
 
     natures = list(natures if natures is not None else natures_of(gold))
     nat = [n.value for n in natures]
-    draft = load_run(run)
-    rows = rows_of(draft)
+    draft = draft if draft is not None else load_run(run)
+    base = as_lines(rows) if rows is not None else rows_of(draft)
     by_id = {it["id"]: it for it in draft["理解"]["項目"]}
+    by_id.update(extra_items or {})
     checks = list(((draft.get("機械の検算") or {}).get("行ごとの要確認")) or [])
-    position = {id(r): n for n, r in enumerate(rows)}
-    reasons_of = lambda line: row_reasons(line, by_id, checks[position[id(line)]] if position.get(id(line), 10**9) < len(checks) else None)
-
-    new, old = score(rows, gold, "新"), score(rows, gold, "旧")
-    hit = {i: line for line, i, _ in pairs(new, gold)}
+    at = lambda line, n: row_reasons(line, by_id, checks[n] if n < len(checks) else None)
+    position = {id(r): n for n, r in enumerate(base)}
+    summed_info = None
+    if summed:
+        summed_info = summed_hits(base, gold, nat)
+        rows = summed_info["lines"]
+        members = summed_info["members"]
+        reasons_of = lambda line: all_reasons(line, members[id(line)], at) if id(line) in members else []
+        new, old = summed_info["result"], score(rows, gold, "旧")
+        hit = dict(summed_info["hit"])
+    else:
+        rows = base
+        reasons_of = lambda line: at(line, position[id(line)]) if id(line) in position else row_reasons(line, by_id, None)
+        new, old = score(rows, gold, "新"), score(rows, gold, "旧")
+        hit = {i: line for line, i, _ in pairs(new, gold)}
     verdict = {i: quantity_verdicts(line.get("数量"), gold.quantity(i), line.get("単位"), unit_b=gold.unit(i),
                                     nature=nat[i] if isinstance(nat[i], int) else None)
                for i, line in hit.items()}
@@ -577,6 +653,9 @@ def k71(run: Path, gold: Gold, natures: Sequence[Any] | None = None) -> dict[str
                    sum(1 for i in got if hit[i].get("数量") is None and reasons_of(hit[i])),
                "数量が未取得で理由も無い": sum(1 for i in got if hit[i].get("数量") is None and not reasons_of(hit[i])),
                "出していない": len(idx) - len(got)}
+        if summed:
+            row["うち未取得あり(足し上げで合計を出さなかった)"] = sum(
+                1 for i in got if hit[i].get("合計の状態") == HAS_MISSING)
         row["合否の割合(新: 合う ÷ 正解の行)"] = _ratio(row["新: 合う"], len(idx))
         row["参考: 旧の線で同じ割合"] = _ratio(row["旧: 合う(±1 / ±5%、単位の同値なし)"], len(idx))
         per[f"性質{k}"] = row
@@ -633,8 +712,11 @@ def k71(run: Path, gold: Gold, natures: Sequence[Any] | None = None) -> dict[str
 
     # --- 金額の割合 旧・新 ---
     shares = {}
-    for m, picked in mode_rows(draft, rows).items():
-        shares[m] = {"旧": amount_share(rows, gold, picked)["値"], "新": amount_share_new(rows, gold, picked, nat)}
+    for m, picked in mode_rows(draft, base).items():
+        if summed:
+            shares[m] = shares_from_hit(summed_hits([base[n] for n in picked], gold, nat)["hit"], gold, nat)
+        else:
+            shares[m] = {"旧": amount_share(rows, gold, picked)["値"], "新": amount_share_new(rows, gold, picked, nat)}
 
     # --- 診断: 単位が違う ---
     pairs_old: dict[str, int] = {}
@@ -653,7 +735,8 @@ def k71(run: Path, gold: Gold, natures: Sequence[Any] | None = None) -> dict[str
     values = {
         "科目(厳密)": strict_category(new, gold, "科目")["値"],
         "中科目(厳密)": strict_category(new, gold, "中科目")["値"],
-        "細目(同じ意味。K-66)": round(new.coverage, 4) if new.coverage is not None else None,
+        "細目(同じ意味。K-66)": (round(len(hit) / len(gold.raw), 4) if summed
+                             else (round(new.coverage, 4) if new.coverage is not None else None)),
         "性質1 個数(±10%、少ないとき±1)": per["性質1"]["合否の割合(新: 合う ÷ 正解の行)"]["値"],
         "性質2 面積・長さ(±10%)": per["性質2"]["合否の割合(新: 合う ÷ 正解の行)"]["値"],
         "性質3 派生(±15%)": per["性質3"]["合否の割合(新: 合う ÷ 正解の行)"]["値"],
@@ -674,7 +757,8 @@ def k71(run: Path, gold: Gold, natures: Sequence[Any] | None = None) -> dict[str
         "段階3の表": stage3,
         "段階3の判定": card["段階ごと"].get("段階3 下書き"),
         "旧と新": {
-            "細目の数量が合った件数": {"旧": detail_counts(new, gold)["数量が合った"],
+            "細目の数量が合った件数": {"旧": (sum(1 for i in hit if qverdict(hit[i], gold, i).hit) if summed
+                                     else detail_counts(new, gold)["数量が合った"]),
                               "新": sum(1 for i in hit if verdict[i]["新"].value == MATCH),
                               "分母(当たった組)": len(hit)},
             "数量が合った細目の金額の割合": shares,
@@ -690,6 +774,9 @@ def k71(run: Path, gold: Gold, natures: Sequence[Any] | None = None) -> dict[str
         "金額(仮)": money,
         "診断: 数量が合わなかった細目の単位の組(出力 → 正解)": {"旧の正規形": pairs_old, "新の同値を通した後": pairs_new},
         "旧規則(文字)の参考": {"名前だけ": detail_counts(old, gold)["名前だけ"]},
+        **({"足し上げ": {**summed_info["数"],
+                         "注": "組 = 同じ鍵(構造のキー+科目+新の単位。室は入れない)の行。未取得が 1 つでもある組は合計を出さない。"
+                               "科目・中科目(厳密)は格上げ前の当たりで数える"}} if summed else {}),
         "自動確定": draft["まとめ"].get("自動確定"),
     }
 
@@ -781,6 +868,120 @@ def k71_all(runs: Sequence[Path], gold: Gold, errata: Mapping[str, Any]) -> dict
             "性質の振り分け": nature_table(gold, natures),
             "回ごと": [k71(r, gold, natures) for r in runs]}
 
+# --------------------------------------------------------------------------- K-73 旗オン/オフ × 足し上げ 旧/新
+
+
+SCORINGS = (("旧(足し上げなし)", False), ("新(足し上げ)", True))
+
+
+def _summary_row(name: str, how: str, label: str, r: Mapping[str, Any]) -> dict[str, Any]:
+    """PC が返す 1 行(回 × 見方 × 採点)。割合は分子/分母で読めるように数で並べる。"""
+    per = r["性質ごと"]
+    diag = r["診断: 数量が合わなかった細目の単位の組(出力 → 正解)"]["新の同値を通した後"]
+    money = r["金額(仮)"]
+    summed = r.get("足し上げ") or {}
+    p = lambda k, f: per[k][f]
+    return {
+        "回": name, "見方": how, "採点": label,
+        "個数: 合う": p("性質1", "新: 合う"), "個数: 正解の行": p("性質1", "正解の行"), "個数: 出していない": p("性質1", "出していない"),
+        "面積・長さ: 合う": p("性質2", "新: 合う"), "面積・長さ: 近い": p("性質2", "新: 近い(±30%)"),
+        "面積・長さ: 正解の行": p("性質2", "正解の行"), "面積・長さ: 出していない": p("性質2", "出していない"),
+        "派生: 合う": p("性質3", "新: 合う"), "派生: 正解の行": p("性質3", "正解の行"), "派生: 出していない": p("性質3", "出していない"),
+        "性質1〜3: 未取得で比べられない": sum(p(f"性質{k}", "新: 比較不能(未取得)") for k in (1, 2, 3)),
+        "性質1〜3: うち未取得あり(足し上げ)": sum(per[f"性質{k}"].get("うち未取得あり(足し上げで合計を出さなかった)", 0)
+                                     for k in (1, 2, 3)),
+        "会社ルール・職人見積: 理由で合格": per["性質4・5"]["理由で合格"], "会社ルール・職人見積: 正解の行": per["性質4・5"]["正解の行"],
+        "波及: 当たった": per["性質6"]["名前で当たった"], "波及: 正解の行": per["性質6"]["正解の行"],
+        "確度「高」の行": r["確度"]["「高」の行"], "確度「高」で正解の行に当たった": r["確度"]["正解の行に当たった"],
+        "金額: 全体の被覆(参考)": money.get("全体の被覆(参考)"),
+        "金額: 被覆が 0.50 以上の科目": sum(1 for c in money["科目ごと"] if (c.get("被覆") or 0) >= LOW_COVERAGE),
+        "単位が違う組(新の同値の後)": sum(diag.values()),
+        "格上げで当たった": summed.get("格上げで当たった"),
+        "格上げの候補が未取得ありで止まった": summed.get("格上げの候補が未取得ありで止まった"),
+        "組の数": summed.get("組の数"),
+        "自動確定": r.get("自動確定"),
+    }
+
+
+def _natures_hit(r: Mapping[str, Any]) -> int:
+    return sum(r["性質ごと"][f"性質{k}"]["新: 合う"] for k in (1, 2, 3))
+
+
+def k73(run: Path, gold: Gold, natures: Sequence[Any] | None = None) -> dict[str, Any]:
+    """K-73 作業1・2: 旗オフ / 旗オン(埋める)/ 旗オン(足す)× 足し上げ 旧 / 新 を並べる(`docs/k73_flags_sum_criteria.md`)。
+
+    回は旗オンの `下書き.json`(「旗の部品」の欄がある)。旗オフの見方は同じ下書きの組み立ての行そのもの
+    (旗は組み立てを書き換えないので、K-69 の荷物B の同じ回と同じ行)。「旗の部品」が無い回は 3 つの見方が同じになる。
+    """
+    from estimating.summed_scoring import VIEWS, decoy_rows, flag_items, flag_view
+
+    natures = list(natures if natures is not None else natures_of(gold))
+    draft = load_run(run)
+    extra = flag_items(draft)
+    out: dict[str, Any] = {"対象": f"K-61 {run.name}", "旗の部品": "あり" if "旗の部品" in draft else "なし(3 つの見方は同じ)",
+                           "見方": {}, "要約": []}
+    for how in VIEWS:
+        view = flag_view(draft, how)
+        entry: dict[str, Any] = {"行の作り方": view["数"]}
+        for label, summed in SCORINGS:
+            r = k71(run, gold, natures, rows=view["行"], extra_items=extra, summed=summed, draft=draft)
+            entry[label] = r
+            out["要約"].append(_summary_row(run.name, how, label, r))
+        decoy = k71(run, gold, natures, rows=decoy_rows(view["行"]), extra_items=extra, summed=True, draft=draft)
+        real = _natures_hit(entry["新(足し上げ)"])
+        entry["囮(新、数量を入れ替え)"] = {"性質1〜3 新: 合う(本物)": real, "性質1〜3 新: 合う(囮)": _natures_hit(decoy),
+                                       "本物が囮より多い": real > _natures_hit(decoy), "注": "参考。合否に入れない(基準 3.4)"}
+        out["見方"][how] = entry
+    flag_auto = ((draft.get("旗の部品") or {}).get("検算(旗の行を足した)") or {}).get("自動確定")
+    autos = [draft["まとめ"].get("自動確定"), flag_auto]
+    out["自動確定"] = sum(a for a in autos if isinstance(a, int)) if any(isinstance(a, int) for a in autos) else None
+    out["自動確定の内訳"] = {"組み立て": autos[0], "旗の行を足した": flag_auto}
+    return out
+
+
+def k73_all(runs: Sequence[Path], gold: Gold, errata: Mapping[str, Any] | None) -> dict[str, Any]:
+    natures = natures_of(gold)
+    per = [k73(r, gold, natures) for r in runs]
+    return {"正誤表を当てた結果": gold.errata_result, "性質の振り分け": nature_table(gold, natures),
+            "要約(回 × 見方 × 採点)": [row for r in per for row in r["要約"]], "回ごと": per}
+
+
+def k73_output_side(run: Path) -> dict[str, Any]:
+    """K-73: **正解を使わずに**数えられる数(クラウドで出す)。見方ごとに、行・理由・確度・足し上げの組。"""
+    from estimating.row_nature import _confidence, row_reasons
+    from estimating.summed_scoring import VIEWS, flag_items, flag_view, output_counts
+
+    draft = load_run(run)
+    by_id = {it["id"]: it for it in draft["理解"]["項目"]}
+    by_id.update(flag_items(draft))
+    checks = list(((draft.get("機械の検算") or {}).get("行ごとの要確認")) or [])
+    flags = draft.get("旗の部品") or {}
+    out: dict[str, Any] = {"対象": run.name, "見方": {}}
+    if flags:
+        out["旗の部品"] = {
+            "まとめ": flags.get("まとめ"),
+            "部品ごとの動いたか": {k: v.get("動いたか") for k, v in (flags.get("部品") or {}).items()},
+            "検算(旗の行を足した)": flags.get("検算(旗の行を足した)"),
+            "作り方": flags.get("作り方(K-73)"),
+        }
+    for how in VIEWS:
+        view = flag_view(draft, how)
+        rows = view["行"]
+        reasons = [row_reasons(r, by_id, checks[n] if n < len(checks) else None) for n, r in enumerate(rows)]
+        out["見方"][how] = {
+            "行の作り方": view["数"],
+            "行": {"行の数": len(rows), "数量のある行": sum(1 for r in rows if r.get("数量") is not None),
+                  "数量が未取得の行": sum(1 for r in rows if r.get("数量") is None),
+                  "理由つきの行": sum(1 for x in reasons if x),
+                  "数量が未取得で理由つき": sum(1 for r, x in zip(rows, reasons) if r.get("数量") is None and x),
+                  "確度「高」の行": sum(1 for r in rows if _confidence(r, by_id) == "高")},
+            "足し上げ": output_counts(rows),
+        }
+    out["自動確定"] = draft["まとめ"].get("自動確定")
+    out["旗の行を足した自動確定"] = (flags.get("検算(旗の行を足した)") or {}).get("自動確定") if flags else None
+    return out
+
+
 # --------------------------------------------------------------------------- 入口
 
 
@@ -794,12 +995,17 @@ def main(argv: list[str] | None = None) -> int:
     k.add_argument("--other", type=Path, action="append", default=[])
     k.add_argument("--checklist", type=Path, default=None)
     k.add_argument("--out", type=Path, default=None)
-    for name in ("k66", "k67", "k64", "k65", "k71"):
+    o = sub.add_parser("k73-出力側")
+    o.add_argument("--run", type=Path, action="append", required=True)
+    o.add_argument("--out", type=Path, default=None)
+    for name in ("k66", "k67", "k64", "k65", "k71", "k73"):
         s = sub.add_parser(name)
         s.add_argument("--run", type=Path, action="append", required=True)
         s.add_argument("--golden", type=Path, required=True)
         s.add_argument("--col", action="append", default=[], help="符号/品名/単位/科目/中科目/数量/金額/区分=列名")
         s.add_argument("--out", type=Path, default=None)
+        if name == "k73":
+            s.add_argument("--errata", type=Path, default=None, help="正誤表_区分.json(既定は今のフォルダ。K-71 と同じ)")
         if name == "k71":
             s.add_argument("--errata", type=Path, default=None, help="正誤表_区分.json(既定は今のフォルダ)")
         if name == "k65":
@@ -811,6 +1017,11 @@ def main(argv: list[str] | None = None) -> int:
         result: Any = columns(a.golden)
     elif a.what == "カード":
         result = cards(a.run, a.other, a.checklist)
+    elif a.what == "k73-出力側":
+        result = [k73_output_side(r) for r in a.run]
+    elif a.what == "k73":
+        errata = load_errata(a.errata)
+        result = k73_all(a.run, Gold(a.golden, parse_cols(a.col), errata=errata), errata)
     elif a.what == "k71":
         errata = load_errata(a.errata)
         result = k71_all(a.run, Gold(a.golden, parse_cols(a.col), errata=errata), errata)
